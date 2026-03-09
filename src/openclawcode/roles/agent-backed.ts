@@ -46,10 +46,23 @@ function buildRelevantPathHints(run: WorkflowRun): string[] {
 
 function buildBuilderPrompt(run: WorkflowRun, testCommands: string[]): string {
   const workspaceRoot = run.workspace?.worktreePath ?? "unknown";
+  const issueText = `${run.issue.title}\n${run.issue.body ?? ""}`.toLowerCase();
+  const isCommandLayerIssue =
+    issueText.includes("openclaw code run") ||
+    issueText.includes("--json") ||
+    issueText.includes("cli") ||
+    issueText.includes("command");
   const postBuildTestLine =
     testCommands.length > 0
       ? `- The workflow host will run these final validation commands after you finish: ${testCommands.join("; ")}`
       : "- Prepare the code so post-build tests can run.";
+  const commandLayerGuardrail = isCommandLayerIssue
+    ? [
+        "- This issue appears command-layer focused. Prefer the smallest fix in src/commands/openclawcode.ts and its tests first.",
+        "- If the requested JSON field can be derived from existing WorkflowRun data, do that instead of changing workflow contracts or persistence.",
+        "- Only change src/openclawcode/contracts/types.ts, orchestrator persistence, or stored run structure when the issue explicitly requires new persisted data.",
+      ]
+    : [];
   return [
     `You are implementing GitHub issue #${run.issue.number} in the current repository.`,
     `Workspace Root: ${workspaceRoot}`,
@@ -77,6 +90,7 @@ function buildBuilderPrompt(run: WorkflowRun, testCommands: string[]): string {
     "- Avoid broad scans such as `rg ... .` unless narrower paths were insufficient.",
     "- Add or update tests when needed.",
     "- Do not run the full final validation command inside the agent sandbox unless absolutely necessary; prefer lightweight, issue-specific checks.",
+    ...commandLayerGuardrail,
     "- Keep changes scoped to the issue.",
     "- Do not ask for clarification unless the issue is impossible to implement safely.",
     "",

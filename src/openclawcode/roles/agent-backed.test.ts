@@ -88,5 +88,11 @@ describe("AgentBackedBuilder prompt", () => {
     );
     expect(prompt).toContain("- src/commands/openclawcode.ts");
     expect(prompt).toContain("- src/commands/openclawcode.test.ts");
+    expect(prompt).toContain(
+      "This issue appears command-layer focused. Prefer the smallest fix in src/commands/openclawcode.ts and its tests first.",
+    );
+    expect(prompt).toContain(
+      "If the requested JSON field can be derived from existing WorkflowRun data",
+    );
   });
 });
