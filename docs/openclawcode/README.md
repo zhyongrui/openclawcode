@@ -8,12 +8,13 @@ Recommended reading order:
 2. `mvp.md`
 3. `mvp-spec-v1.md`
 4. `architecture.md`
-5. `workflows.md`
-6. `specs.md`
-7. `openclaw-strategy.md`
-8. `openclaw-implementation-plan.md`
-9. `upstream-sync-policy.md`
-10. `mvp-runbook.md`
+5. `development-plan.md`
+6. `workflows.md`
+7. `specs.md`
+8. `openclaw-strategy.md`
+9. `openclaw-implementation-plan.md`
+10. `upstream-sync-policy.md`
+11. `mvp-runbook.md`
 
 Development logs live in `dev-log/`.
 
