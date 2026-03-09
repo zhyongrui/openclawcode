@@ -13,6 +13,7 @@ Recommended reading order:
 7. `openclaw-strategy.md`
 8. `openclaw-implementation-plan.md`
 9. `upstream-sync-policy.md`
+10. `mvp-runbook.md`
 
 Development logs live in `dev-log/`.
 
