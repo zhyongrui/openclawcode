@@ -1,6 +1,5 @@
 import path from "node:path";
-
-import type { RuntimeEnv } from "../runtime.js";
+import type { WorkflowRun } from "../openclawcode/index.js";
 import {
   FileSystemWorkflowRunStore,
   GitHubPullRequestMerger,
@@ -13,8 +12,9 @@ import {
   AgentBackedBuilder,
   AgentBackedVerifier,
   resolveGitHubRepoFromGit,
-  runIssueWorkflow
+  runIssueWorkflow,
 } from "../openclawcode/index.js";
+import type { RuntimeEnv } from "../runtime.js";
 
 export interface OpenClawCodeRunOpts {
   issue: string;
@@ -40,9 +40,16 @@ function parseIssueNumber(value: string): number {
   return parsed;
 }
 
+function toWorkflowRunJson(run: WorkflowRun) {
+  return {
+    ...run,
+    changedFiles: run.buildResult?.changedFiles ?? [],
+  };
+}
+
 export async function openclawCodeRunCommand(
   opts: OpenClawCodeRunOpts,
-  runtime: RuntimeEnv
+  runtime: RuntimeEnv,
 ): Promise<void> {
   const repoRoot = path.resolve(opts.repoRoot ?? process.cwd());
   const issueNumber = parseIssueNumber(opts.issue);
@@ -66,11 +73,11 @@ export async function openclawCodeRunCommand(
         return [];
       }
       return await worktreeManager.collectChangedFiles(run.workspace);
-    }
+    },
   });
   const verifier = new AgentBackedVerifier({
     agentRunner,
-    agentId: opts.verifierAgent
+    agentId: opts.verifierAgent,
   });
   const store = new FileSystemWorkflowRunStore(path.join(stateDir, "runs"));
 
@@ -84,7 +91,7 @@ export async function openclawCodeRunCommand(
       baseBranch: opts.baseBranch ?? "main",
       branchName: opts.branchName,
       openPullRequest: Boolean(opts.openPr),
-      mergeOnApprove: Boolean(opts.mergeOnApprove)
+      mergeOnApprove: Boolean(opts.mergeOnApprove),
     },
     {
       github,
@@ -95,12 +102,12 @@ export async function openclawCodeRunCommand(
       worktreeManager,
       shellRunner,
       publisher: opts.openPr ? new GitHubPullRequestPublisher(github, shellRunner) : undefined,
-      merger: opts.mergeOnApprove ? new GitHubPullRequestMerger(github) : undefined
-    }
+      merger: opts.mergeOnApprove ? new GitHubPullRequestMerger(github) : undefined,
+    },
   );
 
   if (opts.json) {
-    runtime.log(JSON.stringify(run, null, 2));
+    runtime.log(JSON.stringify(toWorkflowRunJson(run), null, 2));
     return;
   }
 
