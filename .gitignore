@@ -80,6 +80,7 @@ apps/ios/*.mobileprovision
 
 # Local untracked files
 .local/
+.openclawcode/
 docs/.local/
 IDENTITY.md
 USER.md
