@@ -52,10 +52,18 @@ describe("openclawCodeRunCommand", () => {
     });
     expect(payload.buildResult.issueClassification).toBe(payload.issueClassification);
     expect(payload.buildResult.scopeCheck).toEqual(payload.scopeCheck);
+    expect(payload.verificationDecision).toBe("approve-for-human-review");
+    expect(payload.verificationSummary).toBe(
+      "Verification completed and the run is ready for human review.",
+    );
+    expect(payload.verificationReport.decision).toBe(payload.verificationDecision);
+    expect(payload.verificationReport.summary).toBe(payload.verificationSummary);
   });
 
   it("prints empty top-level scope fields when the build result is missing", async () => {
-    mocks.runIssueWorkflow.mockResolvedValue(createRun({ buildResult: undefined }));
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({ buildResult: undefined, verificationReport: undefined }),
+    );
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
@@ -63,6 +71,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.changedFiles).toEqual([]);
     expect(payload.issueClassification).toBeNull();
     expect(payload.scopeCheck).toBeNull();
+    expect(payload.verificationDecision).toBeNull();
+    expect(payload.verificationSummary).toBeNull();
   });
 });
 
@@ -105,6 +115,13 @@ function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
       testCommands: ["vitest run"],
       testResults: ["passed"],
       notes: [],
+    },
+    verificationReport: {
+      decision: "approve-for-human-review",
+      summary: "Verification completed and the run is ready for human review.",
+      findings: [],
+      missingCoverage: [],
+      followUps: [],
     },
     history: [],
     ...overrides,
