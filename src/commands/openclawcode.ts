@@ -172,6 +172,33 @@ function resolveMergedPullRequest(run: WorkflowRun): {
   };
 }
 
+function resolveChangeDisposition(run: WorkflowRun): {
+  changeDisposition: "modified" | "no-op" | null;
+  changeDispositionReason: string | null;
+} {
+  if (!run.buildResult) {
+    return {
+      changeDisposition: null,
+      changeDispositionReason: null,
+    };
+  }
+
+  if (run.buildResult.changedFiles.length > 0) {
+    return {
+      changeDisposition: "modified",
+      changeDispositionReason: `Run produced ${run.buildResult.changedFiles.length} changed file(s).`,
+    };
+  }
+
+  const noOpNote = [...run.history]
+    .toReversed()
+    .find((entry) => entry.startsWith("Draft PR skipped:"));
+  return {
+    changeDisposition: "no-op",
+    changeDispositionReason: noOpNote ?? "Run produced no changed files.",
+  };
+}
+
 function formatWorkflowStageLabel(stage: WorkflowRun["stage"]): string {
   return stage
     .split("-")
@@ -202,11 +229,14 @@ function toWorkflowRunJson(run: WorkflowRun) {
   const autoMergeDisposition = resolveAutoMergeDisposition(run);
   const publishedPullRequest = resolvePublishedPullRequest(run);
   const draftPullRequestDisposition = resolveDraftPullRequestDisposition(run);
+  const changeDisposition = resolveChangeDisposition(run);
   const mergedPullRequest = resolveMergedPullRequest(run);
   return {
     ...run,
     stageLabel: formatWorkflowStageLabel(run.stage),
     changedFiles: run.buildResult?.changedFiles ?? [],
+    changeDisposition: changeDisposition.changeDisposition,
+    changeDispositionReason: changeDisposition.changeDispositionReason,
     issueClassification: run.buildResult?.issueClassification ?? null,
     scopeCheck: run.buildResult?.scopeCheck ?? null,
     draftPullRequestBranchName: run.draftPullRequest?.branchName ?? null,

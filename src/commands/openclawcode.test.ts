@@ -45,6 +45,8 @@ describe("openclawCodeRunCommand", () => {
       "src/openclawcode/app/run-issue.ts",
       "src/openclawcode/contracts/types.ts",
     ]);
+    expect(payload.changeDisposition).toBe("modified");
+    expect(payload.changeDispositionReason).toBe("Run produced 2 changed file(s).");
     expect(payload.buildResult.changedFiles).toEqual(payload.changedFiles);
     expect(payload.issueClassification).toBe("command-layer");
     expect(payload.scopeCheck).toEqual({
@@ -99,6 +101,8 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.changedFiles).toEqual([]);
+    expect(payload.changeDisposition).toBeNull();
+    expect(payload.changeDispositionReason).toBeNull();
     expect(payload.stageLabel).toBe("Draft PR Opened");
     expect(payload.issueClassification).toBeNull();
     expect(payload.scopeCheck).toBeNull();
@@ -173,6 +177,10 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.changedFiles).toEqual([]);
+    expect(payload.changeDisposition).toBe("no-op");
+    expect(payload.changeDispositionReason).toBe(
+      "Draft PR skipped: no new commits were produced between the base branch and openclawcode/issue-2.",
+    );
     expect(payload.draftPullRequestNumber).toBeNull();
     expect(payload.draftPullRequestUrl).toBeNull();
     expect(payload.draftPullRequestDisposition).toBe("skipped");
