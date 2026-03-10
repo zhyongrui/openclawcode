@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { WorkflowRun, WorkflowStage } from "../../openclawcode/contracts/index.js";
 import type { OpenClawCodeChatopsRunRequest } from "./chatops.js";
 
 export interface OpenClawCodeQueuedRun {
@@ -15,12 +16,27 @@ export interface OpenClawCodePendingApproval {
   notifyTarget: string;
 }
 
+export interface OpenClawCodeIssueStatusSnapshot {
+  issueKey: string;
+  status: string;
+  stage: WorkflowStage;
+  runId: string;
+  updatedAt: string;
+  owner: string;
+  repo: string;
+  issueNumber: number;
+  branchName?: string;
+  pullRequestNumber?: number;
+  pullRequestUrl?: string;
+}
+
 interface OpenClawCodeQueueState {
   version: 1;
   pendingApprovals: OpenClawCodePendingApproval[];
   queue: OpenClawCodeQueuedRun[];
   currentRun?: OpenClawCodeQueuedRun;
   statusByIssue: Record<string, string>;
+  statusSnapshotsByIssue: Record<string, OpenClawCodeIssueStatusSnapshot>;
 }
 
 function cloneDefaultState(): OpenClawCodeQueueState {
@@ -29,6 +45,60 @@ function cloneDefaultState(): OpenClawCodeQueueState {
     pendingApprovals: [],
     queue: [],
     statusByIssue: {},
+    statusSnapshotsByIssue: {},
+  };
+}
+
+function normalizeStatusSnapshot(raw: unknown): OpenClawCodeIssueStatusSnapshot | undefined {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  const candidate = raw as Partial<OpenClawCodeIssueStatusSnapshot>;
+  if (
+    typeof candidate.issueKey !== "string" ||
+    typeof candidate.status !== "string" ||
+    typeof candidate.stage !== "string" ||
+    typeof candidate.runId !== "string" ||
+    typeof candidate.updatedAt !== "string" ||
+    typeof candidate.owner !== "string" ||
+    typeof candidate.repo !== "string" ||
+    typeof candidate.issueNumber !== "number"
+  ) {
+    return undefined;
+  }
+  return {
+    issueKey: candidate.issueKey,
+    status: candidate.status,
+    stage: candidate.stage,
+    runId: candidate.runId,
+    updatedAt: candidate.updatedAt,
+    owner: candidate.owner,
+    repo: candidate.repo,
+    issueNumber: candidate.issueNumber,
+    branchName: typeof candidate.branchName === "string" ? candidate.branchName : undefined,
+    pullRequestNumber:
+      typeof candidate.pullRequestNumber === "number" ? candidate.pullRequestNumber : undefined,
+    pullRequestUrl:
+      typeof candidate.pullRequestUrl === "string" ? candidate.pullRequestUrl : undefined,
+  };
+}
+
+function buildStatusSnapshot(params: {
+  run: WorkflowRun;
+  status: string;
+}): OpenClawCodeIssueStatusSnapshot {
+  return {
+    issueKey: `${params.run.issue.owner}/${params.run.issue.repo}#${params.run.issue.number}`,
+    status: params.status,
+    stage: params.run.stage,
+    runId: params.run.id,
+    updatedAt: params.run.updatedAt,
+    owner: params.run.issue.owner,
+    repo: params.run.issue.repo,
+    issueNumber: params.run.issue.number,
+    branchName: params.run.workspace?.branchName ?? params.run.buildResult?.branchName,
+    pullRequestNumber: params.run.draftPullRequest?.number,
+    pullRequestUrl: params.run.draftPullRequest?.url,
   };
 }
 
@@ -37,6 +107,16 @@ function normalizeState(raw: unknown): OpenClawCodeQueueState {
     return cloneDefaultState();
   }
   const candidate = raw as Partial<OpenClawCodeQueueState>;
+  const statusSnapshotsByIssue = Object.fromEntries(
+    Object.entries(
+      candidate.statusSnapshotsByIssue && typeof candidate.statusSnapshotsByIssue === "object"
+        ? candidate.statusSnapshotsByIssue
+        : {},
+    ).flatMap(([issueKey, value]) => {
+      const snapshot = normalizeStatusSnapshot(value);
+      return snapshot ? [[issueKey, snapshot]] : [];
+    }),
+  );
   return {
     version: 1,
     pendingApprovals: Array.isArray(candidate.pendingApprovals) ? candidate.pendingApprovals : [],
@@ -49,6 +129,7 @@ function normalizeState(raw: unknown): OpenClawCodeQueueState {
       candidate.statusByIssue && typeof candidate.statusByIssue === "object"
         ? candidate.statusByIssue
         : {},
+    statusSnapshotsByIssue,
   };
 }
 
@@ -90,9 +171,29 @@ export class OpenClawCodeChatopsStore {
     return state.pendingApprovals.find((entry) => entry.issueKey === issueKey);
   }
 
+  async getStatusSnapshot(issueKey: string): Promise<OpenClawCodeIssueStatusSnapshot | undefined> {
+    const state = await this.loadState();
+    return state.statusSnapshotsByIssue[issueKey];
+  }
+
   async setStatus(issueKey: string, status: string): Promise<void> {
     const state = await this.loadState();
     state.statusByIssue[issueKey] = status;
+    const currentSnapshot = state.statusSnapshotsByIssue[issueKey];
+    if (currentSnapshot) {
+      state.statusSnapshotsByIssue[issueKey] = {
+        ...currentSnapshot,
+        status,
+      };
+    }
+    await this.saveState(state);
+  }
+
+  async recordWorkflowRunStatus(run: WorkflowRun, status: string): Promise<void> {
+    const state = await this.loadState();
+    const snapshot = buildStatusSnapshot({ run, status });
+    state.statusByIssue[snapshot.issueKey] = status;
+    state.statusSnapshotsByIssue[snapshot.issueKey] = snapshot;
     await this.saveState(state);
   }
 
@@ -107,6 +208,32 @@ export class OpenClawCodeChatopsStore {
         continue;
       }
       state.statusByIssue[issueKey] = status;
+    }
+    await this.saveState(state);
+  }
+
+  async reconcileWorkflowRunStatuses(
+    records: Array<{
+      issueKey: string;
+      status: string;
+      run: WorkflowRun;
+    }>,
+  ): Promise<void> {
+    const state = await this.loadState();
+    for (const record of records) {
+      const isActive =
+        state.pendingApprovals.some((entry) => entry.issueKey === record.issueKey) ||
+        state.currentRun?.issueKey === record.issueKey ||
+        state.queue.some((entry) => entry.issueKey === record.issueKey);
+      if (isActive) {
+        continue;
+      }
+      const currentSnapshot = state.statusSnapshotsByIssue[record.issueKey];
+      if (currentSnapshot && currentSnapshot.updatedAt > record.run.updatedAt) {
+        continue;
+      }
+      state.statusByIssue[record.issueKey] = record.status;
+      state.statusSnapshotsByIssue[record.issueKey] = buildStatusSnapshot(record);
     }
     await this.saveState(state);
   }

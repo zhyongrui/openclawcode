@@ -153,12 +153,22 @@ describe("openclaw plugin local-run reconciliation", () => {
         notifyChannel: "telegram",
         notifyTarget: "chat:1",
       });
-      await store.reconcileStatuses({
-        "zhyongrui/openclawcode#302":
-          "openclawcode status for zhyongrui/openclawcode#302\nStage: Merged",
-      });
+      await store.reconcileWorkflowRunStatuses([
+        {
+          issueKey: "zhyongrui/openclawcode#302",
+          status: "openclawcode status for zhyongrui/openclawcode#302\nStage: Merged",
+          run: createRun({
+            id: "run-3",
+            issueNumber: 302,
+            updatedAt: "2026-03-10T07:10:00.000Z",
+            stage: "merged",
+            summary: "Merged remotely",
+          }),
+        },
+      ]);
 
       expect(await store.getStatus("zhyongrui/openclawcode#302")).toBe("Awaiting chat approval.");
+      expect(await store.getStatusSnapshot("zhyongrui/openclawcode#302")).toBeUndefined();
     } finally {
       await fs.rm(repoRoot, { recursive: true, force: true });
       await fs.rm(stateDir, { recursive: true, force: true });

@@ -57,14 +57,18 @@ async function reconcileLocalRunStatuses(params: {
   store: OpenClawCodeChatopsStore;
   repoConfigs: OpenClawCodeChatopsRepoConfig[];
 }): Promise<void> {
-  const mergedStatuses: Record<string, string> = {};
+  const records: Array<{
+    issueKey: string;
+    status: string;
+    run: Awaited<ReturnType<typeof collectLatestLocalRunStatuses>>[number]["run"];
+  }> = [];
   for (const repo of params.repoConfigs) {
-    const records = await collectLatestLocalRunStatuses(repo);
-    for (const record of records) {
-      mergedStatuses[record.issueKey] = record.status;
+    const repoRecords = await collectLatestLocalRunStatuses(repo);
+    for (const record of repoRecords) {
+      records.push(record);
     }
   }
-  await params.store.reconcileStatuses(mergedStatuses);
+  await params.store.reconcileWorkflowRunStatuses(records);
 }
 
 async function sendText(params: {
@@ -322,6 +326,7 @@ async function processNextQueuedRun(
 
     const statusMessage = buildRunStatusMessage(run);
     await store.finishCurrent(next.issueKey, statusMessage);
+    await store.recordWorkflowRunStatus(run, statusMessage);
     await sendText({
       api,
       channel: next.notifyChannel,

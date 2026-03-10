@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { OpenClawCodeChatopsStore } from "../../integrations/openclaw-plugin/index.js";
+import type { WorkflowRun } from "../contracts/index.js";
 
 async function createStore(): Promise<{
   rootDir: string;
@@ -32,6 +33,71 @@ function createQueuedRun(issueNumber: number) {
       testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
       openPullRequest: true,
       mergeOnApprove: true,
+    },
+  };
+}
+
+function createWorkflowRun(params: {
+  issueNumber: number;
+  stage?: WorkflowRun["stage"];
+  updatedAt?: string;
+  prNumber?: number;
+  prUrl?: string;
+}): WorkflowRun {
+  const updatedAt = params.updatedAt ?? "2026-03-10T08:30:00.000Z";
+  return {
+    id: `run-${params.issueNumber}`,
+    stage: params.stage ?? "ready-for-human-review",
+    issue: {
+      owner: "zhyongrui",
+      repo: "openclawcode",
+      number: params.issueNumber,
+      title: `Issue ${params.issueNumber}`,
+      labels: [],
+    },
+    createdAt: updatedAt,
+    updatedAt,
+    attempts: {
+      total: 1,
+      planning: 1,
+      building: 1,
+      verifying: 1,
+    },
+    stageRecords: [],
+    history: [],
+    workspace: {
+      repoRoot: "/home/zyr/pros/openclawcode",
+      baseBranch: "main",
+      branchName: `openclawcode/issue-${params.issueNumber}`,
+      worktreePath: `/tmp/openclawcode-${params.issueNumber}`,
+      preparedAt: updatedAt,
+    },
+    buildResult: {
+      branchName: `openclawcode/issue-${params.issueNumber}`,
+      summary: `Summary for issue ${params.issueNumber}`,
+      changedFiles: ["src/example.ts"],
+      issueClassification: "command-layer",
+      testCommands: [],
+      testResults: [],
+      notes: [],
+    },
+    draftPullRequest: params.prUrl
+      ? {
+          title: `feat: implement issue #${params.issueNumber}`,
+          body: "body",
+          branchName: `openclawcode/issue-${params.issueNumber}`,
+          baseBranch: "main",
+          number: params.prNumber,
+          url: params.prUrl,
+          openedAt: updatedAt,
+        }
+      : undefined,
+    verificationReport: {
+      decision: "approve-for-human-review",
+      summary: `Summary for issue ${params.issueNumber}`,
+      findings: [],
+      missingCoverage: [],
+      followUps: [],
     },
   };
 }
@@ -213,6 +279,39 @@ describe("OpenClawCodeChatopsStore", () => {
         notifyTarget: "channel:999",
         request: createQueuedRun(108).request,
       });
+    } finally {
+      await fs.rm(fixture.rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("persists structured workflow run snapshots alongside issue statuses", async () => {
+    const fixture = await createStore();
+
+    try {
+      const run = createWorkflowRun({
+        issueNumber: 109,
+        stage: "merged",
+        prNumber: 209,
+        prUrl: "https://github.com/zhyongrui/openclawcode/pull/209",
+      });
+
+      await fixture.store.recordWorkflowRunStatus(
+        run,
+        "openclawcode status for zhyongrui/openclawcode#109",
+      );
+
+      const snapshot = await fixture.store.getStatusSnapshot("zhyongrui/openclawcode#109");
+      expect(snapshot).toMatchObject({
+        issueKey: "zhyongrui/openclawcode#109",
+        stage: "merged",
+        runId: "run-109",
+        issueNumber: 109,
+        pullRequestNumber: 209,
+        pullRequestUrl: "https://github.com/zhyongrui/openclawcode/pull/209",
+      });
+      expect(await fixture.store.getStatus("zhyongrui/openclawcode#109")).toBe(
+        "openclawcode status for zhyongrui/openclawcode#109",
+      );
     } finally {
       await fs.rm(fixture.rootDir, { recursive: true, force: true });
     }
