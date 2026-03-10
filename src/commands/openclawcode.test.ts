@@ -52,6 +52,10 @@ describe("openclawCodeRunCommand", () => {
     });
     expect(payload.buildResult.issueClassification).toBe(payload.issueClassification);
     expect(payload.buildResult.scopeCheck).toEqual(payload.scopeCheck);
+    expect(payload.draftPullRequestNumber).toBe(42);
+    expect(payload.draftPullRequestUrl).toBe("https://github.com/openclaw/openclaw/pull/42");
+    expect(payload.draftPullRequest.number).toBe(payload.draftPullRequestNumber);
+    expect(payload.draftPullRequest.url).toBe(payload.draftPullRequestUrl);
     expect(payload.verificationDecision).toBe("approve-for-human-review");
     expect(payload.verificationSummary).toBe(
       "Verification completed and the run is ready for human review.",
@@ -62,7 +66,11 @@ describe("openclawCodeRunCommand", () => {
 
   it("prints empty top-level scope fields when the build result is missing", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
-      createRun({ buildResult: undefined, verificationReport: undefined }),
+      createRun({
+        buildResult: undefined,
+        draftPullRequest: undefined,
+        verificationReport: undefined,
+      }),
     );
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
@@ -71,6 +79,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.changedFiles).toEqual([]);
     expect(payload.issueClassification).toBeNull();
     expect(payload.scopeCheck).toBeNull();
+    expect(payload.draftPullRequestNumber).toBeNull();
+    expect(payload.draftPullRequestUrl).toBeNull();
     expect(payload.verificationDecision).toBeNull();
     expect(payload.verificationSummary).toBeNull();
   });
@@ -101,6 +111,15 @@ function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
       branchName: "openclawcode/issue-2",
       worktreePath: "/repo/.openclawcode/worktrees/issue-2",
       preparedAt: "2026-01-01T00:00:00.000Z",
+    },
+    draftPullRequest: {
+      title: "[Issue #2] Include changed file list in JSON output",
+      body: "Draft PR body",
+      branchName: "openclawcode/issue-2",
+      baseBranch: "main",
+      number: 42,
+      url: "https://github.com/openclaw/openclaw/pull/42",
+      openedAt: "2026-01-01T00:00:00.000Z",
     },
     buildResult: {
       branchName: "openclawcode/issue-2",
