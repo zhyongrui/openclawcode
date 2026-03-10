@@ -316,6 +316,64 @@ describe("OpenClawCodeChatopsStore", () => {
     }
   });
 
+  it("persists GitHub delivery records across store instances", async () => {
+    const fixture = await createStore();
+
+    try {
+      await fixture.store.recordGitHubDelivery({
+        deliveryId: "delivery-1",
+        eventName: "issues",
+        action: "opened",
+        accepted: true,
+        reason: "accepted",
+        receivedAt: "2026-03-10T15:20:00.000Z",
+        issueKey: "zhyongrui/openclawcode#109",
+      });
+
+      const secondStore = OpenClawCodeChatopsStore.fromStateDir(fixture.rootDir);
+      expect(await secondStore.getGitHubDelivery("delivery-1")).toEqual({
+        deliveryId: "delivery-1",
+        eventName: "issues",
+        action: "opened",
+        accepted: true,
+        reason: "accepted",
+        receivedAt: "2026-03-10T15:20:00.000Z",
+        issueKey: "zhyongrui/openclawcode#109",
+      });
+    } finally {
+      await fs.rm(fixture.rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps only the newest GitHub delivery records", async () => {
+    const fixture = await createStore();
+
+    try {
+      for (let index = 0; index < 205; index += 1) {
+        await fixture.store.recordGitHubDelivery({
+          deliveryId: `delivery-${index}`,
+          eventName: "issues",
+          action: "opened",
+          accepted: index % 2 === 0,
+          reason: `reason-${index}`,
+          receivedAt: `2026-03-10T15:${String(index % 60).padStart(2, "0")}:00.000Z`,
+          issueKey: `zhyongrui/openclawcode#${300 + index}`,
+        });
+      }
+
+      const snapshot = await fixture.store.snapshot();
+      expect(Object.keys(snapshot.githubDeliveriesById)).toHaveLength(200);
+      expect(snapshot.githubDeliveriesById["delivery-0"]).toBeUndefined();
+      expect(snapshot.githubDeliveriesById["delivery-4"]).toBeUndefined();
+      expect(snapshot.githubDeliveriesById["delivery-5"]?.reason).toBe("reason-5");
+      expect(snapshot.githubDeliveriesById["delivery-204"]?.issueKey).toBe(
+        "zhyongrui/openclawcode#504",
+      );
+    } finally {
+      await fs.rm(fixture.rootDir, { recursive: true, force: true });
+    }
+  });
+
   it("persists structured workflow run snapshots alongside issue statuses", async () => {
     const fixture = await createStore();
 

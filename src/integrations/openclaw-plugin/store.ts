@@ -37,6 +37,16 @@ export interface OpenClawCodeRepoNotificationBinding {
   updatedAt: string;
 }
 
+export interface OpenClawCodeGitHubDeliveryRecord {
+  deliveryId: string;
+  eventName: string;
+  action: string;
+  accepted: boolean;
+  reason: string;
+  receivedAt: string;
+  issueKey?: string;
+}
+
 interface OpenClawCodeQueueState {
   version: 1;
   pendingApprovals: OpenClawCodePendingApproval[];
@@ -45,7 +55,10 @@ interface OpenClawCodeQueueState {
   statusByIssue: Record<string, string>;
   statusSnapshotsByIssue: Record<string, OpenClawCodeIssueStatusSnapshot>;
   repoBindingsByRepo: Record<string, OpenClawCodeRepoNotificationBinding>;
+  githubDeliveriesById: Record<string, OpenClawCodeGitHubDeliveryRecord>;
 }
+
+const MAX_GITHUB_DELIVERY_RECORDS = 200;
 
 function cloneDefaultState(): OpenClawCodeQueueState {
   return {
@@ -55,6 +68,7 @@ function cloneDefaultState(): OpenClawCodeQueueState {
     statusByIssue: {},
     statusSnapshotsByIssue: {},
     repoBindingsByRepo: {},
+    githubDeliveriesById: {},
   };
 }
 
@@ -115,6 +129,32 @@ function normalizeRepoNotificationBinding(
   };
 }
 
+function normalizeGitHubDeliveryRecord(raw: unknown): OpenClawCodeGitHubDeliveryRecord | undefined {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  const candidate = raw as Partial<OpenClawCodeGitHubDeliveryRecord>;
+  if (
+    typeof candidate.deliveryId !== "string" ||
+    typeof candidate.eventName !== "string" ||
+    typeof candidate.action !== "string" ||
+    typeof candidate.accepted !== "boolean" ||
+    typeof candidate.reason !== "string" ||
+    typeof candidate.receivedAt !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    deliveryId: candidate.deliveryId,
+    eventName: candidate.eventName,
+    action: candidate.action,
+    accepted: candidate.accepted,
+    reason: candidate.reason,
+    receivedAt: candidate.receivedAt,
+    issueKey: typeof candidate.issueKey === "string" ? candidate.issueKey : undefined,
+  };
+}
+
 function buildStatusSnapshot(params: {
   run: WorkflowRun;
   status: string;
@@ -159,6 +199,16 @@ function normalizeState(raw: unknown): OpenClawCodeQueueState {
       return binding ? [[repoKey, binding]] : [];
     }),
   );
+  const githubDeliveriesById = Object.fromEntries(
+    Object.entries(
+      candidate.githubDeliveriesById && typeof candidate.githubDeliveriesById === "object"
+        ? candidate.githubDeliveriesById
+        : {},
+    ).flatMap(([deliveryId, value]) => {
+      const record = normalizeGitHubDeliveryRecord(value);
+      return record ? [[deliveryId, record]] : [];
+    }),
+  );
   return {
     version: 1,
     pendingApprovals: Array.isArray(candidate.pendingApprovals) ? candidate.pendingApprovals : [],
@@ -173,6 +223,7 @@ function normalizeState(raw: unknown): OpenClawCodeQueueState {
         : {},
     statusSnapshotsByIssue,
     repoBindingsByRepo,
+    githubDeliveriesById,
   };
 }
 
@@ -255,6 +306,14 @@ export class OpenClawCodeChatopsStore {
     return state.repoBindingsByRepo[repoKey];
   }
 
+  async getGitHubDelivery(
+    deliveryId: string,
+  ): Promise<OpenClawCodeGitHubDeliveryRecord | undefined> {
+    await this.flushMutations();
+    const state = await this.loadState();
+    return state.githubDeliveriesById[deliveryId];
+  }
+
   async setStatus(issueKey: string, status: string): Promise<void> {
     await this.mutateState((state) => {
       state.statusByIssue[issueKey] = status;
@@ -307,6 +366,26 @@ export class OpenClawCodeChatopsStore {
       }
       delete state.repoBindingsByRepo[repoKey];
       return true;
+    });
+  }
+
+  async recordGitHubDelivery(
+    record: OpenClawCodeGitHubDeliveryRecord,
+  ): Promise<OpenClawCodeGitHubDeliveryRecord> {
+    return await this.mutateState((state) => {
+      const existing = state.githubDeliveriesById[record.deliveryId];
+      if (existing) {
+        return existing;
+      }
+      state.githubDeliveriesById[record.deliveryId] = record;
+      const deliveryIds = Object.keys(state.githubDeliveriesById);
+      const overflow = deliveryIds.length - MAX_GITHUB_DELIVERY_RECORDS;
+      if (overflow > 0) {
+        for (const deliveryId of deliveryIds.slice(0, overflow)) {
+          delete state.githubDeliveriesById[deliveryId];
+        }
+      }
+      return record;
     });
   }
 

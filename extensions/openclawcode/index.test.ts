@@ -238,6 +238,7 @@ describe("openclawcode extension", () => {
           url: "/plugins/openclawcode/github",
           headers: {
             "x-github-event": "issues",
+            "x-github-delivery": "delivery-201-a",
           },
         }),
         res,
@@ -274,7 +275,7 @@ describe("openclawcode extension", () => {
     }
   });
 
-  it("deduplicates repeated issue webhooks for the same tracked issue", async () => {
+  it("ignores a repeated GitHub delivery id before it can retrigger intake", async () => {
     const fixture = await registerPluginFixture();
     try {
       mocked.readRequestBodyWithLimit.mockResolvedValue(issueWebhookPayload(202));
@@ -284,7 +285,10 @@ describe("openclawcode extension", () => {
         localReq({
           method: "POST",
           url: "/plugins/openclawcode/github",
-          headers: { "x-github-event": "issues" },
+          headers: {
+            "x-github-event": "issues",
+            "x-github-delivery": "delivery-202-a",
+          },
         }),
         firstRes,
       );
@@ -294,7 +298,54 @@ describe("openclawcode extension", () => {
         localReq({
           method: "POST",
           url: "/plugins/openclawcode/github",
-          headers: { "x-github-event": "issues" },
+          headers: {
+            "x-github-event": "issues",
+            "x-github-delivery": "delivery-202-a",
+          },
+        }),
+        secondRes,
+      );
+
+      expect(JSON.parse(String(secondRes.body))).toMatchObject({
+        accepted: false,
+        reason: "duplicate-delivery",
+        issue: "zhyongrui/openclawcode#202",
+        delivery: "delivery-202-a",
+        previousReason: "announced-for-approval",
+      });
+      expect(mocked.runMessageAction).toHaveBeenCalledTimes(1);
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps already-tracked semantics for a new delivery on the same issue", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      mocked.readRequestBodyWithLimit.mockResolvedValue(issueWebhookPayload(203));
+
+      await fixture.route?.handler(
+        localReq({
+          method: "POST",
+          url: "/plugins/openclawcode/github",
+          headers: {
+            "x-github-event": "issues",
+            "x-github-delivery": "delivery-203-a",
+          },
+        }),
+        createMockServerResponse(),
+      );
+
+      const secondRes = createMockServerResponse();
+      await fixture.route?.handler(
+        localReq({
+          method: "POST",
+          url: "/plugins/openclawcode/github",
+          headers: {
+            "x-github-event": "issues",
+            "x-github-delivery": "delivery-203-b",
+          },
         }),
         secondRes,
       );
@@ -302,7 +353,7 @@ describe("openclawcode extension", () => {
       expect(JSON.parse(String(secondRes.body))).toMatchObject({
         accepted: false,
         reason: "already-tracked",
-        issue: "zhyongrui/openclawcode#202",
+        issue: "zhyongrui/openclawcode#203",
       });
       expect(mocked.runMessageAction).toHaveBeenCalledTimes(1);
     } finally {
@@ -321,7 +372,10 @@ describe("openclawcode extension", () => {
         localReq({
           method: "POST",
           url: "/plugins/openclawcode/github",
-          headers: { "x-github-event": "issues" },
+          headers: {
+            "x-github-event": "issues",
+            "x-github-delivery": "delivery-204-a",
+          },
         }),
         res,
       );
@@ -430,6 +484,7 @@ describe("openclawcode extension", () => {
           url: "/plugins/openclawcode/github",
           headers: {
             "x-github-event": "issues",
+            "x-github-delivery": "delivery-209-a",
           },
         }),
         res,

@@ -163,6 +163,15 @@ function verifyGithubSignature(params: {
   return timingSafeEqualHex(signature, `sha256=${digest}`);
 }
 
+function readSingleHeaderValue(
+  headers: IncomingMessage["headers"],
+  name: string,
+): string | undefined {
+  const raw = headers[name];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 async function handleGithubWebhook(
   api: OpenClawPluginApi,
   store: OpenClawCodeChatopsStore,
@@ -176,8 +185,8 @@ async function handleGithubWebhook(
     return true;
   }
 
-  const eventName = req.headers["x-github-event"];
-  const githubEvent = Array.isArray(eventName) ? eventName[0] : eventName;
+  const githubEvent = readSingleHeaderValue(req.headers, "x-github-event");
+  const githubDeliveryId = readSingleHeaderValue(req.headers, "x-github-delivery");
   if (githubEvent !== "issues") {
     res.statusCode = 202;
     res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -218,16 +227,64 @@ async function handleGithubWebhook(
     return true;
   }
 
+  const respondJson = async (params: {
+    accepted: boolean;
+    reason: string;
+    issue?: string;
+    statusCode?: number;
+    recordDelivery?: boolean;
+    extra?: Record<string, unknown>;
+  }): Promise<boolean> => {
+    if (githubDeliveryId && params.recordDelivery !== false) {
+      await store.recordGitHubDelivery({
+        deliveryId: githubDeliveryId,
+        eventName: githubEvent,
+        action: payload.action,
+        accepted: params.accepted,
+        reason: params.reason,
+        receivedAt: new Date().toISOString(),
+        issueKey: params.issue,
+      });
+    }
+    res.statusCode = params.statusCode ?? 202;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.end(
+      JSON.stringify({
+        accepted: params.accepted,
+        reason: params.reason,
+        issue: params.issue,
+        ...params.extra,
+      }),
+    );
+    return true;
+  };
+
+  if (githubDeliveryId) {
+    const existingDelivery = await store.getGitHubDelivery(githubDeliveryId);
+    if (existingDelivery) {
+      return await respondJson({
+        accepted: false,
+        reason: "duplicate-delivery",
+        issue: existingDelivery.issueKey,
+        recordDelivery: false,
+        extra: {
+          delivery: githubDeliveryId,
+          previousReason: existingDelivery.reason,
+        },
+      });
+    }
+  }
+
   const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
   const matchingRepo = resolveRepoConfig(pluginConfig.repos, {
     owner: payload.repository.owner,
     repo: payload.repository.name,
   });
   if (!matchingRepo) {
-    res.statusCode = 202;
-    res.setHeader("Content-Type", "application/json; charset=utf-8");
-    res.end(JSON.stringify({ accepted: false, reason: "unconfigured-repo" }));
-    return true;
+    return await respondJson({
+      accepted: false,
+      reason: "unconfigured-repo",
+    });
   }
 
   const decision = decideIssueWebhookIntake({
@@ -235,10 +292,10 @@ async function handleGithubWebhook(
     config: matchingRepo,
   });
   if (!decision.accept || !decision.issue) {
-    res.statusCode = 202;
-    res.setHeader("Content-Type", "application/json; charset=utf-8");
-    res.end(JSON.stringify({ accepted: false, reason: decision.reason }));
-    return true;
+    return await respondJson({
+      accepted: false,
+      reason: decision.reason,
+    });
   }
 
   const issueKey = formatIssueKey(decision.issue);
@@ -270,10 +327,11 @@ async function handleGithubWebhook(
       "Auto-started from issue webhook.",
     );
     if (!enqueued) {
-      res.statusCode = 202;
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.end(JSON.stringify({ accepted: false, reason: "already-tracked", issue: issueKey }));
-      return true;
+      return await respondJson({
+        accepted: false,
+        reason: "already-tracked",
+        issue: issueKey,
+      });
     }
     await sendText({
       api,
@@ -298,10 +356,11 @@ async function handleGithubWebhook(
       notifyTarget,
     });
     if (!accepted) {
-      res.statusCode = 202;
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.end(JSON.stringify({ accepted: false, reason: "already-tracked", issue: issueKey }));
-      return true;
+      return await respondJson({
+        accepted: false,
+        reason: "already-tracked",
+        issue: issueKey,
+      });
     }
     await sendText({
       api,
@@ -311,10 +370,11 @@ async function handleGithubWebhook(
     });
   }
 
-  res.statusCode = 202;
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.end(JSON.stringify({ accepted: true, issue: issueKey }));
-  return true;
+  return await respondJson({
+    accepted: true,
+    reason: matchingRepo.triggerMode === "auto" ? "auto-enqueued" : "announced-for-approval",
+    issue: issueKey,
+  });
 }
 
 async function processNextQueuedRun(
