@@ -254,6 +254,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     scopeCheck: run.buildResult?.scopeCheck ?? null,
     scopeCheckSummary: run.buildResult?.scopeCheck?.summary ?? null,
     scopeCheckPassed: run.buildResult?.scopeCheck?.ok ?? null,
+    scopeBlockedFiles: run.buildResult?.scopeCheck?.blockedFiles ?? null,
     scopeBlockedFileCount: run.buildResult?.scopeCheck?.blockedFiles.length ?? null,
     draftPullRequestBranchName: run.draftPullRequest?.branchName ?? null,
     draftPullRequestBaseBranch: run.draftPullRequest?.baseBranch ?? null,

@@ -56,6 +56,7 @@ describe("openclawCodeRunCommand", () => {
     });
     expect(payload.scopeCheckSummary).toBe("Scope check passed for command-layer issue.");
     expect(payload.scopeCheckPassed).toBe(true);
+    expect(payload.scopeBlockedFiles).toEqual([]);
     expect(payload.scopeBlockedFileCount).toBe(0);
     expect(payload.buildResult.issueClassification).toBe(payload.issueClassification);
     expect(payload.buildResult.scopeCheck).toEqual(payload.scopeCheck);
@@ -115,6 +116,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.scopeCheck).toBeNull();
     expect(payload.scopeCheckSummary).toBeNull();
     expect(payload.scopeCheckPassed).toBeNull();
+    expect(payload.scopeBlockedFiles).toBeNull();
     expect(payload.scopeBlockedFileCount).toBeNull();
     expect(payload.draftPullRequestBranchName).toBeNull();
     expect(payload.draftPullRequestBaseBranch).toBeNull();
@@ -269,6 +271,7 @@ describe("openclawCodeRunCommand", () => {
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.scopeCheckSummary).toBe("Scope check failed for command-layer issue.");
     expect(payload.scopeCheckPassed).toBe(false);
+    expect(payload.scopeBlockedFiles).toEqual(["src/openclawcode/orchestrator/run.ts"]);
     expect(payload.scopeBlockedFileCount).toBe(1);
     expect(payload.autoMergePolicyEligible).toBe(false);
     expect(payload.autoMergePolicyReason).toBe(
