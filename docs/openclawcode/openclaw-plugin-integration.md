@@ -209,14 +209,17 @@ Current behavior:
 - queued runs survive gateway restarts
 - current in-flight runs are recovered back to the queue on restart
 - latest per-issue status survives restart
+- startup reconciles missing status entries from local `.openclawcode/runs`
+  records for each configured repository
+- `/occode-status` can fall back to the latest local workflow run record even if
+  the plugin state file does not have that issue yet
 
 `/occode-start` now promotes a persisted pending approval into the durable run
 queue through an atomic store transition, and `/occode-skip` can cancel either
 a pending approval or a queued run.
 
-The next hardening step is reconciliation against GitHub and local run records,
-so state can heal even if the process dies mid-command or the remote issue/PR
-state changes externally.
+The next hardening step is GitHub-side reconciliation, so state can also heal
+when issue or PR state changes externally from the local process.
 
 The bundled extension now also has direct plugin-behavior tests in:
 

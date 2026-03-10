@@ -93,8 +93,82 @@ function issueWebhookPayload(issueNumber: number) {
   });
 }
 
-async function registerPluginFixture(params?: { triggerMode?: "approve" | "auto" }) {
+async function writeLocalRun(params: {
+  repoRoot: string;
+  issueNumber: number;
+  stage: string;
+  updatedAt?: string;
+  summary?: string;
+  prUrl?: string;
+}) {
+  const updatedAt = params.updatedAt ?? "2026-03-10T08:00:00.000Z";
+  const runsDir = path.join(params.repoRoot, ".openclawcode", "runs");
+  await fs.mkdir(runsDir, { recursive: true });
+  await fs.writeFile(
+    path.join(runsDir, `run-${params.issueNumber}.json`),
+    `${JSON.stringify(
+      {
+        id: `run-${params.issueNumber}`,
+        stage: params.stage,
+        issue: {
+          owner: "zhyongrui",
+          repo: "openclawcode",
+          number: params.issueNumber,
+          title: `Issue ${params.issueNumber}`,
+          labels: [],
+        },
+        createdAt: updatedAt,
+        updatedAt,
+        attempts: {
+          total: 1,
+          planning: 1,
+          building: 1,
+          verifying: 1,
+        },
+        stageRecords: [],
+        history: [],
+        buildResult: {
+          branchName: `openclawcode/issue-${params.issueNumber}`,
+          summary: params.summary ?? `Summary for issue ${params.issueNumber}`,
+          changedFiles: ["src/example.ts"],
+          issueClassification: "command-layer",
+          testCommands: [],
+          testResults: [],
+          notes: [],
+        },
+        draftPullRequest: params.prUrl
+          ? {
+              title: `feat: implement issue #${params.issueNumber}`,
+              body: "body",
+              branchName: `openclawcode/issue-${params.issueNumber}`,
+              baseBranch: "main",
+              number: params.issueNumber,
+              url: params.prUrl,
+              openedAt: updatedAt,
+            }
+          : undefined,
+        verificationReport: {
+          decision: "approve-for-human-review",
+          summary: params.summary ?? `Summary for issue ${params.issueNumber}`,
+          findings: [],
+          missingCoverage: [],
+          followUps: [],
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+}
+
+async function registerPluginFixture(params?: {
+  triggerMode?: "approve" | "auto";
+  repoRoot?: string;
+}) {
   const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-test-"));
+  const repoRoot =
+    params?.repoRoot ?? (await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-repo-")));
   const commands = new Map<string, OpenClawPluginCommandDefinition>();
   let route:
     | {
@@ -115,7 +189,7 @@ async function registerPluginFixture(params?: { triggerMode?: "approve" | "auto"
           {
             owner: "zhyongrui",
             repo: "openclawcode",
-            repoRoot: "/home/zyr/pros/openclawcode",
+            repoRoot,
             baseBranch: "main",
             triggerMode: params?.triggerMode ?? "approve",
             notifyChannel: "telegram",
@@ -136,6 +210,7 @@ async function registerPluginFixture(params?: { triggerMode?: "approve" | "auto"
   );
 
   return {
+    repoRoot,
     stateDir,
     store: OpenClawCodeChatopsStore.fromStateDir(stateDir),
     commands,
@@ -193,6 +268,7 @@ describe("openclawcode extension", () => {
       ]);
       expect(snapshot.queue).toEqual([]);
     } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
     }
   });
@@ -229,6 +305,7 @@ describe("openclawcode extension", () => {
       });
       expect(mocked.runMessageAction).toHaveBeenCalledTimes(1);
     } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
     }
   });
@@ -265,6 +342,7 @@ describe("openclawcode extension", () => {
         }),
       });
     } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
     }
   });
@@ -298,6 +376,7 @@ describe("openclawcode extension", () => {
         "Approved in chat and queued.",
       );
     } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
     }
   });
@@ -328,6 +407,33 @@ describe("openclawcode extension", () => {
         "Skipped before execution.",
       );
     } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to local workflow run records in /occode-status", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await writeLocalRun({
+        repoRoot: fixture.repoRoot,
+        issueNumber: 206,
+        stage: "merged",
+        prUrl: "https://github.com/zhyongrui/openclawcode/pull/206",
+      });
+
+      const result = await fixture.commands.get("occode-status")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-status #206",
+        args: "#206",
+        config: {},
+      });
+
+      expect(result?.text).toContain("Stage: Merged");
+      expect(result?.text).toContain("PR: https://github.com/zhyongrui/openclawcode/pull/206");
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
     }
   });

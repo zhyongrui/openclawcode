@@ -11,8 +11,10 @@ import {
   buildRunStatusMessage,
   decideIssueWebhookIntake,
   extractWorkflowRunFromCommandOutput,
+  findLatestLocalRunStatusForIssue,
   formatIssueKey,
   parseChatopsCommand,
+  collectLatestLocalRunStatuses,
   resolveOpenClawCodePluginConfig,
   type GitHubIssueWebhookEvent,
   type OpenClawCodeChatopsRepoConfig,
@@ -49,6 +51,20 @@ function summarizeFailure(stderr: string, stdout: string): string {
   }
   const lines = combined.split("\n").filter(Boolean);
   return lines.slice(-8).join("\n");
+}
+
+async function reconcileLocalRunStatuses(params: {
+  store: OpenClawCodeChatopsStore;
+  repoConfigs: OpenClawCodeChatopsRepoConfig[];
+}): Promise<void> {
+  const mergedStatuses: Record<string, string> = {};
+  for (const repo of params.repoConfigs) {
+    const records = await collectLatestLocalRunStatuses(repo);
+    for (const record of records) {
+      mergedStatuses[record.issueKey] = record.status;
+    }
+  }
+  await params.store.reconcileStatuses(mergedStatuses);
 }
 
 async function sendText(params: {
@@ -424,15 +440,27 @@ export default {
           repo: command.issue.repo,
           number: command.issue.number,
         });
+        const repoConfig = resolveRepoConfig(pluginConfig.repos, command.issue);
+        if (!repoConfig) {
+          return {
+            text: `No openclawcode repo config found for ${command.issue.owner}/${command.issue.repo}.`,
+          };
+        }
         if (await store.isPendingApproval(issueKey)) {
           return {
             text: (await store.getStatus(issueKey)) ?? `Awaiting chat approval for ${issueKey}.`,
           };
         }
+        const currentStatus = await store.getStatus(issueKey);
+        if (currentStatus) {
+          return { text: currentStatus };
+        }
+        const reconciled = await findLatestLocalRunStatusForIssue({
+          repo: repoConfig,
+          issueKey,
+        });
         return {
-          text:
-            (await store.getStatus(issueKey)) ??
-            `No openclawcode status recorded yet for ${issueKey}.`,
+          text: reconciled?.status ?? `No openclawcode status recorded yet for ${issueKey}.`,
         };
       },
     });
@@ -476,6 +504,10 @@ export default {
         const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
         const intervalMs = pluginConfig.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
         await store.recoverInterruptedRun();
+        await reconcileLocalRunStatuses({
+          store,
+          repoConfigs: pluginConfig.repos,
+        });
         pollTimer = setInterval(() => {
           void processNextQueuedRun(api, store);
         }, intervalMs);

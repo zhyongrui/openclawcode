@@ -96,6 +96,21 @@ export class OpenClawCodeChatopsStore {
     await this.saveState(state);
   }
 
+  async reconcileStatuses(statuses: Record<string, string>): Promise<void> {
+    const state = await this.loadState();
+    for (const [issueKey, status] of Object.entries(statuses)) {
+      const isActive =
+        state.pendingApprovals.some((entry) => entry.issueKey === issueKey) ||
+        state.currentRun?.issueKey === issueKey ||
+        state.queue.some((entry) => entry.issueKey === issueKey);
+      if (isActive) {
+        continue;
+      }
+      state.statusByIssue[issueKey] = status;
+    }
+    await this.saveState(state);
+  }
+
   async addPendingApproval(
     pending: OpenClawCodePendingApproval,
     status = "Awaiting chat approval.",
