@@ -93,6 +93,36 @@ describe("issue scope classification", () => {
     expect(classifyIssueScope(run)).toBe("command-layer");
   });
 
+  it("keeps verification-derived JSON output issues in command-layer classification", () => {
+    const run: WorkflowRun = {
+      ...createRun(),
+      issue: {
+        ...createRun().issue,
+        number: 25,
+        title: "[Feature]: Expose verification follow-up count in openclaw code run --json output",
+        body: [
+          "### Summary",
+          "",
+          "Expose a stable top-level verification follow-up count in `openclaw code run --json` output.",
+          "",
+          "### Problem to solve",
+          "",
+          "`openclawcode` now exposes verification findings and missing coverage counts, but downstream automation still has to inspect the nested `verificationReport.followUps` array to know how many concrete next actions the verifier produced.",
+          "",
+          "### Proposed solution",
+          "",
+          "Update `openclaw code run --json` so the top-level JSON output includes `verificationFollowUpCount` and add/update targeted command-level tests.",
+          "",
+          "### Additional information",
+          "",
+          "This is intentionally a small command-layer slice suitable for validating the full `--open-pr --merge-on-approve` workflow.",
+        ].join("\n"),
+      },
+    };
+
+    expect(classifyIssueScope(run)).toBe("command-layer");
+  });
+
   it("classifies orchestration work as workflow-core", () => {
     const run: WorkflowRun = {
       ...createRun(),

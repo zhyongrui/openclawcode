@@ -94,11 +94,11 @@ export function classifyIssueScope(run: WorkflowRun): IssueImplementationScope {
   const strongCommandIssue =
     issueText.includes("openclaw code run") || issueText.includes("--json");
 
-  if (strongCommandIssue && issueWorkflowScore >= 3) {
+  if (strongCommandIssue) {
+    if (issueWorkflowScore === 0 || issueCommandScore >= issueWorkflowScore + 3) {
+      return "command-layer";
+    }
     return "mixed";
-  }
-  if (strongCommandIssue && issueCommandScore > 0) {
-    return "command-layer";
   }
   if (issueCommandScore > 0 && issueWorkflowScore === 0) {
     return "command-layer";
