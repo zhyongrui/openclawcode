@@ -228,6 +228,16 @@ The next hardening step is GitHub-side reconciliation against those persisted
 snapshots, so state can also heal when issue or PR state changes externally
 from the local process.
 
+The first GitHub-side reconciliation slice is now implemented:
+
+- `/occode-status` uses the persisted PR number from the latest issue snapshot
+- if GitHub reports that PR as merged, the plugin heals the local issue status
+  to `merged` immediately
+
+This keeps the first remote sync path demand-driven and cheap while still
+fixing the most important stale-status case: a human merges the PR outside the
+local workflow process.
+
 The bundled extension now also has direct plugin-behavior tests in:
 
 - `extensions/openclawcode/index.test.ts`

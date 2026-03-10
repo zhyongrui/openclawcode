@@ -11,6 +11,21 @@ export interface PullRequestRef {
   url: string;
 }
 
+export interface IssueStateRef extends RepoRef {
+  issueNumber: number;
+}
+
+export interface GitHubIssueState {
+  state: "open" | "closed";
+}
+
+export interface GitHubPullRequestState extends PullRequestRef {
+  state: "open" | "closed";
+  draft: boolean;
+  merged: boolean;
+  mergedAt?: string;
+}
+
 export interface DraftPullRequestRequest extends RepoRef {
   title: string;
   body: string;
@@ -33,7 +48,9 @@ export interface ReadyForReviewRequest extends RepoRef {
 }
 
 export interface GitHubIssueClient {
-  fetchIssue(ref: RepoRef & { issueNumber: number }): Promise<IssueRef>;
+  fetchIssue(ref: IssueStateRef): Promise<IssueRef>;
+  fetchIssueState(ref: IssueStateRef): Promise<GitHubIssueState>;
+  fetchPullRequest(ref: RepoRef & { pullNumber: number }): Promise<GitHubPullRequestState>;
   createDraftPullRequest(request: DraftPullRequestRequest): Promise<PullRequestRef>;
   markPullRequestReadyForReview(request: ReadyForReviewRequest): Promise<void>;
   mergePullRequest(request: MergePullRequestRequest): Promise<void>;
@@ -44,7 +61,17 @@ type GitHubIssueResponse = {
   number: number;
   title: string;
   body?: string | null;
+  state?: "open" | "closed";
   labels?: { nodes?: Array<{ name?: string | null } | null> | null } | Array<{ name?: string }>;
+};
+
+type GitHubPullRequestResponse = {
+  number: number;
+  html_url: string;
+  state: "open" | "closed";
+  draft: boolean;
+  merged_at?: string | null;
+  merged?: boolean;
 };
 
 function resolveToken(env: NodeJS.ProcessEnv): string | undefined {
@@ -137,6 +164,29 @@ export class GitHubRestClient implements GitHubIssueClient {
       title: issue.title,
       body: issue.body ?? undefined,
       labels: normalizeLabels(issue.labels),
+    };
+  }
+
+  async fetchIssueState(ref: IssueStateRef): Promise<GitHubIssueState> {
+    const issue = await this.request<GitHubIssueResponse>(
+      `/repos/${ref.owner}/${ref.repo}/issues/${ref.issueNumber}`,
+    );
+    return {
+      state: issue.state === "closed" ? "closed" : "open",
+    };
+  }
+
+  async fetchPullRequest(ref: RepoRef & { pullNumber: number }): Promise<GitHubPullRequestState> {
+    const pullRequest = await this.request<GitHubPullRequestResponse>(
+      `/repos/${ref.owner}/${ref.repo}/pulls/${ref.pullNumber}`,
+    );
+    return {
+      number: pullRequest.number,
+      url: pullRequest.html_url,
+      state: pullRequest.state,
+      draft: pullRequest.draft,
+      merged: Boolean(pullRequest.merged ?? pullRequest.merged_at),
+      mergedAt: typeof pullRequest.merged_at === "string" ? pullRequest.merged_at : undefined,
     };
   }
 

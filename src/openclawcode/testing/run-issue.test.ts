@@ -43,6 +43,27 @@ class FakeGitHubClient implements GitHubIssueClient {
     };
   }
 
+  async fetchIssueState(): Promise<{ state: "open" | "closed" }> {
+    return { state: "open" };
+  }
+
+  async fetchPullRequest(request: { pullNumber: number }): Promise<{
+    number: number;
+    url: string;
+    state: "open" | "closed";
+    draft: boolean;
+    merged: boolean;
+    mergedAt?: string;
+  }> {
+    return {
+      number: request.pullNumber,
+      url: `https://github.com/example/repo/pull/${request.pullNumber}`,
+      state: "open",
+      draft: true,
+      merged: false,
+    };
+  }
+
   async createDraftPullRequest(): Promise<PullRequestRef> {
     const value = { number: 99, url: "https://github.com/example/repo/pull/99" };
     this.published.push(value);

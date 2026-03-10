@@ -223,6 +223,7 @@ describe("openclawcode extension", () => {
     mocked.readRequestBodyWithLimit.mockReset();
     mocked.runMessageAction.mockReset();
     mocked.runMessageAction.mockResolvedValue({ kind: "send" });
+    vi.unstubAllGlobals();
   });
 
   it("records pending approvals and sends a chat prompt in approve mode", async () => {
@@ -432,6 +433,62 @@ describe("openclawcode extension", () => {
 
       expect(result?.text).toContain("Stage: Merged");
       expect(result?.text).toContain("PR: https://github.com/zhyongrui/openclawcode/pull/206");
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("heals /occode-status from GitHub when a tracked pull request was merged externally", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.setStatusSnapshot({
+        issueKey: "zhyongrui/openclawcode#207",
+        status: "openclawcode status for zhyongrui/openclawcode#207\nStage: Ready For Human Review",
+        stage: "ready-for-human-review",
+        runId: "run-207",
+        updatedAt: "2026-03-10T09:10:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 207,
+        branchName: "openclawcode/issue-207",
+        pullRequestNumber: 307,
+        pullRequestUrl: "https://github.com/zhyongrui/openclawcode/pull/307",
+      });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              number: 307,
+              html_url: "https://github.com/zhyongrui/openclawcode/pull/307",
+              state: "closed",
+              draft: false,
+              merged: true,
+              merged_at: "2026-03-10T09:15:00.000Z",
+            }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+              },
+            },
+          ),
+        ),
+      );
+
+      const result = await fixture.commands.get("occode-status")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-status #207",
+        args: "#207",
+        config: {},
+      });
+
+      expect(result?.text).toContain("Stage: Merged");
+      const snapshot = await fixture.store.getStatusSnapshot("zhyongrui/openclawcode#207");
+      expect(snapshot?.stage).toBe("merged");
+      expect(snapshot?.updatedAt).toBe("2026-03-10T09:15:00.000Z");
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });

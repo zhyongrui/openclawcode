@@ -197,6 +197,13 @@ export class OpenClawCodeChatopsStore {
     await this.saveState(state);
   }
 
+  async setStatusSnapshot(snapshot: OpenClawCodeIssueStatusSnapshot): Promise<void> {
+    const state = await this.loadState();
+    state.statusByIssue[snapshot.issueKey] = snapshot.status;
+    state.statusSnapshotsByIssue[snapshot.issueKey] = snapshot;
+    await this.saveState(state);
+  }
+
   async reconcileStatuses(statuses: Record<string, string>): Promise<void> {
     const state = await this.loadState();
     for (const [issueKey, status] of Object.entries(statuses)) {

@@ -16,6 +16,7 @@ import {
   parseChatopsCommand,
   collectLatestLocalRunStatuses,
   resolveOpenClawCodePluginConfig,
+  syncIssueSnapshotFromGitHub,
   type GitHubIssueWebhookEvent,
   type OpenClawCodeChatopsRepoConfig,
 } from "../../src/integrations/openclaw-plugin/index.js";
@@ -455,6 +456,20 @@ export default {
           return {
             text: (await store.getStatus(issueKey)) ?? `Awaiting chat approval for ${issueKey}.`,
           };
+        }
+        const currentSnapshot = await store.getStatusSnapshot(issueKey);
+        if (currentSnapshot) {
+          try {
+            const synced = await syncIssueSnapshotFromGitHub({
+              snapshot: currentSnapshot,
+            });
+            if (synced.changed) {
+              await store.setStatusSnapshot(synced.snapshot);
+              return { text: synced.snapshot.status };
+            }
+          } catch {
+            // Keep /occode-status usable even if GitHub is temporarily unavailable.
+          }
         }
         const currentStatus = await store.getStatus(issueKey);
         if (currentStatus) {
