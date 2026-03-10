@@ -73,6 +73,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.pullRequestMerged).toBe(false);
     expect(payload.mergedPullRequestMergedAt).toBeNull();
     expect(payload.verificationDecision).toBe("approve-for-human-review");
+    expect(payload.verificationApprovedForHumanReview).toBe(true);
     expect(payload.verificationSummary).toBe(
       "Verification completed and the run is ready for human review.",
     );
@@ -120,6 +121,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.pullRequestMerged).toBe(false);
     expect(payload.mergedPullRequestMergedAt).toBeNull();
     expect(payload.verificationDecision).toBeNull();
+    expect(payload.verificationApprovedForHumanReview).toBeNull();
     expect(payload.verificationSummary).toBeNull();
     expect(payload.verificationFindingCount).toBeNull();
     expect(payload.verificationMissingCoverageCount).toBeNull();
@@ -281,6 +283,7 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.verificationApprovedForHumanReview).toBe(false);
     expect(payload.verificationFindingCount).toBe(2);
     expect(payload.verificationMissingCoverageCount).toBe(1);
     expect(payload.verificationFollowUpCount).toBe(2);

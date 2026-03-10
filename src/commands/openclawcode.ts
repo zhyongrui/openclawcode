@@ -224,6 +224,15 @@ function resolveRunSummary(run: WorkflowRun): string {
   return `Run is at the ${run.stage} stage.`;
 }
 
+function resolveVerificationApprovedForHumanReview(run: WorkflowRun): boolean | null {
+  const decision = run.verificationReport?.decision;
+  if (!decision) {
+    return null;
+  }
+
+  return decision === "approve-for-human-review";
+}
+
 function toWorkflowRunJson(run: WorkflowRun) {
   const autoMergePolicy = resolveAutoMergePolicy(run);
   const autoMergeDisposition = resolveAutoMergeDisposition(run);
@@ -251,6 +260,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     pullRequestMerged: mergedPullRequest.pullRequestMerged,
     mergedPullRequestMergedAt: mergedPullRequest.mergedPullRequestMergedAt,
     verificationDecision: run.verificationReport?.decision ?? null,
+    verificationApprovedForHumanReview: resolveVerificationApprovedForHumanReview(run),
     verificationSummary: run.verificationReport?.summary ?? null,
     verificationFindingCount: run.verificationReport?.findings.length ?? null,
     verificationMissingCoverageCount: run.verificationReport?.missingCoverage.length ?? null,
