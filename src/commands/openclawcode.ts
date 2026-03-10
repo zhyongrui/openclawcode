@@ -86,6 +86,8 @@ function toWorkflowRunJson(run: WorkflowRun) {
     changedFiles: run.buildResult?.changedFiles ?? [],
     issueClassification: run.buildResult?.issueClassification ?? null,
     scopeCheck: run.buildResult?.scopeCheck ?? null,
+    draftPullRequestBranchName: run.draftPullRequest?.branchName ?? null,
+    draftPullRequestBaseBranch: run.draftPullRequest?.baseBranch ?? null,
     draftPullRequestNumber: run.draftPullRequest?.number ?? null,
     draftPullRequestUrl: run.draftPullRequest?.url ?? null,
     verificationDecision: run.verificationReport?.decision ?? null,

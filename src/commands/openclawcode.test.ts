@@ -34,7 +34,7 @@ describe("openclawCodeRunCommand", () => {
     mocks.runIssueWorkflow.mockResolvedValue(createRun());
   });
 
-  it("prints stable top-level JSON fields for workflow scope, review, and merge policy", async () => {
+  it("prints stable top-level JSON fields for workflow scope, draft pr metadata, review, and merge policy", async () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     expect(runtime.log).toHaveBeenCalledTimes(1);
@@ -52,8 +52,12 @@ describe("openclawCodeRunCommand", () => {
     });
     expect(payload.buildResult.issueClassification).toBe(payload.issueClassification);
     expect(payload.buildResult.scopeCheck).toEqual(payload.scopeCheck);
+    expect(payload.draftPullRequestBranchName).toBe("openclawcode/issue-2");
+    expect(payload.draftPullRequestBaseBranch).toBe("main");
     expect(payload.draftPullRequestNumber).toBe(42);
     expect(payload.draftPullRequestUrl).toBe("https://github.com/openclaw/openclaw/pull/42");
+    expect(payload.draftPullRequest.branchName).toBe(payload.draftPullRequestBranchName);
+    expect(payload.draftPullRequest.baseBranch).toBe(payload.draftPullRequestBaseBranch);
     expect(payload.draftPullRequest.number).toBe(payload.draftPullRequestNumber);
     expect(payload.draftPullRequest.url).toBe(payload.draftPullRequestUrl);
     expect(payload.verificationDecision).toBe("approve-for-human-review");
@@ -84,6 +88,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.changedFiles).toEqual([]);
     expect(payload.issueClassification).toBeNull();
     expect(payload.scopeCheck).toBeNull();
+    expect(payload.draftPullRequestBranchName).toBeNull();
+    expect(payload.draftPullRequestBaseBranch).toBeNull();
     expect(payload.draftPullRequestNumber).toBeNull();
     expect(payload.draftPullRequestUrl).toBeNull();
     expect(payload.verificationDecision).toBeNull();
