@@ -60,6 +60,147 @@ control quality:
 - run persistence is present, but not yet rich enough for retries, resumption,
   and operator visibility
 
+## Next Iteration Plan
+
+As of 2026-03-10, the immediate next stage is no longer workflow bring-up.
+The next stage is making the current issue-driven loop usable for day-to-day
+repository work in this fork.
+
+The short-term objective is:
+
+- keep using real GitHub issues as the driver
+- keep validating each slice end-to-end against this repository
+- move from "observable workflow state" toward "usable PR and review
+  automation"
+
+### Current Checkpoint
+
+The current repository state already supports:
+
+- persisted run records
+- isolated worktrees
+- builder/verifier execution
+- stable top-level JSON fields for:
+  - changed files
+  - issue classification
+  - scope-check status
+  - draft PR number and URL
+  - draft PR branch and base branch
+  - verification decision and summary
+  - auto-merge policy eligibility and reason
+
+This means the next iteration can shift from output surfacing to workflow
+closure.
+
+### Near-Term Delivery Streams
+
+The next iteration should run across three delivery streams in parallel.
+
+#### Stream 1: Output Contract Completion
+
+Objective:
+
+- finish the top-level JSON contract so downstream automation does not need to
+  keep parsing nested workflow objects
+
+Priority backlog:
+
+1. expose published PR metadata as stable top-level fields
+2. expose merge-decision and merge-disposition fields as stable top-level fields
+3. add a concise top-level run summary that is readable by both humans and
+   scripts
+
+Validation rule:
+
+- every new output field must be covered by command-layer tests and then
+  validated through a real GitHub issue run
+
+#### Stream 2: Real PR Lifecycle Validation
+
+Objective:
+
+- prove that `openclawcode` can move from issue execution to real PR handling
+  in this repository, not just simulated local state
+
+Priority backlog:
+
+1. run a real issue with `--open-pr`
+2. verify branch push, draft PR creation, and run-record backfill
+3. verify that real PR metadata is preserved in the final JSON output
+4. trial guarded `--merge-on-approve` only after `--open-pr` is stable
+5. confirm that auto-merge remains restricted to the intended command-layer
+   policy
+
+Validation rule:
+
+- do not broaden merge automation until draft PR publication is reliable under
+  repeated real runs
+
+#### Stream 3: Review and Checkpoint Hardening
+
+Objective:
+
+- make the verifier useful as an actual reviewer instead of only a summary step
+
+Priority backlog:
+
+1. structure verifier findings by category
+2. distinguish scope violations, test failures, and review objections
+3. define explicit human checkpoint rules
+4. improve the request-changes loop so follow-up runs preserve continuity
+
+Validation rule:
+
+- verifier outputs must be specific enough to drive a retry without manual
+  interpretation of raw transcripts
+
+### Recommended Issue Sequence
+
+The next concrete issue order should be:
+
+1. published PR top-level fields
+2. merge decision and disposition top-level fields
+3. real `--open-pr` workflow validation
+4. real `--merge-on-approve` workflow validation
+5. structured verifier findings
+
+This order is deliberate:
+
+- first complete the machine-readable contract
+- then validate real PR publication
+- only then test real merge behavior
+- finally harden review quality once the surrounding control loop is stable
+
+### Execution Rules For The Next Iteration
+
+Keep the current working pattern:
+
+1. create one GitHub issue for one bounded slice
+2. implement only the smallest change needed for that issue
+3. run targeted local tests first
+4. commit the feature slice
+5. push to `origin/main`
+6. run the real `openclaw code run` workflow against that issue
+7. record the result in the dev log
+
+Additional rules:
+
+- prefer command-layer slices until the PR lifecycle path is proven stable
+- treat real issue runs as the primary acceptance test
+- sync `upstream/main` only at clean checkpoints, not mid-slice
+- keep `openclawcode` workflow logic isolated from broad upstream runtime edits
+
+### Exit Criteria For This Iteration
+
+This iteration is complete when:
+
+- the JSON output is rich enough for downstream automation to consume directly
+- a real draft PR can be opened from an issue run in this repository
+- guarded merge automation has been trialed on a real issue
+- verifier output is structured enough to support repeatable review loops
+- the repository can continue issue-driven development after an upstream sync
+  without rework
+
 ## Guiding Principles
 
 Development should follow these rules:
