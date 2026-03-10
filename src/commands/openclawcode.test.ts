@@ -54,6 +54,7 @@ describe("openclawCodeRunCommand", () => {
       blockedFiles: [],
       summary: "Scope check passed for command-layer issue.",
     });
+    expect(payload.scopeCheckSummary).toBe("Scope check passed for command-layer issue.");
     expect(payload.scopeCheckPassed).toBe(true);
     expect(payload.scopeBlockedFileCount).toBe(0);
     expect(payload.buildResult.issueClassification).toBe(payload.issueClassification);
@@ -112,6 +113,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.stageLabel).toBe("Draft PR Opened");
     expect(payload.issueClassification).toBeNull();
     expect(payload.scopeCheck).toBeNull();
+    expect(payload.scopeCheckSummary).toBeNull();
     expect(payload.scopeCheckPassed).toBeNull();
     expect(payload.scopeBlockedFileCount).toBeNull();
     expect(payload.draftPullRequestBranchName).toBeNull();
@@ -265,6 +267,7 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.scopeCheckSummary).toBe("Scope check failed for command-layer issue.");
     expect(payload.scopeCheckPassed).toBe(false);
     expect(payload.scopeBlockedFileCount).toBe(1);
     expect(payload.autoMergePolicyEligible).toBe(false);

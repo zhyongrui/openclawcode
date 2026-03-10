@@ -252,6 +252,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     changeDispositionReason: changeDisposition.changeDispositionReason,
     issueClassification: run.buildResult?.issueClassification ?? null,
     scopeCheck: run.buildResult?.scopeCheck ?? null,
+    scopeCheckSummary: run.buildResult?.scopeCheck?.summary ?? null,
     scopeCheckPassed: run.buildResult?.scopeCheck?.ok ?? null,
     scopeBlockedFileCount: run.buildResult?.scopeCheck?.blockedFiles.length ?? null,
     draftPullRequestBranchName: run.draftPullRequest?.branchName ?? null,
