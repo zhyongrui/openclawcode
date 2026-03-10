@@ -78,6 +78,7 @@ describe("openclawCodeRunCommand", () => {
     );
     expect(payload.verificationFindingCount).toBe(0);
     expect(payload.verificationMissingCoverageCount).toBe(0);
+    expect(payload.verificationFollowUpCount).toBe(0);
     expect(payload.runSummary).toBe(payload.verificationSummary);
     expect(payload.autoMergeDisposition).toBeNull();
     expect(payload.autoMergeDispositionReason).toBeNull();
@@ -122,6 +123,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationSummary).toBeNull();
     expect(payload.verificationFindingCount).toBeNull();
     expect(payload.verificationMissingCoverageCount).toBeNull();
+    expect(payload.verificationFollowUpCount).toBeNull();
     expect(payload.runSummary).toBe("Run is at the draft-pr-opened stage.");
     expect(payload.autoMergeDisposition).toBeNull();
     expect(payload.autoMergeDispositionReason).toBeNull();
@@ -209,6 +211,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationSummary).toBeNull();
     expect(payload.verificationFindingCount).toBeNull();
     expect(payload.verificationMissingCoverageCount).toBeNull();
+    expect(payload.verificationFollowUpCount).toBeNull();
     expect(payload.runSummary).toBe("Updated JSON output");
   });
 
@@ -270,7 +273,7 @@ describe("openclawCodeRunCommand", () => {
           summary: "Verification found blocking issues.",
           findings: ["Bug one", "Bug two"],
           missingCoverage: ["Missing test one"],
-          followUps: [],
+          followUps: ["Add regression coverage", "Fix the blocking bug"],
         },
       }),
     );
@@ -280,6 +283,7 @@ describe("openclawCodeRunCommand", () => {
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.verificationFindingCount).toBe(2);
     expect(payload.verificationMissingCoverageCount).toBe(1);
+    expect(payload.verificationFollowUpCount).toBe(2);
   });
 
   it("prints failed auto-merge disposition when merge execution fails", async () => {

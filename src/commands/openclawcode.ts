@@ -254,6 +254,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     verificationSummary: run.verificationReport?.summary ?? null,
     verificationFindingCount: run.verificationReport?.findings.length ?? null,
     verificationMissingCoverageCount: run.verificationReport?.missingCoverage.length ?? null,
+    verificationFollowUpCount: run.verificationReport?.followUps.length ?? null,
     runSummary: resolveRunSummary(run),
     autoMergeDisposition: autoMergeDisposition.autoMergeDisposition,
     autoMergeDispositionReason: autoMergeDisposition.autoMergeDispositionReason,
