@@ -39,6 +39,8 @@ describe("openclawCodeRunCommand", () => {
 
     expect(runtime.log).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.stage).toBe("ready-for-human-review");
+    expect(payload.stageLabel).toBe("Ready For Human Review");
     expect(payload.changedFiles).toEqual([
       "src/openclawcode/app/run-issue.ts",
       "src/openclawcode/contracts/types.ts",
@@ -185,6 +187,7 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.stageLabel).toBe("Merged");
     expect(payload.pullRequestMerged).toBe(true);
     expect(payload.mergedPullRequestMergedAt).toBe("2026-01-02T03:04:05.000Z");
   });

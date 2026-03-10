@@ -90,6 +90,13 @@ function resolvePublishedPullRequest(run: WorkflowRun): {
   };
 }
 
+function formatWorkflowStageLabel(stage: WorkflowRun["stage"]): string {
+  return stage
+    .split("-")
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(" ");
+}
+
 function resolveMergedPullRequest(run: WorkflowRun): {
   pullRequestMerged: boolean;
   mergedPullRequestMergedAt: string | null;
@@ -107,6 +114,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
   const mergedPullRequest = resolveMergedPullRequest(run);
   return {
     ...run,
+    stageLabel: formatWorkflowStageLabel(run.stage),
     changedFiles: run.buildResult?.changedFiles ?? [],
     issueClassification: run.buildResult?.issueClassification ?? null,
     scopeCheck: run.buildResult?.scopeCheck ?? null,
