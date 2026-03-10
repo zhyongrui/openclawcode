@@ -62,6 +62,10 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.draftPullRequest.baseBranch).toBe(payload.draftPullRequestBaseBranch);
     expect(payload.draftPullRequest.number).toBe(payload.draftPullRequestNumber);
     expect(payload.draftPullRequest.url).toBe(payload.draftPullRequestUrl);
+    expect(payload.draftPullRequestDisposition).toBe("published");
+    expect(payload.draftPullRequestDispositionReason).toBe(
+      "Draft PR opened: https://github.com/openclaw/openclaw/pull/42",
+    );
     expect(payload.pullRequestPublished).toBe(true);
     expect(payload.publishedPullRequestOpenedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(payload.pullRequestMerged).toBe(false);
@@ -102,6 +106,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.draftPullRequestBaseBranch).toBeNull();
     expect(payload.draftPullRequestNumber).toBeNull();
     expect(payload.draftPullRequestUrl).toBeNull();
+    expect(payload.draftPullRequestDisposition).toBeNull();
+    expect(payload.draftPullRequestDispositionReason).toBeNull();
     expect(payload.pullRequestPublished).toBe(false);
     expect(payload.publishedPullRequestOpenedAt).toBeNull();
     expect(payload.pullRequestMerged).toBe(false);
@@ -135,10 +141,45 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.draftPullRequestBaseBranch).toBe("main");
     expect(payload.draftPullRequestNumber).toBeNull();
     expect(payload.draftPullRequestUrl).toBeNull();
+    expect(payload.draftPullRequestDisposition).toBeNull();
+    expect(payload.draftPullRequestDispositionReason).toBeNull();
     expect(payload.pullRequestPublished).toBe(false);
     expect(payload.publishedPullRequestOpenedAt).toBeNull();
     expect(payload.pullRequestMerged).toBe(false);
     expect(payload.mergedPullRequestMergedAt).toBeNull();
+  });
+
+  it("prints skipped draft pr disposition when publication is skipped for a no-op run", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        stage: "ready-for-human-review",
+        draftPullRequest: {
+          ...createRun().draftPullRequest!,
+          number: undefined,
+          url: undefined,
+        },
+        buildResult: {
+          ...createRun().buildResult!,
+          changedFiles: [],
+        },
+        history: [
+          "Build completed and draft PR prepared",
+          "Draft PR skipped: no new commits were produced between the base branch and openclawcode/issue-2.",
+        ],
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.changedFiles).toEqual([]);
+    expect(payload.draftPullRequestNumber).toBeNull();
+    expect(payload.draftPullRequestUrl).toBeNull();
+    expect(payload.draftPullRequestDisposition).toBe("skipped");
+    expect(payload.draftPullRequestDispositionReason).toBe(
+      "Draft PR skipped: no new commits were produced between the base branch and openclawcode/issue-2.",
+    );
+    expect(payload.pullRequestPublished).toBe(false);
   });
 
   it("falls back to the build summary when no verification summary exists", async () => {
@@ -320,7 +361,7 @@ function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
       missingCoverage: [],
       followUps: [],
     },
-    history: [],
+    history: ["Draft PR opened: https://github.com/openclaw/openclaw/pull/42"],
     ...overrides,
   };
 }

@@ -130,6 +130,37 @@ function resolvePublishedPullRequest(run: WorkflowRun): {
   };
 }
 
+function resolveDraftPullRequestDisposition(run: WorkflowRun): {
+  draftPullRequestDisposition: "published" | "skipped" | null;
+  draftPullRequestDispositionReason: string | null;
+} {
+  const published = resolvePublishedPullRequest(run).pullRequestPublished;
+  if (published) {
+    const note =
+      [...run.history].toReversed().find((entry) => entry.startsWith("Draft PR opened:")) ??
+      "Draft PR published.";
+    return {
+      draftPullRequestDisposition: "published",
+      draftPullRequestDispositionReason: note,
+    };
+  }
+
+  const skippedNote = [...run.history]
+    .toReversed()
+    .find((entry) => entry.startsWith("Draft PR skipped:"));
+  if (skippedNote) {
+    return {
+      draftPullRequestDisposition: "skipped",
+      draftPullRequestDispositionReason: skippedNote,
+    };
+  }
+
+  return {
+    draftPullRequestDisposition: null,
+    draftPullRequestDispositionReason: null,
+  };
+}
+
 function resolveMergedPullRequest(run: WorkflowRun): {
   pullRequestMerged: boolean;
   mergedPullRequestMergedAt: string | null;
@@ -170,6 +201,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
   const autoMergePolicy = resolveAutoMergePolicy(run);
   const autoMergeDisposition = resolveAutoMergeDisposition(run);
   const publishedPullRequest = resolvePublishedPullRequest(run);
+  const draftPullRequestDisposition = resolveDraftPullRequestDisposition(run);
   const mergedPullRequest = resolveMergedPullRequest(run);
   return {
     ...run,
@@ -181,6 +213,9 @@ function toWorkflowRunJson(run: WorkflowRun) {
     draftPullRequestBaseBranch: run.draftPullRequest?.baseBranch ?? null,
     draftPullRequestNumber: run.draftPullRequest?.number ?? null,
     draftPullRequestUrl: run.draftPullRequest?.url ?? null,
+    draftPullRequestDisposition: draftPullRequestDisposition.draftPullRequestDisposition,
+    draftPullRequestDispositionReason:
+      draftPullRequestDisposition.draftPullRequestDispositionReason,
     pullRequestPublished: publishedPullRequest.pullRequestPublished,
     publishedPullRequestOpenedAt: publishedPullRequest.publishedPullRequestOpenedAt,
     pullRequestMerged: mergedPullRequest.pullRequestMerged,
