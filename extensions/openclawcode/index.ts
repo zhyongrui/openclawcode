@@ -385,19 +385,14 @@ export default {
           ctx.senderId?.trim() ||
           pendingApproval?.notifyTarget ||
           repoConfig.notifyTarget;
-        if (pendingApproval) {
-          await store.consumePendingApproval(issueKey);
-        }
-        const enqueued = await store.enqueue(
-          {
-            request,
-            issueKey,
-            notifyChannel: pendingApproval?.notifyChannel ?? repoConfig.notifyChannel,
-            notifyTarget,
-          },
-          pendingApproval ? "Approved in chat and queued." : "Queued.",
-        );
-        if (!enqueued) {
+        const queuedRun = await store.promotePendingApprovalToQueue({
+          issueKey,
+          request,
+          fallbackNotifyChannel: pendingApproval?.notifyChannel ?? repoConfig.notifyChannel,
+          fallbackNotifyTarget: notifyTarget,
+          status: pendingApproval ? "Approved in chat and queued." : "Queued.",
+        });
+        if (!queuedRun) {
           return { text: `${issueKey} is already queued or running.` };
         }
 

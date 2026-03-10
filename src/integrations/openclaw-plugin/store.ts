@@ -168,6 +168,41 @@ export class OpenClawCodeChatopsStore {
     return true;
   }
 
+  async promotePendingApprovalToQueue(params: {
+    issueKey: string;
+    request: OpenClawCodeChatopsRunRequest;
+    fallbackNotifyChannel: string;
+    fallbackNotifyTarget: string;
+    status?: string;
+  }): Promise<OpenClawCodeQueuedRun | undefined> {
+    const state = await this.loadState();
+    if (
+      state.currentRun?.issueKey === params.issueKey ||
+      state.queue.some((entry) => entry.issueKey === params.issueKey)
+    ) {
+      return undefined;
+    }
+
+    const pendingIndex = state.pendingApprovals.findIndex(
+      (entry) => entry.issueKey === params.issueKey,
+    );
+    const pending = pendingIndex >= 0 ? state.pendingApprovals[pendingIndex] : undefined;
+    if (pendingIndex >= 0) {
+      state.pendingApprovals.splice(pendingIndex, 1);
+    }
+
+    const queuedRun: OpenClawCodeQueuedRun = {
+      issueKey: params.issueKey,
+      request: params.request,
+      notifyChannel: pending?.notifyChannel ?? params.fallbackNotifyChannel,
+      notifyTarget: pending?.notifyTarget ?? params.fallbackNotifyTarget,
+    };
+    state.queue.push(queuedRun);
+    state.statusByIssue[params.issueKey] = params.status ?? "Queued.";
+    await this.saveState(state);
+    return queuedRun;
+  }
+
   async removeQueued(issueKey: string, status = "Skipped before execution."): Promise<boolean> {
     const state = await this.loadState();
     const index = state.queue.findIndex((entry) => entry.issueKey === issueKey);

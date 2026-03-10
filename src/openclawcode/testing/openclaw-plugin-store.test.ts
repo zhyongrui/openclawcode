@@ -160,4 +160,61 @@ describe("OpenClawCodeChatopsStore", () => {
       await fs.rm(fixture.rootDir, { recursive: true, force: true });
     }
   });
+
+  it("atomically promotes a pending approval into the durable queue", async () => {
+    const fixture = await createStore();
+
+    try {
+      const pending = {
+        issueKey: "zhyongrui/openclawcode#107",
+        notifyChannel: "telegram",
+        notifyTarget: "chat:123",
+      };
+      await fixture.store.addPendingApproval(pending);
+
+      const promoted = await fixture.store.promotePendingApprovalToQueue({
+        issueKey: pending.issueKey,
+        request: createQueuedRun(107).request,
+        fallbackNotifyChannel: "discord",
+        fallbackNotifyTarget: "channel:999",
+        status: "Approved in chat and queued.",
+      });
+
+      expect(promoted).toEqual({
+        issueKey: pending.issueKey,
+        notifyChannel: "telegram",
+        notifyTarget: "chat:123",
+        request: createQueuedRun(107).request,
+      });
+
+      const snapshot = await fixture.store.snapshot();
+      expect(snapshot.pendingApprovals).toEqual([]);
+      expect(snapshot.queue).toEqual([promoted]);
+      expect(snapshot.statusByIssue[pending.issueKey]).toBe("Approved in chat and queued.");
+    } finally {
+      await fs.rm(fixture.rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("can promote directly to queue when no pending approval exists", async () => {
+    const fixture = await createStore();
+
+    try {
+      const promoted = await fixture.store.promotePendingApprovalToQueue({
+        issueKey: "zhyongrui/openclawcode#108",
+        request: createQueuedRun(108).request,
+        fallbackNotifyChannel: "discord",
+        fallbackNotifyTarget: "channel:999",
+      });
+
+      expect(promoted).toEqual({
+        issueKey: "zhyongrui/openclawcode#108",
+        notifyChannel: "discord",
+        notifyTarget: "channel:999",
+        request: createQueuedRun(108).request,
+      });
+    } finally {
+      await fs.rm(fixture.rootDir, { recursive: true, force: true });
+    }
+  });
 });

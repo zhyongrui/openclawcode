@@ -211,7 +211,8 @@ Current behavior:
 - latest per-issue status survives restart
 
 `/occode-start` now promotes a persisted pending approval into the durable run
-queue, and `/occode-skip` can cancel either a pending approval or a queued run.
+queue through an atomic store transition, and `/occode-skip` can cancel either
+a pending approval or a queued run.
 
 The next hardening step is reconciliation against GitHub and local run records,
 so state can heal even if the process dies mid-command or the remote issue/PR
