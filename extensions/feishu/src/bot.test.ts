@@ -18,9 +18,18 @@ const {
   mockDownloadMessageResourceFeishu,
   mockCreateFeishuClient,
   mockResolveAgentRoute,
+  mockMatchPluginCommand,
+  mockExecutePluginCommand,
 } = vi.hoisted(() => ({
   mockCreateFeishuReplyDispatcher: vi.fn(() => ({
-    dispatcher: vi.fn(),
+    dispatcher: {
+      sendToolResult: vi.fn(() => false),
+      sendBlockReply: vi.fn(() => false),
+      sendFinalReply: vi.fn(() => true),
+      waitForIdle: vi.fn(async () => {}),
+      getQueuedCounts: vi.fn(() => ({ tool: 0, block: 0, final: 1 })),
+      markComplete: vi.fn(),
+    },
     replyOptions: {},
     markDispatchIdle: vi.fn(),
   })),
@@ -40,6 +49,8 @@ const {
     mainSessionKey: "agent:main:main",
     matchedBy: "default",
   })),
+  mockMatchPluginCommand: vi.fn(() => null),
+  mockExecutePluginCommand: vi.fn(),
 }));
 
 vi.mock("./reply-dispatcher.js", () => ({
@@ -57,6 +68,11 @@ vi.mock("./media.js", () => ({
 
 vi.mock("./client.js", () => ({
   createFeishuClient: mockCreateFeishuClient,
+}));
+
+vi.mock("../../../src/plugins/commands.js", () => ({
+  matchPluginCommand: mockMatchPluginCommand,
+  executePluginCommand: mockExecutePluginCommand,
 }));
 
 function createRuntimeEnv(): RuntimeEnv {
@@ -140,6 +156,8 @@ describe("handleFeishuMessage command authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockShouldComputeCommandAuthorized.mockReset().mockReturnValue(true);
+    mockMatchPluginCommand.mockReset().mockReturnValue(null);
+    mockExecutePluginCommand.mockReset();
     mockResolveAgentRoute.mockReturnValue({
       agentId: "main",
       channel: "feishu",
@@ -269,6 +287,75 @@ describe("handleFeishuMessage command authorization", () => {
         Surface: "feishu",
       }),
     );
+  });
+
+  it("executes matched plugin commands directly without invoking agent dispatch", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(true);
+    mockResolveCommandAuthorizedFromAuthorizers.mockReturnValue(true);
+    mockMatchPluginCommand.mockReturnValue({
+      command: {
+        name: "occode-start",
+        description: "Start openclawcode issue workflow",
+        pluginId: "openclawcode",
+        acceptsArgs: true,
+        handler: vi.fn(),
+      },
+      args: "#36",
+    });
+    mockExecutePluginCommand.mockResolvedValue({ text: "plugin output" });
+
+    const cfg: ClawdbotConfig = {
+      commands: { useAccessGroups: true },
+      channels: {
+        feishu: {
+          dmPolicy: "open",
+          allowFrom: ["ou-attacker"],
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-attacker",
+        },
+      },
+      message: {
+        message_id: "msg-plugin-command",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "/occode-start #36" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockExecutePluginCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        senderId: "ou-attacker",
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-start #36",
+        from: "feishu:ou-attacker",
+        to: "user:ou-attacker",
+        accountId: "default",
+      }),
+    );
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
+
+    const dispatcherRecord = mockCreateFeishuReplyDispatcher.mock.results[0]?.value as {
+      dispatcher: {
+        sendFinalReply: ReturnType<typeof vi.fn>;
+        markComplete: ReturnType<typeof vi.fn>;
+        waitForIdle: ReturnType<typeof vi.fn>;
+      };
+    };
+    expect(dispatcherRecord.dispatcher.sendFinalReply).toHaveBeenCalledWith({
+      text: "plugin output",
+    });
+    expect(dispatcherRecord.dispatcher.markComplete).toHaveBeenCalledTimes(1);
+    expect(dispatcherRecord.dispatcher.waitForIdle).toHaveBeenCalledTimes(1);
   });
 
   it("reads pairing allow store for non-command DMs when dmPolicy is pairing", async () => {

@@ -256,6 +256,16 @@ One real-gateway runtime constraint is now explicit:
 - this prevents barrel-export collisions from surfacing in the `jiti` plugin
   loader during real gateway startup
 
+Another real-gateway constraint is now explicit on Feishu:
+
+- provider-integrated chat commands must attempt gateway-side plugin-command
+  dispatch before falling through to the embedded agent
+- otherwise registered plugin commands such as `/occode-start` can be treated
+  as normal chat and never reach the plugin command registry
+
+The Feishu provider path now performs that direct plugin-command check and
+reply dispatch before agent handoff.
+
 The bundled extension now also has direct plugin-behavior tests in:
 
 - `extensions/openclawcode/index.test.ts`

@@ -13,6 +13,7 @@ import {
   resolveDefaultGroupPolicy,
   warnMissingProviderGroupPolicyFallbackOnce,
 } from "openclaw/plugin-sdk/feishu";
+import { executePluginCommand, matchPluginCommand } from "../../../src/plugins/commands.js";
 import { resolveFeishuAccount } from "./accounts.js";
 import { createFeishuClient } from "./client.js";
 import { tryRecordMessage, tryRecordMessagePersistent } from "./dedup.js";
@@ -504,6 +505,23 @@ function normalizeFeishuCommandProbeBody(text: string): string {
     .replace(/(^|\s)@[^/\s]+(?=\s|$|\/)/gu, "$1")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function hasRenderableReplyPayload(payload: {
+  text?: string;
+  mediaUrl?: string;
+  mediaUrls?: string[];
+}): boolean {
+  if ((payload.text ?? "").trim()) {
+    return true;
+  }
+  if ((payload.mediaUrl ?? "").trim()) {
+    return true;
+  }
+  if (payload.mediaUrls?.some((entry) => entry.trim())) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -1357,6 +1375,63 @@ export async function handleFeishuMessage(params: {
     const replyTargetMessageId =
       isTopicSession || configReplyInThread ? (ctx.rootId ?? ctx.messageId) : ctx.messageId;
     const threadReply = isGroup ? (groupSession?.threadReply ?? false) : false;
+
+    const pluginMatch = matchPluginCommand(commandProbeBody);
+    if (pluginMatch) {
+      const { dispatcher, markDispatchIdle } = createFeishuReplyDispatcher({
+        cfg,
+        agentId: route.agentId,
+        runtime: runtime as RuntimeEnv,
+        chatId: ctx.chatId,
+        replyToMessageId: replyTargetMessageId,
+        skipReplyToInMessages: !isGroup,
+        replyInThread,
+        rootId: ctx.rootId,
+        threadReply,
+        mentionTargets: ctx.mentionTargets,
+        accountId: account.accountId,
+        messageCreateTimeMs,
+      });
+      const pluginReply = await executePluginCommand({
+        command: pluginMatch.command,
+        args: pluginMatch.args,
+        senderId: ctx.senderOpenId,
+        channel: "feishu",
+        isAuthorizedSender: commandAuthorized === true,
+        commandBody: commandProbeBody,
+        config: cfg,
+        from: feishuFrom,
+        to: feishuTo,
+        accountId: account.accountId,
+      });
+
+      log(
+        `feishu[${account.accountId}]: executing plugin command ${pluginMatch.command.name} (session=${route.sessionKey})`,
+      );
+      await core.channel.reply.withReplyDispatcher({
+        dispatcher,
+        onSettled: () => {
+          markDispatchIdle();
+        },
+        run: async () => {
+          const finalPayload = hasRenderableReplyPayload(pluginReply)
+            ? pluginReply
+            : { text: "Done." };
+          const queuedFinal = dispatcher.sendFinalReply(finalPayload);
+          return { queuedFinal, counts: dispatcher.getQueuedCounts() };
+        },
+      });
+
+      if (isGroup && historyKey && chatHistories) {
+        clearHistoryEntriesIfEnabled({
+          historyMap: chatHistories,
+          historyKey,
+          limit: historyLimit,
+        });
+      }
+
+      return;
+    }
 
     if (broadcastAgents) {
       // Cross-account dedup: in multi-account setups, Feishu delivers the same
