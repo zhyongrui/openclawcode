@@ -265,6 +265,8 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.scopeCheckPassed).toBe(false);
+    expect(payload.scopeBlockedFileCount).toBe(1);
     expect(payload.autoMergePolicyEligible).toBe(false);
     expect(payload.autoMergePolicyReason).toBe(
       "Not eligible for auto-merge: the scope check did not pass.",
