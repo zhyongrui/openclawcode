@@ -101,12 +101,38 @@ function resolveMergedPullRequest(run: WorkflowRun): {
   };
 }
 
+function formatWorkflowStageLabel(stage: WorkflowRun["stage"]): string {
+  return stage
+    .split("-")
+    .map((segment) => {
+      const upper = segment.toUpperCase();
+      if (upper === "PR") {
+        return upper;
+      }
+      return segment.charAt(0).toUpperCase() + segment.slice(1);
+    })
+    .join(" ");
+}
+
+function resolveRunSummary(run: WorkflowRun): string {
+  if (run.verificationReport?.summary) {
+    return run.verificationReport.summary;
+  }
+
+  if (run.buildResult?.summary) {
+    return run.buildResult.summary;
+  }
+
+  return `Run is at the ${run.stage} stage.`;
+}
+
 function toWorkflowRunJson(run: WorkflowRun) {
   const autoMergePolicy = resolveAutoMergePolicy(run);
   const publishedPullRequest = resolvePublishedPullRequest(run);
   const mergedPullRequest = resolveMergedPullRequest(run);
   return {
     ...run,
+    stageLabel: formatWorkflowStageLabel(run.stage),
     changedFiles: run.buildResult?.changedFiles ?? [],
     issueClassification: run.buildResult?.issueClassification ?? null,
     scopeCheck: run.buildResult?.scopeCheck ?? null,
@@ -120,6 +146,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     mergedPullRequestMergedAt: mergedPullRequest.mergedPullRequestMergedAt,
     verificationDecision: run.verificationReport?.decision ?? null,
     verificationSummary: run.verificationReport?.summary ?? null,
+    runSummary: resolveRunSummary(run),
     autoMergePolicyEligible: autoMergePolicy.autoMergePolicyEligible,
     autoMergePolicyReason: autoMergePolicy.autoMergePolicyReason,
   };

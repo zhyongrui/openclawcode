@@ -39,6 +39,8 @@ describe("openclawCodeRunCommand", () => {
 
     expect(runtime.log).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.stage).toBe("ready-for-human-review");
+    expect(payload.stageLabel).toBe("Ready For Human Review");
     expect(payload.changedFiles).toEqual([
       "src/openclawcode/app/run-issue.ts",
       "src/openclawcode/contracts/types.ts",
@@ -68,6 +70,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationSummary).toBe(
       "Verification completed and the run is ready for human review.",
     );
+    expect(payload.runSummary).toBe(payload.verificationSummary);
     expect(payload.verificationReport.decision).toBe(payload.verificationDecision);
     expect(payload.verificationReport.summary).toBe(payload.verificationSummary);
     expect(payload.autoMergePolicyEligible).toBe(true);
@@ -90,6 +93,7 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.changedFiles).toEqual([]);
+    expect(payload.stageLabel).toBe("Draft PR Opened");
     expect(payload.issueClassification).toBeNull();
     expect(payload.scopeCheck).toBeNull();
     expect(payload.draftPullRequestBranchName).toBeNull();
@@ -102,6 +106,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.mergedPullRequestMergedAt).toBeNull();
     expect(payload.verificationDecision).toBeNull();
     expect(payload.verificationSummary).toBeNull();
+    expect(payload.runSummary).toBe("Run is at the draft-pr-opened stage.");
     expect(payload.autoMergePolicyEligible).toBe(false);
     expect(payload.autoMergePolicyReason).toBe(
       "Not eligible for auto-merge: verification has not approved the run.",
@@ -130,6 +135,20 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.publishedPullRequestOpenedAt).toBeNull();
     expect(payload.pullRequestMerged).toBe(false);
     expect(payload.mergedPullRequestMergedAt).toBeNull();
+  });
+
+  it("falls back to the build summary when no verification summary exists", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        verificationReport: undefined,
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.verificationSummary).toBeNull();
+    expect(payload.runSummary).toBe("Updated JSON output");
   });
 
   it("blocks auto-merge when the build result is outside command-layer scope", async () => {
@@ -185,6 +204,7 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.stageLabel).toBe("Merged");
     expect(payload.pullRequestMerged).toBe(true);
     expect(payload.mergedPullRequestMergedAt).toBe("2026-01-02T03:04:05.000Z");
   });
