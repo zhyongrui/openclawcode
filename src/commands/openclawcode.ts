@@ -101,6 +101,18 @@ function resolveMergedPullRequest(run: WorkflowRun): {
   };
 }
 
+function resolveRunSummary(run: WorkflowRun): string {
+  if (run.verificationReport?.summary) {
+    return run.verificationReport.summary;
+  }
+
+  if (run.buildResult?.summary) {
+    return run.buildResult.summary;
+  }
+
+  return `Run is at the ${run.stage} stage.`;
+}
+
 function toWorkflowRunJson(run: WorkflowRun) {
   const autoMergePolicy = resolveAutoMergePolicy(run);
   const publishedPullRequest = resolvePublishedPullRequest(run);
@@ -120,6 +132,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     mergedPullRequestMergedAt: mergedPullRequest.mergedPullRequestMergedAt,
     verificationDecision: run.verificationReport?.decision ?? null,
     verificationSummary: run.verificationReport?.summary ?? null,
+    runSummary: resolveRunSummary(run),
     autoMergePolicyEligible: autoMergePolicy.autoMergePolicyEligible,
     autoMergePolicyReason: autoMergePolicy.autoMergePolicyReason,
   };
