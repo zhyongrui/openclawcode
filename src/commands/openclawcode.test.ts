@@ -44,6 +44,7 @@ describe("openclawCodeRunCommand", () => {
       "src/openclawcode/contracts/types.ts",
     ]);
     expect(payload.buildResult.changedFiles).toEqual(payload.changedFiles);
+    expect(payload.stageLabel).toBe("Ready For Human Review");
     expect(payload.issueClassification).toBe("command-layer");
     expect(payload.scopeCheck).toEqual({
       ok: true,
@@ -90,6 +91,7 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.changedFiles).toEqual([]);
+    expect(payload.stageLabel).toBe("Draft Pr Opened");
     expect(payload.issueClassification).toBeNull();
     expect(payload.scopeCheck).toBeNull();
     expect(payload.draftPullRequestBranchName).toBeNull();

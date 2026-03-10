@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { WorkflowRun } from "../openclawcode/index.js";
+import type { WorkflowRun, WorkflowStage } from "../openclawcode/index.js";
 import {
   FileSystemWorkflowRunStore,
   GitHubPullRequestMerger,
@@ -101,12 +101,20 @@ function resolveMergedPullRequest(run: WorkflowRun): {
   };
 }
 
+function formatWorkflowStageLabel(stage: WorkflowStage): string {
+  return stage
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function toWorkflowRunJson(run: WorkflowRun) {
   const autoMergePolicy = resolveAutoMergePolicy(run);
   const publishedPullRequest = resolvePublishedPullRequest(run);
   const mergedPullRequest = resolveMergedPullRequest(run);
   return {
     ...run,
+    stageLabel: formatWorkflowStageLabel(run.stage),
     changedFiles: run.buildResult?.changedFiles ?? [],
     issueClassification: run.buildResult?.issueClassification ?? null,
     scopeCheck: run.buildResult?.scopeCheck ?? null,
