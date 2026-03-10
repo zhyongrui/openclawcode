@@ -60,6 +60,11 @@ export interface OpenClawCodeChatopsCommand {
   };
 }
 
+export interface OpenClawCodeChatopsRepoRef {
+  owner: string;
+  repo: string;
+}
+
 export interface OpenClawCodeChatopsRunRequest {
   owner: string;
   repo: string;
@@ -156,6 +161,10 @@ function hasMatchingLabel(labels: string[], filters: string[]): boolean {
 
 export function formatIssueKey(issue: Pick<IssueRef, "owner" | "repo" | "number">): string {
   return `${issue.owner}/${issue.repo}#${issue.number}`;
+}
+
+export function formatRepoKey(repo: OpenClawCodeChatopsRepoRef): string {
+  return `${repo.owner}/${repo.repo}`;
 }
 
 export function resolveOpenClawCodePluginConfig(
@@ -341,6 +350,32 @@ function parseIssueReference(
     owner: defaults.owner,
     repo: defaults.repo,
     number: Number.parseInt(simpleMatch.groups.issue, 10),
+  };
+}
+
+export function parseChatopsRepoReference(
+  value: string,
+  defaults?: { owner?: string; repo?: string },
+): OpenClawCodeChatopsRepoRef | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    if (!defaults?.owner || !defaults?.repo) {
+      return null;
+    }
+    return {
+      owner: defaults.owner,
+      repo: defaults.repo,
+    };
+  }
+
+  const explicitMatch = /^(?<owner>[A-Za-z0-9_.-]+)\/(?<repo>[A-Za-z0-9_.-]+)$/.exec(trimmed);
+  if (!explicitMatch?.groups) {
+    return null;
+  }
+
+  return {
+    owner: explicitMatch.groups.owner,
+    repo: explicitMatch.groups.repo,
   };
 }
 

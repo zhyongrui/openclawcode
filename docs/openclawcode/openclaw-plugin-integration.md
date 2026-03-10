@@ -50,6 +50,8 @@ The recommended implementation path is:
    - `/occode-start owner/repo#123`
    - `/occode-skip owner/repo#123`
    - `/occode-status owner/repo#123`
+   - `/occode-bind owner/repo`
+   - `/occode-unbind owner/repo`
 5. the plugin converts `/occode-start` into an `openclawcode` run request
 6. the workflow core executes the issue run in an isolated worktree
 7. the plugin posts status back to chat:
@@ -88,6 +90,7 @@ The only adjustment is implementation strategy:
 - repo-to-chat routing config
 - pending approval records
 - plugin commands for approve / skip / status
+- plugin commands for binding a repo to the current chat target
 - queue or background service for long-running execution
 - chat notification formatting
 
@@ -272,6 +275,21 @@ The bundled extension now also has direct plugin-behavior tests in:
 
 Those tests cover real registered route/command behavior for the first webhook
 and chat-command flows.
+
+The adapter now also supports chat-target binding at runtime:
+
+- `/occode-bind owner/repo`
+  - saves the current chat target as the notification destination for that repo
+- `/occode-unbind owner/repo`
+  - removes the saved binding and falls back to static plugin config
+
+Webhook issue notifications now resolve notification delivery in this order:
+
+1. saved repo binding from plugin state
+2. static repo `notifyChannel` / `notifyTarget` config
+
+This closes the main product gap between "workflow core works" and
+"new GitHub issue can proactively reach the human in the chat they actually use".
 
 ## Release Model
 

@@ -363,6 +363,7 @@ describe("openclawcode extension", () => {
         commandBody: "/occode-start #204",
         args: "#204",
         from: "chat:override",
+        to: "user:current-chat",
         config: {},
       });
 
@@ -376,6 +377,110 @@ describe("openclawcode extension", () => {
       expect(snapshot.statusByIssue["zhyongrui/openclawcode#204"]).toBe(
         "Approved in chat and queued.",
       );
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("binds the current chat as the repo notification target through /occode-bind", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      const result = await fixture.commands.get("occode-bind")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-bind",
+        args: "",
+        to: "user:bound-chat",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: [
+          "Bound zhyongrui/openclawcode notifications to this chat.",
+          "Channel: feishu",
+          "Target: user:bound-chat",
+        ].join("\n"),
+      });
+      expect(await fixture.store.getRepoBinding("zhyongrui/openclawcode")).toMatchObject({
+        repoKey: "zhyongrui/openclawcode",
+        notifyChannel: "feishu",
+        notifyTarget: "user:bound-chat",
+      });
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses a saved repo binding as the webhook notification target", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.setRepoBinding({
+        repoKey: "zhyongrui/openclawcode",
+        notifyChannel: "feishu",
+        notifyTarget: "user:bound-chat",
+      });
+      mocked.readRequestBodyWithLimit.mockResolvedValue(issueWebhookPayload(209));
+      const res = createMockServerResponse();
+
+      const handled = await fixture.route?.handler(
+        localReq({
+          method: "POST",
+          url: "/plugins/openclawcode/github",
+          headers: {
+            "x-github-event": "issues",
+          },
+        }),
+        res,
+      );
+
+      expect(handled).toBe(true);
+      expect(res.statusCode).toBe(202);
+      expect(mocked.runMessageAction).toHaveBeenCalledTimes(1);
+      expect(mocked.runMessageAction.mock.calls[0]?.[0]).toMatchObject({
+        action: "send",
+        params: expect.objectContaining({
+          channel: "feishu",
+          to: "user:bound-chat",
+          message: expect.stringContaining("/occode-start zhyongrui/openclawcode#209"),
+        }),
+      });
+      const snapshot = await fixture.store.snapshot();
+      expect(snapshot.pendingApprovals).toEqual([
+        {
+          issueKey: "zhyongrui/openclawcode#209",
+          notifyChannel: "feishu",
+          notifyTarget: "user:bound-chat",
+        },
+      ]);
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("removes a saved repo binding through /occode-unbind", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.setRepoBinding({
+        repoKey: "zhyongrui/openclawcode",
+        notifyChannel: "feishu",
+        notifyTarget: "user:bound-chat",
+      });
+
+      const result = await fixture.commands.get("occode-unbind")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-unbind",
+        args: "",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: "Removed notification binding for zhyongrui/openclawcode.",
+      });
+      expect(await fixture.store.getRepoBinding("zhyongrui/openclawcode")).toBeUndefined();
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });

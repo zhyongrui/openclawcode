@@ -13,7 +13,9 @@ import {
   extractWorkflowRunFromCommandOutput,
   findLatestLocalRunStatusForIssue,
   formatIssueKey,
+  formatRepoKey,
   parseChatopsCommand,
+  parseChatopsRepoReference,
   collectLatestLocalRunStatuses,
   resolveOpenClawCodePluginConfig,
   syncIssueSnapshotFromGitHub,
@@ -43,6 +45,14 @@ function resolveDefaultRepoConfig(
   repoConfigs: OpenClawCodeChatopsRepoConfig[],
 ): OpenClawCodeChatopsRepoConfig | undefined {
   return repoConfigs.length === 1 ? repoConfigs[0] : undefined;
+}
+
+function resolveCommandNotifyTarget(ctx: {
+  to?: string;
+  from?: string;
+  senderId?: string;
+}): string | undefined {
+  return ctx.to?.trim() || ctx.from?.trim() || ctx.senderId?.trim();
 }
 
 function summarizeFailure(stderr: string, stdout: string): string {
@@ -232,12 +242,19 @@ async function handleGithubWebhook(
   }
 
   const issueKey = formatIssueKey(decision.issue);
+  const repoKey = formatRepoKey({
+    owner: matchingRepo.owner,
+    repo: matchingRepo.repo,
+  });
+  const binding = await store.getRepoBinding(repoKey);
+  const notifyChannel = binding?.notifyChannel ?? matchingRepo.notifyChannel;
+  const notifyTarget = binding?.notifyTarget ?? matchingRepo.notifyTarget;
   if (matchingRepo.triggerMode === "auto") {
     const enqueued = await store.enqueue(
       {
         issueKey,
-        notifyChannel: matchingRepo.notifyChannel,
-        notifyTarget: matchingRepo.notifyTarget,
+        notifyChannel,
+        notifyTarget,
         request: buildRunRequestFromCommand({
           command: {
             action: "start",
@@ -260,8 +277,8 @@ async function handleGithubWebhook(
     }
     await sendText({
       api,
-      channel: matchingRepo.notifyChannel,
-      target: matchingRepo.notifyTarget,
+      channel: notifyChannel,
+      target: notifyTarget,
       text: [
         "openclawcode auto-started a new GitHub issue.",
         `Issue: ${issueKey}`,
@@ -277,8 +294,8 @@ async function handleGithubWebhook(
     });
     const accepted = await store.addPendingApproval({
       issueKey,
-      notifyChannel: matchingRepo.notifyChannel,
-      notifyTarget: matchingRepo.notifyTarget,
+      notifyChannel,
+      notifyTarget,
     });
     if (!accepted) {
       res.statusCode = 202;
@@ -288,8 +305,8 @@ async function handleGithubWebhook(
     }
     await sendText({
       api,
-      channel: matchingRepo.notifyChannel,
-      target: matchingRepo.notifyTarget,
+      channel: notifyChannel,
+      target: notifyTarget,
       text: approvalMessage,
     });
   }
@@ -430,7 +447,7 @@ export default {
           config: repoConfig,
         });
         const notifyTarget =
-          ctx.from?.trim() ||
+          resolveCommandNotifyTarget(ctx) ||
           ctx.senderId?.trim() ||
           pendingApproval?.notifyTarget ||
           repoConfig.notifyTarget;
@@ -446,6 +463,80 @@ export default {
         }
 
         return { text: `Queued ${issueKey}. I will post status updates here.` };
+      },
+    });
+
+    api.registerCommand({
+      name: "occode-bind",
+      description: "Bind the current chat as the notification target for an openclawcode repo.",
+      acceptsArgs: true,
+      handler: async (ctx) => {
+        const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
+        const defaultRepo = resolveDefaultRepoConfig(pluginConfig.repos);
+        const repo = parseChatopsRepoReference(ctx.args ?? "", {
+          owner: defaultRepo?.owner,
+          repo: defaultRepo?.repo,
+        });
+        if (!repo) {
+          return {
+            text:
+              "Usage: /occode-bind owner/repo\n" +
+              "Or, when exactly one repo is configured: /occode-bind",
+          };
+        }
+
+        const repoConfig = resolveRepoConfig(pluginConfig.repos, repo);
+        if (!repoConfig) {
+          return {
+            text: `No openclawcode repo config found for ${repo.owner}/${repo.repo}.`,
+          };
+        }
+
+        const notifyTarget = resolveCommandNotifyTarget(ctx);
+        if (!notifyTarget) {
+          return {
+            text: "This chat session did not expose a reply target, so I could not save a binding.",
+          };
+        }
+
+        const binding = await store.setRepoBinding({
+          repoKey: formatRepoKey(repo),
+          notifyChannel: ctx.channel?.trim() || repoConfig.notifyChannel,
+          notifyTarget,
+        });
+        return {
+          text: [
+            `Bound ${binding.repoKey} notifications to this chat.`,
+            `Channel: ${binding.notifyChannel}`,
+            `Target: ${binding.notifyTarget}`,
+          ].join("\n"),
+        };
+      },
+    });
+
+    api.registerCommand({
+      name: "occode-unbind",
+      description: "Remove the saved notification target binding for an openclawcode repo.",
+      acceptsArgs: true,
+      handler: async (ctx) => {
+        const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
+        const defaultRepo = resolveDefaultRepoConfig(pluginConfig.repos);
+        const repo = parseChatopsRepoReference(ctx.args ?? "", {
+          owner: defaultRepo?.owner,
+          repo: defaultRepo?.repo,
+        });
+        if (!repo) {
+          return {
+            text:
+              "Usage: /occode-unbind owner/repo\n" +
+              "Or, when exactly one repo is configured: /occode-unbind",
+          };
+        }
+
+        const repoKey = formatRepoKey(repo);
+        return (await store.removeRepoBinding(repoKey))
+          ? { text: `Removed notification binding for ${repoKey}.` }
+          : { text: `No saved notification binding found for ${repoKey}.` };
       },
     });
 

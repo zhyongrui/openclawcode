@@ -30,6 +30,13 @@ export interface OpenClawCodeIssueStatusSnapshot {
   pullRequestUrl?: string;
 }
 
+export interface OpenClawCodeRepoNotificationBinding {
+  repoKey: string;
+  notifyChannel: string;
+  notifyTarget: string;
+  updatedAt: string;
+}
+
 interface OpenClawCodeQueueState {
   version: 1;
   pendingApprovals: OpenClawCodePendingApproval[];
@@ -37,6 +44,7 @@ interface OpenClawCodeQueueState {
   currentRun?: OpenClawCodeQueuedRun;
   statusByIssue: Record<string, string>;
   statusSnapshotsByIssue: Record<string, OpenClawCodeIssueStatusSnapshot>;
+  repoBindingsByRepo: Record<string, OpenClawCodeRepoNotificationBinding>;
 }
 
 function cloneDefaultState(): OpenClawCodeQueueState {
@@ -46,6 +54,7 @@ function cloneDefaultState(): OpenClawCodeQueueState {
     queue: [],
     statusByIssue: {},
     statusSnapshotsByIssue: {},
+    repoBindingsByRepo: {},
   };
 }
 
@@ -83,6 +92,29 @@ function normalizeStatusSnapshot(raw: unknown): OpenClawCodeIssueStatusSnapshot 
   };
 }
 
+function normalizeRepoNotificationBinding(
+  raw: unknown,
+): OpenClawCodeRepoNotificationBinding | undefined {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  const candidate = raw as Partial<OpenClawCodeRepoNotificationBinding>;
+  if (
+    typeof candidate.repoKey !== "string" ||
+    typeof candidate.notifyChannel !== "string" ||
+    typeof candidate.notifyTarget !== "string" ||
+    typeof candidate.updatedAt !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    repoKey: candidate.repoKey,
+    notifyChannel: candidate.notifyChannel,
+    notifyTarget: candidate.notifyTarget,
+    updatedAt: candidate.updatedAt,
+  };
+}
+
 function buildStatusSnapshot(params: {
   run: WorkflowRun;
   status: string;
@@ -117,6 +149,16 @@ function normalizeState(raw: unknown): OpenClawCodeQueueState {
       return snapshot ? [[issueKey, snapshot]] : [];
     }),
   );
+  const repoBindingsByRepo = Object.fromEntries(
+    Object.entries(
+      candidate.repoBindingsByRepo && typeof candidate.repoBindingsByRepo === "object"
+        ? candidate.repoBindingsByRepo
+        : {},
+    ).flatMap(([repoKey, value]) => {
+      const binding = normalizeRepoNotificationBinding(value);
+      return binding ? [[repoKey, binding]] : [];
+    }),
+  );
   return {
     version: 1,
     pendingApprovals: Array.isArray(candidate.pendingApprovals) ? candidate.pendingApprovals : [],
@@ -130,6 +172,7 @@ function normalizeState(raw: unknown): OpenClawCodeQueueState {
         ? candidate.statusByIssue
         : {},
     statusSnapshotsByIssue,
+    repoBindingsByRepo,
   };
 }
 
@@ -176,6 +219,11 @@ export class OpenClawCodeChatopsStore {
     return state.statusSnapshotsByIssue[issueKey];
   }
 
+  async getRepoBinding(repoKey: string): Promise<OpenClawCodeRepoNotificationBinding | undefined> {
+    const state = await this.loadState();
+    return state.repoBindingsByRepo[repoKey];
+  }
+
   async setStatus(issueKey: string, status: string): Promise<void> {
     const state = await this.loadState();
     state.statusByIssue[issueKey] = status;
@@ -202,6 +250,33 @@ export class OpenClawCodeChatopsStore {
     state.statusByIssue[snapshot.issueKey] = snapshot.status;
     state.statusSnapshotsByIssue[snapshot.issueKey] = snapshot;
     await this.saveState(state);
+  }
+
+  async setRepoBinding(params: {
+    repoKey: string;
+    notifyChannel: string;
+    notifyTarget: string;
+  }): Promise<OpenClawCodeRepoNotificationBinding> {
+    const state = await this.loadState();
+    const binding: OpenClawCodeRepoNotificationBinding = {
+      repoKey: params.repoKey,
+      notifyChannel: params.notifyChannel,
+      notifyTarget: params.notifyTarget,
+      updatedAt: new Date().toISOString(),
+    };
+    state.repoBindingsByRepo[params.repoKey] = binding;
+    await this.saveState(state);
+    return binding;
+  }
+
+  async removeRepoBinding(repoKey: string): Promise<boolean> {
+    const state = await this.loadState();
+    if (!state.repoBindingsByRepo[repoKey]) {
+      return false;
+    }
+    delete state.repoBindingsByRepo[repoKey];
+    await this.saveState(state);
+    return true;
   }
 
   async reconcileStatuses(statuses: Record<string, string>): Promise<void> {
