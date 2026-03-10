@@ -76,6 +76,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationSummary).toBe(
       "Verification completed and the run is ready for human review.",
     );
+    expect(payload.verificationFindingCount).toBe(0);
+    expect(payload.verificationMissingCoverageCount).toBe(0);
     expect(payload.runSummary).toBe(payload.verificationSummary);
     expect(payload.autoMergeDisposition).toBeNull();
     expect(payload.autoMergeDispositionReason).toBeNull();
@@ -118,6 +120,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.mergedPullRequestMergedAt).toBeNull();
     expect(payload.verificationDecision).toBeNull();
     expect(payload.verificationSummary).toBeNull();
+    expect(payload.verificationFindingCount).toBeNull();
+    expect(payload.verificationMissingCoverageCount).toBeNull();
     expect(payload.runSummary).toBe("Run is at the draft-pr-opened stage.");
     expect(payload.autoMergeDisposition).toBeNull();
     expect(payload.autoMergeDispositionReason).toBeNull();
@@ -203,6 +207,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.autoMergeDisposition).toBeNull();
     expect(payload.autoMergeDispositionReason).toBeNull();
     expect(payload.verificationSummary).toBeNull();
+    expect(payload.verificationFindingCount).toBeNull();
+    expect(payload.verificationMissingCoverageCount).toBeNull();
     expect(payload.runSummary).toBe("Updated JSON output");
   });
 
@@ -254,6 +260,26 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.autoMergePolicyReason).toBe(
       "Not eligible for auto-merge: the scope check did not pass.",
     );
+  });
+
+  it("prints verification counts for ready-for-human-review runs", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        verificationReport: {
+          decision: "request-changes",
+          summary: "Verification found blocking issues.",
+          findings: ["Bug one", "Bug two"],
+          missingCoverage: ["Missing test one"],
+          followUps: [],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.verificationFindingCount).toBe(2);
+    expect(payload.verificationMissingCoverageCount).toBe(1);
   });
 
   it("prints failed auto-merge disposition when merge execution fails", async () => {

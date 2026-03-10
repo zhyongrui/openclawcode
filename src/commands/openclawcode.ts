@@ -252,6 +252,8 @@ function toWorkflowRunJson(run: WorkflowRun) {
     mergedPullRequestMergedAt: mergedPullRequest.mergedPullRequestMergedAt,
     verificationDecision: run.verificationReport?.decision ?? null,
     verificationSummary: run.verificationReport?.summary ?? null,
+    verificationFindingCount: run.verificationReport?.findings.length ?? null,
+    verificationMissingCoverageCount: run.verificationReport?.missingCoverage.length ?? null,
     runSummary: resolveRunSummary(run),
     autoMergeDisposition: autoMergeDisposition.autoMergeDisposition,
     autoMergeDispositionReason: autoMergeDisposition.autoMergeDispositionReason,
