@@ -54,6 +54,8 @@ describe("openclawCodeRunCommand", () => {
       blockedFiles: [],
       summary: "Scope check passed for command-layer issue.",
     });
+    expect(payload.scopeCheckPassed).toBe(true);
+    expect(payload.scopeBlockedFileCount).toBe(0);
     expect(payload.buildResult.issueClassification).toBe(payload.issueClassification);
     expect(payload.buildResult.scopeCheck).toEqual(payload.scopeCheck);
     expect(payload.draftPullRequestBranchName).toBe("openclawcode/issue-2");
@@ -110,6 +112,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.stageLabel).toBe("Draft PR Opened");
     expect(payload.issueClassification).toBeNull();
     expect(payload.scopeCheck).toBeNull();
+    expect(payload.scopeCheckPassed).toBeNull();
+    expect(payload.scopeBlockedFileCount).toBeNull();
     expect(payload.draftPullRequestBranchName).toBeNull();
     expect(payload.draftPullRequestBaseBranch).toBeNull();
     expect(payload.draftPullRequestNumber).toBeNull();
