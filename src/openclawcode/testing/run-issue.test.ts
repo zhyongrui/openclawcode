@@ -122,11 +122,13 @@ class NoopShellRunner implements ShellRunner {
 
 class FakePublisher implements PullRequestPublisher {
   published = 0;
+  drafts: boolean[] = [];
 
   constructor(private readonly value: PullRequestRef) {}
 
-  async publish(): Promise<PullRequestRef> {
+  async publish(params: { draft?: boolean }): Promise<PullRequestRef> {
     this.published += 1;
+    this.drafts.push(params.draft ?? true);
     return this.value;
   }
 }
@@ -155,14 +157,6 @@ class NoCommitPublisher implements PullRequestPublisher {
   }
 }
 
-class FailingReadyForReviewGitHubClient extends FakeGitHubClient {
-  override async markPullRequestReadyForReview(): Promise<void> {
-    throw new Error(
-      'GitHub API request failed: 403 Forbidden {"message":"Resource not accessible by personal access token"}',
-    );
-  }
-}
-
 class NotFoundReadyForReviewGitHubClient extends FakeGitHubClient {
   override async markPullRequestReadyForReview(): Promise<void> {
     throw new Error('GitHub API request failed: 404 Not Found {"message":"Not Found"}');
@@ -183,6 +177,10 @@ describe("runIssueWorkflow", () => {
       };
       const merger = new FakeMerger();
       const github = new FakeGitHubClient();
+      const publisher = new FakePublisher({
+        number: 99,
+        url: "https://github.com/zhyongrui/openclawcode/pull/99",
+      });
       const run = await runIssueWorkflow(
         {
           owner: "zhyongrui",
@@ -208,10 +206,7 @@ describe("runIssueWorkflow", () => {
           store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
           worktreeManager: new FakeWorkspaceManager(workspace, ["src/commands/openclawcode.ts"]),
           shellRunner: new NoopShellRunner(),
-          publisher: new FakePublisher({
-            number: 99,
-            url: "https://github.com/zhyongrui/openclawcode/pull/99",
-          }),
+          publisher,
           merger,
           now: createSequenceNow(),
         },
@@ -220,9 +215,12 @@ describe("runIssueWorkflow", () => {
       expect(run.stage).toBe("merged");
       expect(run.draftPullRequest?.number).toBe(99);
       expect(run.draftPullRequest?.url).toBe("https://github.com/zhyongrui/openclawcode/pull/99");
-      expect(run.history).toContain("Draft PR marked ready for review");
+      expect(run.history).toContain(
+        "Pull request opened: https://github.com/zhyongrui/openclawcode/pull/99",
+      );
       expect(merger.merged).toBe(1);
-      expect(github.promoted).toEqual([99]);
+      expect(github.promoted).toEqual([]);
+      expect(publisher.drafts).toEqual([false]);
 
       const savedRun = JSON.parse(
         await fs.readFile(path.join(stateDir, "runs", `${run.id}.json`), "utf8"),
@@ -310,6 +308,10 @@ describe("runIssueWorkflow", () => {
         preparedAt: "2026-03-09T13:00:00.000Z",
       };
       const github = new FakeGitHubClient();
+      const publisher = new FakePublisher({
+        number: 101,
+        url: "https://github.com/zhyongrui/openclawcode/pull/101",
+      });
       const run = await runIssueWorkflow(
         {
           owner: "zhyongrui",
@@ -335,17 +337,16 @@ describe("runIssueWorkflow", () => {
           store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
           worktreeManager: new FakeWorkspaceManager(workspace, ["src/commands/openclawcode.ts"]),
           shellRunner: new NoopShellRunner(),
-          publisher: new FakePublisher({
-            number: 101,
-            url: "https://github.com/zhyongrui/openclawcode/pull/101",
-          }),
+          publisher,
           merger: new FailingMerger(),
           now: createSequenceNow(),
         },
       );
 
       expect(run.stage).toBe("ready-for-human-review");
-      expect(run.history).toContain("Draft PR marked ready for review");
+      expect(run.history).toContain(
+        "Pull request opened: https://github.com/zhyongrui/openclawcode/pull/101",
+      );
       expect(run.history.at(-1)).toContain(
         "Auto-merge failed: GitHub token cannot merge pull requests.",
       );
@@ -360,13 +361,14 @@ describe("runIssueWorkflow", () => {
       expect(savedRun.history.at(-1)).toContain(
         "Auto-merge failed: GitHub token cannot merge pull requests.",
       );
-      expect(github.promoted).toEqual([101]);
+      expect(github.promoted).toEqual([]);
+      expect(publisher.drafts).toEqual([false]);
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }
   });
 
-  it("keeps approved runs at ready-for-human-review when ready-for-review promotion fails", async () => {
+  it("still opens draft pull requests when merge-on-approve is disabled", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
 
     try {
@@ -377,7 +379,10 @@ describe("runIssueWorkflow", () => {
         worktreePath: "/repo/.openclawcode/worktrees/run-61",
         preparedAt: "2026-03-09T13:00:00.000Z",
       };
-      const merger = new FakeMerger();
+      const publisher = new FakePublisher({
+        number: 103,
+        url: "https://github.com/zhyongrui/openclawcode/pull/103",
+      });
       const run = await runIssueWorkflow(
         {
           owner: "zhyongrui",
@@ -387,10 +392,9 @@ describe("runIssueWorkflow", () => {
           stateDir,
           baseBranch: "main",
           openPullRequest: true,
-          mergeOnApprove: true,
         },
         {
-          github: new FailingReadyForReviewGitHubClient(),
+          github: new FakeGitHubClient(),
           planner: new HeuristicPlanner(),
           builder: new FakeBuilder(),
           verifier: new FakeVerifier({
@@ -403,37 +407,22 @@ describe("runIssueWorkflow", () => {
           store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
           worktreeManager: new FakeWorkspaceManager(workspace, ["src/commands/openclawcode.ts"]),
           shellRunner: new NoopShellRunner(),
-          publisher: new FakePublisher({
-            number: 103,
-            url: "https://github.com/zhyongrui/openclawcode/pull/103",
-          }),
-          merger,
+          publisher,
           now: createSequenceNow(),
         },
       );
 
       expect(run.stage).toBe("ready-for-human-review");
-      expect(merger.merged).toBe(0);
-      expect(run.history.at(-1)).toContain(
-        "Ready-for-review failed: GitHub token cannot update pull requests.",
+      expect(run.history).toContain(
+        "Draft PR opened: https://github.com/zhyongrui/openclawcode/pull/103",
       );
-      expect(run.history.at(-1)).toContain(
-        "Ensure GH_TOKEN/GITHUB_TOKEN has pull request write access.",
-      );
-
-      const savedRun = JSON.parse(
-        await fs.readFile(path.join(stateDir, "runs", `${run.id}.json`), "utf8"),
-      ) as typeof run;
-      expect(savedRun.stage).toBe("ready-for-human-review");
-      expect(savedRun.history.at(-1)).toContain(
-        "Ready-for-review failed: GitHub token cannot update pull requests.",
-      );
+      expect(publisher.drafts).toEqual([true]);
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }
   });
 
-  it("surfaces masked 404 ready-for-review failures with token guidance", async () => {
+  it("does not depend on draft promotion when merge-on-approve publishes a ready pull request", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
 
     try {
@@ -479,25 +468,18 @@ describe("runIssueWorkflow", () => {
         },
       );
 
-      expect(run.stage).toBe("ready-for-human-review");
-      expect(merger.merged).toBe(0);
-      expect(run.history.at(-1)).toContain(
-        "Ready-for-review failed: GitHub token may not be allowed to update pull requests.",
+      expect(run.stage).toBe("merged");
+      expect(merger.merged).toBe(1);
+      expect(run.history).toContain(
+        "Pull request opened: https://github.com/zhyongrui/openclawcode/pull/104",
       );
-      expect(run.history.at(-1)).toContain(
-        "GitHub can mask this permission failure as 404 Not Found on draft-promotion requests.",
-      );
-      expect(run.history.at(-1)).toContain(
-        "Ensure GH_TOKEN/GITHUB_TOKEN has pull request write access.",
-      );
+      expect(run.history).toContain("Pull request merged automatically");
 
       const savedRun = JSON.parse(
         await fs.readFile(path.join(stateDir, "runs", `${run.id}.json`), "utf8"),
       ) as typeof run;
-      expect(savedRun.stage).toBe("ready-for-human-review");
-      expect(savedRun.history.at(-1)).toContain(
-        "Ready-for-review failed: GitHub token may not be allowed to update pull requests.",
-      );
+      expect(savedRun.stage).toBe("merged");
+      expect(savedRun.history).toContain("Pull request merged automatically");
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }

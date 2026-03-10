@@ -25,7 +25,7 @@ export interface IssueWorkflowRequest extends RepoRef {
 }
 
 export interface PullRequestPublisher {
-  publish(params: { run: WorkflowRun; repo: RepoRef }): Promise<PullRequestRef>;
+  publish(params: { run: WorkflowRun; repo: RepoRef; draft?: boolean }): Promise<PullRequestRef>;
 }
 
 export interface PullRequestMerger {
@@ -90,33 +90,17 @@ function formatAutoMergeFailure(error: unknown): string {
   return `Auto-merge failed: ${message}`;
 }
 
-function formatReadyForReviewFailure(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("Resource not accessible by personal access token")) {
-    return [
-      "Ready-for-review failed: GitHub token cannot update pull requests.",
-      "Ensure GH_TOKEN/GITHUB_TOKEN has pull request write access.",
-      `Original error: ${message}`,
-    ].join(" ");
-  }
-  if (message.includes("404 Not Found")) {
-    return [
-      "Ready-for-review failed: GitHub token may not be allowed to update pull requests.",
-      "GitHub can mask this permission failure as 404 Not Found on draft-promotion requests.",
-      "Ensure GH_TOKEN/GITHUB_TOKEN has pull request write access.",
-      `Original error: ${message}`,
-    ].join(" ");
-  }
-  return `Ready-for-review failed: ${message}`;
-}
-
 export class GitHubPullRequestPublisher implements PullRequestPublisher {
   constructor(
     private readonly github: GitHubIssueClient,
     private readonly shellRunner: ShellRunner,
   ) {}
 
-  async publish(params: { run: WorkflowRun; repo: RepoRef }): Promise<PullRequestRef> {
+  async publish(params: {
+    run: WorkflowRun;
+    repo: RepoRef;
+    draft?: boolean;
+  }): Promise<PullRequestRef> {
     if (!params.run.workspace || !params.run.draftPullRequest) {
       throw new Error("Run workspace and draft pull request are required before publishing.");
     }
@@ -136,6 +120,7 @@ export class GitHubPullRequestPublisher implements PullRequestPublisher {
       body: params.run.draftPullRequest.body,
       head: params.run.workspace.branchName,
       base: params.run.draftPullRequest.baseBranch,
+      draft: params.draft,
     });
   }
 }
@@ -194,6 +179,7 @@ export async function runIssueWorkflow(
   await deps.store.save(run);
 
   let publishedPullRequest: PullRequestRef | undefined;
+  const publishAsDraft = !request.mergeOnApprove;
   if (request.openPullRequest && deps.publisher) {
     if (shouldSkipDraftPullRequest(run)) {
       run = noteRun(run, formatNoCommitPullRequestNote(run), now);
@@ -205,6 +191,7 @@ export async function runIssueWorkflow(
             owner: request.owner,
             repo: request.repo,
           },
+          draft: publishAsDraft,
         });
         run = noteRun(
           {
@@ -216,7 +203,7 @@ export async function runIssueWorkflow(
               openedAt: now(),
             },
           },
-          `Draft PR opened: ${publishedPullRequest.url}`,
+          `${publishAsDraft ? "Draft PR" : "Pull request"} opened: ${publishedPullRequest.url}`,
           now,
         );
       } catch (error) {
@@ -248,20 +235,6 @@ export async function runIssueWorkflow(
     deps.merger
   ) {
     if (shouldAutoMerge(run)) {
-      try {
-        await deps.github.markPullRequestReadyForReview({
-          owner: request.owner,
-          repo: request.repo,
-          pullNumber: publishedPullRequest.number,
-        });
-        run = noteRun(run, "Draft PR marked ready for review", now);
-        await deps.store.save(run);
-      } catch (error) {
-        run = noteRun(run, formatReadyForReviewFailure(error), now);
-        await deps.store.save(run);
-        return run;
-      }
-
       try {
         await deps.merger.merge({
           run,

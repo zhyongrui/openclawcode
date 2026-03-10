@@ -350,6 +350,23 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.autoMergeDisposition).toBeNull();
     expect(payload.autoMergeDispositionReason).toBeNull();
   });
+
+  it("treats ready pull request publication notes as published pr dispositions", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        history: ["Pull request opened: https://github.com/openclaw/openclaw/pull/42"],
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.draftPullRequestDisposition).toBe("published");
+    expect(payload.draftPullRequestDispositionReason).toBe(
+      "Pull request opened: https://github.com/openclaw/openclaw/pull/42",
+    );
+    expect(payload.pullRequestPublished).toBe(true);
+  });
 });
 
 function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {

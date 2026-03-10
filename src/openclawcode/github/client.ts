@@ -16,6 +16,7 @@ export interface DraftPullRequestRequest extends RepoRef {
   body: string;
   head: string;
   base: string;
+  draft?: boolean;
 }
 
 export interface MergePullRequestRequest extends RepoRef {
@@ -48,7 +49,9 @@ function resolveToken(env: NodeJS.ProcessEnv): string | undefined {
 
 function normalizeLabels(raw: GitHubIssueResponse["labels"]): string[] {
   if (Array.isArray(raw)) {
-    return raw.map((label) => label.name).filter((name): name is string => typeof name === "string");
+    return raw
+      .map((label) => label.name)
+      .filter((name): name is string => typeof name === "string");
   }
   return (
     raw?.nodes
@@ -85,7 +88,13 @@ export function resolveGitHubRepoFromRemoteUrl(remote: string): RepoRef {
 }
 
 export async function resolveGitHubRepoFromGit(repoRoot: string): Promise<RepoRef> {
-  const result = await execFileUtf8("git", ["-C", repoRoot, "config", "--get", "remote.origin.url"]);
+  const result = await execFileUtf8("git", [
+    "-C",
+    repoRoot,
+    "config",
+    "--get",
+    "remote.origin.url",
+  ]);
   if (result.code !== 0 || !result.stdout.trim()) {
     throw new Error("Unable to determine GitHub repository from git remote.origin.url");
   }
@@ -95,25 +104,26 @@ export async function resolveGitHubRepoFromGit(repoRoot: string): Promise<RepoRe
 export class GitHubRestClient implements GitHubIssueClient {
   constructor(
     private readonly token: string | undefined = resolveToken(process.env),
-    private readonly fetchFn: typeof fetch = fetch
+    private readonly fetchFn: typeof fetch = fetch,
   ) {}
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
+    const headers = new Headers(init?.headers);
+    headers.set("Accept", "application/vnd.github+json");
+    headers.set("X-GitHub-Api-Version", "2022-11-28");
+    if (this.token) {
+      headers.set("Authorization", `Bearer ${this.token}`);
+    }
     const response = await this.fetchFn(`https://api.github.com${path}`, {
       ...init,
-      headers: {
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
-        ...(init?.headers ?? {})
-      }
+      headers,
     });
     return await parseJsonResponse<T>(response);
   }
 
   async fetchIssue(ref: RepoRef & { issueNumber: number }): Promise<IssueRef> {
     const issue = await this.request<GitHubIssueResponse>(
-      `/repos/${ref.owner}/${ref.repo}/issues/${ref.issueNumber}`
+      `/repos/${ref.owner}/${ref.repo}/issues/${ref.issueNumber}`,
     );
     return {
       owner: ref.owner,
@@ -121,7 +131,7 @@ export class GitHubRestClient implements GitHubIssueClient {
       number: issue.number,
       title: issue.title,
       body: issue.body ?? undefined,
-      labels: normalizeLabels(issue.labels)
+      labels: normalizeLabels(issue.labels),
     };
   }
 
@@ -138,13 +148,13 @@ export class GitHubRestClient implements GitHubIssueClient {
           body: request.body,
           head: request.head,
           base: request.base,
-          draft: true
-        })
-      }
+          draft: request.draft ?? true,
+        }),
+      },
     );
     return {
       number: response.number,
-      url: response.html_url
+      url: response.html_url,
     };
   }
 
@@ -157,8 +167,8 @@ export class GitHubRestClient implements GitHubIssueClient {
     await this.request(
       `/repos/${request.owner}/${request.repo}/pulls/${request.pullNumber}/ready_for_review`,
       {
-        method: "POST"
-      }
+        method: "POST",
+      },
     );
   }
 
@@ -166,11 +176,14 @@ export class GitHubRestClient implements GitHubIssueClient {
     if (!this.token) {
       throw new Error("GitHub token missing. Set GITHUB_TOKEN or GH_TOKEN to merge pull requests.");
     }
-    await this.request(`/repos/${request.owner}/${request.repo}/pulls/${request.pullNumber}/merge`, {
-      method: "PUT",
-      body: JSON.stringify({
-        merge_method: request.mergeMethod ?? "squash"
-      })
-    });
+    await this.request(
+      `/repos/${request.owner}/${request.repo}/pulls/${request.pullNumber}/merge`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          merge_method: request.mergeMethod ?? "squash",
+        }),
+      },
+    );
   }
 }

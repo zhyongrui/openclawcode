@@ -137,8 +137,12 @@ function resolveDraftPullRequestDisposition(run: WorkflowRun): {
   const published = resolvePublishedPullRequest(run).pullRequestPublished;
   if (published) {
     const note =
-      [...run.history].toReversed().find((entry) => entry.startsWith("Draft PR opened:")) ??
-      "Draft PR published.";
+      [...run.history]
+        .toReversed()
+        .find(
+          (entry) =>
+            entry.startsWith("Draft PR opened:") || entry.startsWith("Pull request opened:"),
+        ) ?? "Draft PR published.";
     return {
       draftPullRequestDisposition: "published",
       draftPullRequestDispositionReason: note,
