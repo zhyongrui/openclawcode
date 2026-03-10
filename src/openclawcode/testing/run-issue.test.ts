@@ -72,13 +72,14 @@ class FakeWorkspaceManager implements WorkflowWorkspaceManager {
 class FakeBuilder implements Builder {
   constructor(
     private readonly scope: "command-layer" | "workflow-core" | "mixed" = "command-layer",
+    private readonly changedFiles: string[] = ["src/commands/openclawcode.ts"],
   ) {}
 
   async build(run: WorkflowRun): Promise<BuildResult> {
     return {
       branchName: run.workspace?.branchName ?? "openclawcode/issue-1",
       summary: "Builder updated the CLI implementation.",
-      changedFiles: ["src/commands/openclawcode.ts"],
+      changedFiles: this.changedFiles,
       issueClassification: this.scope,
       scopeCheck: {
         ok: true,
@@ -115,9 +116,12 @@ class NoopShellRunner implements ShellRunner {
 }
 
 class FakePublisher implements PullRequestPublisher {
+  published = 0;
+
   constructor(private readonly value: PullRequestRef) {}
 
   async publish(): Promise<PullRequestRef> {
+    this.published += 1;
     return this.value;
   }
 }
@@ -134,6 +138,14 @@ class FailingMerger implements PullRequestMerger {
   async merge(): Promise<void> {
     throw new Error(
       'GitHub API request failed: 403 Forbidden {"message":"Resource not accessible by personal access token"}',
+    );
+  }
+}
+
+class NoCommitPublisher implements PullRequestPublisher {
+  async publish(): Promise<PullRequestRef> {
+    throw new Error(
+      'GitHub API request failed: 422 Unprocessable Entity {"message":"Validation Failed","errors":[{"resource":"PullRequest","code":"custom","message":"No commits between main and openclawcode/issue-17-automerge-disposition"}]}',
     );
   }
 }
@@ -324,6 +336,113 @@ describe("runIssueWorkflow", () => {
       expect(savedRun.history.at(-1)).toContain(
         "Auto-merge failed: GitHub token cannot merge pull requests.",
       );
+    } finally {
+      await fs.rm(stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("skips draft pr publication when the run produces no changed files", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
+
+    try {
+      const workspace: WorkflowWorkspace = {
+        repoRoot: "/repo",
+        baseBranch: "main",
+        branchName: "openclawcode/issue-59",
+        worktreePath: "/repo/.openclawcode/worktrees/run-59",
+        preparedAt: "2026-03-09T13:00:00.000Z",
+      };
+      const publisher = new FakePublisher({
+        number: 102,
+        url: "https://github.com/zhyongrui/openclawcode/pull/102",
+      });
+      const run = await runIssueWorkflow(
+        {
+          owner: "zhyongrui",
+          repo: "openclawcode",
+          issueNumber: 59,
+          repoRoot: "/repo",
+          stateDir,
+          baseBranch: "main",
+          openPullRequest: true,
+        },
+        {
+          github: new FakeGitHubClient(),
+          planner: new HeuristicPlanner(),
+          builder: new FakeBuilder("command-layer", []),
+          verifier: new FakeVerifier({
+            decision: "approve-for-human-review",
+            summary: "Already implemented.",
+            findings: [],
+            missingCoverage: [],
+            followUps: [],
+          }),
+          store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
+          worktreeManager: new FakeWorkspaceManager(workspace, []),
+          shellRunner: new NoopShellRunner(),
+          publisher,
+          now: createSequenceNow(),
+        },
+      );
+
+      expect(run.stage).toBe("ready-for-human-review");
+      expect(run.history).toContain(
+        "Draft PR skipped: no new commits were produced between the base branch and openclawcode/issue-59.",
+      );
+      expect(run.draftPullRequest?.number).toBeUndefined();
+      expect(run.draftPullRequest?.url).toBeUndefined();
+      expect(publisher.published).toBe(0);
+    } finally {
+      await fs.rm(stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps the run usable when GitHub rejects PR creation because no commits exist", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
+
+    try {
+      const workspace: WorkflowWorkspace = {
+        repoRoot: "/repo",
+        baseBranch: "main",
+        branchName: "openclawcode/issue-60",
+        worktreePath: "/repo/.openclawcode/worktrees/run-60",
+        preparedAt: "2026-03-09T13:00:00.000Z",
+      };
+      const run = await runIssueWorkflow(
+        {
+          owner: "zhyongrui",
+          repo: "openclawcode",
+          issueNumber: 60,
+          repoRoot: "/repo",
+          stateDir,
+          baseBranch: "main",
+          openPullRequest: true,
+        },
+        {
+          github: new FakeGitHubClient(),
+          planner: new HeuristicPlanner(),
+          builder: new FakeBuilder(),
+          verifier: new FakeVerifier({
+            decision: "approve-for-human-review",
+            summary: "Looks good.",
+            findings: [],
+            missingCoverage: [],
+            followUps: [],
+          }),
+          store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
+          worktreeManager: new FakeWorkspaceManager(workspace, ["src/commands/openclawcode.ts"]),
+          shellRunner: new NoopShellRunner(),
+          publisher: new NoCommitPublisher(),
+          now: createSequenceNow(),
+        },
+      );
+
+      expect(run.stage).toBe("ready-for-human-review");
+      expect(run.history).toContain(
+        "Draft PR skipped: no new commits were produced between the base branch and openclawcode/issue-60.",
+      );
+      expect(run.draftPullRequest?.number).toBeUndefined();
+      expect(run.draftPullRequest?.url).toBeUndefined();
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }

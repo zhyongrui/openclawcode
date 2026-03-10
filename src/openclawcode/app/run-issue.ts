@@ -64,6 +64,20 @@ function shouldAutoMerge(run: WorkflowRun): boolean {
   );
 }
 
+function shouldSkipDraftPullRequest(run: WorkflowRun): boolean {
+  return (run.buildResult?.changedFiles.length ?? 0) === 0;
+}
+
+function isNoCommitPullRequestError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("No commits between");
+}
+
+function formatNoCommitPullRequestNote(run: WorkflowRun): string {
+  const branchName = run.workspace?.branchName ?? "the issue branch";
+  return `Draft PR skipped: no new commits were produced between the base branch and ${branchName}.`;
+}
+
 function formatAutoMergeFailure(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("Resource not accessible by personal access token")) {
@@ -161,26 +175,37 @@ export async function runIssueWorkflow(
 
   let publishedPullRequest: PullRequestRef | undefined;
   if (request.openPullRequest && deps.publisher) {
-    publishedPullRequest = await deps.publisher.publish({
-      run,
-      repo: {
-        owner: request.owner,
-        repo: request.repo,
-      },
-    });
-    run = noteRun(
-      {
-        ...run,
-        draftPullRequest: {
-          ...run.draftPullRequest!,
-          number: publishedPullRequest.number,
-          url: publishedPullRequest.url,
-          openedAt: now(),
-        },
-      },
-      `Draft PR opened: ${publishedPullRequest.url}`,
-      now,
-    );
+    if (shouldSkipDraftPullRequest(run)) {
+      run = noteRun(run, formatNoCommitPullRequestNote(run), now);
+    } else {
+      try {
+        publishedPullRequest = await deps.publisher.publish({
+          run,
+          repo: {
+            owner: request.owner,
+            repo: request.repo,
+          },
+        });
+        run = noteRun(
+          {
+            ...run,
+            draftPullRequest: {
+              ...run.draftPullRequest!,
+              number: publishedPullRequest.number,
+              url: publishedPullRequest.url,
+              openedAt: now(),
+            },
+          },
+          `Draft PR opened: ${publishedPullRequest.url}`,
+          now,
+        );
+      } catch (error) {
+        if (!isNoCommitPullRequestError(error)) {
+          throw error;
+        }
+        run = noteRun(run, formatNoCommitPullRequestNote(run), now);
+      }
+    }
     await deps.store.save(run);
   } else if (run.draftPullRequest) {
     run = {
