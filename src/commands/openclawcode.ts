@@ -92,10 +92,10 @@ function resolveAutoMergeDisposition(run: WorkflowRun): {
         entry.startsWith("Auto-merge failed:"),
     );
 
-  if (note === "Pull request merged automatically" || run.stage === "merged") {
+  if (note === "Pull request merged automatically") {
     return {
       autoMergeDisposition: "merged",
-      autoMergeDispositionReason: note ?? "Pull request merged automatically",
+      autoMergeDispositionReason: note,
     };
   }
 

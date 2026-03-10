@@ -244,6 +244,24 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.autoMergeDisposition).toBe("merged");
     expect(payload.autoMergeDispositionReason).toBe("Pull request merged automatically");
   });
+
+  it("leaves auto-merge disposition empty when the pr was merged without an auto-merge note", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        stage: "merged",
+        history: ["Pull request merged after manual approval"],
+        updatedAt: "2026-01-02T03:04:05.000Z",
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.pullRequestMerged).toBe(true);
+    expect(payload.mergedPullRequestMergedAt).toBe("2026-01-02T03:04:05.000Z");
+    expect(payload.autoMergeDisposition).toBeNull();
+    expect(payload.autoMergeDispositionReason).toBeNull();
+  });
 });
 
 function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
