@@ -34,3 +34,10 @@ Still pending for a fuller product loop:
 - stronger suitability/risk gating ahead of autonomous execution
 - richer verifier policy and human checkpoint enforcement
 - broader repository-aware test selection
+
+## Operator Recovery
+
+For manual recovery from chat, the bundled adapter also exposes `/occode-sync`.
+It runs one explicit reconciliation pass across local run records and tracked
+GitHub pull request status so operators can heal stale state after external
+changes or interrupted runs.
