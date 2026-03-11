@@ -62,6 +62,11 @@ GitHub webhook:
 ./scripts/openclawcode-webhook-tunnel.sh sync-hook
 ```
 
+In this temporary-ingress flow, `sync-hook` rewrites the current quick-tunnel
+webhook URL and also re-applies `OPENCLAWCODE_GITHUB_WEBHOOK_SECRET` from
+`~/.openclaw/openclawcode.env` when that variable is present. That helps avoid
+GitHub deliveries failing with `401 Invalid signature` after a tunnel rotation.
+
 Restart the tunnel and resync the webhook:
 
 ```bash
