@@ -230,6 +230,24 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.rerunReviewUrl).toBeNull();
   });
 
+  it("reports false when rerun context is absent", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        rerunContext: undefined,
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.rerunRequested).toBe(false);
+    expect(payload.rerunHasReviewContext).toBe(false);
+    expect(payload.rerunReviewDecision).toBeNull();
+    expect(payload.rerunReviewSubmittedAt).toBeNull();
+    expect(payload.rerunReviewSummary).toBeNull();
+    expect(payload.rerunReviewUrl).toBeNull();
+  });
+
   it("keeps unpublished local draft metadata separate from published pr fields", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
