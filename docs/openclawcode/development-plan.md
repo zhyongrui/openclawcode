@@ -112,8 +112,16 @@ turning the working loop into a cleanly operable product:
   - the current observed failure mode was an unexpected truncation of
     `src/commands/openclawcode.ts` inside the issue worktree, followed by a
     stalled run and host lint failure
-- the next engineering priority is now builder/worktree integrity hardening
-  ahead of the next merged-PR live validation
+- the builder/workspace response to that failure is now in place:
+  - `AgentBackedBuilder` fails fast when an existing tracked file becomes empty
+    in the isolated issue worktree
+  - `runIssueWorkflow` now persists stage-specific `failed` artifacts instead
+    of leaving the run stranded behind later shell or lint failures
+  - a fresh direct live rerun of issue `#44` on refreshed `main` no longer
+    reproduced the corruption and completed as a no-op
+    `ready-for-human-review` run
+- the next engineering priority is again one low-risk merged-PR live validation
+  on refreshed `main`
 - packaging and installation are now documented locally, but still need more
   proof under a fresh operator environment
 - policy docs lag the implemented guarded auto-merge behavior and need to be
@@ -134,8 +142,8 @@ The short-term objective is:
 - make chat the normal operator entrypoint instead of a side-channel demo
 - keep `main` usable as the live validation base instead of letting the real
   runner drift behind the latest integration work
-- harden the agent-backed builder so isolated worktrees fail closed instead of
-  silently corrupting files during live reruns
+- finish one clean merged-PR proof on refreshed `main` now that the latest live
+  rerun no longer reproduces the isolated-worktree corruption path
 - align the roadmap and setup docs with the behavior already proved in code
 
 ### Current Checkpoint
@@ -310,16 +318,14 @@ Priority backlog:
 
 1. finish one low-risk merged-PR validation on the live route after the sync
    branch is promoted back to `main`
-2. close the builder/workspace integrity failure exposed by the direct live
-   rerun of issue `#44`
-3. rerun a low-risk command-layer issue against the refreshed base and confirm
+2. rerun a low-risk command-layer issue against the refreshed base and confirm
    draft PR, verification, merge, and issue closure still work
-4. finish one low-risk merged-PR validation on the live route
-5. keep a small pool of low-risk validation issues ready so real failures can
+3. finish one low-risk merged-PR validation on the live route
+4. keep a small pool of low-risk validation issues ready so real failures can
    be reproduced quickly
-6. turn every live failure into either a regression test, a workflow rule, or
+5. turn every live failure into either a regression test, a workflow rule, or
    an operator runbook update
-7. record exact GitHub permission and reviewer caveats discovered during each
+6. record exact GitHub permission and reviewer caveats discovered during each
    live run
 
 Validation rule:
@@ -331,15 +337,12 @@ Validation rule:
 
 The next concrete issue order should be:
 
-1. finish the small rerun-json follow-up so downstream tooling can distinguish
-   reruns with and without attached review metadata
-2. close the builder/workspace integrity failure exposed by live issue `#44`
-3. re-run one low-risk command-layer issue on the live route from refreshed
+1. re-run one low-risk command-layer issue on the live route from refreshed
    `main`
-4. validate one real merged-PR lifecycle path on the refreshed base
-5. align README, plan, and operator docs with the exact live-tested branch and
+2. validate one real merged-PR lifecycle path on the refreshed base
+3. align README, plan, and operator docs with the exact live-tested branch and
    merge workflow
-6. only then start the next product slice beyond lifecycle and rerun hardening
+4. only then start the next product slice beyond lifecycle and rerun hardening
 
 This order is deliberate:
 
@@ -729,30 +732,21 @@ Why next:
 
 The next implementation slice should follow this order:
 
-1. reproduce the builder/workspace integrity failure from the live issue `#44`
-   rerun using the preserved run artifact and agent session log
-2. add a workflow guard that fails closed when an agent-backed builder leaves an
-   unexpectedly empty or otherwise corrupted tracked file in the isolated issue
-   worktree
-3. persist a visible failure reason in the run history and structured artifact
-   instead of letting the run stall behind a later lint failure
-4. add regression coverage for corrupted-worktree detection and for preserving
-   the main repository when the isolated worktree goes bad
-5. rerun a low-risk command-layer issue on refreshed `main` and confirm the
-   guarded failure mode is either gone or reported deterministically
-6. only after that, choose one low-risk tracked issue or fresh issue branch
-   suitable for merged-PR validation
-7. validate one real merged-PR lifecycle event against the live route
-8. verify chat notifications, snapshot updates, and `/occode-inbox` output for:
+1. choose one low-risk tracked issue or fresh issue branch suitable for merged
+   validation on refreshed `main`
+2. drive it to a real draft PR on the live route
+3. confirm the branch is mergeable and that the previous live rerun hardening
+   still holds on the refreshed base
+4. validate one real merged-PR lifecycle event against the live route
+5. verify chat notifications, snapshot updates, and `/occode-inbox` output for:
    - final merged disposition
    - notification delivery metadata
    - post-merge issue closure when policy allows it
-9. document the exact GitHub permissions, replay method, and operator caveats,
+6. document the exact GitHub permissions, replay method, and operator caveats,
    including the need for a second reviewer account when the PR author cannot
    request changes on their own pull request
-10. update the dev log and status docs with the guarded failure handling and
-    the later live merge result
-11. commit each slice only after targeted validation passes
+7. update the dev log and status docs with the live merge result
+8. commit the slice only after targeted validation passes
 
 ## Test Strategy
 

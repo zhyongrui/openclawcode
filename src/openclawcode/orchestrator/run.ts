@@ -84,7 +84,8 @@ export async function executePlanning(
   planner: Planner,
   now: TimestampFactory = nowIso,
 ): Promise<WorkflowRun> {
-  const planning = transitionRun(run, "planning", "Planning started", now);
+  const planning =
+    run.stage === "planning" ? run : transitionRun(run, "planning", "Planning started", now);
   const spec = await planner.plan(run.issue);
   return attachExecutionSpec(planning, spec, now);
 }
@@ -119,7 +120,8 @@ export async function executeVerification(
   verifier: Verifier,
   now: TimestampFactory = nowIso,
 ): Promise<WorkflowRun> {
-  const verifying = transitionRun(run, "verifying", "Verification started", now);
+  const verifying =
+    run.stage === "verifying" ? run : transitionRun(run, "verifying", "Verification started", now);
   const report = await verifier.verify(verifying);
   return applyVerificationDecision(verifying, report, now);
 }

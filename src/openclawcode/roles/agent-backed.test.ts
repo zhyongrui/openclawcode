@@ -2,8 +2,9 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { execFileUtf8 } from "../../daemon/exec-file.js";
 import type { WorkflowRun } from "../contracts/index.js";
-import type { AgentRunner, ShellRunner } from "../runtime/index.js";
+import { HostShellRunner, type AgentRunner, type ShellRunner } from "../runtime/index.js";
 import { AgentBackedBuilder, __testing } from "./agent-backed.js";
 
 function createRun(): WorkflowRun {
@@ -53,6 +54,31 @@ function createRun(): WorkflowRun {
     },
     history: [],
   };
+}
+
+async function runGit(cwd: string, args: string[]): Promise<string> {
+  const result = await execFileUtf8("git", ["-C", cwd, ...args]);
+  if (result.code !== 0) {
+    throw new Error(result.stderr || `git ${args.join(" ")} failed`);
+  }
+  return result.stdout.trim();
+}
+
+async function createTempRepo(): Promise<string> {
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-agent-backed-"));
+  await runGit(rootDir, ["init"]);
+  await runGit(rootDir, ["config", "user.name", "OpenClaw Code Tests"]);
+  await runGit(rootDir, ["config", "user.email", "tests@openclawcode.local"]);
+  await fs.mkdir(path.join(rootDir, "src", "commands"), { recursive: true });
+  await fs.writeFile(
+    path.join(rootDir, "src", "commands", "openclawcode.ts"),
+    "export const value = 1;\n",
+    "utf8",
+  );
+  await runGit(rootDir, ["add", "src/commands/openclawcode.ts"]);
+  await runGit(rootDir, ["commit", "-m", "init"]);
+  await runGit(rootDir, ["branch", "-M", "main"]);
+  return rootDir;
 }
 
 describe("AgentBackedBuilder prompt", () => {
@@ -109,6 +135,18 @@ class FakeAgentRunner implements AgentRunner {
   }
 }
 
+class TruncatingAgentRunner implements AgentRunner {
+  constructor(private readonly targetPath: string) {}
+
+  async run() {
+    await fs.writeFile(this.targetPath, "", "utf8");
+    return {
+      text: "Attempted the change.",
+      raw: {},
+    };
+  }
+}
+
 class FakeShellRunner implements ShellRunner {
   async run(request: { cwd: string; command: string }) {
     return {
@@ -150,6 +188,43 @@ describe("AgentBackedBuilder scope enforcement", () => {
           },
         }),
       ).rejects.toThrow(/workflow-core files/i);
+    } finally {
+      await fs.rm(worktreePath, { recursive: true, force: true });
+    }
+  });
+
+  it("fails fast when an existing tracked file becomes empty in the isolated worktree", async () => {
+    const worktreePath = await createTempRepo();
+    const builder = new AgentBackedBuilder({
+      agentRunner: new TruncatingAgentRunner(
+        path.join(worktreePath, "src", "commands", "openclawcode.ts"),
+      ),
+      shellRunner: new HostShellRunner(),
+      testCommands: [],
+      autoCommit: false,
+      collectChangedFiles: async () => ["src/commands/openclawcode.ts"],
+    });
+
+    try {
+      await expect(
+        builder.build({
+          ...createRun(),
+          issue: {
+            ...createRun().issue,
+            number: 44,
+            title: "Expose rerunHasReviewContext in openclaw code run JSON",
+          },
+          workspace: {
+            ...createRun().workspace!,
+            repoRoot: worktreePath,
+            worktreePath,
+          },
+        }),
+      ).rejects.toThrow(/Builder workspace integrity check failed/i);
+
+      expect(
+        await fs.readFile(path.join(worktreePath, "src", "commands", "openclawcode.ts"), "utf8"),
+      ).toBe("");
     } finally {
       await fs.rm(worktreePath, { recursive: true, force: true });
     }

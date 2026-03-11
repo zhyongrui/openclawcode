@@ -79,12 +79,17 @@ loop with:
   - `rerunRequested`
   - `rerunHasReviewContext`
   - rerun review decision, timestamp, summary, and URL fields when present
+- builder/workspace integrity guardrails that now:
+  - fail fast when an existing tracked file becomes empty inside the isolated
+    issue worktree
+  - persist stage-specific `failed` workflow artifacts instead of leaving the
+    run stranded behind a later shell or lint failure
+- a fresh direct live rerun of issue `#44` on refreshed `main` that completed
+  as a no-op `ready-for-human-review` run instead of reproducing the earlier
+  stalled-planning corruption path
 
 Still pending for a fuller product loop:
 
-- a builder/workspace integrity guard for agent-backed live reruns after the
-  refreshed-`main` issue `#44` attempt exposed isolated-worktree file
-  truncation
 - stronger suitability/risk gating ahead of autonomous execution
 - one separate low-risk merged-PR validation on the live route
 - broader policy-doc polish

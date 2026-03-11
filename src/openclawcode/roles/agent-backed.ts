@@ -196,6 +196,67 @@ async function autoCommitChanges(
   }
 }
 
+async function readTrackedFileSizeFromHead(
+  workspaceDir: string,
+  shellRunner: ShellRunner,
+  relativePath: string,
+): Promise<number | null> {
+  const result = await shellRunner.run({
+    cwd: workspaceDir,
+    command: `git ls-tree -l HEAD -- ${JSON.stringify(relativePath)}`,
+  });
+  if (result.code !== 0) {
+    throw new Error(result.stderr || `Failed to inspect tracked file size for ${relativePath}`);
+  }
+
+  const line = result.stdout
+    .split("\n")
+    .map((entry) => entry.trim())
+    .find(Boolean);
+  if (!line) {
+    return null;
+  }
+
+  const fields = line.split(/\s+/);
+  const size = Number.parseInt(fields[3] ?? "", 10);
+  return Number.isFinite(size) ? size : null;
+}
+
+async function findUnexpectedlyEmptyTrackedFiles(
+  workspaceDir: string,
+  shellRunner: ShellRunner,
+  changedFiles: string[],
+): Promise<string[]> {
+  const offenders: string[] = [];
+
+  for (const relativePath of changedFiles) {
+    const absolutePath = path.join(workspaceDir, relativePath);
+    const stat = await fs
+      .stat(absolutePath)
+      .catch((error: NodeJS.ErrnoException) =>
+        error.code === "ENOENT" ? null : Promise.reject(error),
+      );
+    if (!stat?.isFile() || stat.size > 0) {
+      continue;
+    }
+
+    const trackedSize = await readTrackedFileSizeFromHead(workspaceDir, shellRunner, relativePath);
+    if (trackedSize != null && trackedSize > 0) {
+      offenders.push(relativePath);
+    }
+  }
+
+  return offenders;
+}
+
+function formatUnexpectedEmptyTrackedFilesError(paths: string[]): string {
+  return [
+    "Builder workspace integrity check failed: existing tracked file(s) became empty in the isolated worktree.",
+    `Files: ${paths.join(", ")}`,
+    "This usually indicates agent path drift or a broken file-edit bridge.",
+  ].join(" ");
+}
+
 export class AgentBackedBuilder implements Builder {
   constructor(
     private readonly options: AgentBackedBuilderOptions & {
@@ -218,6 +279,15 @@ export class AgentBackedBuilder implements Builder {
     });
 
     const changedFiles = await this.options.collectChangedFiles(run);
+    const unexpectedlyEmptyTrackedFiles = await findUnexpectedlyEmptyTrackedFiles(
+      run.workspace.worktreePath,
+      this.options.shellRunner,
+      changedFiles,
+    );
+    if (unexpectedlyEmptyTrackedFiles.length > 0) {
+      throw new Error(formatUnexpectedEmptyTrackedFilesError(unexpectedlyEmptyTrackedFiles));
+    }
+
     const scopeCheck = checkBuildScope(run, changedFiles);
     if (!scopeCheck.ok) {
       throw new Error(scopeCheck.summary);

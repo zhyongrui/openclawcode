@@ -62,6 +62,11 @@ function trimSingleLine(value: string | undefined): string | undefined {
   return singleLine && singleLine.length > 0 ? singleLine : undefined;
 }
 
+function formatWorkflowFailureNote(stageLabel: string, error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return `${stageLabel} failed: ${trimSingleLine(message) ?? `${stageLabel} failed.`}`;
+}
+
 function attachRerunContext(
   run: WorkflowRun,
   rerunContext: WorkflowRerunContext,
@@ -243,16 +248,37 @@ export async function runIssueWorkflow(
   }
   await deps.store.save(run);
 
-  run = await executePlanning(run, deps.planner, now);
+  run = transitionRun(run, "planning", "Planning started", now);
   await deps.store.save(run);
 
-  const workspace = await deps.worktreeManager.prepare({
-    repoRoot: request.repoRoot,
-    worktreeRoot: path.join(request.stateDir, "worktrees"),
-    branchName: request.branchName ?? defaultBranchName(request.issueNumber),
-    baseBranch: request.baseBranch,
-    runId: run.id,
-  });
+  try {
+    run = await executePlanning(run, deps.planner, now);
+  } catch (error) {
+    run = transitionRun(run, "failed", formatWorkflowFailureNote("Planning", error), now);
+    await deps.store.save(run);
+    throw error;
+  }
+  await deps.store.save(run);
+
+  let workspace: WorkflowWorkspace;
+  try {
+    workspace = await deps.worktreeManager.prepare({
+      repoRoot: request.repoRoot,
+      worktreeRoot: path.join(request.stateDir, "worktrees"),
+      branchName: request.branchName ?? defaultBranchName(request.issueNumber),
+      baseBranch: request.baseBranch,
+      runId: run.id,
+    });
+  } catch (error) {
+    run = transitionRun(
+      run,
+      "failed",
+      formatWorkflowFailureNote("Workspace preparation", error),
+      now,
+    );
+    await deps.store.save(run);
+    throw error;
+  }
   run = noteRun(
     {
       ...run,
@@ -263,7 +289,16 @@ export async function runIssueWorkflow(
   );
   await deps.store.save(run);
 
-  run = await executeBuild(run, deps.builder);
+  run = transitionRun(run, "building", "Build started", now);
+  await deps.store.save(run);
+
+  try {
+    run = await executeBuild(run, deps.builder);
+  } catch (error) {
+    run = transitionRun(run, "failed", formatWorkflowFailureNote("Build", error), now);
+    await deps.store.save(run);
+    throw error;
+  }
   await deps.store.save(run);
 
   let publishedPullRequest: PullRequestRef | undefined;
@@ -340,7 +375,16 @@ export async function runIssueWorkflow(
     await deps.store.save(run);
   }
 
-  run = await executeVerification(run, deps.verifier, now);
+  run = transitionRun(run, "verifying", "Verification started", now);
+  await deps.store.save(run);
+
+  try {
+    run = await executeVerification(run, deps.verifier, now);
+  } catch (error) {
+    run = transitionRun(run, "failed", formatWorkflowFailureNote("Verification", error), now);
+    await deps.store.save(run);
+    throw error;
+  }
   await deps.store.save(run);
 
   if (

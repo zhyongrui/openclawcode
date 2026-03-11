@@ -148,6 +148,14 @@ class FakeVerifier implements Verifier {
   }
 }
 
+class FailingBuilder implements Builder {
+  constructor(private readonly error: Error) {}
+
+  async build(): Promise<BuildResult> {
+    throw this.error;
+  }
+}
+
 class NoopShellRunner implements ShellRunner {
   commands: string[] = [];
 
@@ -553,6 +561,64 @@ describe("runIssueWorkflow", () => {
       expect(savedRun.draftPullRequest?.number).toBe(206);
       expect(savedRun.history).toContain(
         `Reusing existing pull request: ${existingPullRequest.url}`,
+      );
+    } finally {
+      await fs.rm(stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("persists a failed run with an explicit build failure note when the builder aborts", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
+
+    try {
+      const workspace: WorkflowWorkspace = {
+        repoRoot: "/repo",
+        baseBranch: "main",
+        branchName: "openclawcode/issue-66",
+        worktreePath: "/repo/.openclawcode/worktrees/run-66",
+        preparedAt: "2026-03-09T13:00:00.000Z",
+      };
+
+      await expect(
+        runIssueWorkflow(
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            issueNumber: 66,
+            repoRoot: "/repo",
+            stateDir,
+            baseBranch: "main",
+          },
+          {
+            github: new FakeGitHubClient(),
+            planner: new HeuristicPlanner(),
+            builder: new FailingBuilder(
+              new Error(
+                "Builder workspace integrity check failed: existing tracked file(s) became empty in the isolated worktree. Files: src/commands/openclawcode.ts",
+              ),
+            ),
+            verifier: new FakeVerifier({
+              decision: "approve-for-human-review",
+              summary: "Looks good.",
+              findings: [],
+              missingCoverage: [],
+              followUps: [],
+            }),
+            store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
+            worktreeManager: new FakeWorkspaceManager(workspace, ["src/commands/openclawcode.ts"]),
+            shellRunner: new NoopShellRunner(),
+            now: createSequenceNow(),
+          },
+        ),
+      ).rejects.toThrow(/Builder workspace integrity check failed/i);
+
+      const store = new FileSystemWorkflowRunStore(path.join(stateDir, "runs"));
+      const [savedRun] = await store.list();
+
+      expect(savedRun?.stage).toBe("failed");
+      expect(savedRun?.history).toContain("Build started");
+      expect(savedRun?.history.at(-1)).toContain(
+        "Build failed: Builder workspace integrity check failed: existing tracked file(s) became empty in the isolated worktree.",
       );
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
