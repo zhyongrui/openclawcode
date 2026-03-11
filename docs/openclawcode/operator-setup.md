@@ -235,6 +235,17 @@ At that point the supported setup is complete.
 The next validation target should be a real `pull_request` or `pull_request_review`
 event replay against the same route.
 
+Staged fs-tool validation note:
+
+- default live behavior still denies the runner-added `edit` and `write` tools
+- when validating the deterministic sandbox edit path, export
+  `OPENCLAWCODE_ENABLE_FS_TOOLS=edit` before restarting the gateway or running a
+  direct `openclaw code run ...` workflow
+- only use `OPENCLAWCODE_ENABLE_FS_TOOLS=edit,write` when you explicitly want a
+  broader fs-tool replay
+- unset the variable after the validation window if you want to return to the
+  conservative default
+
 Operator caveat for live review replay:
 
 - the author of a GitHub pull request cannot submit `Request changes` on their

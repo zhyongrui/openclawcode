@@ -91,6 +91,24 @@ openclaw code run \
   --merge-on-approve
 ```
 
+## Staged FS-Tool Validation
+
+When validating the deterministic sandbox edit rewrite on a low-risk issue, use
+the runner switch instead of changing code:
+
+```bash
+OPENCLAWCODE_ENABLE_FS_TOOLS=edit \
+openclaw code run \
+  --issue 123 \
+  --owner zhyongrui \
+  --repo openclawcode \
+  --repo-root /home/zyr/pros/openclawcode \
+  --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs"
+```
+
+Use `OPENCLAWCODE_ENABLE_FS_TOOLS=edit,write` only when you intentionally want
+to validate both runner-added fs tools in the same trial.
+
 ## Artifacts To Inspect
 
 After a run, inspect:
