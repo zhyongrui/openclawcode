@@ -57,6 +57,7 @@ real bundled OpenClaw chatops adapter:
 - bundled OpenClaw plugin command surface:
   - `/occode-start`
   - `/occode-status`
+  - `/occode-inbox`
   - `/occode-skip`
   - `/occode-sync`
 - repository notification bindings for chat delivery

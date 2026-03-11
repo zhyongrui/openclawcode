@@ -767,6 +767,136 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("shows pending, running, queued, and recent activity through /occode-inbox", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.addPendingApproval({
+        issueKey: "zhyongrui/openclawcode#301",
+        notifyChannel: "telegram",
+        notifyTarget: "chat:primary",
+      });
+      await fixture.store.enqueue(
+        {
+          issueKey: "zhyongrui/openclawcode#303",
+          notifyChannel: "telegram",
+          notifyTarget: "chat:primary",
+          request: {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            issueNumber: 303,
+            repoRoot: fixture.repoRoot,
+            baseBranch: "main",
+            branchName: "openclawcode/issue-303",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+            openPullRequest: true,
+            mergeOnApprove: true,
+          },
+        },
+        "Queued.",
+      );
+      await fixture.store.enqueue(
+        {
+          issueKey: "zhyongrui/openclawcode#302",
+          notifyChannel: "telegram",
+          notifyTarget: "chat:primary",
+          request: {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            issueNumber: 302,
+            repoRoot: fixture.repoRoot,
+            baseBranch: "main",
+            branchName: "openclawcode/issue-302",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+            openPullRequest: true,
+            mergeOnApprove: true,
+          },
+        },
+        "Queued.",
+      );
+      await fixture.store.startNext("Running.");
+      await fixture.store.setStatusSnapshot({
+        issueKey: "zhyongrui/openclawcode#304",
+        status: "openclawcode status for zhyongrui/openclawcode#304\nStage: Merged",
+        stage: "merged",
+        runId: "run-304",
+        updatedAt: "2026-03-11T03:00:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 304,
+        branchName: "openclawcode/issue-304",
+        pullRequestNumber: 404,
+        pullRequestUrl: "https://github.com/zhyongrui/openclawcode/pull/404",
+      });
+      await fixture.store.setStatusSnapshot({
+        issueKey: "zhyongrui/openclawcode#305",
+        status: "openclawcode status for zhyongrui/openclawcode#305\nStage: Ready For Human Review",
+        stage: "ready-for-human-review",
+        runId: "run-305",
+        updatedAt: "2026-03-11T02:58:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 305,
+        branchName: "openclawcode/issue-305",
+      });
+
+      const result = await fixture.commands.get("occode-inbox")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-inbox",
+        args: "",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: [
+          "openclawcode inbox for zhyongrui/openclawcode",
+          "Pending approvals: 1",
+          "- zhyongrui/openclawcode#301 | Awaiting chat approval.",
+          "Running: 1",
+          "- zhyongrui/openclawcode#303 | Running.",
+          "Queued: 1",
+          "- zhyongrui/openclawcode#302 | Queued.",
+          "Recent completed: 2",
+          "- zhyongrui/openclawcode#304 Merged | PR #404 | 2026-03-11T03:00:00.000Z",
+          "- zhyongrui/openclawcode#305 Ready For Human Review | 2026-03-11T02:58:00.000Z",
+        ].join("\n"),
+      });
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("shows an empty summary through /occode-inbox when there is no tracked activity", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      const result = await fixture.commands.get("occode-inbox")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-inbox",
+        args: "",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: [
+          "openclawcode inbox for zhyongrui/openclawcode",
+          "Pending approvals: 0",
+          "Running: 0",
+          "Queued: 0",
+          "Recent completed: 0",
+        ].join("\n"),
+      });
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
   it("reconciles local runs and GitHub snapshots through /occode-sync", async () => {
     const fixture = await registerPluginFixture();
     try {

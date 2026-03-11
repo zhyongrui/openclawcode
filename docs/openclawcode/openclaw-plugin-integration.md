@@ -50,6 +50,7 @@ The recommended implementation path is:
    - `/occode-start owner/repo#123`
    - `/occode-skip owner/repo#123`
    - `/occode-status owner/repo#123`
+   - `/occode-inbox owner/repo`
    - `/occode-bind owner/repo`
    - `/occode-unbind owner/repo`
 5. the plugin converts `/occode-start` into an `openclawcode` run request
@@ -182,7 +183,7 @@ The repository now includes:
 - `extensions/openclawcode/index.ts`
   - bundled plugin entrypoint
   - GitHub issue webhook route at `/plugins/openclawcode/github`
-  - `/occode-start`, `/occode-status`, `/occode-skip`
+  - `/occode-start`, `/occode-status`, `/occode-inbox`, `/occode-skip`
   - sequential background runner service
 - `extensions/openclawcode/openclaw.plugin.json`
   - plugin config schema for repo mappings
@@ -275,6 +276,13 @@ The bundled extension now also has direct plugin-behavior tests in:
 
 Those tests cover real registered route/command behavior for the first webhook
 and chat-command flows.
+
+There is now also a compact read-only repo inbox command:
+
+- `/occode-inbox owner/repo`
+
+It summarizes pending approvals, the current running issue, queued runs, and
+the newest completed tracked runs for one configured repository.
 
 The adapter now also supports chat-target binding at runtime:
 

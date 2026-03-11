@@ -21,6 +21,7 @@ import {
   syncIssueSnapshotFromGitHub,
   type GitHubIssueWebhookEvent,
   type OpenClawCodeChatopsRepoConfig,
+  type OpenClawCodeIssueStatusSnapshot,
 } from "../../src/integrations/openclaw-plugin/index.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
@@ -53,6 +54,116 @@ function resolveCommandNotifyTarget(ctx: {
   senderId?: string;
 }): string | undefined {
   return ctx.to?.trim() || ctx.from?.trim() || ctx.senderId?.trim();
+}
+
+function issueKeyMatchesRepo(issueKey: string, repo: { owner: string; repo: string }): boolean {
+  return issueKey.toLowerCase().startsWith(`${formatRepoKey(repo).toLowerCase()}#`);
+}
+
+function formatStageLabel(stage: string): string {
+  return stage
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function trimToSingleLine(value: string | undefined): string | undefined {
+  const singleLine = value
+    ?.split("\n")
+    .map((line) => line.trim())
+    .find(Boolean);
+  return singleLine && singleLine.length > 0 ? singleLine : undefined;
+}
+
+function summarizeRecentSnapshot(snapshot: OpenClawCodeIssueStatusSnapshot): string {
+  const details = [
+    formatStageLabel(snapshot.stage),
+    snapshot.pullRequestNumber ? `PR #${snapshot.pullRequestNumber}` : undefined,
+    snapshot.updatedAt,
+  ].filter(Boolean);
+  return `${snapshot.issueKey} ${details.join(" | ")}`;
+}
+
+function buildInboxMessage(params: {
+  repo: { owner: string; repo: string };
+  state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
+}): string {
+  const repoKey = formatRepoKey(params.repo);
+  const pending = params.state.pendingApprovals
+    .filter((entry) => issueKeyMatchesRepo(entry.issueKey, params.repo))
+    .map((entry) => ({
+      issueKey: entry.issueKey,
+      summary:
+        trimToSingleLine(params.state.statusByIssue[entry.issueKey]) ?? "Awaiting chat approval.",
+    }));
+  const running =
+    params.state.currentRun && issueKeyMatchesRepo(params.state.currentRun.issueKey, params.repo)
+      ? [
+          {
+            issueKey: params.state.currentRun.issueKey,
+            summary:
+              trimToSingleLine(params.state.statusByIssue[params.state.currentRun.issueKey]) ??
+              "Running.",
+          },
+        ]
+      : [];
+  const queued = params.state.queue
+    .filter((entry) => issueKeyMatchesRepo(entry.issueKey, params.repo))
+    .map((entry) => ({
+      issueKey: entry.issueKey,
+      summary: trimToSingleLine(params.state.statusByIssue[entry.issueKey]) ?? "Queued.",
+    }));
+  const activeIssueKeys = new Set([
+    ...pending.map((entry) => entry.issueKey),
+    ...running.map((entry) => entry.issueKey),
+    ...queued.map((entry) => entry.issueKey),
+  ]);
+  const recent = Object.values(params.state.statusSnapshotsByIssue)
+    .filter((snapshot) => issueKeyMatchesRepo(snapshot.issueKey, params.repo))
+    .filter((snapshot) => !activeIssueKeys.has(snapshot.issueKey))
+    .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .slice(0, 5);
+
+  const lines = [`openclawcode inbox for ${repoKey}`];
+
+  if (pending.length > 0) {
+    lines.push(`Pending approvals: ${pending.length}`);
+    for (const entry of pending) {
+      lines.push(`- ${entry.issueKey} | ${entry.summary}`);
+    }
+  } else {
+    lines.push("Pending approvals: 0");
+  }
+
+  if (running.length > 0) {
+    lines.push(`Running: ${running.length}`);
+    for (const entry of running) {
+      lines.push(`- ${entry.issueKey} | ${entry.summary}`);
+    }
+  } else {
+    lines.push("Running: 0");
+  }
+
+  if (queued.length > 0) {
+    lines.push(`Queued: ${queued.length}`);
+    for (const entry of queued) {
+      lines.push(`- ${entry.issueKey} | ${entry.summary}`);
+    }
+  } else {
+    lines.push("Queued: 0");
+  }
+
+  if (recent.length > 0) {
+    lines.push(`Recent completed: ${recent.length}`);
+    for (const entry of recent) {
+      lines.push(`- ${summarizeRecentSnapshot(entry)}`);
+    }
+  } else {
+    lines.push("Recent completed: 0");
+  }
+
+  return lines.join("\n");
 }
 
 function summarizeFailure(stderr: string, stdout: string): string {
@@ -680,6 +791,46 @@ export default {
         });
         return {
           text: reconciled?.status ?? `No openclawcode status recorded yet for ${issueKey}.`,
+        };
+      },
+    });
+
+    api.registerCommand({
+      name: "occode-inbox",
+      description:
+        "Show pending approvals, queue state, and recent activity for an openclawcode repo.",
+      acceptsArgs: true,
+      handler: async (ctx) => {
+        const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
+        const defaultRepo = resolveDefaultRepoConfig(pluginConfig.repos);
+        const repo = parseChatopsRepoReference(ctx.args ?? "", {
+          owner: defaultRepo?.owner,
+          repo: defaultRepo?.repo,
+        });
+        if (!repo) {
+          return {
+            text:
+              "Usage: /occode-inbox owner/repo\n" +
+              "Or, when exactly one repo is configured: /occode-inbox",
+          };
+        }
+
+        const repoConfig = resolveRepoConfig(pluginConfig.repos, repo);
+        if (!repoConfig) {
+          return {
+            text: `No openclawcode repo config found for ${repo.owner}/${repo.repo}.`,
+          };
+        }
+
+        const state = await store.snapshot();
+        return {
+          text: buildInboxMessage({
+            repo: {
+              owner: repoConfig.owner,
+              repo: repoConfig.repo,
+            },
+            state,
+          }),
         };
       },
     });
