@@ -508,6 +508,7 @@ describe("runIssueWorkflow", () => {
         number: 206,
         url: "https://github.com/zhyongrui/openclawcode/pull/206",
       };
+      const shellRunner = new NoopShellRunner();
       const run = await runIssueWorkflow(
         {
           owner: "zhyongrui",
@@ -531,7 +532,7 @@ describe("runIssueWorkflow", () => {
           }),
           store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
           worktreeManager: new FakeWorkspaceManager(workspace, ["src/commands/openclawcode.ts"]),
-          shellRunner: new NoopShellRunner(),
+          shellRunner,
           publisher,
           now: createSequenceNow(),
         },
@@ -542,6 +543,9 @@ describe("runIssueWorkflow", () => {
       expect(run.draftPullRequest?.url).toBe(existingPullRequest.url);
       expect(run.history).toContain(`Reusing existing pull request: ${existingPullRequest.url}`);
       expect(publisher.published).toBe(0);
+      expect(shellRunner.commands).toContain(
+        "/repo/.openclawcode/worktrees/run-64:git push -u origin openclawcode/issue-64",
+      );
 
       const savedRun = JSON.parse(
         await fs.readFile(path.join(stateDir, "runs", `${run.id}.json`), "utf8"),

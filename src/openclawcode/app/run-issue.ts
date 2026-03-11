@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { WorkflowRerunContext, WorkflowRun } from "../contracts/index.js";
+import type { WorkflowRerunContext, WorkflowRun, WorkflowWorkspace } from "../contracts/index.js";
 import type { GitHubIssueClient, PullRequestRef, RepoRef } from "../github/index.js";
 import {
   buildPullRequestBody,
@@ -165,6 +165,19 @@ function formatExistingPullRequestNote(pullRequest: PullRequestRef): string {
   return `Reusing existing pull request: ${pullRequest.url}`;
 }
 
+async function pushIssueBranch(params: {
+  shellRunner: ShellRunner;
+  workspace: WorkflowWorkspace;
+}): Promise<void> {
+  const push = await params.shellRunner.run({
+    cwd: params.workspace.worktreePath,
+    command: `git push -u origin ${params.workspace.branchName}`,
+  });
+  if (push.code !== 0) {
+    throw new Error(push.stderr || "Failed to push branch to origin");
+  }
+}
+
 export class GitHubPullRequestPublisher implements PullRequestPublisher {
   constructor(
     private readonly github: GitHubIssueClient,
@@ -180,13 +193,10 @@ export class GitHubPullRequestPublisher implements PullRequestPublisher {
       throw new Error("Run workspace and draft pull request are required before publishing.");
     }
 
-    const push = await this.shellRunner.run({
-      cwd: params.run.workspace.worktreePath,
-      command: `git push -u origin ${params.run.workspace.branchName}`,
+    await pushIssueBranch({
+      shellRunner: this.shellRunner,
+      workspace: params.run.workspace,
     });
-    if (push.code !== 0) {
-      throw new Error(push.stderr || "Failed to push branch to origin");
-    }
 
     return await this.github.createDraftPullRequest({
       owner: params.repo.owner,
@@ -269,6 +279,10 @@ export async function runIssueWorkflow(
       base: request.baseBranch,
     });
     if (existingPullRequest) {
+      await pushIssueBranch({
+        shellRunner: deps.shellRunner,
+        workspace: run.workspace,
+      });
       publishedPullRequest = existingPullRequest;
       run = noteRun(
         {
