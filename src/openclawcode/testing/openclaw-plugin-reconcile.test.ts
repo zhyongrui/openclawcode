@@ -18,8 +18,11 @@ function createRun(params: {
   updatedAt: string;
   stage: WorkflowRun["stage"];
   summary: string;
+  branchName?: string;
+  prNumber?: number;
   prUrl?: string;
 }): WorkflowRun {
+  const branchName = params.branchName ?? `openclawcode/issue-${params.issueNumber}`;
   return {
     id: params.id,
     stage: params.stage,
@@ -41,7 +44,7 @@ function createRun(params: {
     stageRecords: [],
     history: [],
     buildResult: {
-      branchName: `openclawcode/issue-${params.issueNumber}`,
+      branchName,
       summary: params.summary,
       changedFiles: ["src/example.ts"],
       issueClassification: "command-layer",
@@ -53,9 +56,9 @@ function createRun(params: {
       ? {
           title: `feat: implement issue #${params.issueNumber}`,
           body: "body",
-          branchName: `openclawcode/issue-${params.issueNumber}`,
+          branchName,
           baseBranch: "main",
-          number: 1,
+          number: params.prNumber ?? 1,
           url: params.prUrl,
           openedAt: params.updatedAt,
         }
@@ -126,6 +129,115 @@ describe("openclaw plugin local-run reconciliation", () => {
       expect(statuses[0]?.status).toContain(
         "PR: https://github.com/zhyongrui/openclawcode/pull/55",
       );
+    } finally {
+      await fs.rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("recovers pull request metadata from an older run when the newest rerun omits it", async () => {
+    const repoRoot = await createTempRepoRoot();
+
+    try {
+      await writeRun(
+        repoRoot,
+        createRun({
+          id: "run-4",
+          issueNumber: 303,
+          updatedAt: "2026-03-10T08:00:00.000Z",
+          stage: "ready-for-human-review",
+          summary: "Existing PR is ready.",
+          prNumber: 77,
+          prUrl: "https://github.com/zhyongrui/openclawcode/pull/77",
+        }),
+      );
+      await writeRun(
+        repoRoot,
+        createRun({
+          id: "run-5",
+          issueNumber: 303,
+          updatedAt: "2026-03-10T08:05:00.000Z",
+          stage: "changes-requested",
+          summary: "Latest rerun kept the branch but missed the PR metadata.",
+        }),
+      );
+
+      const statuses = await collectLatestLocalRunStatuses({
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        repoRoot,
+        baseBranch: "main",
+        triggerMode: "approve",
+        notifyChannel: "telegram",
+        notifyTarget: "chat:1",
+        builderAgent: "main",
+        verifierAgent: "main",
+        testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+      });
+
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0]?.issueKey).toBe("zhyongrui/openclawcode#303");
+      expect(statuses[0]?.status).toContain("Stage: Changes Requested");
+      expect(statuses[0]?.status).toContain(
+        "PR: https://github.com/zhyongrui/openclawcode/pull/77",
+      );
+      expect(statuses[0]?.run.draftPullRequest?.number).toBe(77);
+      expect(statuses[0]?.run.draftPullRequest?.url).toBe(
+        "https://github.com/zhyongrui/openclawcode/pull/77",
+      );
+      expect(statuses[0]?.run.id).toBe("run-5");
+    } finally {
+      await fs.rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("does not recover pull request metadata from a different branch history", async () => {
+    const repoRoot = await createTempRepoRoot();
+
+    try {
+      await writeRun(
+        repoRoot,
+        createRun({
+          id: "run-6",
+          issueNumber: 304,
+          updatedAt: "2026-03-10T09:00:00.000Z",
+          stage: "ready-for-human-review",
+          summary: "Old branch still had an open PR.",
+          branchName: "openclawcode/issue-304-old",
+          prNumber: 88,
+          prUrl: "https://github.com/zhyongrui/openclawcode/pull/88",
+        }),
+      );
+      await writeRun(
+        repoRoot,
+        createRun({
+          id: "run-7",
+          issueNumber: 304,
+          updatedAt: "2026-03-10T09:05:00.000Z",
+          stage: "draft-pr-opened",
+          summary: "New branch should not inherit the old PR.",
+          branchName: "openclawcode/issue-304-new",
+        }),
+      );
+
+      const statuses = await collectLatestLocalRunStatuses({
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        repoRoot,
+        baseBranch: "main",
+        triggerMode: "approve",
+        notifyChannel: "telegram",
+        notifyTarget: "chat:1",
+        builderAgent: "main",
+        verifierAgent: "main",
+        testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+      });
+
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0]?.issueKey).toBe("zhyongrui/openclawcode#304");
+      expect(statuses[0]?.status).toContain("Stage: Draft PR Opened");
+      expect(statuses[0]?.status).not.toContain("PR:");
+      expect(statuses[0]?.run.draftPullRequest?.number).toBeUndefined();
+      expect(statuses[0]?.run.id).toBe("run-7");
     } finally {
       await fs.rm(repoRoot, { recursive: true, force: true });
     }

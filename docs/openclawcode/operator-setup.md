@@ -165,6 +165,7 @@ Recommended env overrides when using the helper:
 ```bash
 export OPENCLAWCODE_GITHUB_REPO=<owner>/<repo>
 export OPENCLAWCODE_GITHUB_HOOK_ID=<existing-webhook-id>
+export OPENCLAWCODE_GITHUB_HOOK_EVENTS=issues,pull_request,pull_request_review
 ```
 
 ## 7. Start Temporary Public Ingress
@@ -182,6 +183,10 @@ That helper:
 - rewrites the configured GitHub repo webhook to
   `https://<public-host>/plugins/openclawcode/github`
 - re-applies the shared secret from `~/.openclaw/openclawcode.env`
+- re-applies the required GitHub event set so the webhook stays subscribed to:
+  - `issues`
+  - `pull_request`
+  - `pull_request_review`
 
 For the dedicated ingress commands and operational caveats, see `webhook-operations.md`.
 
@@ -202,6 +207,7 @@ What it verifies by default:
 - local gateway TCP reachability
 - signed local webhook probe against `/plugins/openclawcode/github`
 - saved repo binding for the configured repository
+- GitHub webhook event subscription, when `OPENCLAWCODE_GITHUB_HOOK_ID` is set
 - current `trycloudflare` tunnel status, when the helper is in use
 
 Useful flags:

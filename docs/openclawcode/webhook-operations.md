@@ -49,6 +49,7 @@ Optional overrides:
 export OPENCLAW_GATEWAY_PORT=18789
 export OPENCLAWCODE_GITHUB_REPO=zhyongrui/openclawcode
 export OPENCLAWCODE_GITHUB_HOOK_ID=600049842
+export OPENCLAWCODE_GITHUB_HOOK_EVENTS=issues,pull_request,pull_request_review
 ```
 
 ## Common Commands
@@ -80,9 +81,17 @@ GitHub webhook:
 ```
 
 In this temporary-ingress flow, `sync-hook` rewrites the current quick-tunnel
-webhook URL and also re-applies `OPENCLAWCODE_GITHUB_WEBHOOK_SECRET` from
-`~/.openclaw/openclawcode.env` when that variable is present. That helps avoid
-GitHub deliveries failing with `401 Invalid signature` after a tunnel rotation.
+webhook URL and also re-applies:
+
+- `OPENCLAWCODE_GITHUB_WEBHOOK_SECRET` from `~/.openclaw/openclawcode.env`,
+  when that variable is present
+- the configured GitHub event set from `OPENCLAWCODE_GITHUB_HOOK_EVENTS`
+
+That helps avoid both:
+
+- `401 Invalid signature` after a tunnel rotation
+- stale webhook subscriptions that only deliver `issues` while missing
+  `pull_request` or `pull_request_review`
 
 Restart the tunnel and resync the webhook:
 

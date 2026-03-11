@@ -55,10 +55,25 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("--skip-route-probe");
     expect(script).toContain("OPENCLAWCODE_GITHUB_WEBHOOK_SECRET");
     expect(script).toContain("GH_TOKEN/GITHUB_TOKEN");
+    expect(script).toContain("OPENCLAWCODE_SETUP_GITHUB_HOOK_ID");
+    expect(script).toContain("pull_request_review");
     expect(script).toContain('"reason":"unconfigured-repo"');
     expect(script).toContain("repoBindingsByRepo");
     expect(script).toContain("--connect-timeout 2");
     expect(script).toContain("--max-time 5");
+    expect(script).toContain("GitHub webhook subscription check");
+  });
+
+  it("keeps the webhook tunnel helper aligned with the required GitHub event set", async () => {
+    const script = await fs.readFile(
+      path.resolve("scripts/openclawcode-webhook-tunnel.sh"),
+      "utf8",
+    );
+
+    expect(script).toContain("issues,pull_request,pull_request_review");
+    expect(script).toContain('"events": events');
+    expect(script).toContain("OPENCLAWCODE_GITHUB_HOOK_EVENTS");
+    expect(script).toContain("find_running_tunnel_pid");
   });
 });
 

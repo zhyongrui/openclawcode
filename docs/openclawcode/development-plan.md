@@ -61,7 +61,8 @@ real bundled OpenClaw chatops adapter:
   - `/occode-unbind`
 - repository notification bindings for chat delivery
 - persisted plugin queue state with structured workflow status snapshots
-- local-run reconciliation from `.openclawcode/runs`
+- local-run reconciliation from `.openclawcode/runs`, including PR continuity
+  recovery when a newer rerun artifact omits draft PR metadata
 - GitHub-side healing for:
   - merged PRs
   - approved reviews
@@ -72,8 +73,8 @@ real bundled OpenClaw chatops adapter:
 - operator runbooks for:
   - local gateway and repo binding setup
   - temporary webhook ingress
-- a repo-local setup verification script for gateway, webhook, binding, and
-  tunnel health
+- a repo-local setup verification script for gateway, webhook, binding, tunnel
+  health, and required GitHub webhook event subscriptions
 
 The repository has already proven several real production-style checkpoints:
 
@@ -89,7 +90,8 @@ turning the working loop into a cleanly operable product:
 - issue intake, lifecycle updates, rerun control, operator ledger visibility,
   and setup verification now exist, but the newer PR/review lifecycle path still
   needs more live replay
-- full PR/review webhook validation still needs to be replayed against the live
+- the preflight blockers found during live replay are now fixed, but full
+  PR/review webhook validation still needs to be replayed against the live
   route after the lifecycle, rerun, ledger, and setup slices
 - packaging and installation are now documented locally, but still need more
   proof under a fresh operator environment
@@ -137,8 +139,18 @@ The current repository state already supports:
   - verification decision, summary, and counts
   - auto-merge policy eligibility and disposition
 - operator runbooks for local setup, repo binding, and temporary webhook ingress
-- a repo-local setup verification script for gateway, webhook, binding, and
-  tunnel health
+- a repo-local setup verification script for gateway, webhook, binding, tunnel
+  health, and required GitHub webhook event subscriptions
+
+The last local blockers found while preparing the live replay are now closed:
+
+- `scripts/openclawcode-webhook-tunnel.sh sync-hook` keeps the subscribed
+  GitHub event set aligned with the plugin's required lifecycle events:
+  - `issues`
+  - `pull_request`
+  - `pull_request_review`
+- local reconciliation can recover a tracked pull request number and URL from
+  older run artifacts when the newest rerun record missed that metadata
 
 This means the next iteration can shift from workflow bring-up to setup
 hardening, live validation, and trust in the visible lifecycle state.

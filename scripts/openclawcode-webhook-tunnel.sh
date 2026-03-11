@@ -9,6 +9,7 @@ readonly DEFAULT_LOG_FILE="/tmp/openclawcode-webhook-tunnel.log"
 readonly DEFAULT_PID_FILE="/tmp/openclawcode-webhook-tunnel.pid"
 readonly DEFAULT_GITHUB_REPO="zhyongrui/openclawcode"
 readonly DEFAULT_GITHUB_HOOK_ID="600049842"
+readonly DEFAULT_GITHUB_HOOK_EVENTS="issues,pull_request,pull_request_review"
 readonly DEFAULT_CLOUDFLARED_BIN="cloudflared"
 readonly DEFAULT_ENV_FILE="${HOME}/.openclaw/openclawcode.env"
 
@@ -28,6 +29,7 @@ LOG_FILE="${OPENCLAWCODE_TUNNEL_LOG_FILE:-$DEFAULT_LOG_FILE}"
 PID_FILE="${OPENCLAWCODE_TUNNEL_PID_FILE:-$DEFAULT_PID_FILE}"
 GITHUB_REPO="${OPENCLAWCODE_GITHUB_REPO:-$DEFAULT_GITHUB_REPO}"
 GITHUB_HOOK_ID="${OPENCLAWCODE_GITHUB_HOOK_ID:-$DEFAULT_GITHUB_HOOK_ID}"
+GITHUB_HOOK_EVENTS="${OPENCLAWCODE_GITHUB_HOOK_EVENTS:-$DEFAULT_GITHUB_HOOK_EVENTS}"
 
 usage() {
   cat <<EOF
@@ -51,6 +53,7 @@ Environment:
   OPENCLAWCODE_TUNNEL_PID_FILE      Tunnel pid path. Default: ${DEFAULT_PID_FILE}
   OPENCLAWCODE_GITHUB_REPO          GitHub repo slug. Default: ${DEFAULT_GITHUB_REPO}
   OPENCLAWCODE_GITHUB_HOOK_ID       GitHub webhook id. Default: ${DEFAULT_GITHUB_HOOK_ID}
+  OPENCLAWCODE_GITHUB_HOOK_EVENTS   Comma-separated webhook events to keep in sync.
   OPENCLAWCODE_WEBHOOK_ENV_FILE     Env file to source before syncing. Default: ${DEFAULT_ENV_FILE}
 EOF
 }
@@ -79,6 +82,39 @@ cleanup_stale_pidfile() {
   if [[ -n "$pid" ]] && ! is_running_pid "$pid"; then
     rm -f "$PID_FILE"
   fi
+}
+
+find_running_tunnel_pid() {
+  python3 - "$TARGET_URL" "$LOG_FILE" <<'PY'
+import subprocess
+import sys
+
+target_url = sys.argv[1]
+log_file = sys.argv[2]
+
+try:
+    output = subprocess.run(
+        ["ps", "-eo", "pid=,args="],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+except Exception:
+    raise SystemExit(1)
+
+for line in output:
+    stripped = line.strip()
+    if not stripped or "cloudflared" not in stripped or " tunnel " not in f" {stripped} ":
+        continue
+    if target_url not in stripped and log_file not in stripped:
+        continue
+    pid = stripped.split(None, 1)[0]
+    if pid.isdigit():
+        print(pid)
+        raise SystemExit(0)
+
+raise SystemExit(1)
+PY
 }
 
 current_public_url() {
@@ -113,6 +149,11 @@ start_tunnel() {
   local pid
   pid="$(read_pid || true)"
   if [[ -n "$pid" ]] && is_running_pid "$pid"; then
+    return 0
+  fi
+  pid="$(find_running_tunnel_pid || true)"
+  if [[ -n "$pid" ]] && is_running_pid "$pid"; then
+    printf '%s\n' "$pid" >"$PID_FILE"
     return 0
   fi
 
@@ -160,6 +201,9 @@ stop_tunnel() {
   local pid
   pid="$(read_pid || true)"
   if [[ -z "$pid" ]]; then
+    pid="$(find_running_tunnel_pid || true)"
+  fi
+  if [[ -z "$pid" ]]; then
     echo "Tunnel is not running."
     return 0
   fi
@@ -200,7 +244,7 @@ sync_github_hook() {
   fi
 
   local webhook_url="${public_url}${WEBHOOK_ROUTE}"
-  python3 - "$GITHUB_REPO" "$GITHUB_HOOK_ID" "$webhook_url" <<'PY'
+  python3 - "$GITHUB_REPO" "$GITHUB_HOOK_ID" "$webhook_url" "$GITHUB_HOOK_EVENTS" <<'PY'
 import json
 import os
 import sys
@@ -209,6 +253,7 @@ import urllib.request
 repo = sys.argv[1]
 hook_id = sys.argv[2]
 webhook_url = sys.argv[3]
+events = [entry.strip() for entry in sys.argv[4].split(",") if entry.strip()]
 token = os.environ["GH_TOKEN"]
 secret = os.environ.get("OPENCLAWCODE_GITHUB_WEBHOOK_SECRET", "").strip()
 
@@ -221,7 +266,11 @@ config = {
 if secret:
     config["secret"] = secret
 
-payload = json.dumps({"config": config}).encode("utf-8")
+payload = json.dumps({
+    "active": True,
+    "events": events,
+    "config": config,
+}).encode("utf-8")
 request = urllib.request.Request(
     api_url,
     data=payload,
@@ -242,6 +291,7 @@ print(json.dumps({
     "repo": repo,
     "hookId": body["id"],
     "webhookUrl": body["config"].get("url"),
+    "events": body.get("events"),
     "active": body.get("active"),
     "updatedAt": body.get("updated_at"),
 }, indent=2))
@@ -253,6 +303,9 @@ status() {
 
   local pid
   pid="$(read_pid || true)"
+  if [[ -z "$pid" ]]; then
+    pid="$(find_running_tunnel_pid || true)"
+  fi
   local url
   url="$(current_public_url || true)"
 
@@ -274,6 +327,7 @@ status() {
   echo "Pid file: ${PID_FILE}"
   echo "GitHub repo: ${GITHUB_REPO}"
   echo "GitHub hook id: ${GITHUB_HOOK_ID}"
+  echo "GitHub hook events: ${GITHUB_HOOK_EVENTS}"
 }
 
 command="${1:-}"

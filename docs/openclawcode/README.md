@@ -48,10 +48,13 @@ loop with:
   outcomes
 - explicit request-changes rerun control with rerun artifacts, review context,
   and existing-PR continuity
+- local-run reconciliation that can recover tracked PR linkage from older run
+  artifacts when a newer rerun artifact omits draft PR metadata
 - a compact `/occode-inbox` operator ledger for recent lifecycle events, final
   disposition, rerun lineage, and last notification metadata
 - a repeatable operator setup runbook plus a repo-local setup verification
-  script for gateway, webhook, binding, and tunnel health
+  script for gateway, webhook, binding, tunnel health, and required GitHub
+  webhook event subscriptions
 - real end-to-end validation against this repository, including a webhook-driven
   issue run that opened, merged, and closed automatically
 
