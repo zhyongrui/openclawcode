@@ -1,17 +1,6 @@
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import type { AgentToolResult, AgentToolUpdateCallback } from "@mariozechner/pi-agent-core";
 import type { AnyAgentTool } from "./pi-tools.types.js";
-
-/** Resolve path for host edit: expand ~ and resolve relative paths against root. */
-function resolveHostEditPath(root: string, pathParam: string): string {
-  const expanded =
-    pathParam.startsWith("~/") || pathParam === "~"
-      ? pathParam.replace(/^~/, os.homedir())
-      : pathParam;
-  return path.isAbsolute(expanded) ? path.resolve(expanded) : path.resolve(root, expanded);
-}
+import type { SandboxFsBridge } from "./sandbox/fs-bridge.js";
 
 function readEditParam(record: Record<string, unknown> | undefined, key: string, altKey: string) {
   if (record && typeof record[key] === "string") {
@@ -45,62 +34,63 @@ function formatSuccessfulEditResult(pathParam: string): AgentToolResult<unknown>
   } as AgentToolResult<unknown>;
 }
 
-async function verifyHostEditApplied(params: {
+async function verifySandboxEditApplied(params: {
+  bridge: SandboxFsBridge;
   root: string;
   pathParam: string;
   oldText?: string;
   newText?: string;
 }): Promise<boolean> {
-  const absolutePath = resolveHostEditPath(params.root, params.pathParam);
-  const content = await fs.readFile(absolutePath, "utf-8");
+  const content = (
+    await params.bridge.readFile({
+      filePath: params.pathParam,
+      cwd: params.root,
+    })
+  ).toString("utf-8");
   const hasNew = params.newText ? content.includes(params.newText) : true;
   const stillHasOld =
     params.oldText !== undefined && params.oldText.length > 0 && content.includes(params.oldText);
   return hasNew && !stillHasOld;
 }
 
-/**
- * When the upstream edit tool throws after having already written (e.g. generateDiffString fails),
- * the file may be correctly updated but the tool reports failure. This wrapper catches errors and
- * if the target file on disk contains the intended newText, returns success so we don't surface
- * a false "edit failed" to the user (fixes #32333, same pattern as #30773 for write).
- */
-export function wrapHostEditToolWithPostWriteRecovery(
+export function wrapSandboxEditToolWithPostWriteRecovery(
   base: AnyAgentTool,
-  root: string,
+  params: { bridge: SandboxFsBridge; root: string },
 ): AnyAgentTool {
   return {
     ...base,
     execute: async (
       toolCallId: string,
-      params: unknown,
+      rawParams: unknown,
       signal: AbortSignal | undefined,
       onUpdate?: AgentToolUpdateCallback<unknown>,
     ) => {
       const record =
-        params && typeof params === "object" ? (params as Record<string, unknown>) : undefined;
+        rawParams && typeof rawParams === "object"
+          ? (rawParams as Record<string, unknown>)
+          : undefined;
       const pathParam = readEditPathParam(record);
       const newText = readEditParam(record, "newText", "new_string");
       const oldText = readEditParam(record, "oldText", "old_string");
-      const absolutePath = pathParam ? resolveHostEditPath(root, pathParam) : undefined;
       const originalContent =
-        absolutePath == null
+        pathParam == null
           ? undefined
-          : await fs
-              .readFile(absolutePath, "utf-8")
-              .catch((error: NodeJS.ErrnoException) =>
-                error.code === "ENOENT" ? undefined : Promise.reject(error),
-              );
+          : await params.bridge
+              .readFile({ filePath: pathParam, cwd: params.root, signal })
+              .catch((error) => {
+                const message = error instanceof Error ? error.message : String(error);
+                return /ENOENT|No such file/i.test(message) ? undefined : Promise.reject(error);
+              });
 
       try {
-        const result = await base.execute(toolCallId, params, signal, onUpdate);
-
+        const result = await base.execute(toolCallId, rawParams, signal, onUpdate);
         if (!pathParam || (!newText && !oldText)) {
           return result;
         }
 
-        const applied = await verifyHostEditApplied({
-          root,
+        const applied = await verifySandboxEditApplied({
+          bridge: params.bridge,
+          root: params.root,
           pathParam,
           oldText,
           newText,
@@ -109,20 +99,28 @@ export function wrapHostEditToolWithPostWriteRecovery(
           return result;
         }
 
-        if (absolutePath && originalContent !== undefined) {
-          await fs.writeFile(absolutePath, originalContent, "utf-8");
+        if (pathParam && originalContent !== undefined) {
+          await params.bridge.writeFile({
+            filePath: pathParam,
+            cwd: params.root,
+            data: originalContent,
+            mkdir: true,
+            signal,
+          });
         }
 
         throw new Error(
-          `Edit verification failed for ${pathParam}: file content on disk did not match the requested replacement after the tool reported success.${originalContent !== undefined ? " The original file contents were restored." : ""}`,
+          `Sandbox edit verification failed for ${pathParam}: file content on disk did not match the requested replacement after the tool reported success.${originalContent !== undefined ? " The original file contents were restored." : ""}`,
         );
-      } catch (err) {
+      } catch (error) {
         if (!pathParam || !newText) {
-          throw err;
+          throw error;
         }
+
         try {
-          const applied = await verifyHostEditApplied({
-            root,
+          const applied = await verifySandboxEditApplied({
+            bridge: params.bridge,
+            root: params.root,
             pathParam,
             oldText,
             newText,
@@ -131,9 +129,10 @@ export function wrapHostEditToolWithPostWriteRecovery(
             return formatSuccessfulEditResult(pathParam);
           }
         } catch {
-          // File read failed or path invalid; rethrow original error.
+          // Bridge read failed or path is invalid; keep the original error.
         }
-        throw err;
+
+        throw error;
       }
     },
   };

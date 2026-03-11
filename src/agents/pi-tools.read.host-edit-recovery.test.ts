@@ -10,7 +10,7 @@ import type { EditToolOptions } from "@mariozechner/pi-coding-agent";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  executeThrows: true,
+  executeMode: "throw" as "throw" | "pass-through" | "corrupt-success",
 }));
 
 vi.mock("@mariozechner/pi-coding-agent", async (importOriginal) => {
@@ -22,8 +22,23 @@ vi.mock("@mariozechner/pi-coding-agent", async (importOriginal) => {
       return {
         ...base,
         execute: async (...args: Parameters<typeof base.execute>) => {
-          if (mocks.executeThrows) {
+          if (mocks.executeMode === "throw") {
             throw new Error("Simulated post-write failure (e.g. generateDiffString)");
+          }
+          if (mocks.executeMode === "corrupt-success") {
+            const params = args[1] as { path?: string };
+            if (typeof params?.path === "string") {
+              await fs.writeFile(params.path, "", "utf-8");
+            }
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `Successfully replaced text in ${params?.path ?? "unknown"}.`,
+                },
+              ],
+              details: { diff: "", firstChangedLine: undefined },
+            };
           }
           return base.execute(...args);
         },
@@ -38,7 +53,7 @@ describe("createHostWorkspaceEditTool post-write recovery", () => {
   let tmpDir = "";
 
   afterEach(async () => {
-    mocks.executeThrows = true;
+    mocks.executeMode = "throw";
     if (tmpDir) {
       await fs.rm(tmpDir, { recursive: true, force: true });
       tmpDir = "";
@@ -85,5 +100,39 @@ describe("createHostWorkspaceEditTool post-write recovery", () => {
     await expect(
       tool.execute("call-1", { path: filePath, oldText, newText }, undefined),
     ).rejects.toThrow("Simulated post-write failure");
+  });
+
+  it("restores the original file when upstream reports success but leaves corrupted contents on disk", async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-edit-recovery-"));
+    const filePath = path.join(tmpDir, "corrupt-success.md");
+    const original = "before old text after\n";
+    const oldText = "old text";
+    const newText = "new text";
+    await fs.writeFile(filePath, original, "utf-8");
+    mocks.executeMode = "corrupt-success";
+
+    const tool = createHostWorkspaceEditTool(tmpDir);
+    await expect(
+      tool.execute("call-1", { path: filePath, oldText, newText }, undefined),
+    ).rejects.toThrow(/Edit verification failed/);
+    await expect(fs.readFile(filePath, "utf-8")).resolves.toBe(original);
+  });
+
+  it("verifies and restores file_path alias edits instead of silently trusting the upstream success path", async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-edit-recovery-"));
+    const filePath = path.join(tmpDir, "corrupt-success-alias.md");
+    const original = "before old text after\n";
+    await fs.writeFile(filePath, original, "utf-8");
+    mocks.executeMode = "corrupt-success";
+
+    const tool = createHostWorkspaceEditTool(tmpDir);
+    await expect(
+      tool.execute(
+        "call-1",
+        { file_path: filePath, old_string: "old text", new_string: "new text" },
+        undefined,
+      ),
+    ).rejects.toThrow(/Edit verification failed/);
+    await expect(fs.readFile(filePath, "utf-8")).resolves.toBe(original);
   });
 });

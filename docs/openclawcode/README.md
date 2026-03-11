@@ -84,12 +84,26 @@ loop with:
     issue worktree
   - persist stage-specific `failed` workflow artifacts instead of leaving the
     run stranded behind a later shell or lint failure
+- edit-recovery hardening for agent-backed builder sessions that now:
+  - verifies host and sandbox edit recovery even when upstream edit calls use
+    `file_path`, `old_string`, and `new_string`
+  - temporarily denies `edit` and `write` in `OpenClawAgentRunner` sessions so
+    live issue runs stay on `read`/`exec`/`process` until the underlying
+    sandbox edit bridge is repaired
 - a fresh direct live rerun of issue `#44` on refreshed `main` that completed
   as a no-op `ready-for-human-review` run instead of reproducing the earlier
   stalled-planning corruption path
+- a fresh live merged-PR validation on refreshed `main` through issue `#45`,
+  including:
+  - two failed reruns that were captured as persisted `failed` artifacts
+  - recovery through the runner-level `edit`/`write` deny mitigation
+  - real PR publication to `PR #46`
+  - automatic verification, merge, and issue closure on the live route
 
 Still pending for a fuller product loop:
 
+- removal of the temporary `edit`/`write` deny by fixing the underlying
+  sandbox edit bridge
 - stronger suitability/risk gating ahead of autonomous execution
-- one separate low-risk merged-PR validation on the live route
+- proof under a fresh operator environment using docs and scripts only
 - broader policy-doc polish

@@ -120,8 +120,17 @@ turning the working loop into a cleanly operable product:
   - a fresh direct live rerun of issue `#44` on refreshed `main` no longer
     reproduced the corruption and completed as a no-op
     `ready-for-human-review` run
-- the next engineering priority is again one low-risk merged-PR live validation
-  on refreshed `main`
+- the live merged-PR proof on refreshed `main` is now complete through issue
+  `#45` and `PR #46`
+- the builder now has two additional mitigations around the remaining sandbox
+  edit bridge bug:
+  - host and sandbox edit recovery both verify alias-based edit calls using
+    `file_path`, `old_string`, and `new_string`
+  - `OpenClawAgentRunner` now applies a top-level runtime tool deny for
+    `edit` and `write`, keeping live issue runs on `read`, `exec`, and
+    `process`
+- the next engineering priority is now root-cause repair of the sandbox edit
+  bridge so the temporary runner-level tool deny can be removed
 - packaging and installation are now documented locally, but still need more
   proof under a fresh operator environment
 - policy docs lag the implemented guarded auto-merge behavior and need to be
@@ -142,8 +151,10 @@ The short-term objective is:
 - make chat the normal operator entrypoint instead of a side-channel demo
 - keep `main` usable as the live validation base instead of letting the real
   runner drift behind the latest integration work
-- finish one clean merged-PR proof on refreshed `main` now that the latest live
-  rerun no longer reproduces the isolated-worktree corruption path
+- keep the now-proven merged-PR path stable on refreshed `main` while removing
+  temporary builder mitigations
+- repair the underlying sandbox edit bridge so `openclawcode` no longer needs
+  a runner-level `edit`/`write` deny
 - align the roadmap and setup docs with the behavior already proved in code
 
 ### Current Checkpoint
@@ -174,6 +185,12 @@ The current repository state already supports:
 - operator runbooks for local setup, repo binding, and temporary webhook ingress
 - a repo-local setup verification script for gateway, webhook, binding, tunnel
   health, and required GitHub webhook event subscriptions
+- a fresh live merged-PR proof on refreshed `main` for issue `#45`:
+  - two failed reruns persisted cleanly as `failed` artifacts
+  - recovery after runtime tool hardening
+  - `PR #46` published, verified, auto-merged, and the issue closed
+- runner-level tool hardening that removes `edit` and `write` from live
+  `openclawcode` agent sessions until the sandbox edit bridge is repaired
 
 The last local blockers found while preparing the live replay are now closed:
 
@@ -185,8 +202,9 @@ The last local blockers found while preparing the live replay are now closed:
 - local reconciliation can recover a tracked pull request number and URL from
   older run artifacts when the newest rerun record missed that metadata
 
-This means the next iteration can shift from workflow bring-up to baseline
-promotion, live validation, and trust in the visible lifecycle state.
+This means the next iteration can shift from proving one merged path to
+removing temporary mitigations, hardening fresh-operator setup, and trusting
+the visible lifecycle state under repeated live runs.
 
 ### Near-Term Delivery Streams
 
@@ -248,13 +266,16 @@ Objective:
 
 Priority backlog:
 
-1. add an explicit rerun control path for request-changes follow-up work
-2. persist rerun linkage between prior run, issue, branch, and PR
-3. store latest review findings and rerun reason in workflow artifacts
-4. fail fast when the agent-backed builder corrupts or unexpectedly truncates a
-   file inside the isolated issue worktree
-5. harden stale worker completions and duplicate queue promotions across reruns
-6. expose rerun chains in operator-visible status output
+1. repair the underlying sandbox edit bridge so builder sessions no longer need
+   the temporary top-level `edit`/`write` deny
+2. keep corrupt-success verification and rollback coverage for both host and
+   sandbox edit wrappers, including alias-based edit calls
+3. preserve rerun continuity after failed builder attempts without reopening
+   file-corruption paths in reusable issue worktrees
+4. harden stale worker completions and duplicate queue promotions across reruns
+5. expose rerun chains in operator-visible status output
+6. remove the temporary runner-level tool carveout only after a fresh live
+   issue run proves the bridge fix on refreshed `main`
 
 Validation rule:
 
@@ -316,17 +337,17 @@ Objective:
 
 Priority backlog:
 
-1. finish one low-risk merged-PR validation on the live route after the sync
-   branch is promoted back to `main`
-2. rerun a low-risk command-layer issue against the refreshed base and confirm
-   draft PR, verification, merge, and issue closure still work
-3. finish one low-risk merged-PR validation on the live route
-4. keep a small pool of low-risk validation issues ready so real failures can
+1. keep a small pool of low-risk validation issues ready so real failures can
    be reproduced quickly
-5. turn every live failure into either a regression test, a workflow rule, or
+2. turn every live failure into either a regression test, a workflow rule, or
    an operator runbook update
-6. record exact GitHub permission and reviewer caveats discovered during each
+3. record exact GitHub permission and reviewer caveats discovered during each
    live run
+4. keep re-running one low-risk command-layer issue after each builder/runtime
+   hardening slice to prove draft PR, verification, merge, and issue closure
+   still work on refreshed `main`
+5. use the same validation pool to prove temporary mitigations can be removed
+   safely
 
 Validation rule:
 
@@ -337,19 +358,22 @@ Validation rule:
 
 The next concrete issue order should be:
 
-1. re-run one low-risk command-layer issue on the live route from refreshed
-   `main`
-2. validate one real merged-PR lifecycle path on the refreshed base
-3. align README, plan, and operator docs with the exact live-tested branch and
-   merge workflow
-4. only then start the next product slice beyond lifecycle and rerun hardening
+1. repair the sandbox edit bridge that still forces the temporary
+   `edit`/`write` deny in live `openclawcode` runner sessions
+2. re-run one low-risk command-layer issue on the live route without that
+   carveout and confirm draft PR, verification, merge, and issue closure still
+   work
+3. align README, plan, and operator docs with the exact live-tested branch,
+   merge workflow, and builder-runtime safety rules
+4. only then resume the next product slice beyond workflow/runtime hardening
 
 This order is deliberate:
 
-- first close the remaining rerun publication gap found by live validation
-- then make sure the live runner uses the same validated code as local
-  development
-- then finish a clean merged-PR proof on the refreshed base
+- first remove the biggest remaining runtime workaround instead of building new
+  features on top of it
+- then make sure the live runner still closes the full merged path without the
+  workaround
+- then lock the docs to the actually validated operating model
 - only after that resume new capability work
 
 ### Execution Rules For The Next Iteration
@@ -732,20 +756,21 @@ Why next:
 
 The next implementation slice should follow this order:
 
-1. choose one low-risk tracked issue or fresh issue branch suitable for merged
-   validation on refreshed `main`
-2. drive it to a real draft PR on the live route
-3. confirm the branch is mergeable and that the previous live rerun hardening
-   still holds on the refreshed base
-4. validate one real merged-PR lifecycle event against the live route
-5. verify chat notifications, snapshot updates, and `/occode-inbox` output for:
-   - final merged disposition
-   - notification delivery metadata
-   - post-merge issue closure when policy allows it
-6. document the exact GitHub permissions, replay method, and operator caveats,
-   including the need for a second reviewer account when the PR author cannot
-   request changes on their own pull request
-7. update the dev log and status docs with the live merge result
+1. inspect the sandbox edit bridge path that still leaves files empty on disk
+   when the upstream edit tool reports corrupt success
+2. remove the temporary runner-level `edit`/`write` deny only in code paths
+   that are proved safe by tests
+3. add or extend regression coverage around sandbox bridge recovery and any
+   path alias handling required by the upstream edit tool
+4. rebuild and rerun one low-risk live issue on refreshed `main`
+5. confirm the run still reaches:
+   - draft PR publication
+   - verification approval
+   - automatic merge and issue closure when policy allows it
+6. verify chat notifications, snapshot updates, and `/occode-inbox` output for
+   the final merged disposition after the bridge fix
+7. update the dev log and status docs with both the bridge fix and the new live
+   proof
 8. commit the slice only after targeted validation passes
 
 ## Test Strategy

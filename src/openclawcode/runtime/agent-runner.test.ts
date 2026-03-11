@@ -78,9 +78,15 @@ describe("OpenClawAgentRunner", () => {
     });
     expect(mocks.setRuntimeConfigSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
+        tools: expect.objectContaining({
+          deny: expect.arrayContaining(["edit", "write"]),
+        }),
         agents: expect.objectContaining({
           defaults: expect.objectContaining({
             sandbox: expect.objectContaining({ scope: "session" }),
+            tools: expect.objectContaining({
+              deny: expect.arrayContaining(["edit", "write"]),
+            }),
           }),
         }),
       }),
@@ -129,12 +135,18 @@ describe("OpenClawAgentRunner", () => {
 
     const config = __testing.forceSessionScopedSandboxForAgent(
       {
+        tools: {
+          deny: ["browser"],
+        },
         agents: {
           defaults: {
             sandbox: {
               mode: "all",
               scope: "agent",
               workspaceAccess: "rw",
+            },
+            tools: {
+              deny: ["browser"],
             },
           },
           list: [
@@ -145,6 +157,9 @@ describe("OpenClawAgentRunner", () => {
                 scope: "agent",
                 workspaceAccess: "rw",
               },
+              tools: {
+                deny: ["process"],
+              },
             },
           ],
         },
@@ -153,6 +168,13 @@ describe("OpenClawAgentRunner", () => {
     );
 
     expect(config.agents?.defaults?.sandbox?.scope).toBe("session");
+    expect(config.tools?.deny).toEqual(expect.arrayContaining(["browser", "edit", "write"]));
+    expect(config.agents?.defaults?.tools?.deny).toEqual(
+      expect.arrayContaining(["browser", "edit", "write"]),
+    );
     expect(config.agents?.list?.[0]?.sandbox?.scope).toBe("session");
+    expect(config.agents?.list?.[0]?.tools?.deny).toEqual(
+      expect.arrayContaining(["process", "edit", "write"]),
+    );
   });
 });

@@ -31,6 +31,8 @@ export interface AgentRunner {
   run(request: AgentRunRequest): Promise<AgentRunResult>;
 }
 
+const OPENCLAWCODE_DENIED_TOOLS = ["edit", "write"] as const;
+
 function normalizeSessionToken(value: string): string {
   return (
     value
@@ -60,9 +62,23 @@ function forceSessionScopedSandboxForAgent(
 ): OpenClawConfig {
   const next = structuredClone(config);
   const agentId = normalizeAgentId(agentIdRaw);
+  const appendDeniedPolicy = <T extends { deny?: string[] } | undefined>(policy: T): T => {
+    const nextPolicy = {
+      ...policy,
+      deny: Array.from(new Set([...(policy?.deny ?? []), ...OPENCLAWCODE_DENIED_TOOLS])),
+    };
+    return nextPolicy as T;
+  };
 
+  const appendDeniedTools = <T extends { tools?: { deny?: string[] } }>(entry: T): T => ({
+    ...entry,
+    tools: appendDeniedPolicy(entry.tools),
+  });
+
+  next.tools = appendDeniedPolicy(next.tools);
   next.agents ??= {};
   next.agents.defaults ??= {};
+  next.agents.defaults = appendDeniedTools(next.agents.defaults);
   next.agents.defaults.sandbox = {
     ...next.agents.defaults.sandbox,
     scope: "session",
@@ -72,7 +88,7 @@ function forceSessionScopedSandboxForAgent(
     next.agents.list = next.agents.list.map((entry) =>
       entry.id === agentId
         ? {
-            ...entry,
+            ...appendDeniedTools(entry),
             sandbox: {
               ...entry.sandbox,
               scope: "session",
