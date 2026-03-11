@@ -24,6 +24,7 @@ As of 2026-03-09, the repository includes a working `openclawcode` MVP slice wit
 
 - workflow state, persistence, and isolated worktree management
 - a GitHub-backed issue intake path
+- issue webhook redeliveries are deduplicated by `X-GitHub-Delivery`, so replaying the same delivery id does not create a second pending approval or queue entry; a fresh delivery for an issue that is already being tracked may still return `already-tracked`
 - a local builder/verifier runtime adapter built on top of OpenClaw's embedded agent entrypoint
 - a `openclaw code run ...` CLI path for issue-driven execution
 - draft PR publishing and optional merge hooks in the workflow service layer
