@@ -102,11 +102,18 @@ turning the working loop into a cleanly operable product:
 - live rerun validation also forced one more worktree hardening pass so stale
   issue branches now merge the latest base before publication instead of
   reopening dirty PRs from outdated branch state
-- the newest hardening work is currently on integration branch
-  `sync/upstream-2026-03-11`, while the live operator path still runs against
-  `main`
-- promoting validated sync-branch slices back to `main` is now part of normal
-  delivery, not an optional cleanup step
+- the validated sync-branch hardening has now been promoted back to `main`,
+  pushed to `origin/main`, and the live gateway has been restarted on commit
+  `7d4d6ec`
+- a direct live rerun attempt for issue `#44` on refreshed `main` exposed a new
+  builder/workspace integrity failure:
+  - the agent-backed builder can corrupt a file inside the isolated issue
+    worktree when its file-edit bridge drifts away from the real worktree path
+  - the current observed failure mode was an unexpected truncation of
+    `src/commands/openclawcode.ts` inside the issue worktree, followed by a
+    stalled run and host lint failure
+- the next engineering priority is now builder/worktree integrity hardening
+  ahead of the next merged-PR live validation
 - packaging and installation are now documented locally, but still need more
   proof under a fresh operator environment
 - policy docs lag the implemented guarded auto-merge behavior and need to be
@@ -127,6 +134,8 @@ The short-term objective is:
 - make chat the normal operator entrypoint instead of a side-channel demo
 - keep `main` usable as the live validation base instead of letting the real
   runner drift behind the latest integration work
+- harden the agent-backed builder so isolated worktrees fail closed instead of
+  silently corrupting files during live reruns
 - align the roadmap and setup docs with the behavior already proved in code
 
 ### Current Checkpoint
@@ -234,13 +243,16 @@ Priority backlog:
 1. add an explicit rerun control path for request-changes follow-up work
 2. persist rerun linkage between prior run, issue, branch, and PR
 3. store latest review findings and rerun reason in workflow artifacts
-4. harden stale worker completions and duplicate queue promotions across reruns
-5. expose rerun chains in operator-visible status output
+4. fail fast when the agent-backed builder corrupts or unexpectedly truncates a
+   file inside the isolated issue worktree
+5. harden stale worker completions and duplicate queue promotions across reruns
+6. expose rerun chains in operator-visible status output
 
 Validation rule:
 
 - every rerun or state-healing rule must get a regression test that proves the
-  latest known good state cannot be clobbered by stale data
+  latest known good state cannot be clobbered by stale data or silent
+  worktree corruption
 
 #### Stream 3: Operator Visibility and Notification Delivery
 
@@ -298,13 +310,16 @@ Priority backlog:
 
 1. finish one low-risk merged-PR validation on the live route after the sync
    branch is promoted back to `main`
-2. rerun a low-risk command-layer issue against the refreshed base and confirm
+2. close the builder/workspace integrity failure exposed by the direct live
+   rerun of issue `#44`
+3. rerun a low-risk command-layer issue against the refreshed base and confirm
    draft PR, verification, merge, and issue closure still work
-3. keep a small pool of low-risk validation issues ready so real failures can
+4. finish one low-risk merged-PR validation on the live route
+5. keep a small pool of low-risk validation issues ready so real failures can
    be reproduced quickly
-4. turn every live failure into either a regression test, a workflow rule, or
+6. turn every live failure into either a regression test, a workflow rule, or
    an operator runbook update
-5. record exact GitHub permission and reviewer caveats discovered during each
+7. record exact GitHub permission and reviewer caveats discovered during each
    live run
 
 Validation rule:
@@ -316,9 +331,9 @@ Validation rule:
 
 The next concrete issue order should be:
 
-1. land the existing-PR reuse push fix so reruns cannot leave a reused remote
-   PR stale
-2. promote the validated sync-branch hardening back to `main`
+1. finish the small rerun-json follow-up so downstream tooling can distinguish
+   reruns with and without attached review metadata
+2. close the builder/workspace integrity failure exposed by live issue `#44`
 3. re-run one low-risk command-layer issue on the live route from refreshed
    `main`
 4. validate one real merged-PR lifecycle path on the refreshed base
@@ -714,26 +729,30 @@ Why next:
 
 The next implementation slice should follow this order:
 
-1. land the remaining existing-PR reuse push fix found during live rerun
-   validation
-2. promote `sync/upstream-2026-03-11` back to `main` and verify the local
-   operator runtime is executing that refreshed base
-3. choose one low-risk tracked issue or fresh issue branch suitable for merge
-   validation
-4. drive it to a real draft PR on the live route
-5. confirm the branch is mergeable after the reusable-worktree refresh rules:
-   - stale branches with no unique commits fast-forward to base
-   - stale branches with unique commits merge the latest base before publish
-6. validate one real merged-PR lifecycle event against the live route
-7. verify chat notifications, snapshot updates, and `/occode-inbox` output for:
+1. reproduce the builder/workspace integrity failure from the live issue `#44`
+   rerun using the preserved run artifact and agent session log
+2. add a workflow guard that fails closed when an agent-backed builder leaves an
+   unexpectedly empty or otherwise corrupted tracked file in the isolated issue
+   worktree
+3. persist a visible failure reason in the run history and structured artifact
+   instead of letting the run stall behind a later lint failure
+4. add regression coverage for corrupted-worktree detection and for preserving
+   the main repository when the isolated worktree goes bad
+5. rerun a low-risk command-layer issue on refreshed `main` and confirm the
+   guarded failure mode is either gone or reported deterministically
+6. only after that, choose one low-risk tracked issue or fresh issue branch
+   suitable for merged-PR validation
+7. validate one real merged-PR lifecycle event against the live route
+8. verify chat notifications, snapshot updates, and `/occode-inbox` output for:
    - final merged disposition
    - notification delivery metadata
    - post-merge issue closure when policy allows it
-8. document the exact GitHub permissions, replay method, and operator caveats,
+9. document the exact GitHub permissions, replay method, and operator caveats,
    including the need for a second reviewer account when the PR author cannot
    request changes on their own pull request
-9. update the dev log and status docs with the live merge result
-10. commit the slice only after targeted validation passes
+10. update the dev log and status docs with the guarded failure handling and
+    the later live merge result
+11. commit each slice only after targeted validation passes
 
 ## Test Strategy
 

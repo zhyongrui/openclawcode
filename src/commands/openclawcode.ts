@@ -277,6 +277,11 @@ function toWorkflowRunJson(run: WorkflowRun) {
   const draftPullRequestDisposition = resolveDraftPullRequestDisposition(run);
   const changeDisposition = resolveChangeDisposition(run);
   const mergedPullRequest = resolveMergedPullRequest(run);
+  const rerunHasReviewContext =
+    run.rerunContext?.reviewDecision != null ||
+    run.rerunContext?.reviewSubmittedAt != null ||
+    run.rerunContext?.reviewSummary != null ||
+    run.rerunContext?.reviewUrl != null;
   return {
     ...run,
     stageLabel: formatWorkflowStageLabel(run.stage),
@@ -307,6 +312,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     verificationMissingCoverageCount: run.verificationReport?.missingCoverage.length ?? null,
     verificationFollowUpCount: run.verificationReport?.followUps.length ?? null,
     rerunRequested: Boolean(run.rerunContext),
+    rerunHasReviewContext,
     rerunReason: run.rerunContext?.reason ?? null,
     rerunRequestedAt: run.rerunContext?.requestedAt ?? null,
     rerunPriorRunId: run.rerunContext?.priorRunId ?? null,

@@ -60,6 +60,8 @@ loop with:
 - a repeatable operator setup runbook plus a repo-local setup verification
   script for gateway, webhook, binding, tunnel health, and required GitHub
   webhook event subscriptions
+- a refreshed `main` baseline promoted from `sync/upstream-2026-03-11`, pushed
+  to `origin/main`, and restarted under the local live gateway
 - real end-to-end validation against this repository, including a webhook-driven
   issue run that opened, merged, and closed automatically
 - real live lifecycle replay against `PR #37`, covering:
@@ -73,9 +75,16 @@ loop with:
   - final `ready-for-human-review` completion with notification delivery
   - follow-up hardening so reusable issue branches merge the latest base before
     rerun publication instead of reopening dirty PRs from stale branch state
+- stable rerun JSON output from `openclaw code run --json`, including:
+  - `rerunRequested`
+  - `rerunHasReviewContext`
+  - rerun review decision, timestamp, summary, and URL fields when present
 
 Still pending for a fuller product loop:
 
+- a builder/workspace integrity guard for agent-backed live reruns after the
+  refreshed-`main` issue `#44` attempt exposed isolated-worktree file
+  truncation
 - stronger suitability/risk gating ahead of autonomous execution
 - one separate low-risk merged-PR validation on the live route
 - broader policy-doc polish

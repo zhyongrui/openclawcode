@@ -194,6 +194,7 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.rerunRequested).toBe(true);
+    expect(payload.rerunHasReviewContext).toBe(true);
     expect(payload.rerunReason).toBe("Address GitHub review feedback");
     expect(payload.rerunRequestedAt).toBe("2026-01-02T00:00:00.000Z");
     expect(payload.rerunPriorRunId).toBe("run_122");
@@ -204,6 +205,29 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.rerunReviewUrl).toBe(
       "https://github.com/openclaw/openclaw/pull/42#pullrequestreview-9",
     );
+  });
+
+  it("reports false when rerun context does not include review metadata", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        rerunContext: {
+          reason: "Retry branch refresh after base promotion",
+          requestedAt: "2026-01-03T00:00:00.000Z",
+          priorRunId: "run_123",
+          priorStage: "planning",
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.rerunRequested).toBe(true);
+    expect(payload.rerunHasReviewContext).toBe(false);
+    expect(payload.rerunReviewDecision).toBeNull();
+    expect(payload.rerunReviewSubmittedAt).toBeNull();
+    expect(payload.rerunReviewSummary).toBeNull();
+    expect(payload.rerunReviewUrl).toBeNull();
   });
 
   it("keeps unpublished local draft metadata separate from published pr fields", async () => {
