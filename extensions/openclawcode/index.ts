@@ -514,9 +514,13 @@ function extractStatusSummary(status: string): string | undefined {
 }
 
 function resolveRerunReason(snapshot: OpenClawCodeIssueStatusSnapshot): string {
+  const preferLatestReviewSummary =
+    snapshot.stage === "changes-requested" ||
+    (snapshot.stage === "ready-for-human-review" && snapshot.latestReviewDecision === "approved");
   return (
-    snapshot.latestReviewSummary ??
+    (preferLatestReviewSummary ? snapshot.latestReviewSummary : undefined) ??
     extractStatusSummary(snapshot.status) ??
+    snapshot.latestReviewSummary ??
     `Manual rerun requested from ${formatStageLabel(snapshot.stage)} state.`
   );
 }

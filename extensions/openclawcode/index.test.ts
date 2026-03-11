@@ -1042,6 +1042,75 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("prefers the current escalated status summary over stale review text for /occode-rerun", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.setStatusSnapshot({
+        issueKey: "zhyongrui/openclawcode#2160",
+        status: [
+          "openclawcode status for zhyongrui/openclawcode#2160",
+          "Stage: Escalated",
+          "Summary: GitHub pull request was closed without merge after the latest tracked workflow state.",
+          "PR: https://github.com/zhyongrui/openclawcode/pull/3160",
+        ].join("\n"),
+        stage: "escalated",
+        runId: "run-2160",
+        updatedAt: "2026-03-11T03:25:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 2160,
+        branchName: "openclawcode/issue-2160",
+        pullRequestNumber: 3160,
+        pullRequestUrl: "https://github.com/zhyongrui/openclawcode/pull/3160",
+        notifyChannel: "telegram",
+        notifyTarget: "chat:escalated-thread",
+        latestReviewDecision: "approved",
+        latestReviewSubmittedAt: "2026-03-11T03:24:00.000Z",
+        latestReviewSummary: "This stale review summary should not become the rerun reason.",
+        latestReviewUrl:
+          "https://github.com/zhyongrui/openclawcode/pull/3160#pullrequestreview-2160",
+      });
+
+      const result = await fixture.commands.get("occode-rerun")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-rerun #2160",
+        args: "#2160",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: "Queued rerun for zhyongrui/openclawcode#2160 from Escalated state. I will post status updates here.",
+      });
+      const snapshot = await fixture.store.snapshot();
+      expect(snapshot.queue).toHaveLength(1);
+      expect(snapshot.queue[0]).toMatchObject({
+        issueKey: "zhyongrui/openclawcode#2160",
+        notifyChannel: "telegram",
+        notifyTarget: "chat:escalated-thread",
+        request: {
+          branchName: "openclawcode/issue-2160",
+          rerunContext: {
+            reason:
+              "GitHub pull request was closed without merge after the latest tracked workflow state.",
+            priorRunId: "run-2160",
+            priorStage: "escalated",
+            reviewDecision: "approved",
+            reviewSubmittedAt: "2026-03-11T03:24:00.000Z",
+            reviewSummary: "This stale review summary should not become the rerun reason.",
+            reviewUrl: "https://github.com/zhyongrui/openclawcode/pull/3160#pullrequestreview-2160",
+          },
+        },
+      });
+      expect(snapshot.statusByIssue["zhyongrui/openclawcode#2160"]).toBe(
+        "Queued rerun from Escalated state.",
+      );
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
   it("requires an existing tracked run before /occode-rerun can queue work", async () => {
     const fixture = await registerPluginFixture();
     try {
