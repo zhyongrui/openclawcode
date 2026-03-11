@@ -301,6 +301,39 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationFollowUpCount).toBe(2);
   });
 
+  it("prints docs-only webhook smoke test signals derived from the issue run", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        issue: {
+          owner: "openclaw",
+          repo: "openclaw",
+          number: 40,
+          title: "[Feature]: Webhook auto-intake smoke test after public tunnel setup",
+        },
+        buildResult: {
+          branchName: "openclawcode/issue-40",
+          summary: "Create a tiny docs-only smoke test issue for webhook tunnel validation.",
+          changedFiles: ["docs/openclawcode/webhook-smoke-test.md"],
+          issueClassification: "command-layer",
+          scopeCheck: {
+            ok: true,
+            blockedFiles: [],
+            summary: "Scope check passed for command-layer issue.",
+          },
+          testCommands: [],
+          testResults: [],
+          notes: [],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "40", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.issueDocsOnly).toBe(true);
+    expect(payload.issueWebhookSmokeTest).toBe(true);
+  });
+
   it("prints failed auto-merge disposition when merge execution fails", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({

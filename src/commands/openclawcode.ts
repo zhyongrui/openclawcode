@@ -237,6 +237,24 @@ function resolveVerificationApprovedForHumanReview(run: WorkflowRun): boolean | 
   return decision === "approve-for-human-review";
 }
 
+function resolveIssueDocsOnly(run: WorkflowRun): boolean {
+  const changedFiles = run.buildResult?.changedFiles;
+  if (!changedFiles || changedFiles.length === 0) {
+    return false;
+  }
+
+  return changedFiles.every((file) => file.startsWith("docs/"));
+}
+
+function resolveIssueWebhookSmokeTest(run: WorkflowRun): boolean {
+  const content = [run.issue.title, run.buildResult?.summary]
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .toLowerCase();
+
+  return content.includes("webhook") && content.includes("smoke test");
+}
+
 function toWorkflowRunJson(run: WorkflowRun) {
   const autoMergePolicy = resolveAutoMergePolicy(run);
   const autoMergeDisposition = resolveAutoMergeDisposition(run);
@@ -251,6 +269,8 @@ function toWorkflowRunJson(run: WorkflowRun) {
     changeDisposition: changeDisposition.changeDisposition,
     changeDispositionReason: changeDisposition.changeDispositionReason,
     issueClassification: run.buildResult?.issueClassification ?? null,
+    issueDocsOnly: resolveIssueDocsOnly(run),
+    issueWebhookSmokeTest: resolveIssueWebhookSmokeTest(run),
     scopeCheck: run.buildResult?.scopeCheck ?? null,
     scopeCheckSummary: run.buildResult?.scopeCheck?.summary ?? null,
     scopeCheckPassed: run.buildResult?.scopeCheck?.ok ?? null,
