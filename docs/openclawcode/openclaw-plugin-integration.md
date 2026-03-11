@@ -238,6 +238,13 @@ The first GitHub-side reconciliation slice is now implemented:
 - if GitHub reports that PR as merged, the plugin heals the local issue status
   to `merged` immediately
 
+That GitHub-side reconciliation now also covers review outcomes:
+
+- a newer GitHub `CHANGES_REQUESTED` review heals the issue to
+  `changes-requested`
+- a newer GitHub `APPROVED` review can heal a previously
+  `changes-requested` issue back to `ready-for-human-review`
+
 This keeps the first remote sync path demand-driven and cheap while still
 fixing the most important stale-status case: a human merges the PR outside the
 local workflow process.

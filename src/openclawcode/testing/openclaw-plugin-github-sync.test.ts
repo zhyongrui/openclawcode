@@ -5,12 +5,16 @@ import type {
   GitHubIssueClient,
   GitHubIssueState,
   GitHubPullRequestState,
+  GitHubPullRequestReviewState,
   PullRequestRef,
   RepoRef,
 } from "../github/index.js";
 
 class FakeGitHubClient implements GitHubIssueClient {
-  constructor(private readonly pullRequest: GitHubPullRequestState) {}
+  constructor(
+    private readonly pullRequest: GitHubPullRequestState,
+    private readonly review?: GitHubPullRequestReviewState,
+  ) {}
 
   async fetchIssue(_ref: RepoRef & { issueNumber: number }): Promise<IssueRef> {
     throw new Error("not used");
@@ -22,6 +26,10 @@ class FakeGitHubClient implements GitHubIssueClient {
 
   async fetchPullRequest(): Promise<GitHubPullRequestState> {
     return this.pullRequest;
+  }
+
+  async fetchLatestPullRequestReview(): Promise<GitHubPullRequestReviewState | undefined> {
+    return this.review;
   }
 
   async createDraftPullRequest(): Promise<PullRequestRef> {
@@ -100,5 +108,77 @@ describe("openclaw plugin GitHub snapshot sync", () => {
 
     expect(result.changed).toBe(false);
     expect(result.snapshot).toEqual(snapshot);
+  });
+
+  it("downgrades ready-for-review snapshots to changes-requested when GitHub review requests changes", async () => {
+    const result = await syncIssueSnapshotFromGitHub({
+      snapshot: {
+        issueKey: "zhyongrui/openclawcode#403",
+        status: "openclawcode status for zhyongrui/openclawcode#403\nStage: Ready For Human Review",
+        stage: "ready-for-human-review",
+        runId: "run-403",
+        updatedAt: "2026-03-10T10:00:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 403,
+        branchName: "openclawcode/issue-403",
+        pullRequestNumber: 503,
+        pullRequestUrl: "https://github.com/zhyongrui/openclawcode/pull/503",
+      },
+      github: new FakeGitHubClient(
+        {
+          number: 503,
+          url: "https://github.com/zhyongrui/openclawcode/pull/503",
+          state: "open",
+          draft: false,
+          merged: false,
+        },
+        {
+          decision: "changes-requested",
+          submittedAt: "2026-03-10T10:05:00.000Z",
+        },
+      ),
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.snapshot.stage).toBe("changes-requested");
+    expect(result.snapshot.updatedAt).toBe("2026-03-10T10:05:00.000Z");
+    expect(result.snapshot.status).toContain("Stage: Changes Requested");
+  });
+
+  it("upgrades changes-requested snapshots back to ready-for-human-review when GitHub review approves", async () => {
+    const result = await syncIssueSnapshotFromGitHub({
+      snapshot: {
+        issueKey: "zhyongrui/openclawcode#404",
+        status: "openclawcode status for zhyongrui/openclawcode#404\nStage: Changes Requested",
+        stage: "changes-requested",
+        runId: "run-404",
+        updatedAt: "2026-03-10T10:00:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 404,
+        branchName: "openclawcode/issue-404",
+        pullRequestNumber: 504,
+        pullRequestUrl: "https://github.com/zhyongrui/openclawcode/pull/504",
+      },
+      github: new FakeGitHubClient(
+        {
+          number: 504,
+          url: "https://github.com/zhyongrui/openclawcode/pull/504",
+          state: "open",
+          draft: false,
+          merged: false,
+        },
+        {
+          decision: "approved",
+          submittedAt: "2026-03-10T10:07:00.000Z",
+        },
+      ),
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.snapshot.stage).toBe("ready-for-human-review");
+    expect(result.snapshot.updatedAt).toBe("2026-03-10T10:07:00.000Z");
+    expect(result.snapshot.status).toContain("Stage: Ready For Human Review");
   });
 });

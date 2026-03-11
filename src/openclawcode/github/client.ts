@@ -26,6 +26,11 @@ export interface GitHubPullRequestState extends PullRequestRef {
   mergedAt?: string;
 }
 
+export interface GitHubPullRequestReviewState {
+  decision: "approved" | "changes-requested";
+  submittedAt?: string;
+}
+
 export interface DraftPullRequestRequest extends RepoRef {
   title: string;
   body: string;
@@ -51,6 +56,9 @@ export interface GitHubIssueClient {
   fetchIssue(ref: IssueStateRef): Promise<IssueRef>;
   fetchIssueState(ref: IssueStateRef): Promise<GitHubIssueState>;
   fetchPullRequest(ref: RepoRef & { pullNumber: number }): Promise<GitHubPullRequestState>;
+  fetchLatestPullRequestReview(
+    ref: RepoRef & { pullNumber: number },
+  ): Promise<GitHubPullRequestReviewState | undefined>;
   createDraftPullRequest(request: DraftPullRequestRequest): Promise<PullRequestRef>;
   markPullRequestReadyForReview(request: ReadyForReviewRequest): Promise<void>;
   mergePullRequest(request: MergePullRequestRequest): Promise<void>;
@@ -72,6 +80,11 @@ type GitHubPullRequestResponse = {
   draft: boolean;
   merged_at?: string | null;
   merged?: boolean;
+};
+
+type GitHubPullRequestReviewResponse = {
+  state?: string | null;
+  submitted_at?: string | null;
 };
 
 function resolveToken(env: NodeJS.ProcessEnv): string | undefined {
@@ -188,6 +201,39 @@ export class GitHubRestClient implements GitHubIssueClient {
       merged: Boolean(pullRequest.merged ?? pullRequest.merged_at),
       mergedAt: typeof pullRequest.merged_at === "string" ? pullRequest.merged_at : undefined,
     };
+  }
+
+  async fetchLatestPullRequestReview(
+    ref: RepoRef & { pullNumber: number },
+  ): Promise<GitHubPullRequestReviewState | undefined> {
+    const reviews = await this.request<GitHubPullRequestReviewResponse[]>(
+      `/repos/${ref.owner}/${ref.repo}/pulls/${ref.pullNumber}/reviews`,
+    );
+    const normalized = reviews
+      .flatMap((review) => {
+        const state = review.state?.trim().toUpperCase();
+        if (state === "APPROVED") {
+          return [
+            {
+              decision: "approved" as const,
+              submittedAt:
+                typeof review.submitted_at === "string" ? review.submitted_at : undefined,
+            },
+          ];
+        }
+        if (state === "CHANGES_REQUESTED") {
+          return [
+            {
+              decision: "changes-requested" as const,
+              submittedAt:
+                typeof review.submitted_at === "string" ? review.submitted_at : undefined,
+            },
+          ];
+        }
+        return [];
+      })
+      .toSorted((left, right) => (right.submittedAt ?? "").localeCompare(left.submittedAt ?? ""));
+    return normalized[0];
   }
 
   async createDraftPullRequest(request: DraftPullRequestRequest): Promise<PullRequestRef> {

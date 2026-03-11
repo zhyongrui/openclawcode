@@ -767,6 +767,79 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("heals /occode-status from GitHub when a tracked pull request review requests changes", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.setStatusSnapshot({
+        issueKey: "zhyongrui/openclawcode#210",
+        status: "openclawcode status for zhyongrui/openclawcode#210\nStage: Ready For Human Review",
+        stage: "ready-for-human-review",
+        runId: "run-210",
+        updatedAt: "2026-03-10T09:10:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 210,
+        branchName: "openclawcode/issue-210",
+        pullRequestNumber: 310,
+        pullRequestUrl: "https://github.com/zhyongrui/openclawcode/pull/310",
+      });
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValueOnce(
+            new Response(
+              JSON.stringify({
+                number: 310,
+                html_url: "https://github.com/zhyongrui/openclawcode/pull/310",
+                state: "open",
+                draft: false,
+                merged: false,
+              }),
+              {
+                status: 200,
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              },
+            ),
+          )
+          .mockResolvedValueOnce(
+            new Response(
+              JSON.stringify([
+                {
+                  state: "CHANGES_REQUESTED",
+                  submitted_at: "2026-03-10T09:15:00.000Z",
+                },
+              ]),
+              {
+                status: 200,
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              },
+            ),
+          ),
+      );
+
+      const result = await fixture.commands.get("occode-status")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-status #210",
+        args: "#210",
+        config: {},
+      });
+
+      expect(result?.text).toContain("Stage: Changes Requested");
+      const snapshot = await fixture.store.getStatusSnapshot("zhyongrui/openclawcode#210");
+      expect(snapshot?.stage).toBe("changes-requested");
+      expect(snapshot?.updatedAt).toBe("2026-03-10T09:15:00.000Z");
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
   it("shows pending, running, queued, and recent activity through /occode-inbox", async () => {
     const fixture = await registerPluginFixture();
     try {
