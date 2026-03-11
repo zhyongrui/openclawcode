@@ -94,9 +94,14 @@ turning the working loop into a cleanly operable product:
 - issue intake, lifecycle updates, rerun control, operator ledger visibility,
   and setup verification now exist, and the real review or close-without-merge
   lifecycle path has now been replayed successfully
-- the preflight blockers found during live replay are now fixed, and a real
-  review plus closed-without-merge replay has been validated against the live
-  route; the remaining live gap is a fresh rerun plus merged-PR validation
+- the preflight blockers found during live replay are now fixed, and the live
+  route has now validated:
+  - real review replay
+  - closed-without-merge replay
+  - one fresh `/occode-rerun` path through issue `#40`
+- live rerun validation also forced one more worktree hardening pass so stale
+  issue branches now merge the latest base before publication instead of
+  reopening dirty PRs from outdated branch state
 - packaging and installation are now documented locally, but still need more
   proof under a fresh operator environment
 - policy docs lag the implemented guarded auto-merge behavior and need to be
@@ -647,20 +652,21 @@ Why next:
 
 The next implementation slice should follow this order:
 
-1. choose one fresh low-risk issue in this repository
-2. drive it to a real draft PR and one real `changes requested` review
-3. exercise `/occode-rerun` against that tracked issue while preserving branch
-   and PR continuity
-4. verify chat notifications, snapshot updates, and `/occode-inbox` output for:
-   - rerun lineage
-   - updated review context
-   - final disposition after rerun
-5. if the issue remains low-risk, validate one real merged-PR lifecycle event
-   against the live route
+1. choose one low-risk tracked issue or fresh issue branch suitable for merge
+   validation
+2. drive it to a real draft PR on the live route
+3. confirm the branch is mergeable after the reusable-worktree refresh rules:
+   - stale branches with no unique commits fast-forward to base
+   - stale branches with unique commits merge the latest base before publish
+4. validate one real merged-PR lifecycle event against the live route
+5. verify chat notifications, snapshot updates, and `/occode-inbox` output for:
+   - final merged disposition
+   - notification delivery metadata
+   - post-merge issue closure when policy allows it
 6. document the exact GitHub permissions, replay method, and operator caveats,
    including the need for a second reviewer account when the PR author cannot
    request changes on their own pull request
-7. update the dev log and status docs with the live rerun or merge result
+7. update the dev log and status docs with the live merge result
 8. commit the slice only after targeted validation passes
 
 ## Test Strategy

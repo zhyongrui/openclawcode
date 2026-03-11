@@ -50,6 +50,11 @@ loop with:
   and existing-PR continuity
 - local-run reconciliation that can recover tracked PR linkage from older run
   artifacts when a newer rerun artifact omits draft PR metadata
+- merge-based reusable worktree refresh that:
+  - fast-forwards stale issue branches that have no unique commits
+  - merges the latest base branch into reusable issue branches that do have
+    unique commits
+  - aborts instead of continuing with a conflicted reusable branch refresh
 - a compact `/occode-inbox` operator ledger for recent lifecycle events, final
   disposition, rerun lineage, and last notification metadata
 - a repeatable operator setup runbook plus a repo-local setup verification
@@ -61,10 +66,16 @@ loop with:
   - `pull_request_review` changes requested
   - `pull_request_review` approved
   - `pull_request` closed without merge
+- a real live `/occode-rerun` validation against issue `#40`, including:
+  - explicit rerun lineage persisted into the tracked snapshot
+  - reusable issue-branch continuity through the live runner
+  - real draft PR publication to `PR #43`
+  - final `ready-for-human-review` completion with notification delivery
+  - follow-up hardening so reusable issue branches merge the latest base before
+    rerun publication instead of reopening dirty PRs from stale branch state
 
 Still pending for a fuller product loop:
 
 - stronger suitability/risk gating ahead of autonomous execution
-- one fresh live rerun path through `/occode-rerun` plus a separate merged-PR
-  validation on a low-risk issue
+- one separate low-risk merged-PR validation on the live route
 - broader policy-doc polish

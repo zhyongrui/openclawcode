@@ -32,6 +32,18 @@ async function createTempRepo(): Promise<{ rootDir: string; worktreeRoot: string
   return { rootDir, worktreeRoot };
 }
 
+async function writeAndCommitFile(
+  cwd: string,
+  relativePath: string,
+  contents: string,
+  message: string,
+): Promise<string> {
+  await fs.writeFile(path.join(cwd, relativePath), contents, "utf8");
+  await runGit(cwd, ["add", relativePath]);
+  await runGit(cwd, ["commit", "-m", message]);
+  return runGit(cwd, ["rev-parse", "HEAD"]);
+}
+
 describe("GitWorktreeManager", () => {
   it("creates and reuses a per-run worktree", async () => {
     const repo = await createTempRepo();
@@ -83,6 +95,198 @@ describe("GitWorktreeManager", () => {
       });
 
       expect(second.worktreePath).toBe(first.worktreePath);
+    } finally {
+      await fs.rm(repo.rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("cleans tracked and untracked changes when reusing an existing issue branch worktree", async () => {
+    const repo = await createTempRepo();
+    const manager = new GitWorktreeManager(() => "2026-03-09T12:00:00.000Z");
+
+    try {
+      const first = await manager.prepare({
+        repoRoot: repo.rootDir,
+        worktreeRoot: repo.worktreeRoot,
+        branchName: "openclawcode/issue-47",
+        baseBranch: "main",
+        runId: "issue-47-first",
+      });
+
+      await fs.writeFile(path.join(first.worktreePath, "README.md"), "# dirty rerun\n", "utf8");
+      await fs.writeFile(path.join(first.worktreePath, "notes.txt"), "temp\n", "utf8");
+      await fs.writeFile(path.join(first.worktreePath, "HEARTBEAT.md"), "runtime\n", "utf8");
+      await fs.mkdir(path.join(first.worktreePath, ".openclaw"), { recursive: true });
+      await fs.writeFile(
+        path.join(first.worktreePath, ".openclaw", "session.json"),
+        "{}\n",
+        "utf8",
+      );
+
+      const second = await manager.prepare({
+        repoRoot: repo.rootDir,
+        worktreeRoot: repo.worktreeRoot,
+        branchName: "openclawcode/issue-47",
+        baseBranch: "main",
+        runId: "issue-47-second",
+      });
+
+      expect(second.worktreePath).toBe(first.worktreePath);
+      expect(await fs.readFile(path.join(second.worktreePath, "README.md"), "utf8")).toBe(
+        "# temp repo\n",
+      );
+      await expect(fs.stat(path.join(second.worktreePath, "notes.txt"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      await expect(fs.stat(path.join(second.worktreePath, "HEARTBEAT.md"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      await expect(
+        fs.stat(path.join(second.worktreePath, ".openclaw", "session.json")),
+      ).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      await fs.rm(repo.rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("fast-forwards a reusable issue branch to the latest base commit when it has no unique commits", async () => {
+    const repo = await createTempRepo();
+    const manager = new GitWorktreeManager(() => "2026-03-09T12:00:00.000Z");
+
+    try {
+      const first = await manager.prepare({
+        repoRoot: repo.rootDir,
+        worktreeRoot: repo.worktreeRoot,
+        branchName: "openclawcode/issue-48",
+        baseBranch: "main",
+        runId: "issue-48-first",
+      });
+
+      const updatedBaseHead = await writeAndCommitFile(
+        repo.rootDir,
+        "README.md",
+        "# temp repo v2\n",
+        "advance main",
+      );
+
+      const second = await manager.prepare({
+        repoRoot: repo.rootDir,
+        worktreeRoot: repo.worktreeRoot,
+        branchName: "openclawcode/issue-48",
+        baseBranch: "main",
+        runId: "issue-48-second",
+      });
+
+      expect(second.worktreePath).toBe(first.worktreePath);
+      expect(await fs.readFile(path.join(second.worktreePath, "README.md"), "utf8")).toBe(
+        "# temp repo v2\n",
+      );
+      expect(await runGit(second.worktreePath, ["rev-parse", "HEAD"])).toBe(updatedBaseHead);
+      expect(await runGit(repo.rootDir, ["rev-parse", "openclawcode/issue-48"])).toBe(
+        updatedBaseHead,
+      );
+    } finally {
+      await fs.rm(repo.rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("merges the latest base branch into a reusable issue branch while preserving committed changes", async () => {
+    const repo = await createTempRepo();
+    const manager = new GitWorktreeManager(() => "2026-03-09T12:00:00.000Z");
+
+    try {
+      const first = await manager.prepare({
+        repoRoot: repo.rootDir,
+        worktreeRoot: repo.worktreeRoot,
+        branchName: "openclawcode/issue-49",
+        baseBranch: "main",
+        runId: "issue-49-first",
+      });
+
+      const branchHead = await writeAndCommitFile(
+        first.worktreePath,
+        "README.md",
+        "# issue branch change\n",
+        "issue branch change",
+      );
+      await writeAndCommitFile(repo.rootDir, "base.txt", "base advanced\n", "advance main again");
+
+      await fs.writeFile(path.join(first.worktreePath, "README.md"), "# dirty rerun\n", "utf8");
+      await fs.writeFile(path.join(first.worktreePath, "scratch.txt"), "temp\n", "utf8");
+
+      const second = await manager.prepare({
+        repoRoot: repo.rootDir,
+        worktreeRoot: repo.worktreeRoot,
+        branchName: "openclawcode/issue-49",
+        baseBranch: "main",
+        runId: "issue-49-second",
+      });
+
+      expect(second.worktreePath).toBe(first.worktreePath);
+      expect(await fs.readFile(path.join(second.worktreePath, "README.md"), "utf8")).toBe(
+        "# issue branch change\n",
+      );
+      await expect(fs.stat(path.join(second.worktreePath, "scratch.txt"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      const refreshedHead = await runGit(second.worktreePath, ["rev-parse", "HEAD"]);
+      expect(refreshedHead).not.toBe(branchHead);
+      expect(await runGit(repo.rootDir, ["rev-parse", "openclawcode/issue-49"])).toBe(
+        refreshedHead,
+      );
+      expect(await fs.readFile(path.join(second.worktreePath, "base.txt"), "utf8")).toBe(
+        "base advanced\n",
+      );
+      expect(
+        await runGit(second.worktreePath, ["merge-base", "--is-ancestor", "main", "HEAD"]),
+      ).toBe("");
+    } finally {
+      await fs.rm(repo.rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("aborts reusable issue branch refresh when merging the latest base would conflict", async () => {
+    const repo = await createTempRepo();
+    const manager = new GitWorktreeManager(() => "2026-03-09T12:00:00.000Z");
+
+    try {
+      const first = await manager.prepare({
+        repoRoot: repo.rootDir,
+        worktreeRoot: repo.worktreeRoot,
+        branchName: "openclawcode/issue-50",
+        baseBranch: "main",
+        runId: "issue-50-first",
+      });
+
+      await writeAndCommitFile(
+        first.worktreePath,
+        "README.md",
+        "# branch conflicting change\n",
+        "issue branch conflicting change",
+      );
+      await writeAndCommitFile(
+        repo.rootDir,
+        "README.md",
+        "# main conflicting change\n",
+        "advance main with conflict",
+      );
+
+      await expect(
+        manager.prepare({
+          repoRoot: repo.rootDir,
+          worktreeRoot: repo.worktreeRoot,
+          branchName: "openclawcode/issue-50",
+          baseBranch: "main",
+          runId: "issue-50-second",
+        }),
+      ).rejects.toThrow(/merge/i);
+
+      expect(await runGit(first.worktreePath, ["status", "--short"])).toBe("");
+      expect(await fs.readFile(path.join(first.worktreePath, "README.md"), "utf8")).toBe(
+        "# branch conflicting change\n",
+      );
     } finally {
       await fs.rm(repo.rootDir, { recursive: true, force: true });
     }

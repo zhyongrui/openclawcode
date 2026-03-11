@@ -106,6 +106,81 @@ async function ensureSharedInstallArtifacts(repoRoot: string, worktreePath: stri
   }
 }
 
+async function isAncestor(
+  repoRoot: string,
+  ancestorRef: string,
+  descendantRef: string,
+): Promise<boolean> {
+  const result = await execFileUtf8("git", [
+    "-C",
+    repoRoot,
+    "merge-base",
+    "--is-ancestor",
+    ancestorRef,
+    descendantRef,
+  ]);
+  return result.code === 0;
+}
+
+type ReusableWorktreeRefreshMode = "reset-to-base" | "reset-to-head" | "merge-base-into-branch";
+
+async function resolveReusableWorktreeRefreshMode(
+  params: Pick<PrepareWorkspaceParams, "repoRoot" | "branchName" | "baseBranch">,
+): Promise<ReusableWorktreeRefreshMode> {
+  if (await isAncestor(params.repoRoot, params.branchName, params.baseBranch)) {
+    return "reset-to-base";
+  }
+  if (await isAncestor(params.repoRoot, params.baseBranch, params.branchName)) {
+    return "reset-to-head";
+  }
+  return "merge-base-into-branch";
+}
+
+async function resetAndCleanWorktree(worktreePath: string, resetTarget: string): Promise<void> {
+  const reset = await execFileUtf8("git", ["-C", worktreePath, "reset", "--hard", resetTarget]);
+  if (reset.code !== 0) {
+    throw new Error(reset.stderr || `Failed to reset reusable worktree at ${worktreePath}`);
+  }
+
+  const clean = await execFileUtf8("git", ["-C", worktreePath, "clean", "-fd"]);
+  if (clean.code !== 0) {
+    throw new Error(clean.stderr || `Failed to clean reusable worktree at ${worktreePath}`);
+  }
+}
+
+async function refreshReusableWorktree(
+  params: PrepareWorkspaceParams,
+  worktreePath: string,
+): Promise<void> {
+  const mode = await resolveReusableWorktreeRefreshMode(params);
+  if (mode === "reset-to-base") {
+    await resetAndCleanWorktree(worktreePath, params.baseBranch);
+    return;
+  }
+  if (mode === "reset-to-head") {
+    await resetAndCleanWorktree(worktreePath, "HEAD");
+    return;
+  }
+
+  await resetAndCleanWorktree(worktreePath, "HEAD");
+  const merge = await execFileUtf8("git", [
+    "-C",
+    worktreePath,
+    "merge",
+    "--no-edit",
+    params.baseBranch,
+  ]);
+  if (merge.code !== 0) {
+    const abort = await execFileUtf8("git", ["-C", worktreePath, "merge", "--abort"]);
+    const abortSuffix =
+      abort.code === 0 ? "" : ` Merge abort also failed: ${abort.stderr || "unknown error"}`;
+    throw new Error(
+      (merge.stderr || `Failed to merge ${params.baseBranch} into ${params.branchName}`) +
+        abortSuffix,
+    );
+  }
+}
+
 export class GitWorktreeManager implements WorkflowWorkspaceManager {
   constructor(private readonly now: () => string = nowIso) {}
 
@@ -126,6 +201,7 @@ export class GitWorktreeManager implements WorkflowWorkspaceManager {
         (entry) => entry.branch === branchRef,
       );
       if (existingBranchWorktree && (await pathExists(existingBranchWorktree.path))) {
+        await refreshReusableWorktree(params, existingBranchWorktree.path);
         await ensureSharedInstallArtifacts(params.repoRoot, existingBranchWorktree.path);
         return {
           repoRoot: params.repoRoot,
@@ -167,6 +243,7 @@ export class GitWorktreeManager implements WorkflowWorkspaceManager {
       }
     }
 
+    await refreshReusableWorktree(params, worktreePath);
     await ensureSharedInstallArtifacts(params.repoRoot, worktreePath);
 
     return {
