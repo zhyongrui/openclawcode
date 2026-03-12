@@ -5,6 +5,7 @@ import type {
   WorkflowRerunContext,
   WorkflowRun,
 } from "../../openclawcode/contracts/index.js";
+import { collectIssueRiskSignals } from "../../openclawcode/roles/index.js";
 
 const SUPPORTED_ISSUE_ACTIONS = new Set(["opened", "reopened", "labeled"]);
 
@@ -57,6 +58,11 @@ export interface ChatopsIssueIntakeDecision {
   accept: boolean;
   reason: string;
   issue?: IssueRef;
+  precheck?: {
+    decision: "escalate";
+    summary: string;
+    reasons: string[];
+  };
 }
 
 export interface OpenClawCodeChatopsCommand {
@@ -294,17 +300,34 @@ export function decideIssueWebhookIntake(params: {
     };
   }
 
+  const issue: IssueRef = {
+    owner: config.owner,
+    repo: config.repo,
+    number: event.issue.number,
+    title: event.issue.title,
+    body: event.issue.body,
+    labels,
+  };
+
+  const riskSignals = collectIssueRiskSignals(issue);
+  if (riskSignals.length > 0) {
+    const reason = `Issue text references high-risk areas: ${riskSignals.join(", ")}.`;
+    return {
+      accept: true,
+      reason: "Issue requires escalation before approval or auto-run.",
+      issue,
+      precheck: {
+        decision: "escalate",
+        summary: `Webhook intake precheck escalated the issue before chat approval. ${reason}`,
+        reasons: [reason],
+      },
+    };
+  }
+
   return {
     accept: true,
     reason: "Issue should be announced for human approval in chat.",
-    issue: {
-      owner: config.owner,
-      repo: config.repo,
-      number: event.issue.number,
-      title: event.issue.title,
-      body: event.issue.body,
-      labels,
-    },
+    issue,
   };
 }
 
@@ -331,6 +354,26 @@ export function buildIssueApprovalMessage(params: {
     "Reply with one command:",
     `/occode-start ${issueKey}`,
     `/occode-skip ${issueKey}`,
+    `/occode-status ${issueKey}`,
+  ].join("\n");
+}
+
+export function buildIssueEscalationMessage(params: {
+  issue: IssueRef;
+  summary: string;
+  reasons: string[];
+}): string {
+  const { issue, summary, reasons } = params;
+  const issueKey = formatIssueKey(issue);
+  const reasonLines = reasons.map((entry) => `- ${entry}`);
+  return [
+    "openclawcode escalated a new GitHub issue before chat approval.",
+    `Issue: ${issueKey}`,
+    `Title: ${issue.title}`,
+    `Summary: ${summary}`,
+    "Reasons:",
+    ...reasonLines,
+    "Use /occode-status to inspect the tracked status if you later decide to handle it manually.",
     `/occode-status ${issueKey}`,
   ].join("\n");
 }

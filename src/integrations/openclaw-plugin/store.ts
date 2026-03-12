@@ -449,6 +449,21 @@ export class OpenClawCodeChatopsStore {
     });
   }
 
+  async recordPrecheckedEscalation(snapshot: OpenClawCodeIssueStatusSnapshot): Promise<boolean> {
+    return await this.mutateState((state) => {
+      if (
+        state.pendingApprovals.some((entry) => entry.issueKey === snapshot.issueKey) ||
+        state.currentRun?.issueKey === snapshot.issueKey ||
+        state.queue.some((entry) => entry.issueKey === snapshot.issueKey)
+      ) {
+        return false;
+      }
+      state.statusByIssue[snapshot.issueKey] = snapshot.status;
+      state.statusSnapshotsByIssue[snapshot.issueKey] = snapshot;
+      return true;
+    });
+  }
+
   async recordSnapshotNotification(params: {
     issueKey: string;
     notifyChannel: string;

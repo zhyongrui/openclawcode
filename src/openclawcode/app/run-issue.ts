@@ -9,7 +9,12 @@ import {
   executeVerification,
 } from "../orchestrator/index.js";
 import type { WorkflowRunStore } from "../persistence/index.js";
-import type { Builder, Planner, Verifier } from "../roles/index.js";
+import {
+  assessIssueSuitability,
+  type Builder,
+  type Planner,
+  type Verifier,
+} from "../roles/index.js";
 import type { ShellRunner } from "../runtime/index.js";
 import { transitionRun, type TimestampFactory } from "../workflow/index.js";
 import type { WorkflowWorkspaceManager } from "../worktree/index.js";
@@ -119,6 +124,7 @@ function defaultBranchName(issueNumber: number): string {
 
 function shouldAutoMerge(run: WorkflowRun): boolean {
   return (
+    run.suitability?.decision === "auto-run" &&
     run.buildResult?.issueClassification === "command-layer" &&
     (run.buildResult.scopeCheck?.ok ?? true)
   );
@@ -259,6 +265,28 @@ export async function runIssueWorkflow(
     throw error;
   }
   await deps.store.save(run);
+
+  const suitability = assessIssueSuitability(run, now());
+  run = noteRun(
+    {
+      ...run,
+      suitability,
+    },
+    `Suitability assessed: ${suitability.summary}`,
+    now,
+  );
+  await deps.store.save(run);
+
+  if (suitability.decision === "escalate") {
+    run = transitionRun(
+      run,
+      "escalated",
+      `Suitability gate escalated the issue before branch mutation: ${suitability.summary}`,
+      now,
+    );
+    await deps.store.save(run);
+    return run;
+  }
 
   let workspace: WorkflowWorkspace;
   try {
@@ -421,7 +449,7 @@ export async function runIssueWorkflow(
     } else {
       run = noteRun(
         run,
-        "Auto-merge skipped: policy requires human review for non-command-layer or failed-scope runs",
+        "Auto-merge skipped: policy requires an auto-run suitability decision, command-layer scope, and a passing scope check",
         now,
       );
     }

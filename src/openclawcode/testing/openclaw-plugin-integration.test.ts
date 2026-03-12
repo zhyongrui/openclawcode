@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildIssueApprovalMessage,
+  buildIssueEscalationMessage,
   buildOpenClawCodeRunArgv,
   buildRunRequestFromCommand,
   buildRunStatusMessage,
@@ -148,6 +149,37 @@ describe("openclaw plugin integration helpers", () => {
     expect(decision.reason).toContain("trigger label");
   });
 
+  it("prechecks obviously high-risk issues into escalation instead of approval", () => {
+    const decision = decideIssueWebhookIntake({
+      config: {
+        ...repoConfig,
+        triggerLabels: [],
+      },
+      event: {
+        action: "opened",
+        repository: {
+          owner: "zhyongrui",
+          name: "openclawcode",
+        },
+        issue: {
+          number: 420,
+          title: "Rotate auth secrets for webhook permissions",
+          body: "Update authentication, secret handling, and permission checks.",
+          labels: [{ name: "security" }],
+        },
+      },
+    });
+
+    expect(decision.accept).toBe(true);
+    expect(decision.precheck).toMatchObject({
+      decision: "escalate",
+    });
+    expect(decision.precheck?.summary).toContain("Webhook intake precheck escalated");
+    expect(decision.precheck?.reasons).toEqual([
+      "Issue text references high-risk areas: auth, secrets, security, permissions.",
+    ]);
+  });
+
   it("builds a cross-channel approval message with explicit commands", () => {
     const message = buildIssueApprovalMessage({
       config: repoConfig,
@@ -163,6 +195,23 @@ describe("openclaw plugin integration helpers", () => {
     expect(message).toContain("/occode-start zhyongrui/openclawcode#43");
     expect(message).toContain("/occode-skip zhyongrui/openclawcode#43");
     expect(message).toContain("auto-merge");
+  });
+
+  it("builds an escalation message for high-risk intake prechecks", () => {
+    const message = buildIssueEscalationMessage({
+      issue: {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        number: 53,
+        title: "Rotate auth secrets for webhook permissions",
+      },
+      summary: "Webhook intake precheck escalated the issue before chat approval.",
+      reasons: ["Issue text references high-risk areas: auth, secrets, security, permissions."],
+    });
+
+    expect(message).toContain("escalated a new GitHub issue before chat approval");
+    expect(message).toContain("/occode-status zhyongrui/openclawcode#53");
+    expect(message).toContain("auth, secrets, security, permissions");
   });
 
   it("parses explicit and defaulted chatops commands", () => {

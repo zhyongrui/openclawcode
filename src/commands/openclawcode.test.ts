@@ -60,6 +60,18 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.scopeBlockedFileCount).toBe(0);
     expect(payload.buildResult.issueClassification).toBe(payload.issueClassification);
     expect(payload.buildResult.scopeCheck).toEqual(payload.scopeCheck);
+    expect(payload.suitabilityDecision).toBe("auto-run");
+    expect(payload.suitabilitySummary).toBe(
+      "Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
+    );
+    expect(payload.suitabilityReasons).toEqual([
+      "Issue stays within command-layer scope.",
+      "Planner risk level is medium.",
+      "No high-risk issue signals were detected in the issue text or labels.",
+    ]);
+    expect(payload.suitabilityClassification).toBe("command-layer");
+    expect(payload.suitabilityRiskLevel).toBe("medium");
+    expect(payload.suitabilityEvaluatedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(payload.draftPullRequestBranchName).toBe("openclawcode/issue-2");
     expect(payload.draftPullRequestBaseBranch).toBe("main");
     expect(payload.draftPullRequestNumber).toBe(42);
@@ -120,6 +132,10 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.scopeCheckPassed).toBeNull();
     expect(payload.scopeBlockedFiles).toBeNull();
     expect(payload.scopeBlockedFileCount).toBeNull();
+    expect(payload.suitabilityDecision).toBe("auto-run");
+    expect(payload.suitabilitySummary).toBe(
+      "Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
+    );
     expect(payload.draftPullRequestBranchName).toBeNull();
     expect(payload.draftPullRequestBaseBranch).toBeNull();
     expect(payload.draftPullRequestNumber).toBeNull();
@@ -361,9 +377,17 @@ describe("openclawCodeRunCommand", () => {
           ...createRun().buildResult!,
           issueClassification: "workflow-core",
         },
+        suitability: {
+          ...createRun().suitability!,
+          decision: "needs-human-review",
+          summary:
+            "Suitability recommends human review before autonomous execution. Issue is classified as workflow-core instead of command-layer.",
+          reasons: ["Issue is classified as workflow-core instead of command-layer."],
+          classification: "workflow-core",
+        },
         history: [
           "Verification approved for human review",
-          "Auto-merge skipped: policy requires human review for non-command-layer or failed-scope runs",
+          "Auto-merge skipped: policy requires an auto-run suitability decision, command-layer scope, and a passing scope check",
         ],
       }),
     );
@@ -373,11 +397,11 @@ describe("openclawCodeRunCommand", () => {
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.autoMergeDisposition).toBe("skipped");
     expect(payload.autoMergeDispositionReason).toBe(
-      "Auto-merge skipped: policy requires human review for non-command-layer or failed-scope runs",
+      "Auto-merge skipped: policy requires an auto-run suitability decision, command-layer scope, and a passing scope check",
     );
     expect(payload.autoMergePolicyEligible).toBe(false);
     expect(payload.autoMergePolicyReason).toBe(
-      "Not eligible for auto-merge: the run is not classified as command-layer.",
+      "Not eligible for auto-merge: suitability did not accept autonomous execution.",
     );
   });
 
@@ -553,6 +577,19 @@ function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
       testCommands: ["vitest run"],
       testResults: ["passed"],
       notes: [],
+    },
+    suitability: {
+      decision: "auto-run",
+      summary:
+        "Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
+      reasons: [
+        "Issue stays within command-layer scope.",
+        "Planner risk level is medium.",
+        "No high-risk issue signals were detected in the issue text or labels.",
+      ],
+      classification: "command-layer",
+      riskLevel: "medium",
+      evaluatedAt: "2026-01-01T00:00:00.000Z",
     },
     verificationReport: {
       decision: "approve-for-human-review",

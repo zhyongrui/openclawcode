@@ -13,6 +13,7 @@ export type WorkflowStage =
 export type RiskLevel = "low" | "medium" | "high";
 export type VerificationDecision = "approve-for-human-review" | "request-changes" | "escalate";
 export type IssueImplementationScope = "command-layer" | "workflow-core" | "mixed";
+export type SuitabilityDecision = "auto-run" | "needs-human-review" | "escalate";
 
 export interface IssueRef {
   owner: string;
@@ -39,6 +40,15 @@ export interface ExecutionSpec {
   assumptions: string[];
   openQuestions: string[];
   riskLevel: RiskLevel;
+}
+
+export interface SuitabilityAssessment {
+  decision: SuitabilityDecision;
+  summary: string;
+  reasons: string[];
+  classification: IssueImplementationScope;
+  riskLevel: RiskLevel;
+  evaluatedAt: string;
 }
 
 export interface BuildResult {
@@ -116,6 +126,7 @@ export interface WorkflowRun {
   attempts: WorkflowAttemptSummary;
   stageRecords: WorkflowStageRecord[];
   executionSpec?: ExecutionSpec;
+  suitability?: SuitabilityAssessment;
   workspace?: WorkflowWorkspace;
   buildResult?: BuildResult;
   draftPullRequest?: PullRequestDraft;

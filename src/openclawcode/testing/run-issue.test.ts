@@ -32,16 +32,19 @@ class FakeGitHubClient implements GitHubIssueClient {
   merged: number[] = [];
   closedIssues: number[] = [];
   existingPullRequest?: PullRequestRef;
+  issueOverride?: IssueRef;
 
   async fetchIssue(ref: RepoRef & { issueNumber: number }): Promise<IssueRef> {
-    return {
-      owner: ref.owner,
-      repo: ref.repo,
-      number: ref.issueNumber,
-      title: "Implement workflow CLI",
-      body: "Add an executable code workflow entrypoint.",
-      labels: ["automation"],
-    };
+    return (
+      this.issueOverride ?? {
+        owner: ref.owner,
+        repo: ref.repo,
+        number: ref.issueNumber,
+        title: "Implement workflow CLI",
+        body: "Add an executable code workflow entrypoint.",
+        labels: ["automation"],
+      }
+    );
   }
 
   async fetchIssueState(): Promise<{ state: "open" | "closed" }> {
@@ -100,12 +103,15 @@ class ReusedPullRequestGitHubClient extends FakeGitHubClient {
 }
 
 class FakeWorkspaceManager implements WorkflowWorkspaceManager {
+  prepareCalls = 0;
+
   constructor(
     private readonly workspace: WorkflowWorkspace,
     private readonly changedFiles: string[],
   ) {}
 
   async prepare(): Promise<WorkflowWorkspace> {
+    this.prepareCalls += 1;
     return this.workspace;
   }
 
@@ -117,12 +123,15 @@ class FakeWorkspaceManager implements WorkflowWorkspaceManager {
 }
 
 class FakeBuilder implements Builder {
+  buildCalls = 0;
+
   constructor(
     private readonly scope: "command-layer" | "workflow-core" | "mixed" = "command-layer",
     private readonly changedFiles: string[] = ["src/commands/openclawcode.ts"],
   ) {}
 
   async build(run: WorkflowRun): Promise<BuildResult> {
+    this.buildCalls += 1;
     return {
       branchName: run.workspace?.branchName ?? "openclawcode/issue-1",
       summary: "Builder updated the CLI implementation.",
@@ -153,6 +162,26 @@ class FailingBuilder implements Builder {
 
   async build(): Promise<BuildResult> {
     throw this.error;
+  }
+}
+
+class HighRiskPlanner extends HeuristicPlanner {
+  override async plan(issue: IssueRef) {
+    const spec = await super.plan(issue);
+    return {
+      ...spec,
+      riskLevel: "high" as const,
+    };
+  }
+}
+
+class OpenQuestionPlanner extends HeuristicPlanner {
+  override async plan(issue: IssueRef) {
+    const spec = await super.plan(issue);
+    return {
+      ...spec,
+      openQuestions: ["Clarify whether this should stay docs-only or change workflow behavior."],
+    };
   }
 }
 
@@ -293,6 +322,7 @@ describe("runIssueWorkflow", () => {
       expect(savedRun.buildResult?.scopeCheck?.summary).toBe(
         "Scope check passed for command-layer issue.",
       );
+      expect(savedRun.suitability?.decision).toBe("auto-run");
       expect(savedRun.history).toContain("Issue #55 closed automatically after merge.");
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
@@ -352,6 +382,209 @@ describe("runIssueWorkflow", () => {
         await fs.readFile(path.join(stateDir, "runs", `${run.id}.json`), "utf8"),
       ) as typeof run;
       expect(savedRun.draftPullRequest?.baseBranch).toBe("sync/upstream-2026-03-12");
+    } finally {
+      await fs.rm(stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("records an auto-run suitability assessment before preparing the workspace", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
+
+    try {
+      const workspace: WorkflowWorkspace = {
+        repoRoot: "/repo",
+        baseBranch: "main",
+        branchName: "openclawcode/issue-77",
+        worktreePath: "/repo/.openclawcode/worktrees/run-77",
+        preparedAt: "2026-03-09T13:00:00.000Z",
+      };
+      const github = new FakeGitHubClient();
+      github.issueOverride = {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        number: 77,
+        title: "Expose verification summary in openclaw code run --json output",
+        body: "Add one more stable command JSON field and update targeted command tests.",
+        labels: ["enhancement"],
+      };
+      const workspaceManager = new FakeWorkspaceManager(workspace, [
+        "src/commands/openclawcode.ts",
+      ]);
+      const builder = new FakeBuilder();
+
+      const run = await runIssueWorkflow(
+        {
+          owner: "zhyongrui",
+          repo: "openclawcode",
+          issueNumber: 77,
+          repoRoot: "/repo",
+          stateDir,
+          baseBranch: "main",
+        },
+        {
+          github,
+          planner: new HeuristicPlanner(),
+          builder,
+          verifier: new FakeVerifier({
+            decision: "approve-for-human-review",
+            summary: "Looks good.",
+            findings: [],
+            missingCoverage: [],
+            followUps: [],
+          }),
+          store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
+          worktreeManager: workspaceManager,
+          shellRunner: new NoopShellRunner(),
+          now: createSequenceNow(),
+        },
+      );
+
+      expect(run.suitability).toMatchObject({
+        decision: "auto-run",
+        classification: "command-layer",
+        riskLevel: "medium",
+      });
+      expect(run.history).toContain(
+        "Suitability assessed: Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
+      );
+      expect(workspaceManager.prepareCalls).toBe(1);
+      expect(builder.buildCalls).toBe(1);
+    } finally {
+      await fs.rm(stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("escalates high-risk issues before any branch mutation starts", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
+
+    try {
+      const workspace: WorkflowWorkspace = {
+        repoRoot: "/repo",
+        baseBranch: "main",
+        branchName: "openclawcode/issue-78",
+        worktreePath: "/repo/.openclawcode/worktrees/run-78",
+        preparedAt: "2026-03-09T13:00:00.000Z",
+      };
+      const github = new FakeGitHubClient();
+      github.issueOverride = {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        number: 78,
+        title: "Rotate authentication secrets for the webhook gateway",
+        body: "Update authentication and secret handling for webhook delivery.",
+        labels: ["security"],
+      };
+      const workspaceManager = new FakeWorkspaceManager(workspace, [
+        "src/commands/openclawcode.ts",
+      ]);
+      const builder = new FakeBuilder();
+
+      const run = await runIssueWorkflow(
+        {
+          owner: "zhyongrui",
+          repo: "openclawcode",
+          issueNumber: 78,
+          repoRoot: "/repo",
+          stateDir,
+          baseBranch: "main",
+          openPullRequest: true,
+        },
+        {
+          github,
+          planner: new HighRiskPlanner(),
+          builder,
+          verifier: new FakeVerifier({
+            decision: "approve-for-human-review",
+            summary: "Looks good.",
+            findings: [],
+            missingCoverage: [],
+            followUps: [],
+          }),
+          store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
+          worktreeManager: workspaceManager,
+          shellRunner: new NoopShellRunner(),
+          now: createSequenceNow(),
+        },
+      );
+
+      expect(run.stage).toBe("escalated");
+      expect(run.suitability).toMatchObject({
+        decision: "escalate",
+        riskLevel: "high",
+      });
+      expect(run.workspace).toBeUndefined();
+      expect(workspaceManager.prepareCalls).toBe(0);
+      expect(builder.buildCalls).toBe(0);
+      expect(run.history.at(-1)).toContain(
+        "Suitability gate escalated the issue before branch mutation",
+      );
+    } finally {
+      await fs.rm(stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("skips auto-merge when suitability requires human review", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
+
+    try {
+      const workspace: WorkflowWorkspace = {
+        repoRoot: "/repo",
+        baseBranch: "main",
+        branchName: "openclawcode/issue-79",
+        worktreePath: "/repo/.openclawcode/worktrees/run-79",
+        preparedAt: "2026-03-09T13:00:00.000Z",
+      };
+      const github = new FakeGitHubClient();
+      github.issueOverride = {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        number: 79,
+        title: "Expose more openclaw code run --json output",
+        body: "",
+        labels: ["enhancement"],
+      };
+      const merger = new FakeMerger();
+
+      const run = await runIssueWorkflow(
+        {
+          owner: "zhyongrui",
+          repo: "openclawcode",
+          issueNumber: 79,
+          repoRoot: "/repo",
+          stateDir,
+          baseBranch: "main",
+          openPullRequest: true,
+          mergeOnApprove: true,
+        },
+        {
+          github,
+          planner: new OpenQuestionPlanner(),
+          builder: new FakeBuilder(),
+          verifier: new FakeVerifier({
+            decision: "approve-for-human-review",
+            summary: "Looks good.",
+            findings: [],
+            missingCoverage: [],
+            followUps: [],
+          }),
+          store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
+          worktreeManager: new FakeWorkspaceManager(workspace, ["src/commands/openclawcode.ts"]),
+          shellRunner: new NoopShellRunner(),
+          publisher: new FakePublisher({
+            number: 120,
+            url: "https://github.com/zhyongrui/openclawcode/pull/120",
+          }),
+          merger,
+          now: createSequenceNow(),
+        },
+      );
+
+      expect(run.stage).toBe("ready-for-human-review");
+      expect(run.suitability?.decision).toBe("needs-human-review");
+      expect(run.history).toContain(
+        "Auto-merge skipped: policy requires an auto-run suitability decision, command-layer scope, and a passing scope check",
+      );
+      expect(merger.merged).toBe(0);
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }
@@ -476,7 +709,7 @@ describe("runIssueWorkflow", () => {
       expect(run.stage).toBe("ready-for-human-review");
       expect(merger.merged).toBe(0);
       expect(run.history).toContain(
-        "Auto-merge skipped: policy requires human review for non-command-layer or failed-scope runs",
+        "Auto-merge skipped: policy requires an auto-run suitability decision, command-layer scope, and a passing scope check",
       );
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });

@@ -132,8 +132,15 @@ turning the working loop into a cleanly operable product:
 - the low-risk merged live proof under
   `OPENCLAWCODE_ENABLE_FS_TOOLS=write` is now complete through issue `#48` and
   `PR #49`
-- the next engineering priority is now fresh-operator-environment proof,
-  validation-pool upkeep, and policy-doc cleanup
+- fresh-operator-environment proof is now complete through copied-root issue
+  `#51`, run `zhyongrui-openclawcode-51-1773297182598`, and merged `PR #52`
+- the workflow now records explicit suitability decisions before workspace
+  preparation and can escalate high-risk issues before any branch mutation
+- webhook and chat intake now honor an explicit high-risk precheck before
+  approval or auto-queue
+- the next engineering priority is now surfacing suitability decisions through
+  operator ledger or status views, plus validation-pool upkeep and policy-doc
+  cleanup
 - packaging and installation are now documented locally, but still need more
   proof under a fresh operator environment
 - policy docs lag the implemented guarded auto-merge behavior and need to be
@@ -191,12 +198,14 @@ Exit criteria:
 
 Status:
 
-- active next phase
+- complete as of 2026-03-12 via copied-root issue `#51`, run
+  `zhyongrui-openclawcode-51-1773297182598`, and merged `PR #52`
 - copied-root setup verification is now working through a single
   `OPENCLAWCODE_OPERATOR_ROOT`
 - a copied-root fresh gateway startup proof is now complete on a secondary
   local port
-- the remaining gap is one end-to-end issue run from that fresh environment
+- a copied-root end-to-end issue run is now complete from that fresh
+  environment
 
 Goal:
 
@@ -210,6 +219,19 @@ Exit criteria:
 - one end-to-end issue run can be triggered from that fresh environment
 
 #### Phase 3: Autonomous Suitability Gating
+
+Status:
+
+- active next phase
+- explicit suitability assessments now persist `auto-run`,
+  `needs-human-review`, or `escalate` decisions before workspace preparation
+- a real high-risk direct CLI proof is now complete through issue `#53`, run
+  `zhyongrui-openclawcode-53-1773298188208`
+- webhook and chat intake now precheck obvious high-risk issues into
+  `precheck-escalated` snapshots instead of `pendingApprovals` or `queue`
+- the remaining gap is surfacing those suitability decisions more clearly in
+  operator ledger and status views, and re-validating them on the long-lived
+  main operator after promotion
 
 Goal:
 
@@ -300,6 +322,11 @@ The current repository state already supports:
   - launches a second local gateway from that copied root on port `18889`
   - passes `scripts/openclawcode-setup-check.sh --strict` against the copied
     root and alternate gateway URL with `14 pass`, `0 warn`, and `0 fail`
+- a copied-root end-to-end issue proof on that fresh operator root:
+  - issue `#51` was accepted from a copied-root webhook intake and auto-enqueued
+  - run `zhyongrui-openclawcode-51-1773297182598` opened `PR #52`
+  - `PR #52` merged at `2026-03-12T06:35:52Z`
+  - issue `#51` closed at `2026-03-12T06:35:54Z`
 - a fresh live merged-PR proof on refreshed `main` for issue `#45`:
   - two failed reruns persisted cleanly as `failed` artifacts
   - recovery after runtime tool hardening
@@ -313,6 +340,20 @@ The current repository state already supports:
   - `PR #49` published, verified, auto-merged, and issue `#48` closed
   - the merged run added stable top-level JSON output
     `verificationHasFindings`
+- an explicit suitability gate before workspace preparation that now:
+  - records a structured `suitability` assessment in workflow artifacts and
+    `openclaw code run --json`
+  - escalates high-risk issues before worktree preparation or PR publication
+  - keeps non-auto-run suitability decisions out of the guarded auto-merge path
+- a fresh direct suitability proof through issue `#53`, including:
+  - run `zhyongrui-openclawcode-53-1773298188208`
+  - stage `escalated` before workspace preparation
+  - no changed files, no worktree, and no PR publication
+- a copied-root webhook precheck proof for synthetic issue `#9053`, including:
+  - local signed webhook delivery to the copied gateway on `127.0.0.1:18889`
+  - accepted delivery reason `precheck-escalated`
+  - an `escalated` snapshot with run id `intake-precheck-9053`
+  - no `pendingApprovals` entry and no queued run
 - runner-level tool hardening that originally removed `edit` and `write` from
   live `openclawcode` agent sessions while the sandbox edit bridge was being
   repaired
@@ -539,20 +580,19 @@ Objective:
 
 Priority backlog:
 
-1. keep a small pool of low-risk validation issues ready so real failures can
+1. surface suitability decision and reasons in `/occode-inbox`, status output,
+   and chat notifications
+2. keep the webhook/chat intake routing aligned with the workflow-level
+   suitability gate as heuristics evolve
+3. keep a small pool of low-risk validation issues ready so real failures can
    be reproduced quickly
-2. if that pool is empty, create a narrowly scoped command-layer or docs
+4. if that pool is empty, create a narrowly scoped command-layer or docs
    validation issue directly through GitHub CLI/API so the next live proof does
    not stall on missing repository traffic
-3. turn every live failure into either a regression test, a workflow rule, or
+5. turn every live failure into either a regression test, a workflow rule, or
    an operator runbook update
-4. record exact GitHub permission and reviewer caveats discovered during each
-   live run
-5. keep re-running one low-risk command-layer issue after each builder/runtime
-   hardening slice to prove draft PR, verification, merge, and issue closure
-   still work on refreshed `main`
-6. use the same validation pool to prove temporary mitigations can be removed
-   safely
+6. after the operator-surface update, run one low-risk merged proof and one
+   high-risk escalated proof through the long-lived live operator path
 
 Validation rule:
 
@@ -563,26 +603,27 @@ Validation rule:
 
 The next concrete issue order should be:
 
-1. use the new runner switch to stage the deterministic sandbox edit path for
-   live validation from `sync/upstream-2026-03-12` without removing the runner
-   carveout globally in one jump
-2. prove the local repair through the docker-gated sandbox edit paths,
-   including linked-worktree mounts, before removing the live runner carveout
-3. re-run one low-risk command-layer issue on the live route without that
-   carveout and confirm draft PR, verification, merge, and issue closure still
-   work
-4. align README, plan, and operator docs with the exact live-tested branch,
-   merge workflow, and builder-runtime safety rules
-5. only then resume the next product slice beyond workflow/runtime hardening
+1. show suitability decisions and reasons in the operator ledger and status
+   surfaces so humans can see why a run was gated
+2. keep webhook/chat intake prechecks aligned with the workflow-level
+   suitability rules as they expand
+3. prove the new routing with:
+
+- one low-risk command-layer merged issue
+- one high-risk escalated issue
+
+4. align README, this plan, and policy docs with the live-tested suitability
+   model and guarded merge policy
+5. only then move deeper into broader operator productization or additional
+   issue-class routing
 
 This order is deliberate:
 
-- first remove the biggest remaining runtime workaround instead of building new
-  features on top of it
-- then make sure the live runner still closes the full merged path without the
-  workaround
+- first surface the already-routed suitability decisions clearly to operators
+- then prove both the safe merged path and the high-risk escalated path on the
+  long-lived live route
 - then lock the docs to the actually validated operating model
-- only after that resume new capability work
+- only after that resume broader product slices
 
 ### Execution Rules For The Next Iteration
 
@@ -592,8 +633,8 @@ Keep the current working pattern:
 2. implement only the smallest change needed for that issue
 3. run targeted local tests first
 4. commit the feature slice
-5. if the slice was developed on `sync/upstream-2026-03-11`, promote it to
-   `main` before using it as a live validation base
+5. if the slice was developed on a sync branch, promote that validated base
+   before switching the long-lived live runner to it
 6. push the validated base branch used by the live runner
 7. run the real `openclaw code run` workflow against that issue
 8. record the result in the dev log

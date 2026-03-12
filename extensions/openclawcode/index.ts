@@ -7,6 +7,7 @@ import {
   applyPullRequestReviewWebhookToSnapshot,
   applyPullRequestWebhookToSnapshot,
   buildIssueApprovalMessage,
+  buildIssueEscalationMessage,
   buildOpenClawCodeRunArgv,
   buildRunRequestFromCommand,
   buildRunStatusMessage,
@@ -189,6 +190,18 @@ function buildNotificationLedgerLines(snapshot: OpenClawCodeIssueStatusSnapshot)
     .join(" | ")}`;
   const error = trimToSingleLine(snapshot.lastNotificationError);
   return error ? [line, `  notify-error: ${error}`] : [line];
+}
+
+function buildPrecheckedEscalationStatus(params: {
+  issue: { owner: string; repo: string; number: number };
+  summary: string;
+}): string {
+  const issueKey = formatIssueKey(params.issue);
+  return [
+    `openclawcode status for ${issueKey}`,
+    "Stage: Escalated",
+    `Summary: ${params.summary}`,
+  ].join("\n");
 }
 
 function buildInboxMessage(params: {
@@ -603,6 +616,50 @@ async function handleIssueWebhookEvent(params: {
     repoConfig: params.repoConfig,
     binding: params.binding,
   });
+  if (decision.precheck?.decision === "escalate") {
+    const timestamp = new Date().toISOString();
+    const accepted = await params.store.recordPrecheckedEscalation({
+      issueKey,
+      status: buildPrecheckedEscalationStatus({
+        issue: decision.issue,
+        summary: decision.precheck.summary,
+      }),
+      stage: "escalated",
+      runId: `intake-precheck-${decision.issue.number}`,
+      updatedAt: timestamp,
+      owner: decision.issue.owner,
+      repo: decision.issue.repo,
+      issueNumber: decision.issue.number,
+      notifyChannel: destination.channel,
+      notifyTarget: destination.target,
+    });
+    if (!accepted) {
+      return await params.respondJson({
+        accepted: false,
+        reason: "already-tracked",
+        issue: issueKey,
+      });
+    }
+    scheduleNotification({
+      api: params.api,
+      channel: destination.channel,
+      target: destination.target,
+      text: buildIssueEscalationMessage({
+        issue: decision.issue,
+        summary: decision.precheck.summary,
+        reasons: decision.precheck.reasons,
+      }),
+    });
+    return await params.respondJson({
+      accepted: true,
+      reason: "precheck-escalated",
+      issue: issueKey,
+      extra: {
+        suitabilityDecision: decision.precheck.decision,
+      },
+    });
+  }
+
   if (params.repoConfig.triggerMode === "auto") {
     const enqueued = await params.store.enqueue(
       {

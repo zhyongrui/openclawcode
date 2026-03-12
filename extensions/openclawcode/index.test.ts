@@ -93,6 +93,29 @@ function issueWebhookPayload(issueNumber: number) {
   });
 }
 
+function issueWebhookPayloadWithOverrides(
+  issueNumber: number,
+  overrides: {
+    title?: string;
+    body?: string;
+    labels?: Array<{ name: string }>;
+  },
+) {
+  return JSON.stringify({
+    action: "opened",
+    repository: {
+      owner: "zhyongrui",
+      name: "openclawcode",
+    },
+    issue: {
+      number: issueNumber,
+      title: overrides.title ?? `Issue ${issueNumber}`,
+      body: overrides.body,
+      labels: overrides.labels ?? [],
+    },
+  });
+}
+
 function issueWebhookPayloadWithOwnerObject(issueNumber: number) {
   return JSON.stringify({
     action: "opened",
@@ -368,6 +391,68 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("prechecks obviously high-risk issues into escalated snapshots instead of pending approvals", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      mocked.readRequestBodyWithLimit.mockResolvedValue(
+        issueWebhookPayloadWithOverrides(2053, {
+          title: "Rotate auth secrets for webhook permissions",
+          body: "Update authentication, secret handling, and permission checks.",
+          labels: [{ name: "security" }],
+        }),
+      );
+      const res = createMockServerResponse();
+
+      const handled = await fixture.route?.handler(
+        localReq({
+          method: "POST",
+          url: "/plugins/openclawcode/github",
+          headers: {
+            "x-github-event": "issues",
+            "x-github-delivery": "delivery-2053-a",
+          },
+        }),
+        res,
+      );
+
+      expect(handled).toBe(true);
+      expect(res.statusCode).toBe(202);
+      expect(JSON.parse(String(res.body))).toMatchObject({
+        accepted: true,
+        reason: "precheck-escalated",
+        issue: "zhyongrui/openclawcode#2053",
+        suitabilityDecision: "escalate",
+      });
+      await waitForAssertion(() => {
+        expect(mocked.runMessageAction).toHaveBeenCalledTimes(1);
+      });
+      expect(mocked.runMessageAction.mock.calls[0]?.[0]).toMatchObject({
+        action: "send",
+        params: expect.objectContaining({
+          channel: "telegram",
+          to: "chat:primary",
+          message: expect.stringContaining("escalated a new GitHub issue before chat approval"),
+        }),
+      });
+
+      const snapshot = await fixture.store.snapshot();
+      expect(snapshot.pendingApprovals).toEqual([]);
+      expect(snapshot.queue).toEqual([]);
+      expect(snapshot.statusSnapshotsByIssue["zhyongrui/openclawcode#2053"]).toMatchObject({
+        stage: "escalated",
+        issueNumber: 2053,
+        notifyChannel: "telegram",
+        notifyTarget: "chat:primary",
+      });
+      expect(snapshot.statusByIssue["zhyongrui/openclawcode#2053"]).toContain(
+        "Webhook intake precheck escalated the issue before chat approval",
+      );
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
   it("accepts the real GitHub repository owner object shape", async () => {
     const fixture = await registerPluginFixture();
     try {
@@ -611,7 +696,7 @@ describe("openclawcode extension", () => {
       });
       expect(
         (await fixture.store.getStatusSnapshot("zhyongrui/openclawcode#212"))?.lastNotificationAt,
-      ).toMatch(/^2026-03-11T/);
+      ).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
@@ -994,7 +1079,7 @@ describe("openclawcode extension", () => {
         "Queued rerun from Changes Requested state.",
       );
       expect(snapshot.queue[0]?.request.rerunContext?.requestedAt).toMatch(
-        /^2026-03-11T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
       );
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });

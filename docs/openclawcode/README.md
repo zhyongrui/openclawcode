@@ -78,6 +78,16 @@ loop with:
   to `origin/main`, and restarted under the local live gateway
 - real end-to-end validation against this repository, including a webhook-driven
   issue run that opened, merged, and closed automatically
+- a copied-root fresh-operator merged proof through issue `#51`, run
+  `zhyongrui-openclawcode-51-1773297182598`, and merged `PR #52`
+- an explicit suitability gate that now records `auto-run`,
+  `needs-human-review`, or `escalate` before workspace preparation
+- a real high-risk suitability proof through issue `#53`, run
+  `zhyongrui-openclawcode-53-1773298188208`, which moved directly to
+  `escalated` before worktree preparation or PR publication
+- a copied-root webhook precheck proof for synthetic issue `#9053`, which now:
+  - returns `reason: "precheck-escalated"`
+  - writes an `escalated` snapshot instead of `pendingApprovals` or `queue`
 - real live lifecycle replay against `PR #37`, covering:
   - `pull_request_review` changes requested
   - `pull_request_review` approved
@@ -187,8 +197,7 @@ loop with:
 
 Still pending for a fuller product loop:
 
-- stronger suitability/risk gating ahead of autonomous execution
-- proof under a fresh operator environment using docs and scripts only
+- richer operator surfaces for suitability decisions and reasons in inbox/status
 - keeping a renewable pool of low-risk validation issues ready for future live
   proofs
 - broader policy-doc polish

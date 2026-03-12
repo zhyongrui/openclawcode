@@ -66,6 +66,14 @@ function resolveAutoMergePolicy(run: WorkflowRun): {
     };
   }
 
+  if (run.suitability?.decision !== "auto-run") {
+    return {
+      autoMergePolicyEligible: false,
+      autoMergePolicyReason:
+        "Not eligible for auto-merge: suitability did not accept autonomous execution.",
+    };
+  }
+
   if (run.buildResult?.issueClassification !== "command-layer") {
     return {
       autoMergePolicyEligible: false,
@@ -294,6 +302,12 @@ function toWorkflowRunJson(run: WorkflowRun) {
     scopeCheckPassed: run.buildResult?.scopeCheck?.ok ?? null,
     scopeBlockedFiles: run.buildResult?.scopeCheck?.blockedFiles ?? null,
     scopeBlockedFileCount: run.buildResult?.scopeCheck?.blockedFiles.length ?? null,
+    suitabilityDecision: run.suitability?.decision ?? null,
+    suitabilitySummary: run.suitability?.summary ?? null,
+    suitabilityReasons: run.suitability?.reasons ?? null,
+    suitabilityClassification: run.suitability?.classification ?? null,
+    suitabilityRiskLevel: run.suitability?.riskLevel ?? null,
+    suitabilityEvaluatedAt: run.suitability?.evaluatedAt ?? null,
     draftPullRequestBranchName: run.draftPullRequest?.branchName ?? null,
     draftPullRequestBaseBranch: run.draftPullRequest?.baseBranch ?? null,
     draftPullRequestNumber: run.draftPullRequest?.number ?? null,
