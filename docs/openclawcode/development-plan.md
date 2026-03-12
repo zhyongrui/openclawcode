@@ -1211,16 +1211,19 @@ Why next:
 
 The next implementation slice should follow this order:
 
-1. upgrade the operator host to a Node runtime that satisfies the refreshed
-   CLI floor recorded in `dist/cli-startup-metadata.json`
-2. rerun `./scripts/openclawcode-setup-check.sh --strict` until the refreshed
-   branch is fully green on the real host
-3. keep docs/operator issue `#60` open as the standing docs-side proof target
+1. run another real low-risk proof on `sync/upstream-2026-03-12-refresh` now
+   that the operator host satisfies the Node floor and queued work can kick the
+   runner immediately when the service is already active
+2. use the now-green `./scripts/openclawcode-setup-check.sh --strict` result as
+   the preflight gate before that proof
+3. use the new provider-pause queue messaging to distinguish "queued behind a
+   pause" from "queue is stalled" during that live proof
+4. keep docs/operator issue `#60` open as the standing docs-side proof target
    only until the copied-root teardown guidance is judged complete
-4. restart the live operator on the refreshed branch and run another real proof
-   before promoting back to `main`
 5. promote only after the refreshed branch can pass both strict setup checks
    and a real low-risk live proof on the target runtime
+6. after promotion, rerun the same strict check and one chat-visible proof on
+   `main`
 
 ## Test Strategy
 

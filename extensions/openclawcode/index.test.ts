@@ -1073,6 +1073,152 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("starts auto-enqueued issues immediately once the runner service is active", async () => {
+    const fixture = await registerPluginFixture({ triggerMode: "auto", pollIntervalMs: 60_000 });
+    let resolveRun: ((value: { code: number; stdout: string; stderr: string }) => void) | undefined;
+    try {
+      fixture.runCommandWithTimeout.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveRun = resolve;
+          }),
+      );
+      await fixture.service?.start({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      mocked.readRequestBodyWithLimit.mockResolvedValue(issueWebhookPayload(204));
+      const res = createMockServerResponse();
+
+      await fixture.route?.handler(
+        localReq({
+          method: "POST",
+          url: "/plugins/openclawcode/github",
+          headers: {
+            "x-github-event": "issues",
+            "x-github-delivery": "delivery-204-b",
+          },
+        }),
+        res,
+      );
+
+      await waitForAssertion(async () => {
+        expect(fixture.runCommandWithTimeout).toHaveBeenCalledTimes(1);
+        const snapshot = await fixture.store.snapshot();
+        expect(snapshot.currentRun?.issueKey).toBe("zhyongrui/openclawcode#204");
+      });
+      expect(
+        mocked.runMessageAction.mock.calls.some((call) =>
+          String(call[0]?.params?.message ?? "").includes(
+            "openclawcode is starting zhyongrui/openclawcode#204.",
+          ),
+        ),
+      ).toBe(true);
+
+      resolveRun?.({
+        code: 0,
+        stdout: JSON.stringify(
+          createWorkflowRun({
+            issueNumber: 204,
+            stage: "ready-for-human-review",
+            updatedAt: "2026-03-12T12:10:00.000Z",
+          }),
+        ),
+        stderr: "",
+      });
+
+      await waitForAssertion(async () => {
+        const snapshot = await fixture.store.snapshot();
+        expect(snapshot.currentRun).toBeUndefined();
+        expect(await fixture.store.getStatus("zhyongrui/openclawcode#204")).toContain(
+          "Stage: Ready For Human Review",
+        );
+        expect(await fixture.store.getStatusSnapshot("zhyongrui/openclawcode#204")).toMatchObject({
+          lastNotificationStatus: "sent",
+        });
+      });
+      expect(
+        mocked.runMessageAction.mock.calls.some((call) =>
+          String(call[0]?.params?.message ?? "").includes("Stage: Ready For Human Review"),
+        ),
+      ).toBe(true);
+
+      await fixture.service?.stop?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+    } finally {
+      resolveRun?.({
+        code: 0,
+        stdout: JSON.stringify(createWorkflowRun({ issueNumber: 204 })),
+        stderr: "",
+      });
+      await fixture.service?.stop?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("mentions an active provider pause when auto mode queues a webhook issue", async () => {
+    const fixture = await registerPluginFixture({ triggerMode: "auto" });
+    try {
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 6201,
+          stage: "failed",
+          updatedAt: "2099-03-12T12:00:00.000Z",
+        }),
+        buildTransientProviderFailedStatus(6201),
+      );
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 6202,
+          stage: "failed",
+          updatedAt: "2099-03-12T12:05:00.000Z",
+        }),
+        buildTransientProviderFailedStatus(6202),
+      );
+      mocked.readRequestBodyWithLimit.mockResolvedValue(issueWebhookPayload(205));
+      const res = createMockServerResponse();
+
+      await fixture.route?.handler(
+        localReq({
+          method: "POST",
+          url: "/plugins/openclawcode/github",
+          headers: {
+            "x-github-event": "issues",
+            "x-github-delivery": "delivery-205-a",
+          },
+        }),
+        res,
+      );
+
+      expect(JSON.parse(String(res.body))).toMatchObject({
+        accepted: true,
+        reason: "auto-enqueued",
+        issue: "zhyongrui/openclawcode#205",
+      });
+      expect(
+        mocked.runMessageAction.mock.calls.some((call) =>
+          String(call[0]?.params?.message ?? "").includes("Provider pause: active until"),
+        ),
+      ).toBe(true);
+      const snapshot = await fixture.store.snapshot();
+      expect(snapshot.currentRun).toBeUndefined();
+      expect(snapshot.queue.map((entry) => entry.issueKey)).toEqual(["zhyongrui/openclawcode#205"]);
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
   it("creates and queues a low-risk issue through /occode-intake", async () => {
     const fixture = await registerPluginFixture();
     try {
@@ -1371,6 +1517,7 @@ describe("openclawcode extension", () => {
           issueNumber: 230,
           notifyChannel: "feishu",
           notifyTarget: "user:failure-chat",
+          lastNotificationStatus: "sent",
         });
       });
       expect(await fixture.store.getStatus("zhyongrui/openclawcode#230")).toContain(

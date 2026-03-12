@@ -210,12 +210,18 @@ loop with:
   - `scripts/openclawcode-setup-check.sh` now reads `minimumNodeVersion` from
     `dist/cli-startup-metadata.json` and checks the local Node runtime against
     the CLI startup floor
-  - a real local strict proof now fails on this workstation exactly where it
-    should: `Node 22.12.0 < 22.16.0`
+  - the operator host has now been upgraded to local Node `22.16.0`, and a
+    real strict proof passes end-to-end again
+  - queued runs now kick the queue consumer immediately whenever the bundled
+    runner service is already active, so auto-mode intake and chat approvals do
+    not have to wait for the next poll interval before starting
+  - auto-mode webhook intake and chat-native `/occode-intake` now append active
+    provider-pause details directly to the queued message when work is waiting
+    behind a transient provider pause
   - operator docs now include a refreshed-branch promotion checklist and
     copied-root teardown guidance
-  - the next refreshed-branch ops slice is upgrading the operator host to a
-    Node runtime that satisfies the new floor before promotion
+  - the next refreshed-branch ops slice is a real low-risk live proof on the
+    refreshed branch before promotion
 - real live lifecycle replay against `PR #37`, covering:
   - `pull_request_review` changes requested
   - `pull_request_review` approved

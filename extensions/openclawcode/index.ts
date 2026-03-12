@@ -43,7 +43,16 @@ const DEFAULT_RUN_TIMEOUT_MS = 30 * 60_000;
 const DEFAULT_WEBHOOK_MAX_BYTES = 256 * 1024;
 const SUPPORTED_GITHUB_EVENTS = new Set(["issues", "pull_request", "pull_request_review"]);
 
+type ActiveProviderPause = {
+  until: string;
+  triggeredAt: string;
+  lastFailureAt: string;
+  failureCount: number;
+  reason: string;
+};
+
 let workerActive = false;
+let runnerReady = false;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 type GitHubWebhookPayload =
@@ -218,15 +227,7 @@ function buildValidationPoolLines(summary: ValidationPoolSummary | undefined): s
 }
 
 function buildProviderPauseLines(params: {
-  pause:
-    | {
-        until: string;
-        triggeredAt: string;
-        lastFailureAt: string;
-        failureCount: number;
-        reason: string;
-      }
-    | undefined;
+  pause: ActiveProviderPause | undefined;
   now?: string;
 }): string[] {
   if (!params.pause) {
@@ -245,15 +246,7 @@ function buildProviderPauseLines(params: {
 
 function appendProviderPauseText(params: {
   text: string;
-  pause:
-    | {
-        until: string;
-        triggeredAt: string;
-        lastFailureAt: string;
-        failureCount: number;
-        reason: string;
-      }
-    | undefined;
+  pause: ActiveProviderPause | undefined;
   now?: string;
 }): string {
   const pauseLines = buildProviderPauseLines({
@@ -524,18 +517,22 @@ function buildIntakeQueuedMessage(params: {
     title: string;
     url?: string;
   };
+  pause?: ActiveProviderPause;
 }): string {
   const issueKey = formatIssueKey(params.issue);
-  return [
-    "openclawcode created and queued a new GitHub issue from chat.",
-    `Issue: ${issueKey}`,
-    `Title: ${params.issue.title}`,
-    params.issue.url ? `URL: ${params.issue.url}` : undefined,
-    "Status: queued for execution",
-    `Use /occode-status ${issueKey} to inspect progress.`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  return appendProviderPauseText({
+    text: [
+      "openclawcode created and queued a new GitHub issue from chat.",
+      `Issue: ${issueKey}`,
+      `Title: ${params.issue.title}`,
+      params.issue.url ? `URL: ${params.issue.url}` : undefined,
+      "Status: queued for execution",
+      `Use /occode-status ${issueKey} to inspect progress.`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    pause: params.pause,
+  });
 }
 
 function buildIntakeEscalatedMessage(params: {
@@ -1028,18 +1025,23 @@ async function handleIssueWebhookEvent(params: {
         issue: issueKey,
       });
     }
+    const providerPause = await params.store.getActiveProviderPause();
     scheduleNotification({
       api: params.api,
       channel: destination.channel,
       target: destination.target,
-      text: [
-        "openclawcode auto-started a new GitHub issue.",
-        `Issue: ${issueKey}`,
-        `Title: ${decision.issue.title}`,
-        "Mode: auto",
-        "Status: queued for execution",
-      ].join("\n"),
+      text: appendProviderPauseText({
+        text: [
+          "openclawcode auto-started a new GitHub issue.",
+          `Issue: ${issueKey}`,
+          `Title: ${decision.issue.title}`,
+          "Mode: auto",
+          "Status: queued for execution",
+        ].join("\n"),
+        pause: providerPause,
+      }),
     });
+    kickQueueDrain(params.api, params.store);
   } else {
     const approvalMessage = buildIssueApprovalMessage({
       issue: decision.issue,
@@ -1568,6 +1570,15 @@ async function processNextQueuedRun(
   }
 }
 
+function kickQueueDrain(api: OpenClawPluginApi, store: OpenClawCodeChatopsStore): void {
+  if (!runnerReady) {
+    return;
+  }
+  queueMicrotask(() => {
+    void processNextQueuedRun(api, store).catch(() => undefined);
+  });
+}
+
 export default {
   id: "openclawcode",
   name: "OpenClawCode",
@@ -1696,10 +1707,13 @@ export default {
             ].join("\n"),
           };
         }
+        const providerPause = await store.getActiveProviderPause();
+        kickQueueDrain(api, store);
 
         return {
           text: buildIntakeQueuedMessage({
             issue: createdIssue,
+            pause: providerPause,
           }),
         };
       },
@@ -1762,6 +1776,7 @@ export default {
           return { text: `${issueKey} is already queued or running.` };
         }
         const providerPause = await store.getActiveProviderPause();
+        kickQueueDrain(api, store);
         return {
           text: appendProviderPauseText({
             text: `Queued ${issueKey}. I will post status updates here.`,
@@ -1860,6 +1875,7 @@ export default {
           return { text: `${issueKey} is already queued or running.` };
         }
         const providerPause = await store.getActiveProviderPause();
+        kickQueueDrain(api, store);
         return {
           text: appendProviderPauseText({
             text: `Queued rerun for ${issueKey} from ${stageLabel} state. I will post status updates here.`,
@@ -2137,16 +2153,20 @@ export default {
           store,
           repoConfigs: pluginConfig.repos,
         });
+        runnerReady = true;
         pollTimer = setInterval(() => {
           void processNextQueuedRun(api, store);
         }, intervalMs);
         pollTimer.unref?.();
+        kickQueueDrain(api, store);
       },
       stop: async () => {
+        runnerReady = false;
         if (pollTimer) {
           clearInterval(pollTimer);
           pollTimer = null;
         }
+        await store.snapshot();
       },
     });
   },

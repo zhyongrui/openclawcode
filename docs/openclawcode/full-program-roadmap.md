@@ -35,7 +35,13 @@ As of 2026-03-12:
   - one real Feishu conversation bound to `zhyongrui/openclawcode`
 - current runtime constraint:
   - refreshed branches now expect Node `>=22.16.0` for CLI startup
-  - this workstation still builds under Node `22.12.0` with warnings
+  - the operator host now satisfies that floor with local Node `22.16.0`
+- current live-proof note:
+  - issue `#85` showed that "queued but not running yet" can be a provider
+    pause or service-start visibility problem rather than queue corruption
+  - the refreshed branch now kicks the queue consumer immediately when the
+    runner service is already active and surfaces active provider-pause details
+    directly in auto-queued intake messages
 
 ## Execution Loop
 
@@ -49,6 +55,101 @@ Every slice should follow this order:
 6. commit and push
 7. seed the next low-risk validation issue if the pool would otherwise shrink
 8. only promote back to `main` after a real operator proof
+
+## Program Phases
+
+### Phase 1: Stable Core Loop
+
+Exit criteria:
+
+- GitHub issue intake, isolated execution, verification, PR publication, merge,
+  and tracked status snapshots all work on a real repository
+
+State:
+
+- substantially complete
+
+### Phase 2: Operator Surfaces
+
+Exit criteria:
+
+- chat operators can bind repos, inspect queue state, start work, rerun failed
+  work, and understand lifecycle changes without reading raw state files
+
+State:
+
+- substantially complete, but still improving around provider pauses, rerun
+  clarity, and validation-pool visibility
+
+### Phase 3: Fresh Install And Upgrade Discipline
+
+Exit criteria:
+
+- a new operator root can be brought up from docs and scripts alone
+- strict health checks gate promotion and rollback decisions
+
+State:
+
+- in progress
+
+### Phase 4: Chat-Native Intake
+
+Exit criteria:
+
+- operators can draft work from chat with minimal friction
+- low-risk requests can turn into GitHub issues and queue cleanly
+- ambiguous or risky requests stay on the clarification or escalation path
+
+State:
+
+- in progress
+
+### Phase 5: Policy And Safety
+
+Exit criteria:
+
+- suitability, risk, and merge policy are explicit, visible, and overrideable
+- high-risk work is blocked before branch mutation
+
+State:
+
+- in progress
+
+### Phase 6: Provider Resilience
+
+Exit criteria:
+
+- provider failures degrade predictably
+- queue pauses are visible and explainable
+- retries stay bounded and do not hide broken runs
+
+State:
+
+- in progress
+
+### Phase 7: Contract And Tooling Surface
+
+Exit criteria:
+
+- `openclaw code run --json` has a documented stable top-level contract
+- validation-pool tooling can seed, list, consume, and replenish low-risk
+  proof issues repeatably
+
+State:
+
+- in progress
+
+### Phase 8: Promotion And Upstream Sync Discipline
+
+Exit criteria:
+
+- refreshed sync branches can be proven, promoted, and rolled back repeatably
+- upstream drift is kept bounded by regular sync branches and recorded conflict
+  hotspots
+
+State:
+
+- in progress
 
 ## Work Tracks
 
@@ -66,9 +167,9 @@ Remaining work:
 
 Immediate queue:
 
-- `#84` refreshed-branch promotion checklist
-- operator-host Node upgrade to satisfy the refreshed CLI floor
-- follow with the next live proof on the refreshed sync branch
+- refreshed-branch live proof on the upgraded operator host
+- promotion back to `main` once that proof holds
+- follow with a `main`-baseline chat-visible proof
 
 ### Track 2: Chat-Native Intake
 
@@ -104,7 +205,7 @@ Remaining work:
 
 - better provider-pause history in operator surfaces
 - clearer pause-cleared signaling
-- local Node upgrade to satisfy the new upstream CLI floor
+- explicit queue-start feedback during and after pause windows
 
 ### Track 5: Review And Rerun Loop
 
@@ -160,16 +261,29 @@ Remaining work:
 
 Preferred near-to-mid-term order:
 
-1. finish the current command-layer JSON count series on the active sync branch
-2. add the refreshed-branch promotion checklist
-3. upgrade local Node or keep promotion blocked until the operator host can satisfy the new floor
-4. run one low-risk live proof on the sync branch
-5. promote the refreshed sync branch back to `main`
-6. restart the long-lived operator on the promoted branch
-7. rerun a low-risk Feishu proof on promoted `main`
-8. resume chat-intake UX improvements
-9. improve provider-pause and rerun operator surfaces
-10. close another docs or operator validation issue
+1. run one low-risk live proof on `sync/upstream-2026-03-12-refresh`
+2. confirm the refreshed branch's immediate queue-drain path and provider-pause
+   queue messaging under the real operator
+3. promote the refreshed sync branch back to `main`
+4. restart the long-lived operator on promoted `main`
+5. rerun a low-risk Feishu proof on promoted `main`
+6. close or refresh the remaining docs/operator validation issue `#60`
+7. finish the current command-layer JSON count series if any non-duplicative
+   fields remain
+8. write the first explicit JSON contract reference doc for `openclaw code run --json`
+9. add clearer provider-pause history to `/occode-status` and `/occode-inbox`
+10. add pause-cleared signaling so operators can see when queue draining resumes
+11. add preview and edit steps for chat-native issue drafts before creation
+12. add clarification loops for ambiguous chat-native requests
+13. add explicit operator overrides for suitability-gated work
+14. tighten auto-merge eligibility into a documented narrow policy
+15. add rollback instructions for failed refreshed-branch promotions
+16. record recurring upstream merge conflict hotspots in the sync policy docs
+17. run another real PR-review-rerun proof after the next promotion
+18. add richer rerun lineage and reason summaries to operator surfaces
+19. add another copied-root fresh-operator live proof after the next major sync
+20. keep seeding and consuming low-risk validation issues so the proof pool
+    never goes empty
 
 ## Session Handoff
 
@@ -185,4 +299,6 @@ As of this revision:
 - active feature branch:
   - `sync/upstream-2026-03-12-refresh`
 - next planned slice after the current one:
-  - operator-host Node upgrade followed by a refreshed-branch live proof
+  - refreshed-branch live proof on the upgraded operator host, using the new
+    immediate queue-drain path and provider-pause queue messaging as part of
+    the proof criteria
