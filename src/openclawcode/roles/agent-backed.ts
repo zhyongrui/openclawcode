@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { classifyFailoverReason } from "../../agents/pi-embedded-helpers/errors.js";
 import type { BuildResult, VerificationReport, WorkflowRun } from "../contracts/index.js";
 import type { AgentRunner, ShellRunner } from "../runtime/index.js";
 import type { Builder, Verifier } from "./interfaces.js";
@@ -11,12 +12,19 @@ export interface AgentBackedBuilderOptions {
   testCommands: string[];
   agentId?: string;
   autoCommit?: boolean;
+  transientRetryAttempts?: number;
+  transientRetryDelayMs?: number;
 }
 
 export interface AgentBackedVerifierOptions {
   agentRunner: AgentRunner;
   agentId?: string;
+  transientRetryAttempts?: number;
+  transientRetryDelayMs?: number;
 }
+
+const DEFAULT_TRANSIENT_RETRY_ATTEMPTS = 2;
+const DEFAULT_TRANSIENT_RETRY_DELAY_MS = 1_000;
 
 function renderIssueBody(run: WorkflowRun): string {
   return run.issue.body?.trim() ? run.issue.body.trim() : "No issue body provided.";
@@ -311,6 +319,46 @@ function formatUnexpectedEmptyTrackedFilesError(paths: string[]): string {
   ].join(" ");
 }
 
+function isRetryableAgentFailure(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  const reason = classifyFailoverReason(message);
+  if (reason === "timeout" || reason === "overloaded") {
+    return true;
+  }
+  return /(?:^|[\s:])HTTP 400:\s*Internal server error$/i.test(message.trim());
+}
+
+async function sleep(ms: number): Promise<void> {
+  if (ms <= 0) {
+    return;
+  }
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runAgentWithTransientRetry<T>(params: {
+  attempts?: number;
+  delayMs?: number;
+  run: () => Promise<T>;
+}): Promise<T> {
+  const attempts = Math.max(1, params.attempts ?? DEFAULT_TRANSIENT_RETRY_ATTEMPTS);
+  const delayMs = Math.max(0, params.delayMs ?? DEFAULT_TRANSIENT_RETRY_DELAY_MS);
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await params.run();
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts || !isRetryableAgentFailure(error)) {
+        throw error;
+      }
+      await sleep(delayMs * attempt);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
 export class AgentBackedBuilder implements Builder {
   constructor(
     private readonly options: AgentBackedBuilderOptions & {
@@ -326,10 +374,15 @@ export class AgentBackedBuilder implements Builder {
     const prompt = buildBuilderPrompt(run, this.options.testCommands);
     await writePromptArtifact(run.workspace.worktreePath, "builder-prompt.md", prompt);
 
-    const result = await this.options.agentRunner.run({
-      prompt,
-      workspaceDir: run.workspace.worktreePath,
-      agentId: this.options.agentId,
+    const result = await runAgentWithTransientRetry({
+      attempts: this.options.transientRetryAttempts,
+      delayMs: this.options.transientRetryDelayMs,
+      run: async () =>
+        await this.options.agentRunner.run({
+          prompt,
+          workspaceDir: run.workspace.worktreePath,
+          agentId: this.options.agentId,
+        }),
     });
 
     const changedFiles = await this.options.collectChangedFiles(run);
@@ -404,10 +457,15 @@ export class AgentBackedVerifier implements Verifier {
 
     const prompt = buildVerifierPrompt(run);
     await writePromptArtifact(run.workspace.worktreePath, "verifier-prompt.md", prompt);
-    const result = await this.options.agentRunner.run({
-      prompt,
-      workspaceDir: run.workspace.worktreePath,
-      agentId: this.options.agentId,
+    const result = await runAgentWithTransientRetry({
+      attempts: this.options.transientRetryAttempts,
+      delayMs: this.options.transientRetryDelayMs,
+      run: async () =>
+        await this.options.agentRunner.run({
+          prompt,
+          workspaceDir: run.workspace.worktreePath,
+          agentId: this.options.agentId,
+        }),
     });
     return parseVerificationReport(result.text);
   }
@@ -416,4 +474,5 @@ export class AgentBackedVerifier implements Verifier {
 export const __testing = {
   buildBuilderPrompt,
   buildVerifierPrompt,
+  isRetryableAgentFailure,
 };

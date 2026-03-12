@@ -685,6 +685,14 @@ function formatStageLabel(stage: WorkflowRun["stage"]): string {
 }
 
 function resolveRunSummary(run: WorkflowRun): string {
+  if (run.stage === "failed") {
+    const failureNote = [...run.history]
+      .toReversed()
+      .find((entry) => /\bfailed:/i.test(entry.trim()));
+    if (failureNote) {
+      return failureNote;
+    }
+  }
   if (run.verificationReport?.summary) {
     return run.verificationReport.summary;
   }

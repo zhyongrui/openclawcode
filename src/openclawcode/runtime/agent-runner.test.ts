@@ -133,6 +133,26 @@ describe("OpenClawAgentRunner", () => {
     );
   });
 
+  it("throws when the agent command ends with stopReason=error", async () => {
+    mocks.agentCommand.mockResolvedValueOnce({
+      payloads: [{ text: "HTTP 400: Internal server error" }],
+      meta: { stopReason: "error" },
+    });
+    const { OpenClawAgentRunner } = await import("./agent-runner.js");
+
+    const runner = new OpenClawAgentRunner();
+
+    await expect(
+      runner.run({
+        prompt: "Implement the issue",
+        workspaceDir: "/tmp/openclawcode-worktree",
+        agentId: "main",
+      }),
+    ).rejects.toThrow("HTTP 400: Internal server error");
+
+    expect(mocks.clearRuntimeConfigSnapshot).toHaveBeenCalledTimes(1);
+  });
+
   it("forces session-scoped sandbox overrides for the target agent", async () => {
     const { __testing } = await import("./agent-runner.js");
 

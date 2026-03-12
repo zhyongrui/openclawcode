@@ -73,6 +73,11 @@ real bundled OpenClaw chatops adapter:
 - failure-path recovery that now records the latest local failed run artifact as
   a tracked snapshot when background execution exits non-zero or returns
   unparsable stdout
+- agent-backed builder/verifier execution now treats agent `stopReason=error`
+  as a hard workflow failure instead of accepting the raw error payload as a
+  successful build summary
+- transient provider failures such as `HTTP 400: Internal server error` now get
+  one narrow builder/verifier retry window before the workflow gives up
 - GitHub-side healing for:
   - merged PRs
   - approved reviews
@@ -199,6 +204,14 @@ turning the working loop into a cleanly operable product:
   - `/occode-inbox` lists open validation issues `#60` and `#66`
   - `/occode-status #66` annotates the issue as
     `command-layer / command-json-number`
+- issue `#71` exposed a workflow-fidelity bug after a one-line chat intake
+  proof:
+  - builder accepted agent `stopReason=error` output as a successful build
+    summary
+  - `/occode-status` then surfaced the stale build summary instead of the true
+    failing stage note
+  - both behaviors are now fixed and ready for live rerun validation on the
+    same issue
 - policy docs are now in sync with the live-tested guarded auto-merge behavior
 - the next engineering priority is now consume-and-reseed workflow plus
   broader chat-native intake behavior

@@ -59,6 +59,12 @@ loop with:
 - failure-path recovery that now reconciles the latest local workflow artifact
   back into a tracked snapshot when a background run exits non-zero or returns
   unparsable stdout, so `/occode-rerun` can still target failed runs
+- agent-backed builder/verifier runs now treat agent `stopReason=error` as a
+  hard workflow failure instead of accepting the raw error text as a successful
+  build summary
+- transient provider failures such as `HTTP 400: Internal server error` now get
+  one narrow retry window in the builder/verifier path before the workflow
+  gives up
 - local-run reconciliation that can recover tracked PR linkage from older run
   artifacts when a newer rerun artifact omits draft PR metadata
 - merge-based reusable worktree refresh that:

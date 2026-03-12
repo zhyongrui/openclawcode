@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { execFileUtf8 } from "../../daemon/exec-file.js";
 import type { WorkflowRun } from "../contracts/index.js";
 import { HostShellRunner, type AgentRunner, type ShellRunner } from "../runtime/index.js";
-import { AgentBackedBuilder, __testing } from "./agent-backed.js";
+import { AgentBackedBuilder, AgentBackedVerifier, __testing } from "./agent-backed.js";
 
 function createRun(): WorkflowRun {
   return {
@@ -186,6 +186,29 @@ class FakeShellRunner implements ShellRunner {
   }
 }
 
+class FlakyAgentRunner implements AgentRunner {
+  private attempt = 0;
+
+  constructor(
+    private readonly params: {
+      failTimes: number;
+      failureMessage: string;
+      successText: string;
+    },
+  ) {}
+
+  async run() {
+    this.attempt += 1;
+    if (this.attempt <= this.params.failTimes) {
+      throw new Error(this.params.failureMessage);
+    }
+    return {
+      text: this.params.successText,
+      raw: {},
+    };
+  }
+}
+
 describe("AgentBackedBuilder scope enforcement", () => {
   it("fails command-layer builds that edit blocked workflow-core files", async () => {
     const worktreePath = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-agent-backed-"));
@@ -253,6 +276,75 @@ describe("AgentBackedBuilder scope enforcement", () => {
       expect(
         await fs.readFile(path.join(worktreePath, "src", "commands", "openclawcode.ts"), "utf8"),
       ).toBe("");
+    } finally {
+      await fs.rm(worktreePath, { recursive: true, force: true });
+    }
+  });
+
+  it("retries transient provider failures before succeeding", async () => {
+    const worktreePath = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-agent-backed-"));
+    const builder = new AgentBackedBuilder({
+      agentRunner: new FlakyAgentRunner({
+        failTimes: 1,
+        failureMessage: "HTTP 400: Internal server error",
+        successText: "Implemented after transient provider retry.",
+      }),
+      shellRunner: new FakeShellRunner(),
+      testCommands: [],
+      autoCommit: false,
+      transientRetryAttempts: 2,
+      transientRetryDelayMs: 0,
+      collectChangedFiles: async () => [],
+    });
+
+    try {
+      const result = await builder.build({
+        ...createRun(),
+        workspace: {
+          ...createRun().workspace!,
+          worktreePath,
+        },
+      });
+
+      expect(result.summary).toBe("Implemented after transient provider retry.");
+    } finally {
+      await fs.rm(worktreePath, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("AgentBackedVerifier", () => {
+  it("retries transient provider failures before parsing a successful verifier response", async () => {
+    const worktreePath = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-agent-backed-"));
+    const verifier = new AgentBackedVerifier({
+      agentRunner: new FlakyAgentRunner({
+        failTimes: 1,
+        failureMessage: "HTTP 400: Internal server error",
+        successText: JSON.stringify({
+          decision: "approve-for-human-review",
+          summary: "Looks good after retry.",
+          findings: [],
+          missingCoverage: [],
+          followUps: [],
+        }),
+      }),
+      transientRetryAttempts: 2,
+      transientRetryDelayMs: 0,
+    });
+
+    try {
+      const result = await verifier.verify({
+        ...createRun(),
+        workspace: {
+          ...createRun().workspace!,
+          worktreePath,
+        },
+      });
+
+      expect(result).toMatchObject({
+        decision: "approve-for-human-review",
+        summary: "Looks good after retry.",
+      });
     } finally {
       await fs.rm(worktreePath, { recursive: true, force: true });
     }

@@ -67,6 +67,21 @@ function extractText(raw: unknown): string {
     .trim();
 }
 
+function extractStopReason(raw: unknown): string | undefined {
+  const stopReason = (raw as { meta?: { stopReason?: unknown } } | null | undefined)?.meta
+    ?.stopReason;
+  return typeof stopReason === "string" && stopReason.trim() ? stopReason.trim() : undefined;
+}
+
+function assertSuccessfulAgentRun(raw: unknown): void {
+  const stopReason = extractStopReason(raw);
+  if (stopReason !== "error") {
+    return;
+  }
+  const message = extractText(raw) || "Agent run failed.";
+  throw new Error(message);
+}
+
 function forceSessionScopedSandboxForAgent(
   config: OpenClawConfig,
   agentIdRaw?: string,
@@ -117,6 +132,8 @@ function forceSessionScopedSandboxForAgent(
 export const __testing = {
   forceSessionScopedSandboxForAgent,
   resolveOpenClawCodeDeniedTools,
+  extractStopReason,
+  assertSuccessfulAgentRun,
 };
 
 export class OpenClawAgentRunner implements AgentRunner {
@@ -150,6 +167,7 @@ export class OpenClawAgentRunner implements AgentRunner {
         createNonExitingRuntime(),
         createDefaultDeps(),
       );
+      assertSuccessfulAgentRun(raw);
 
       return {
         text: extractText(raw),

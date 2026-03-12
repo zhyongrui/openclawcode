@@ -342,4 +342,15 @@ describe("openclaw plugin integration helpers", () => {
     expect(message).toContain("PR: https://github.com/zhyongrui/openclawcode/pull/35");
     expect(message).toContain("Verification: approve-for-human-review");
   });
+
+  it("prefers the latest failure note over stale build summaries for failed runs", () => {
+    const message = buildRunStatusMessage({
+      ...createRun(),
+      stage: "failed",
+      history: [...createRun().history, "Verification failed: HTTP 400: Internal server error"],
+    });
+
+    expect(message).toContain("Stage: Failed");
+    expect(message).toContain("Summary: Verification failed: HTTP 400: Internal server error");
+  });
 });
