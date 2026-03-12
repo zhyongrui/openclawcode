@@ -66,8 +66,8 @@ Remaining work:
 
 Immediate queue:
 
-- `#82` `changedFileCount`
 - `#83` Node floor setup-check gate
+- `#84` refreshed-branch promotion checklist
 - follow with the next live proof on the refreshed sync branch
 
 ### Track 2: Chat-Native Intake
@@ -161,8 +161,8 @@ Remaining work:
 Preferred near-to-mid-term order:
 
 1. finish the current command-layer JSON count series on the active sync branch
-2. add the next `BuildResult` count fields
-3. add a setup-check gate for the new Node floor
+2. add the refreshed-branch promotion checklist
+3. upgrade local Node or keep promotion blocked until the operator host can satisfy the new floor
 4. run one low-risk live proof on the sync branch
 5. promote the refreshed sync branch back to `main`
 6. restart the long-lived operator on the promoted branch
@@ -184,5 +184,5 @@ As of this revision:
 
 - active feature branch:
   - `sync/upstream-2026-03-12-refresh`
-- next command-layer slice after the current one:
-  - `#83` Node floor setup-check gate
+- next planned slice after the current one:
+  - `#84` refreshed-branch promotion checklist

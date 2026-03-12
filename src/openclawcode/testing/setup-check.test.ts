@@ -48,6 +48,38 @@ async function writeExecutable(filePath: string, contents: string) {
   await fs.chmod(filePath, 0o755);
 }
 
+async function writeStubCliArtifacts(distDir: string, minimumNodeVersion = "22.16.0") {
+  await fs.writeFile(path.join(distDir, "index.js"), "console.log('ok');\n", "utf8");
+  await fs.writeFile(
+    path.join(distDir, "cli-startup-metadata.json"),
+    `${JSON.stringify(
+      {
+        generatedBy: "setup-check.test.ts",
+        channelOptions: ["telegram"],
+        minimumNodeVersion,
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+}
+
+async function writeStubNode(binDir: string, version = "22.16.0") {
+  await writeExecutable(
+    path.join(binDir, "node"),
+    `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\${1:-}" == "--version" || "\${1:-}" == "-v" ]]; then
+  printf 'v${version}\\n'
+  exit 0
+fi
+printf 'stub node only supports --version\\n' >&2
+exit 1
+`,
+  );
+}
+
 function hasShellExecutionSupport() {
   const result = spawnSync("bash", ["-lc", "exit 0"], {
     cwd: path.resolve("."),
@@ -69,6 +101,7 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("OPENCLAWCODE_SETUP_OPERATOR_ROOT");
     expect(script).toContain("OPENCLAWCODE_OPERATOR_ROOT");
     expect(script).toContain("OPENCLAWCODE_SETUP_GITHUB_HOOK_ID");
+    expect(script).toContain("OPENCLAWCODE_SETUP_CLI_STARTUP_METADATA_FILE");
     expect(script).toContain("OPENCLAWCODE_SETUP_RETRY_ATTEMPTS");
     expect(script).toContain("OPENCLAWCODE_SETUP_RETRY_DELAY_SECONDS");
     expect(script).toContain("refresh_github_hook_settings");
@@ -79,6 +112,9 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("--connect-timeout 2");
     expect(script).toContain("--max-time 5");
     expect(script).toContain("GitHub webhook subscription check");
+    expect(script).toContain("cli-startup-metadata.json");
+    expect(script).toContain("minimumNodeVersion");
+    expect(script).toContain("node --version");
     expect(script).toContain("vitest.openclawcode.config.mjs");
     expect(script).toContain("--pool threads");
   });
@@ -134,7 +170,8 @@ describeWithShell("openclawcode-setup-check.sh", () => {
 
     await fs.mkdir(distDir, { recursive: true });
     await fs.mkdir(binDir, { recursive: true });
-    await fs.writeFile(path.join(distDir, "index.js"), "console.log('ok');\n", "utf8");
+    await writeStubCliArtifacts(distDir);
+    await writeStubNode(binDir);
     await fs.writeFile(
       envFile,
       "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
@@ -234,6 +271,9 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
     expect(result.error).toBeUndefined();
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("[PASS] built CLI artifact present");
+    expect(result.stdout).toContain(
+      `[PASS] local Node 22.16.0 satisfies CLI startup floor 22.16.0 (${path.join(distDir, "cli-startup-metadata.json")})`,
+    );
     expect(result.stdout).toContain("[PASS] webhook secret configured in env file");
     expect(result.stdout).toContain("[PASS] webhook secret loaded into environment");
     expect(result.stdout).toContain("[PASS] signed webhook probe reached plugin route");
@@ -244,6 +284,121 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
     expect(curlArgs).toContain("X-GitHub-Event: issues");
     expect(curlArgs).toContain("X-Hub-Signature-256: sha256=test-signature");
     expect(curlArgs).toContain("http://127.0.0.1:18789/plugins/openclawcode/github");
+  });
+
+  it("fails when local Node is below the CLI startup floor", async () => {
+    const rootDir = await createTempDir();
+    tempRoots.add(rootDir);
+    const repoRoot = path.join(rootDir, "repo");
+    const distDir = path.join(repoRoot, "dist");
+    const binDir = path.join(rootDir, "bin");
+    const envFile = path.join(rootDir, "openclawcode.env");
+    const configFile = path.join(rootDir, "openclaw.json");
+    const stateFile = path.join(rootDir, "chatops-state.json");
+    const scriptPath = path.resolve("scripts/openclawcode-setup-check.sh");
+    const realPythonPath = resolveRealPythonPath();
+
+    await fs.mkdir(distDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    await writeStubCliArtifacts(distDir, "22.16.0");
+    await writeStubNode(binDir, "22.12.0");
+    await fs.writeFile(
+      envFile,
+      "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "approve",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:stale-node",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await fs.writeFile(
+      stateFile,
+      `${JSON.stringify(
+        {
+          repoBindingsByRepo: {
+            "zhyongrui/openclawcode": {
+              repoKey: "zhyongrui/openclawcode",
+              notifyChannel: "feishu",
+              notifyTarget: "user:stale-node",
+              updatedAt: "2026-03-12T16:40:00.000Z",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    await writeExecutable(
+      path.join(binDir, "python3"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+script="$(cat)"
+if [[ "$script" == *"socket.create_connection"* ]]; then
+  exit 0
+fi
+if [[ "$script" == *"hmac.new"* ]]; then
+  printf 'sha256=test-signature\\n'
+  exit 0
+fi
+printf '%s' "$script" | "${realPythonPath}" "$@"
+`,
+    );
+    await writeExecutable(
+      path.join(binDir, "curl"),
+      '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'{"accepted":false,"reason":"unconfigured-repo"}\\n202\'\n',
+    );
+
+    const result = runSetupCheck(scriptPath, {
+      PATH: `${binDir}:${process.env.PATH ?? ""}`,
+      OPENCLAWCODE_SETUP_REPO_ROOT: repoRoot,
+      OPENCLAWCODE_SETUP_ENV_FILE: envFile,
+      OPENCLAWCODE_SETUP_CONFIG_FILE: configFile,
+      OPENCLAWCODE_SETUP_STATE_FILE: stateFile,
+      OPENCLAWCODE_SETUP_GATEWAY_URL: "http://127.0.0.1:18789",
+      OPENCLAWCODE_SETUP_WEBHOOK_ROUTE: "/plugins/openclawcode/github",
+      OPENCLAWCODE_GITHUB_REPO: "zhyongrui/openclawcode",
+      OPENCLAWCODE_TUNNEL_LOG_FILE: path.join(rootDir, "tunnel.log"),
+      OPENCLAWCODE_TUNNEL_PID_FILE: path.join(rootDir, "tunnel.pid"),
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(
+      `[FAIL] local Node 22.12.0 is below CLI startup floor 22.16.0 (${path.join(distDir, "cli-startup-metadata.json")})`,
+    );
   });
 
   it("retries transient gateway and route-probe failures during restart windows", async () => {
@@ -263,7 +418,8 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
 
     await fs.mkdir(distDir, { recursive: true });
     await fs.mkdir(binDir, { recursive: true });
-    await fs.writeFile(path.join(distDir, "index.js"), "console.log('ok');\n", "utf8");
+    await writeStubCliArtifacts(distDir);
+    await writeStubNode(binDir);
     await fs.writeFile(
       envFile,
       "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
@@ -406,7 +562,8 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
     await fs.mkdir(distDir, { recursive: true });
     await fs.mkdir(binDir, { recursive: true });
     await fs.mkdir(pluginsDir, { recursive: true });
-    await fs.writeFile(path.join(distDir, "index.js"), "console.log('ok');\n", "utf8");
+    await writeStubCliArtifacts(distDir);
+    await writeStubNode(binDir);
     await fs.writeFile(
       envFile,
       "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
@@ -532,7 +689,8 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
     await fs.mkdir(distDir, { recursive: true });
     await fs.mkdir(binDir, { recursive: true });
     await fs.mkdir(pluginsDir, { recursive: true });
-    await fs.writeFile(path.join(distDir, "index.js"), "console.log('ok');\n", "utf8");
+    await writeStubCliArtifacts(distDir);
+    await writeStubNode(binDir);
     await fs.writeFile(
       envFile,
       [
@@ -675,7 +833,8 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
 
     await fs.mkdir(distDir, { recursive: true });
     await fs.mkdir(binDir, { recursive: true });
-    await fs.writeFile(path.join(distDir, "index.js"), "console.log('ok');\n", "utf8");
+    await writeStubCliArtifacts(distDir);
+    await writeStubNode(binDir);
     await fs.writeFile(
       envFile,
       "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
@@ -788,7 +947,8 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
 
     await fs.mkdir(distDir, { recursive: true });
     await fs.mkdir(binDir, { recursive: true });
-    await fs.writeFile(path.join(distDir, "index.js"), "console.log('ok');\n", "utf8");
+    await writeStubCliArtifacts(distDir);
+    await writeStubNode(binDir);
     await fs.writeFile(envFile, "GH_TOKEN=dummy-token\n", "utf8");
     await fs.writeFile(configFile, "{}\n", "utf8");
 
@@ -839,7 +999,8 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
 
     await fs.mkdir(distDir, { recursive: true });
     await fs.mkdir(binDir, { recursive: true });
-    await fs.writeFile(path.join(distDir, "index.js"), "console.log('ok');\n", "utf8");
+    await writeStubCliArtifacts(distDir);
+    await writeStubNode(binDir);
     await fs.writeFile(envFile, "GH_TOKEN=dummy-token\n", "utf8");
     await fs.writeFile(configFile, "{}\n", "utf8");
 

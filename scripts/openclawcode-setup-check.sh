@@ -14,12 +14,14 @@ readonly DEFAULT_TUNNEL_LOG_FILE="/tmp/openclawcode-webhook-tunnel.log"
 readonly DEFAULT_TUNNEL_PID_FILE="/tmp/openclawcode-webhook-tunnel.pid"
 readonly DEFAULT_RETRY_ATTEMPTS="${OPENCLAWCODE_SETUP_RETRY_ATTEMPTS:-5}"
 readonly DEFAULT_RETRY_DELAY_SECONDS="${OPENCLAWCODE_SETUP_RETRY_DELAY_SECONDS:-1}"
+readonly DEFAULT_MINIMUM_NODE_VERSION="22.16.0"
 
 REPO_ROOT="${OPENCLAWCODE_SETUP_REPO_ROOT:-$DEFAULT_REPO_ROOT}"
 OPERATOR_ROOT="${OPENCLAWCODE_SETUP_OPERATOR_ROOT:-${OPENCLAWCODE_OPERATOR_ROOT:-$DEFAULT_OPERATOR_ROOT}}"
 ENV_FILE="${OPENCLAWCODE_SETUP_ENV_FILE:-${OPENCLAWCODE_WEBHOOK_ENV_FILE:-${OPERATOR_ROOT}/openclawcode.env}}"
 CONFIG_FILE="${OPENCLAWCODE_SETUP_CONFIG_FILE:-${OPERATOR_ROOT}/openclaw.json}"
 STATE_FILE="${OPENCLAWCODE_SETUP_STATE_FILE:-${OPERATOR_ROOT}/plugins/openclawcode/chatops-state.json}"
+CLI_STARTUP_METADATA_FILE="${OPENCLAWCODE_SETUP_CLI_STARTUP_METADATA_FILE:-${REPO_ROOT}/dist/cli-startup-metadata.json}"
 GATEWAY_URL="${OPENCLAWCODE_SETUP_GATEWAY_URL:-$DEFAULT_GATEWAY_URL}"
 WEBHOOK_ROUTE="${OPENCLAWCODE_SETUP_WEBHOOK_ROUTE:-${OPENCLAWCODE_TUNNEL_ROUTE:-$DEFAULT_WEBHOOK_ROUTE}}"
 GITHUB_REPO="$DEFAULT_GITHUB_REPO"
@@ -42,6 +44,7 @@ Usage: ${SCRIPT_NAME} [--strict] [--skip-route-probe]
 
 Checks:
   - repo root and built CLI artifact
+  - local Node version satisfies the CLI startup floor
   - env/config/state files used by the local operator flow
   - webhook secret presence
   - GitHub token presence
@@ -56,6 +59,7 @@ Environment overrides:
   OPENCLAWCODE_SETUP_ENV_FILE
   OPENCLAWCODE_SETUP_CONFIG_FILE
   OPENCLAWCODE_SETUP_STATE_FILE
+  OPENCLAWCODE_SETUP_CLI_STARTUP_METADATA_FILE
   OPENCLAWCODE_SETUP_GATEWAY_URL
   OPENCLAWCODE_SETUP_WEBHOOK_ROUTE
   OPENCLAWCODE_GITHUB_REPO
@@ -208,6 +212,70 @@ check_dist_artifact() {
     pass "built CLI artifact present: ${REPO_ROOT}/dist/index.js"
   else
     fail "built CLI artifact missing: ${REPO_ROOT}/dist/index.js"
+  fi
+}
+
+check_node_version_floor() {
+  local required_version="$DEFAULT_MINIMUM_NODE_VERSION"
+  local source_label="fallback runtime floor"
+
+  if [[ -f "$CLI_STARTUP_METADATA_FILE" ]]; then
+    local metadata_version=""
+    metadata_version="$(
+      python3 - "$CLI_STARTUP_METADATA_FILE" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+metadata_path = Path(sys.argv[1])
+with metadata_path.open("r", encoding="utf-8") as handle:
+    payload = json.load(handle)
+
+value = payload.get("minimumNodeVersion")
+if isinstance(value, str) and value.strip():
+    print(value.strip())
+PY
+    )" || {
+      warn "unable to read CLI startup metadata: ${CLI_STARTUP_METADATA_FILE}; falling back to Node ${DEFAULT_MINIMUM_NODE_VERSION}"
+      metadata_version=""
+    }
+    if [[ -n "$metadata_version" ]]; then
+      required_version="$metadata_version"
+      source_label="${CLI_STARTUP_METADATA_FILE}"
+    else
+      warn "CLI startup metadata missing minimumNodeVersion: ${CLI_STARTUP_METADATA_FILE}; falling back to Node ${DEFAULT_MINIMUM_NODE_VERSION}"
+    fi
+  else
+    warn "CLI startup metadata missing: ${CLI_STARTUP_METADATA_FILE}; falling back to Node ${DEFAULT_MINIMUM_NODE_VERSION}"
+  fi
+
+  local current_version_raw=""
+  if ! current_version_raw="$(node --version 2>/dev/null)"; then
+    fail "unable to read local Node version with node --version"
+    return
+  fi
+
+  local current_version="${current_version_raw#v}"
+  if python3 - "$current_version" "$required_version" <<'PY'
+import re
+import sys
+
+SEMVER_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+
+def parse(value: str):
+    match = SEMVER_RE.search(value or "")
+    if not match:
+        raise SystemExit(1)
+    return tuple(int(part) for part in match.groups())
+
+current = parse(sys.argv[1])
+required = parse(sys.argv[2])
+raise SystemExit(0 if current >= required else 1)
+PY
+  then
+    pass "local Node ${current_version} satisfies CLI startup floor ${required_version} (${source_label})"
+  else
+    fail "local Node ${current_version} is below CLI startup floor ${required_version} (${source_label})"
   fi
 }
 
@@ -586,8 +654,10 @@ done
 refresh_github_hook_settings
 require_command python3
 require_command curl
+require_command node
 check_repo_root
 check_dist_artifact
+check_node_version_floor
 load_env_file
 check_config_file
 check_webhook_secret

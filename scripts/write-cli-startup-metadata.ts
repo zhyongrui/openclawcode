@@ -1,6 +1,7 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { MIN_NODE_VERSION } from "../src/infra/runtime-guard.ts";
 
 function dedupe(values: string[]): string[] {
   const seen = new Set<string>();
@@ -85,6 +86,7 @@ writeFileSync(
     {
       generatedBy: "scripts/write-cli-startup-metadata.ts",
       channelOptions,
+      minimumNodeVersion: MIN_NODE_VERSION,
     },
     null,
     2,

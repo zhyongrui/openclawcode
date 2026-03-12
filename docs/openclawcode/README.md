@@ -182,6 +182,7 @@ loop with:
     - command-layer issue `#81`
     - command-layer issue `#82`
     - ops issue `#83`
+    - ops issue `#84`
     - docs/operator issue `#60`
   - duplicate issue `#59` was detected through the new inventory path and then
     closed
@@ -206,7 +207,12 @@ loop with:
   - `openclaw code run --json` now exposes `testResultCount`
   - `openclaw code run --json` now exposes `noteCount`
   - `openclaw code run --json` now exposes `changedFileCount`
-  - the next refreshed-branch ops slice is `#83` for the Node floor setup-check gate
+  - `scripts/openclawcode-setup-check.sh` now reads `minimumNodeVersion` from
+    `dist/cli-startup-metadata.json` and checks the local Node runtime against
+    the CLI startup floor
+  - a real local strict proof now fails on this workstation exactly where it
+    should: `Node 22.12.0 < 22.16.0`
+  - the next refreshed-branch ops slice is `#84` for the promotion checklist
 - real live lifecycle replay against `PR #37`, covering:
   - `pull_request_review` changes requested
   - `pull_request_review` approved
