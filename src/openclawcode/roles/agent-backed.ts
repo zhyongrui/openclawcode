@@ -22,6 +22,52 @@ function renderIssueBody(run: WorkflowRun): string {
   return run.issue.body?.trim() ? run.issue.body.trim() : "No issue body provided.";
 }
 
+const EXPLICIT_PATH_HINT_EXTENSIONS = /\.(?:md|ts|tsx|js|jsx|mjs|cjs|json|yml|yaml|sh)$/i;
+
+const KEYWORD_PATH_HINTS: Array<{ matches: string[]; path: string }> = [
+  {
+    matches: ["plugin integration", "/occode-sync"],
+    path: "docs/openclawcode/openclaw-plugin-integration.md",
+  },
+];
+
+function collectIssueText(run: WorkflowRun): string[] {
+  return [
+    run.issue.title,
+    run.issue.body ?? "",
+    run.executionSpec?.summary ?? "",
+    ...(run.executionSpec?.scope ?? []),
+    ...(run.executionSpec?.acceptanceCriteria.map((entry) => entry.text) ?? []),
+  ];
+}
+
+function collectExplicitPathHints(run: WorkflowRun): string[] {
+  const hints: string[] = [];
+  for (const segment of collectIssueText(run)) {
+    for (const match of segment.matchAll(/`([^`\n]+)`/g)) {
+      const candidate = match[1]?.trim();
+      if (!candidate) {
+        continue;
+      }
+      const normalized = candidate.replace(/\\/g, "/").replace(/^\.\//, "");
+      if (
+        normalized.includes("/") &&
+        (normalized.endsWith("/") || EXPLICIT_PATH_HINT_EXTENSIONS.test(normalized))
+      ) {
+        hints.push(normalized);
+      }
+    }
+  }
+  return hints;
+}
+
+function collectKeywordPathHints(run: WorkflowRun): string[] {
+  const issueText = collectIssueText(run).join("\n").toLowerCase();
+  return KEYWORD_PATH_HINTS.filter((hint) =>
+    hint.matches.every((term) => issueText.includes(term)),
+  ).map((hint) => hint.path);
+}
+
 function buildRelevantPathHints(run: WorkflowRun): string[] {
   const hints = [
     "src/openclawcode/app/run-issue.ts",
@@ -32,7 +78,14 @@ function buildRelevantPathHints(run: WorkflowRun): string[] {
   ];
   const guardrail = buildScopeGuardrail(run);
 
-  return Array.from(new Set([...guardrail.preferredPaths, ...hints]));
+  return Array.from(
+    new Set([
+      ...collectExplicitPathHints(run),
+      ...collectKeywordPathHints(run),
+      ...guardrail.preferredPaths,
+      ...hints,
+    ]),
+  );
 }
 
 function buildBuilderPrompt(run: WorkflowRun, testCommands: string[]): string {

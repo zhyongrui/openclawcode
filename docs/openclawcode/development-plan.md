@@ -129,10 +129,8 @@ turning the working loop into a cleanly operable product:
   - `OpenClawAgentRunner` now keeps the default runtime tool deny focused on
     `write` while sandbox `edit` stays enabled by default after live proof on
     `sync/upstream-2026-03-12`
-- the next engineering priority is now staged `write` rollout plus cleanup for
-  stale issue-context file hints that still point live builders at
-  `docs/openclawcode/plugin-integration.md` instead of the real
-  `docs/openclawcode/openclaw-plugin-integration.md`
+- the next engineering priority is now staged `write` rollout on the live
+  route, followed by fresh-operator-environment proof and policy-doc cleanup
 - packaging and installation are now documented locally, but still need more
   proof under a fresh operator environment
 - policy docs lag the implemented guarded auto-merge behavior and need to be
@@ -262,13 +260,16 @@ The sync-branch live rerun gap is now closed:
 - run `zhyongrui-openclawcode-36-1773283954561` then reached
   `ready-for-human-review` after sandbox `read` learned to page in-boundary
   directories instead of treating them as invalid file reads
+- run `zhyongrui-openclawcode-36-1773284400697` then reached
+  `ready-for-human-review` after issue-context prompt hints were tightened to
+  name `docs/openclawcode/openclaw-plugin-integration.md`
 - the live builder no longer emits the earlier
-  `/workspace/docs/openclawcode` boundary-check warning; the next remaining
-  builder hygiene gap is a stale hinted doc path that still names
-  `docs/openclawcode/plugin-integration.md`
+  `/workspace/docs/openclawcode` boundary-check warning and no longer spends a
+  first read on the nonexistent `docs/openclawcode/plugin-integration.md`
 
 This means the next iteration can shift from sandbox directory-read cleanup to
-hinted-file cleanup, staged `write` rollout, and broader operator hardening.
+staged `write` rollout, fresh-environment proof, and broader operator
+hardening.
 
 ### Near-Term Delivery Streams
 
@@ -824,22 +825,20 @@ Why next:
 
 The next implementation slice should follow this order:
 
-1. clean up stale issue-context file hints so live builders stop chasing the
-   nonexistent `docs/openclawcode/plugin-integration.md` path
-2. rerun a low-risk docs issue on the live route and confirm the builder now
-   uses the corrected `openclaw-plugin-integration.md` hint set without ENOENT
-   noise
-3. stage `OPENCLAWCODE_ENABLE_FS_TOOLS=write` on the same refreshed sync branch
-   only after the read-hint cleanup stays stable in live execution
-4. rerun one low-risk merged issue once `write` is enabled and confirm the run
+1. stage `OPENCLAWCODE_ENABLE_FS_TOOLS=write` on the refreshed sync branch now
+   that sandbox `edit`, directory reads, and docs prompt hints have all passed
+   live proof
+2. rerun one low-risk merged issue once `write` is enabled and confirm the run
    still reaches:
    - draft PR publication
    - verification approval
    - automatic merge and issue closure when policy allows it
-5. verify chat notifications, snapshot updates, and `/occode-inbox` output for
+3. verify chat notifications, snapshot updates, and `/occode-inbox` output for
    the final merged disposition after the fs-tool rollout
-6. update the dev log and status docs after each live proof
-7. commit each slice only after targeted validation passes
+4. re-run the setup or runbook flow in a fresh operator environment after the
+   write rollout is stable
+5. update the dev log and status docs after each live proof
+6. commit each slice only after targeted validation passes
 
 ## Test Strategy
 

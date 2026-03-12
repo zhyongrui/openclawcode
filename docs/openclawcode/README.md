@@ -128,6 +128,12 @@ loop with:
     directories such as `/workspace/docs/openclawcode`
   - the builder no longer emitted the earlier boundary-check warning for that
     directory path during the live run
+- a fourth sync-branch live proof on issue `#36`:
+  - `zhyongrui-openclawcode-36-1773284400697` reached
+    `ready-for-human-review` after the builder prompt was tightened to hint the
+    real `docs/openclawcode/openclaw-plugin-integration.md` path
+  - the live builder stopped chasing the nonexistent
+    `docs/openclawcode/plugin-integration.md` file name
 - a fresh direct live rerun of issue `#44` on refreshed `main` that completed
   as a no-op `ready-for-human-review` run instead of reproducing the earlier
   stalled-planning corruption path
@@ -140,9 +146,6 @@ loop with:
 
 Still pending for a fuller product loop:
 
-- cleanup for stale issue-context file hints that still point the live builder
-  at `docs/openclawcode/plugin-integration.md` instead of the real
-  `docs/openclawcode/openclaw-plugin-integration.md`
 - staged validation of the remaining runner-level `write` deny before broader
   filesystem-tool rollout
 - stronger suitability/risk gating ahead of autonomous execution

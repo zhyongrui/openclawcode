@@ -124,6 +124,31 @@ describe("AgentBackedBuilder prompt", () => {
       "If the requested behavior can be derived from existing workflow state",
     );
   });
+
+  it("prefers exact documentation hints for README issues that mention plugin integration", () => {
+    const prompt = __testing.buildBuilderPrompt(
+      {
+        ...createRun(),
+        issue: {
+          ...createRun().issue,
+          number: 36,
+          title: "[Feature]: Document /occode-sync in openclawcode README",
+          body: [
+            "Summary",
+            "Add a short operator-facing note in `docs/openclawcode/README.md` that mentions the `/occode-sync` chat command.",
+            "",
+            "Problem to solve",
+            "The plugin integration doc already describes `/occode-sync`, but the product README under `docs/openclawcode/` does not mention that operators can force a reconciliation pass from chat.",
+          ].join("\n"),
+        },
+      },
+      ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+    );
+
+    expect(prompt).toContain("- docs/openclawcode/README.md");
+    expect(prompt).toContain("- docs/openclawcode/openclaw-plugin-integration.md");
+    expect(prompt).not.toContain("- docs/openclawcode/plugin-integration.md");
+  });
 });
 
 class FakeAgentRunner implements AgentRunner {
