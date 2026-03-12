@@ -158,6 +158,93 @@ The short-term objective is:
   runner-level filesystem deny down to `write` only
 - align the roadmap and setup docs with the behavior already proved in code
 
+### Long-Range Program Update
+
+The longer-range delivery program should now run in six rolling phases instead
+of only chasing the next single live fix.
+
+#### Phase 1: Stable Live Baseline
+
+Goal:
+
+- finish the remaining live-proof gap under
+  `OPENCLAWCODE_ENABLE_FS_TOOLS=write`
+- keep the same branch usable for repeated real issue runs without manual
+  cleanup between slices
+
+Exit criteria:
+
+- one low-risk command-layer issue reaches PR publication, verification,
+  guarded merge, and issue closure under the expanded fs-tool surface
+- operator-visible status and chat output stay coherent for that merged path
+
+#### Phase 2: Fresh-Operator Reproducibility
+
+Goal:
+
+- prove that a fresh operator environment can be stood up from docs and scripts
+  instead of local tribal knowledge
+
+Exit criteria:
+
+- a fresh `.openclaw` state root can be configured from the documented steps
+- setup verification passes without hand-edited hidden state
+- one end-to-end issue run can be triggered from that fresh environment
+
+#### Phase 3: Autonomous Suitability Gating
+
+Goal:
+
+- make the system better at deciding which issues should auto-run, wait for a
+  human, or be rejected as too risky
+
+Exit criteria:
+
+- issue suitability rules are explicit, testable, and visible in workflow
+  artifacts
+- unsafe or ambiguous issues are routed to humans before branch mutation starts
+
+#### Phase 4: Runtime Simplification
+
+Goal:
+
+- reduce temporary builder mitigations, sandbox-specific edge cases, and prompt
+  workarounds as the underlying tool path becomes stable
+
+Exit criteria:
+
+- the live runner no longer depends on prompt-only guardrails for basic safety
+- sandbox and host tool behavior stay aligned across edit, write, and read
+  paths
+
+#### Phase 5: Operator Productization
+
+Goal:
+
+- treat `openclawcode` as an installable operator product, not just a local
+  validated branch
+
+Exit criteria:
+
+- install, upgrade, rollback, and upstream-sync workflows are documented and
+  repeatable
+- policy docs match the guarded merge behavior already enforced in code
+
+#### Phase 6: Continuous Validation Loop
+
+Goal:
+
+- keep a renewable pool of small real issues available so regression proofs do
+  not stall on missing validation traffic
+
+Exit criteria:
+
+- there is always at least one low-risk command-layer validation issue and one
+  low-risk docs/operator issue available
+- when the validation pool is empty, Codex may create a small repository-local
+  validation issue directly through GitHub CLI/API instead of waiting for a
+  manual issue seed
+
 ### Current Checkpoint
 
 The current repository state already supports:
@@ -418,14 +505,17 @@ Priority backlog:
 
 1. keep a small pool of low-risk validation issues ready so real failures can
    be reproduced quickly
-2. turn every live failure into either a regression test, a workflow rule, or
+2. if that pool is empty, create a narrowly scoped command-layer or docs
+   validation issue directly through GitHub CLI/API so the next live proof does
+   not stall on missing repository traffic
+3. turn every live failure into either a regression test, a workflow rule, or
    an operator runbook update
-3. record exact GitHub permission and reviewer caveats discovered during each
+4. record exact GitHub permission and reviewer caveats discovered during each
    live run
-4. keep re-running one low-risk command-layer issue after each builder/runtime
+5. keep re-running one low-risk command-layer issue after each builder/runtime
    hardening slice to prove draft PR, verification, merge, and issue closure
    still work on refreshed `main`
-5. use the same validation pool to prove temporary mitigations can be removed
+6. use the same validation pool to prove temporary mitigations can be removed
    safely
 
 Validation rule:
