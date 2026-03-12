@@ -170,6 +170,7 @@ describe("openclawCodeRunCommand", () => {
     );
     expect(payload.verificationHasFindings).toBe(false);
     expect(payload.verificationHasMissingCoverage).toBe(false);
+    expect(payload.verificationHasSignals).toBe(false);
     expect(payload.verificationHasFollowUps).toBe(false);
     expect(payload.verificationFindingCount).toBe(0);
     expect(payload.verificationMissingCoverageCount).toBe(0);
@@ -229,6 +230,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationSummary).toBeNull();
     expect(payload.verificationHasFindings).toBe(false);
     expect(payload.verificationHasMissingCoverage).toBe(false);
+    expect(payload.verificationHasSignals).toBe(false);
     expect(payload.verificationHasFollowUps).toBe(false);
     expect(payload.verificationFindingCount).toBeNull();
     expect(payload.verificationMissingCoverageCount).toBeNull();
@@ -255,6 +257,7 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.verificationHasSignals).toBe(true);
     expect(payload.verificationHasFollowUps).toBe(true);
     expect(payload.verificationFollowUpCount).toBe(1);
     expect(payload.verificationReport.followUps).toEqual([
@@ -275,6 +278,7 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.verificationHasSignals).toBe(true);
     expect(payload.verificationHasMissingCoverage).toBe(true);
     expect(payload.verificationMissingCoverageCount).toBe(1);
     expect(payload.verificationReport.missingCoverage).toEqual([
@@ -575,6 +579,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationApprovedForHumanReview).toBe(false);
     expect(payload.verificationHasFindings).toBe(true);
     expect(payload.verificationHasMissingCoverage).toBe(true);
+    expect(payload.verificationHasSignals).toBe(true);
     expect(payload.verificationHasFollowUps).toBe(true);
     expect(payload.verificationFindingCount).toBe(2);
     expect(payload.verificationMissingCoverageCount).toBe(1);

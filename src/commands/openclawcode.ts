@@ -385,6 +385,12 @@ function toWorkflowRunJson(run: WorkflowRun) {
       run.verificationReport == null ? false : run.verificationReport.findings.length > 0,
     verificationHasMissingCoverage:
       run.verificationReport == null ? false : run.verificationReport.missingCoverage.length > 0,
+    verificationHasSignals:
+      run.verificationReport == null
+        ? false
+        : run.verificationReport.findings.length > 0 ||
+          run.verificationReport.missingCoverage.length > 0 ||
+          run.verificationReport.followUps.length > 0,
     verificationHasFollowUps:
       run.verificationReport == null ? false : run.verificationReport.followUps.length > 0,
     verificationFindingCount: run.verificationReport?.findings.length ?? null,
