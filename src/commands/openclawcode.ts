@@ -135,7 +135,7 @@ function resolveAutoMergeDisposition(run: WorkflowRun): {
   autoMergeDisposition: "merged" | "skipped" | "failed" | null;
   autoMergeDispositionReason: string | null;
 } {
-  const note = [...run.history]
+  const note = [...(run.history ?? [])]
     .toReversed()
     .find(
       (entry) =>
@@ -190,10 +190,11 @@ function resolveDraftPullRequestDisposition(run: WorkflowRun): {
   draftPullRequestDisposition: "published" | "skipped" | null;
   draftPullRequestDispositionReason: string | null;
 } {
+  const history = run.history ?? [];
   const published = resolvePublishedPullRequest(run).pullRequestPublished;
   if (published) {
     const note =
-      [...run.history]
+      [...history]
         .toReversed()
         .find(
           (entry) =>
@@ -205,7 +206,7 @@ function resolveDraftPullRequestDisposition(run: WorkflowRun): {
     };
   }
 
-  const skippedNote = [...run.history]
+  const skippedNote = [...history]
     .toReversed()
     .find((entry) => entry.startsWith("Draft PR skipped:"));
   if (skippedNote) {
@@ -236,6 +237,7 @@ function resolveChangeDisposition(run: WorkflowRun): {
   changeDisposition: "modified" | "no-op" | null;
   changeDispositionReason: string | null;
 } {
+  const history = run.history ?? [];
   if (!run.buildResult) {
     return {
       changeDisposition: null,
@@ -250,9 +252,7 @@ function resolveChangeDisposition(run: WorkflowRun): {
     };
   }
 
-  const noOpNote = [...run.history]
-    .toReversed()
-    .find((entry) => entry.startsWith("Draft PR skipped:"));
+  const noOpNote = [...history].toReversed().find((entry) => entry.startsWith("Draft PR skipped:"));
   return {
     changeDisposition: "no-op",
     changeDispositionReason: noOpNote ?? "Run produced no changed files.",
@@ -663,6 +663,13 @@ export async function openclawCodeListValidationIssuesCommand(
     highRiskValidation: issues.filter((issue) => issue.issueClass === "high-risk-validation")
       .length,
   };
+  const templateCounts = issues.reduce<Partial<Record<ValidationIssueTemplateId, number>>>(
+    (summary, issue) => {
+      summary[issue.template] = (summary[issue.template] ?? 0) + 1;
+      return summary;
+    },
+    {},
+  );
 
   if (opts.json) {
     runtime.log(
@@ -673,6 +680,7 @@ export async function openclawCodeListValidationIssuesCommand(
           state: opts.state ?? "open",
           totalValidationIssues: issues.length,
           counts,
+          templateCounts,
           issues,
         },
         null,
@@ -688,6 +696,11 @@ export async function openclawCodeListValidationIssuesCommand(
   runtime.log(`- command-layer: ${counts.commandLayer}`);
   runtime.log(`- operator-docs: ${counts.operatorDocs}`);
   runtime.log(`- high-risk-validation: ${counts.highRiskValidation}`);
+  for (const [template, count] of Object.entries(templateCounts).toSorted(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
+    runtime.log(`- template ${template}: ${count}`);
+  }
   for (const issue of issues) {
     const age = issue.ageDays == null ? "unknown age" : `${issue.ageDays.toFixed(1)}d`;
     runtime.log(

@@ -126,6 +126,26 @@ interface ValidationPoolEntry {
 
 interface ValidationPoolSummary {
   entries: ValidationPoolEntry[];
+  classCounts: Record<ValidationIssueClass, number>;
+  templateCounts: Partial<Record<ValidationIssueTemplateId, number>>;
+}
+
+function summarizeValidationPoolEntries(entries: ValidationPoolEntry[]): ValidationPoolSummary {
+  const classCounts: Record<ValidationIssueClass, number> = {
+    "command-layer": 0,
+    "operator-docs": 0,
+    "high-risk-validation": 0,
+  };
+  const templateCounts: Partial<Record<ValidationIssueTemplateId, number>> = {};
+  for (const entry of entries) {
+    classCounts[entry.issueClass] += 1;
+    templateCounts[entry.template] = (templateCounts[entry.template] ?? 0) + 1;
+  }
+  return {
+    entries,
+    classCounts,
+    templateCounts,
+  };
 }
 
 async function fetchValidationPoolSummary(params: {
@@ -161,7 +181,7 @@ async function fetchValidationPoolSummary(params: {
       ];
     })
     .toSorted((left, right) => left.issueNumber - right.issueNumber);
-  return { entries };
+  return summarizeValidationPoolEntries(entries);
 }
 
 function buildValidationPoolLines(summary: ValidationPoolSummary | undefined): string[] {
@@ -169,6 +189,26 @@ function buildValidationPoolLines(summary: ValidationPoolSummary | undefined): s
     return [];
   }
   const lines = [`Validation pool: ${summary.entries.length}`];
+  if (summary.entries.length > 0) {
+    const classSummary = (["command-layer", "operator-docs", "high-risk-validation"] as const)
+      .filter((issueClass) => summary.classCounts[issueClass] > 0)
+      .map(
+        (issueClass) =>
+          `${formatValidationIssueClass(issueClass)} ${summary.classCounts[issueClass]}`,
+      )
+      .join(", ");
+    if (classSummary) {
+      lines.push(`- classes: ${classSummary}`);
+    }
+    const templateSummary = Object.entries(summary.templateCounts)
+      .filter((entry): entry is [ValidationIssueTemplateId, number] => (entry[1] ?? 0) > 0)
+      .toSorted((left, right) => left[0].localeCompare(right[0]))
+      .map(([template, count]) => `${formatValidationIssueTemplate(template)} ${count}`)
+      .join(", ");
+    if (templateSummary) {
+      lines.push(`- templates: ${templateSummary}`);
+    }
+  }
   for (const entry of summary.entries) {
     lines.push(
       `- #${entry.issueNumber} | ${formatValidationIssueClass(entry.issueClass)} | ${formatValidationIssueTemplate(entry.template)} | ${entry.title}`,
@@ -1080,14 +1120,20 @@ async function handlePullRequestWebhookEvent(params: {
     binding: params.binding,
     snapshot: applied.snapshot,
   });
-  scheduleIssueNotification({
-    api: params.api,
-    store: params.store,
-    issueKey: applied.snapshot.issueKey,
-    channel: destination.channel,
-    target: destination.target,
-    text: applied.snapshot.status,
-  });
+  try {
+    await sendIssueNotification({
+      api: params.api,
+      store: params.store,
+      issueKey: applied.snapshot.issueKey,
+      channel: destination.channel,
+      target: destination.target,
+      text: applied.snapshot.status,
+    });
+  } catch (error) {
+    params.api.logger.warn(
+      `openclawcode notification failed for ${destination.channel}:${destination.target}: ${String(error)}`,
+    );
+  }
   return await params.respondJson({
     accepted: true,
     reason: applied.reason,
@@ -1144,14 +1190,20 @@ async function handlePullRequestReviewWebhookEvent(params: {
     binding: params.binding,
     snapshot: applied.snapshot,
   });
-  scheduleIssueNotification({
-    api: params.api,
-    store: params.store,
-    issueKey: applied.snapshot.issueKey,
-    channel: destination.channel,
-    target: destination.target,
-    text: applied.snapshot.status,
-  });
+  try {
+    await sendIssueNotification({
+      api: params.api,
+      store: params.store,
+      issueKey: applied.snapshot.issueKey,
+      channel: destination.channel,
+      target: destination.target,
+      text: applied.snapshot.status,
+    });
+  } catch (error) {
+    params.api.logger.warn(
+      `openclawcode notification failed for ${destination.channel}:${destination.target}: ${String(error)}`,
+    );
+  }
   return await params.respondJson({
     accepted: true,
     reason: applied.reason,

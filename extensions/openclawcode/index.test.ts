@@ -2453,6 +2453,8 @@ describe("openclawcode extension", () => {
           "Queued: 0",
           "Recent ledger: 0",
           "Validation pool: 2",
+          "- classes: command-layer 1, operator-docs 1",
+          "- templates: command-json-number 1, operator-doc-note 1",
           "- #60 | operator-docs | operator-doc-note | [Docs]: Clarify copied-root fresh-operator proof expectations",
           "- #66 | command-layer | command-json-number | [Feature]: Expose stageRecordCount in openclaw code run --json output",
         ].join("\n"),

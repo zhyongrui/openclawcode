@@ -178,8 +178,12 @@ turning the working loop into a cleanly operable product:
 - operator-facing inbox and status views now surface that same validation-pool
   taxonomy directly from chat:
   - `/occode-inbox` appends the live open validation pool
+  - `/occode-inbox` now also summarizes the live pool by validation class and
+    template before listing the individual issues
   - `/occode-status <issue>` annotates validation issues with class and
     template metadata
+- `openclaw code list-validation-issues` now reports template-level counts in
+  both text and JSON output, so pool upkeep no longer requires manual counting
 - live inventory proof now shows the current open pool directly:
   - command-layer issue `#66`
   - docs/operator issue `#60`

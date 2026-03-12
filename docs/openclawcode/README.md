@@ -141,6 +141,8 @@ loop with:
   - `/occode-inbox` recent ledger entries include a `suitability:` line
 - validation-pool inventory is now visible in operator-facing surfaces too:
   - `/occode-inbox` appends the live open validation pool
+  - `/occode-inbox` now also summarizes the pool by class and template before
+    listing individual issues
   - `/occode-status <issue>` annotates validation issues with their class and
     template when the issue matches the seeded validation taxonomy
 - operator setup health checks that now retry transient gateway reachability and
@@ -148,6 +150,8 @@ loop with:
 - a repo-native validation-pool CLI surface:
   - `openclaw code seed-validation-issue`
   - `openclaw code list-validation-issues`
+  - `openclaw code list-validation-issues` now reports template-level counts in
+    both text and JSON output
   - seeded issue creation now reuses an existing open match instead of creating
     a duplicate
   - current live inventory is visible without opening GitHub manually and

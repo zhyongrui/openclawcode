@@ -846,6 +846,10 @@ describe("openclawCodeRunCommand", () => {
         operatorDocs: 1,
         highRiskValidation: 0,
       },
+      templateCounts: {
+        "command-json-boolean": 1,
+        "operator-doc-note": 1,
+      },
     });
     expect(payload.issues).toEqual([
       expect.objectContaining({
@@ -858,6 +862,30 @@ describe("openclawCodeRunCommand", () => {
         template: "operator-doc-note",
         issueClass: "operator-docs",
       }),
+    ]);
+  });
+
+  it("lists validation issue class and template summaries in text form", async () => {
+    await openclawCodeListValidationIssuesCommand(
+      {
+        repoRoot: "/repo",
+      },
+      runtime,
+    );
+
+    expect(runtime.log.mock.calls.map((call) => call[0])).toEqual([
+      "Repo: openclaw/openclaw",
+      "State: open",
+      "Validation issues: 2",
+      "- command-layer: 1",
+      "- operator-docs: 1",
+      "- high-risk-validation: 0",
+      "- template command-json-boolean: 1",
+      "- template operator-doc-note: 1",
+      expect.stringContaining("#99 [command-layer/command-json-boolean]"),
+      "https://github.com/openclaw/openclaw/issues/99",
+      expect.stringContaining("#100 [operator-docs/operator-doc-note]"),
+      "https://github.com/openclaw/openclaw/issues/100",
     ]);
   });
 });
