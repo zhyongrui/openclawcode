@@ -148,6 +148,52 @@ describe("createSandboxedEditTool", () => {
     await expect(fs.readFile(filePath, "utf-8")).resolves.toContain("new text");
   });
 
+  it("accepts replacements when the new block contains the old block as a prefix", async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-sandbox-edit-recovery-"));
+    const filePath = path.join(tmpDir, "README.md");
+    const original = [
+      "- `/occode-start`",
+      "- `/occode-rerun`",
+      "- `/occode-status`",
+      "- `/occode-sync`",
+      "",
+    ].join("\n");
+    await fs.writeFile(filePath, original, "utf-8");
+
+    const tool = createSandboxedEditTool({
+      root: tmpDir,
+      bridge: createTestBridge(tmpDir),
+    });
+    const oldText = [
+      "- `/occode-start`",
+      "- `/occode-rerun`",
+      "- `/occode-status`",
+      "- `/occode-sync`",
+      "",
+    ].join("\n");
+    const newText = [
+      "- `/occode-start`",
+      "- `/occode-rerun`",
+      "- `/occode-status`",
+      "- `/occode-sync`",
+      "- `/occode-sync` runs a manual reconciliation pass across local state",
+      "",
+    ].join("\n");
+
+    const result = await tool.execute(
+      "call-1",
+      { file_path: "README.md", old_string: oldText, new_string: newText },
+      undefined,
+    );
+    const content = Array.isArray((result as { content?: unknown }).content)
+      ? (result as { content: Array<{ type?: string; text?: string }> }).content
+      : [];
+    expect(content.find((entry) => entry?.type === "text")?.text).toContain(
+      "Successfully replaced text",
+    );
+    await expect(fs.readFile(filePath, "utf-8")).resolves.toBe(newText);
+  });
+
   it("falls back to host-path restoration when bridge writes keep leaving the sandbox file empty", async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-sandbox-edit-recovery-"));
     const filePath = path.join(tmpDir, "file-host-restore.ts");

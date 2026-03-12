@@ -99,13 +99,24 @@ async function verifySandboxEditApplied(params: {
   pathParam: string;
   oldText?: string;
   newText?: string;
+  expectedContent?: string;
   bridge: SandboxFsBridge;
   root: string;
 }): Promise<boolean> {
   const content = await readSandboxHostFile(params);
+  if (params.expectedContent !== undefined) {
+    return content === params.expectedContent;
+  }
   const hasNew = params.newText ? content.includes(params.newText) : true;
+  const oldTextCanRemain =
+    params.oldText !== undefined &&
+    params.newText !== undefined &&
+    params.newText.includes(params.oldText);
   const stillHasOld =
-    params.oldText !== undefined && params.oldText.length > 0 && content.includes(params.oldText);
+    !oldTextCanRemain &&
+    params.oldText !== undefined &&
+    params.oldText.length > 0 &&
+    content.includes(params.oldText);
   return hasNew && !stillHasOld;
 }
 
@@ -231,6 +242,7 @@ export function createDeterministicSandboxEditTool(
           pathParam,
           oldText,
           newText,
+          expectedContent: replacement.nextContent,
         }).catch(() => false);
         if (applied) {
           return formatDeterministicEditResult(pathParam, replacement.firstChangedLine);
