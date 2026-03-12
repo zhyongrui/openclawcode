@@ -631,7 +631,7 @@ describe("openclawCodeRunCommand", () => {
       createRun({
         executionSpec: {
           summary: "Keep stage and acceptance metadata visible in command JSON.",
-          scope: ["Command-layer JSON output only."],
+          scope: ["Command-layer JSON output only.", "No workflow-core or runtime changes."],
           outOfScope: [],
           acceptanceCriteria: [
             {
@@ -691,11 +691,12 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.riskCount).toBe(2);
     expect(payload.assumptionCount).toBe(2);
     expect(payload.testPlanCount).toBe(2);
+    expect(payload.scopeItemCount).toBe(2);
     expect(payload.stageRecordCount).toBe(2);
     expect(payload.historyEntryCount).toBe(2);
   });
 
-  it("prints historyEntryCount, stageRecordCount, acceptanceCriteriaCount, openQuestionCount, riskCount, assumptionCount, and testPlanCount as null when metadata is missing", async () => {
+  it("prints historyEntryCount, stageRecordCount, acceptanceCriteriaCount, openQuestionCount, riskCount, assumptionCount, testPlanCount, and scopeItemCount as null when metadata is missing", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         executionSpec: undefined,
@@ -712,6 +713,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.riskCount).toBeNull();
     expect(payload.assumptionCount).toBeNull();
     expect(payload.testPlanCount).toBeNull();
+    expect(payload.scopeItemCount).toBeNull();
     expect(payload.stageRecordCount).toBeNull();
     expect(payload.historyEntryCount).toBeNull();
   });

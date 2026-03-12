@@ -376,6 +376,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     riskCount: run.executionSpec?.risks.length ?? null,
     assumptionCount: run.executionSpec?.assumptions.length ?? null,
     testPlanCount: run.executionSpec?.testPlan.length ?? null,
+    scopeItemCount: run.executionSpec?.scope.length ?? null,
     draftPullRequestBranchName: run.draftPullRequest?.branchName ?? null,
     draftPullRequestBaseBranch: run.draftPullRequest?.baseBranch ?? null,
     draftPullRequestNumber: run.draftPullRequest?.number ?? null,
