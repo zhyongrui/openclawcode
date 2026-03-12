@@ -197,6 +197,7 @@ turning the working loop into a cleanly operable product:
   - command-layer issue `#80`
   - command-layer issue `#81`
   - command-layer issue `#82`
+  - ops issue `#83`
   - docs/operator issue `#60`
 - duplicate seeding attempts now reuse an existing open issue with the same
   template and title instead of creating a fresh duplicate
@@ -224,6 +225,7 @@ turning the working loop into a cleanly operable product:
   - issue `#80` for `testResultCount`
   - issue `#81` for `noteCount`
   - issue `#82` for `changedFileCount`
+  - ops issue `#83` for the Node floor setup-check gate
   - docs/operator issue `#60`
 - a fresh explicit chat-intake live proof is now complete through issue `#70`:
   - `/occode-intake` created the GitHub issue and queued it from chat-facing
@@ -1207,16 +1209,15 @@ Why next:
 
 The next implementation slice should follow this order:
 
-1. implement command-layer issue `#82` on
-   `sync/upstream-2026-03-12-refresh` by exposing `changedFileCount` in
-   `openclaw code run --json`
-2. reseed the next command-layer validation issue immediately after that slice
-   so the pool stays above one open low-risk command issue
+1. implement ops issue `#83` on `sync/upstream-2026-03-12-refresh` by adding a
+   Node floor compatibility gate to `scripts/openclawcode-setup-check.sh`
+2. cover both compatible and stale Node versions in
+   `src/openclawcode/testing/setup-check.test.ts`
 3. keep docs/operator issue `#60` open as the standing docs-side proof target
 4. record the refreshed-branch Node floor constraint wherever operator-facing
    setup or promotion guidance would otherwise assume the built CLI can start
    under Node `22.12.0`
-5. after a small batch of low-risk refreshed-branch slices, restart the live
+5. after the Node floor gate lands, restart the live
    operator on that branch and run another real proof before promoting back to
    `main`
 

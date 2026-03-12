@@ -181,6 +181,7 @@ loop with:
     - command-layer issue `#80`
     - command-layer issue `#81`
     - command-layer issue `#82`
+    - ops issue `#83`
     - docs/operator issue `#60`
   - duplicate issue `#59` was detected through the new inventory path and then
     closed
@@ -204,7 +205,8 @@ loop with:
   - `openclaw code run --json` now exposes `testCommandCount`
   - `openclaw code run --json` now exposes `testResultCount`
   - `openclaw code run --json` now exposes `noteCount`
-  - the follow-up command-layer issue is `#82` for `changedFileCount`
+  - `openclaw code run --json` now exposes `changedFileCount`
+  - the next refreshed-branch ops slice is `#83` for the Node floor setup-check gate
 - real live lifecycle replay against `PR #37`, covering:
   - `pull_request_review` changes requested
   - `pull_request_review` approved

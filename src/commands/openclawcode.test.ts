@@ -122,6 +122,7 @@ describe("openclawCodeRunCommand", () => {
       "src/openclawcode/app/run-issue.ts",
       "src/openclawcode/contracts/types.ts",
     ]);
+    expect(payload.changedFileCount).toBe(2);
     expect(payload.changeDisposition).toBe("modified");
     expect(payload.changeDispositionReason).toBe("Run produced 2 changed file(s).");
     expect(payload.buildResult.changedFiles).toEqual(payload.changedFiles);
@@ -222,6 +223,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.scopeCheckHasBlockedFiles).toBe(false);
     expect(payload.scopeBlockedFiles).toBeNull();
     expect(payload.scopeBlockedFileCount).toBeNull();
+    expect(payload.changedFileCount).toBeNull();
     expect(payload.testCommandCount).toBeNull();
     expect(payload.testResultCount).toBeNull();
     expect(payload.noteCount).toBeNull();

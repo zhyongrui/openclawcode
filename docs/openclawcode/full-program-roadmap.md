@@ -61,15 +61,14 @@ Goal:
 
 Remaining work:
 
-- finish remaining `BuildResult` array counts
-- finish remaining `ExecutionSpec` and verification convenience counts
+- finish any remaining non-duplicative JSON convenience fields
 - document the supported JSON contract once the surface stabilizes
 
 Immediate queue:
 
-- `#81` `noteCount`
 - `#82` `changedFileCount`
-- follow with the next non-duplicative JSON contract gap or a Node-floor setup gate
+- `#83` Node floor setup-check gate
+- follow with the next live proof on the refreshed sync branch
 
 ### Track 2: Chat-Native Intake
 
@@ -186,4 +185,4 @@ As of this revision:
 - active feature branch:
   - `sync/upstream-2026-03-12-refresh`
 - next command-layer slice after the current one:
-  - `#82` `changedFileCount`
+  - `#83` Node floor setup-check gate

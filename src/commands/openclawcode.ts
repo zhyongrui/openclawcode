@@ -352,6 +352,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     buildAttemptCount: run.attempts?.building ?? null,
     verificationAttemptCount: run.attempts?.verifying ?? null,
     changedFiles: run.buildResult?.changedFiles ?? [],
+    changedFileCount: run.buildResult?.changedFiles.length ?? null,
     changeDisposition: changeDisposition.changeDisposition,
     changeDispositionReason: changeDisposition.changeDispositionReason,
     issueClassification: run.buildResult?.issueClassification ?? null,
