@@ -30,6 +30,7 @@ loop with:
 - durable queue ingestion and background execution in the bundled OpenClaw
   plugin
 - chat-facing operator commands:
+  - `/occode-intake`
   - `/occode-start`
   - `/occode-rerun`
   - `/occode-status`
@@ -44,10 +45,18 @@ loop with:
 - draft PR publishing and guarded merge hooks in the workflow service layer
 - event-driven `pull_request` / `pull_request_review` webhook intake with chat
   notifications for tracked lifecycle changes
+- explicit chat-side issue drafting via `/occode-intake`, which can:
+  - create a new GitHub issue from the bound chat
+  - queue low-risk issues immediately through the existing workflow path
+  - precheck obvious high-risk issues into `escalated` snapshots before any
+    branch mutation
 - GitHub-side status healing for review, merged, and closed-without-merge PR
   outcomes
 - explicit request-changes rerun control with rerun artifacts, review context,
   and existing-PR continuity
+- failure-path recovery that now reconciles the latest local workflow artifact
+  back into a tracked snapshot when a background run exits non-zero or returns
+  unparsable stdout, so `/occode-rerun` can still target failed runs
 - local-run reconciliation that can recover tracked PR linkage from older run
   artifacts when a newer rerun artifact omits draft PR metadata
 - merge-based reusable worktree refresh that:
@@ -109,7 +118,7 @@ loop with:
     a duplicate
   - current live inventory is visible without opening GitHub manually and
     includes:
-    - command-layer issues `#63`, `#64`
+    - command-layer issue `#66`
     - docs/operator issue `#60`
   - duplicate issue `#59` was detected through the new inventory path and then
     closed
@@ -230,6 +239,8 @@ Still pending for a fuller product loop:
 
 - consuming the replenished validation pool through new live proofs, then
   reseeding it before it runs dry again
+- lifting chat intake from explicit command syntax to a more natural
+  conversation-driven issue-drafting path
 - surfacing the same validation-pool inventory through operator-facing status
   views instead of only the CLI
 - broadening the remaining command-layer pool beyond one still-open issue after

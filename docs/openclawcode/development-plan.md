@@ -52,6 +52,7 @@ real bundled OpenClaw chatops adapter:
 - `openclaw code run ...` CLI execution
 - draft PR publishing hooks and guarded merge plumbing
 - bundled OpenClaw plugin command surface:
+  - `/occode-intake`
   - `/occode-start`
   - `/occode-status`
   - `/occode-inbox`
@@ -60,9 +61,15 @@ real bundled OpenClaw chatops adapter:
   - `/occode-bind`
   - `/occode-unbind`
 - repository notification bindings for chat delivery
+- explicit chat-side issue drafting that can create a GitHub issue from the
+  current chat and route it through the same suitability precheck and queue
+  path as webhook-created issues
 - persisted plugin queue state with structured workflow status snapshots
 - local-run reconciliation from `.openclawcode/runs`, including PR continuity
   recovery when a newer rerun artifact omits draft PR metadata
+- failure-path recovery that now records the latest local failed run artifact as
+  a tracked snapshot when background execution exits non-zero or returns
+  unparsable stdout
 - GitHub-side healing for:
   - merged PRs
   - approved reviews
@@ -153,7 +160,7 @@ turning the working loop into a cleanly operable product:
   - `openclaw code seed-validation-issue`
   - `openclaw code list-validation-issues`
 - live inventory proof now shows the current open pool directly:
-  - command-layer issues `#61`, `#62`
+  - command-layer issue `#66`
   - docs/operator issue `#60`
 - duplicate seeding attempts now reuse an existing open issue with the same
   template and title instead of creating a fresh duplicate
@@ -164,9 +171,21 @@ turning the working loop into a cleanly operable product:
 - command-layer issue `#55` has now also been implemented on `main` and closed
 - command-layer issues `#61` and `#62` have now also been implemented on
   `main` and closed
-- the command-layer pool was immediately replenished again with:
-  - issue `#63` for `totalAttemptCount`
-  - issue `#64` for `buildAttemptCount`
+- command-layer issues `#63` and `#64` have now also been implemented on
+  `main` and closed
+- command-layer issues `#65` and `#68` have now also been implemented on
+  `main` and closed through the live Feishu operator path
+- the command-layer pool is now replenished with:
+  - issue `#66` for `stageRecordCount`
+  - docs/operator issue `#60`
+- a fresh explicit chat-intake live proof is now complete through issue `#70`:
+  - `/occode-intake` created the GitHub issue and queued it from chat-facing
+    operator state
+  - the new failed-run snapshot recovery path allowed `/occode-rerun #70` to
+    target the failed run after reconciliation
+  - both live attempts on `#70` were blocked by repeated upstream provider
+    `400 Internal server error` responses rather than workflow state loss or
+    queue corruption
 - policy docs are now in sync with the live-tested guarded auto-merge behavior
 - the next engineering priority is now consume-and-reseed workflow plus
   inventory visibility on operator-facing surfaces
@@ -186,6 +205,8 @@ The short-term objective is:
 - move from "observable workflow state" toward "live repository automation with
   repeatable baseline promotion"
 - make chat the normal operator entrypoint instead of a side-channel demo
+- keep the new explicit `/occode-intake` path stable while it serves as the
+  bridge toward more natural chat-driven issue drafting
 - keep `main` usable as the live validation base instead of letting the real
   runner drift behind the latest integration work
 - keep the now-proven merged-PR path stable on refreshed integration branches

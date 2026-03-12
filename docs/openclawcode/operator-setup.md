@@ -159,6 +159,8 @@ If you have multiple configured repos, use the explicit repo form:
 
 Useful follow-up commands:
 
+- `/occode-intake` creates a new GitHub issue directly from the bound chat and
+  queues low-risk work immediately
 - `/occode-unbind` removes the saved repo-to-chat binding
 - `/occode-inbox` shows pending approvals, queue state, and recent lifecycle activity
 - `/occode-status <owner>/<repo>#<issue>` shows the latest tracked status for one issue
@@ -261,6 +263,18 @@ After the health check passes:
 3. verify the chat receives the approval prompt or auto-start notification
 4. run `/occode-start <owner>/<repo>#<issue>` if the repo is in approve mode
 5. confirm `/occode-inbox` shows the issue moving through queued or running state
+
+You can also validate the explicit chat-side intake path directly from the
+bound conversation:
+
+```text
+/occode-intake
+[Feature]: Small low-risk issue title
+Detailed issue body...
+```
+
+That should create the GitHub issue, queue low-risk work immediately, and still
+precheck obviously high-risk text into an `escalated` snapshot.
 
 At that point the supported setup is complete.
 The next validation target should be a real `pull_request` or `pull_request_review`

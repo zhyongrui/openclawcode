@@ -2,9 +2,13 @@ import fs from "node:fs/promises";
 import type { IncomingMessage } from "node:http";
 import os from "node:os";
 import path from "node:path";
-import type { OpenClawPluginApi, OpenClawPluginCommandDefinition } from "openclaw/plugin-sdk/core";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawCodeChatopsStore } from "../../src/integrations/openclaw-plugin/index.js";
+import type {
+  OpenClawPluginCommandDefinition,
+  OpenClawPluginService,
+} from "../../src/plugins/types.js";
 import { createMockServerResponse } from "../../src/test-utils/mock-http-response.js";
 import plugin from "./index.js";
 
@@ -24,6 +28,7 @@ vi.mock("../../src/infra/outbound/message-action-runner.js", () => ({
 function createApi(params: {
   stateDir: string;
   pluginConfig: Record<string, unknown>;
+  runCommandWithTimeout: ReturnType<typeof vi.fn>;
   registerCommand: (command: OpenClawPluginCommandDefinition) => void;
   registerHttpRoute: (params: {
     path: string;
@@ -33,6 +38,7 @@ function createApi(params: {
       res: ReturnType<typeof createMockServerResponse>,
     ) => Promise<boolean>;
   }) => void;
+  registerService: (service: OpenClawPluginService) => void;
 }): OpenClawPluginApi {
   return {
     id: "openclawcode",
@@ -45,9 +51,9 @@ function createApi(params: {
         resolveStateDir: () => params.stateDir,
       },
       system: {
-        runCommandWithTimeout: vi.fn(),
+        runCommandWithTimeout: params.runCommandWithTimeout,
       },
-    } as OpenClawPluginApi["runtime"],
+    } as unknown as OpenClawPluginApi["runtime"],
     logger: { info() {}, warn() {}, error() {} },
     registerTool() {},
     registerHook() {},
@@ -55,7 +61,7 @@ function createApi(params: {
     registerChannel() {},
     registerGatewayMethod() {},
     registerCli() {},
-    registerService() {},
+    registerService: params.registerService,
     registerProvider() {},
     registerContextEngine() {},
     registerCommand: params.registerCommand,
@@ -294,11 +300,14 @@ async function writeLocalRun(params: {
 async function registerPluginFixture(params?: {
   triggerMode?: "approve" | "auto";
   repoRoot?: string;
+  pollIntervalMs?: number;
 }) {
   const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-test-"));
   const repoRoot =
     params?.repoRoot ?? (await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-repo-")));
   const commands = new Map<string, OpenClawPluginCommandDefinition>();
+  const runCommandWithTimeout = vi.fn();
+  let service: OpenClawPluginService | undefined;
   let route:
     | {
         path: string;
@@ -328,14 +337,20 @@ async function registerPluginFixture(params?: {
             testCommands: [
               "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
             ],
+            pollIntervalMs: params?.pollIntervalMs,
           },
         ],
+        pollIntervalMs: params?.pollIntervalMs,
       },
+      runCommandWithTimeout,
       registerCommand(command) {
         commands.set(command.name, command);
       },
       registerHttpRoute(params) {
         route = params;
+      },
+      registerService(registered) {
+        service = registered;
       },
     }),
   );
@@ -346,6 +361,8 @@ async function registerPluginFixture(params?: {
     store: OpenClawCodeChatopsStore.fromStateDir(stateDir),
     commands,
     route,
+    service,
+    runCommandWithTimeout,
   };
 }
 
@@ -1159,6 +1176,94 @@ describe("openclawcode extension", () => {
         ].join("\n"),
       });
     } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("recovers failed local run artifacts into tracked snapshots so /occode-rerun can use them", async () => {
+    const fixture = await registerPluginFixture({ pollIntervalMs: 10 });
+    try {
+      await fixture.store.enqueue(
+        {
+          issueKey: "zhyongrui/openclawcode#230",
+          notifyChannel: "feishu",
+          notifyTarget: "user:failure-chat",
+          request: {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            issueNumber: 230,
+            repoRoot: fixture.repoRoot,
+            baseBranch: "main",
+            branchName: "openclawcode/issue-230",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
+            openPullRequest: true,
+            mergeOnApprove: false,
+          },
+        },
+        "Queued from test.",
+      );
+      fixture.runCommandWithTimeout.mockImplementation(async () => {
+        await writeLocalRun({
+          repoRoot: fixture.repoRoot,
+          issueNumber: 230,
+          stage: "failed",
+          updatedAt: new Date().toISOString(),
+          summary: "Builder failed after a transient provider error.",
+        });
+        return {
+          code: 1,
+          stdout: "",
+          stderr: "400 Internal server error",
+        };
+      });
+
+      await fixture.service?.start({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      await waitForAssertion(async () => {
+        expect(await fixture.store.getStatusSnapshot("zhyongrui/openclawcode#230")).toMatchObject({
+          stage: "failed",
+          issueNumber: 230,
+          notifyChannel: "feishu",
+          notifyTarget: "user:failure-chat",
+        });
+      });
+      expect(await fixture.store.getStatus("zhyongrui/openclawcode#230")).toContain(
+        "Stage: Failed",
+      );
+
+      await fixture.service?.stop?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      const rerun = await fixture.commands.get("occode-rerun")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-rerun #230",
+        args: "#230",
+        to: "user:rerun-chat",
+        config: {},
+      });
+
+      expect(rerun).toEqual({
+        text: "Queued rerun for zhyongrui/openclawcode#230 from Failed state. I will post status updates here.",
+      });
+    } finally {
+      await fixture.service?.stop?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
     }

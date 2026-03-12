@@ -1162,6 +1162,59 @@ async function handleGithubWebhook(
   });
 }
 
+function buildRepoConfigFromRunRequest(
+  request: Parameters<typeof buildOpenClawCodeRunArgv>[0],
+): OpenClawCodeChatopsRepoConfig {
+  return {
+    owner: request.owner,
+    repo: request.repo,
+    repoRoot: request.repoRoot,
+    baseBranch: request.baseBranch,
+    notifyChannel: "unknown",
+    notifyTarget: "unknown",
+    builderAgent: request.builderAgent,
+    verifierAgent: request.verifierAgent,
+    testCommands: request.testCommands,
+    openPullRequest: request.openPullRequest,
+    mergeOnApprove: request.mergeOnApprove,
+  };
+}
+
+async function recoverTrackedRunStatus(params: {
+  store: OpenClawCodeChatopsStore;
+  queuedRun: NonNullable<Awaited<ReturnType<OpenClawCodeChatopsStore["startNext"]>>>;
+  startedAt: string;
+  fallbackStatus: string;
+}): Promise<{
+  status: string;
+  recovered: boolean;
+}> {
+  const reconciled = await findLatestLocalRunStatusForIssue({
+    repo: buildRepoConfigFromRunRequest(params.queuedRun.request),
+    issueKey: params.queuedRun.issueKey,
+  });
+  const isFresh =
+    reconciled &&
+    (reconciled.run.createdAt >= params.startedAt || reconciled.run.updatedAt >= params.startedAt);
+  if (!reconciled || !isFresh) {
+    await params.store.finishCurrent(params.queuedRun.issueKey, params.fallbackStatus);
+    return {
+      status: params.fallbackStatus,
+      recovered: false,
+    };
+  }
+
+  await params.store.finishCurrent(params.queuedRun.issueKey, reconciled.status);
+  await params.store.recordWorkflowRunStatus(reconciled.run, reconciled.status, {
+    notifyChannel: params.queuedRun.notifyChannel,
+    notifyTarget: params.queuedRun.notifyTarget,
+  });
+  return {
+    status: reconciled.status,
+    recovered: true,
+  };
+}
+
 async function processNextQueuedRun(
   api: OpenClawPluginApi,
   store: OpenClawCodeChatopsStore,
@@ -1175,6 +1228,7 @@ async function processNextQueuedRun(
   }
 
   workerActive = true;
+  const startedAt = new Date().toISOString();
   try {
     await sendText({
       api,
@@ -1192,25 +1246,57 @@ async function processNextQueuedRun(
 
     if (result.code !== 0) {
       const failure = summarizeFailure(result.stderr, result.stdout);
-      await store.finishCurrent(next.issueKey, `Failed.\n${failure}`);
-      await sendText({
-        api,
-        channel: next.notifyChannel,
-        target: next.notifyTarget,
-        text: `openclawcode failed on ${next.issueKey}.\n${failure}`,
+      const recovered = await recoverTrackedRunStatus({
+        store,
+        queuedRun: next,
+        startedAt,
+        fallbackStatus: `Failed.\n${failure}`,
       });
+      if (recovered.recovered) {
+        await sendIssueNotification({
+          api,
+          store,
+          issueKey: next.issueKey,
+          channel: next.notifyChannel,
+          target: next.notifyTarget,
+          text: recovered.status,
+        }).catch(() => undefined);
+      } else {
+        await sendText({
+          api,
+          channel: next.notifyChannel,
+          target: next.notifyTarget,
+          text: `openclawcode failed on ${next.issueKey}.\n${failure}`,
+        });
+      }
       return;
     }
 
     const run = extractWorkflowRunFromCommandOutput(result.stdout);
     if (!run) {
-      await store.finishCurrent(next.issueKey, "Completed, but workflow JSON could not be parsed.");
-      await sendText({
-        api,
-        channel: next.notifyChannel,
-        target: next.notifyTarget,
-        text: `openclawcode finished ${next.issueKey}, but could not parse the workflow JSON output.`,
+      const recovered = await recoverTrackedRunStatus({
+        store,
+        queuedRun: next,
+        startedAt,
+        fallbackStatus: "Completed, but workflow JSON could not be parsed.",
       });
+      if (recovered.recovered) {
+        await sendIssueNotification({
+          api,
+          store,
+          issueKey: next.issueKey,
+          channel: next.notifyChannel,
+          target: next.notifyTarget,
+          text: recovered.status,
+        }).catch(() => undefined);
+      } else {
+        await sendText({
+          api,
+          channel: next.notifyChannel,
+          target: next.notifyTarget,
+          text: `openclawcode finished ${next.issueKey}, but could not parse the workflow JSON output.`,
+        });
+      }
       return;
     }
 
@@ -1230,13 +1316,29 @@ async function processNextQueuedRun(
     }).catch(() => undefined);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await store.finishCurrent(next.issueKey, `Failed.\n${message}`);
-    await sendText({
-      api,
-      channel: next.notifyChannel,
-      target: next.notifyTarget,
-      text: `openclawcode failed on ${next.issueKey}.\n${message}`,
-    }).catch(() => undefined);
+    const recovered = await recoverTrackedRunStatus({
+      store,
+      queuedRun: next,
+      startedAt,
+      fallbackStatus: `Failed.\n${message}`,
+    });
+    if (recovered.recovered) {
+      await sendIssueNotification({
+        api,
+        store,
+        issueKey: next.issueKey,
+        channel: next.notifyChannel,
+        target: next.notifyTarget,
+        text: recovered.status,
+      }).catch(() => undefined);
+    } else {
+      await sendText({
+        api,
+        channel: next.notifyChannel,
+        target: next.notifyTarget,
+        text: `openclawcode failed on ${next.issueKey}.\n${message}`,
+      }).catch(() => undefined);
+    }
   } finally {
     workerActive = false;
   }
