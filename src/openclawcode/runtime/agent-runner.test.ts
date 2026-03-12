@@ -79,19 +79,22 @@ describe("OpenClawAgentRunner", () => {
     expect(mocks.setRuntimeConfigSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
         tools: expect.objectContaining({
-          deny: expect.arrayContaining(["edit", "write"]),
+          deny: expect.arrayContaining(["write"]),
         }),
         agents: expect.objectContaining({
           defaults: expect.objectContaining({
             sandbox: expect.objectContaining({ scope: "session" }),
             tools: expect.objectContaining({
-              deny: expect.arrayContaining(["edit", "write"]),
+              deny: expect.arrayContaining(["write"]),
             }),
           }),
         }),
       }),
       expect.anything(),
     );
+    const runtimeConfig = mocks.setRuntimeConfigSnapshot.mock.calls[0]?.[0];
+    expect(runtimeConfig?.tools?.deny).not.toContain("edit");
+    expect(runtimeConfig?.agents?.defaults?.tools?.deny).not.toContain("edit");
     expect(mocks.agentCommand).toHaveBeenCalledTimes(1);
     expect(mocks.agentCommand).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -168,25 +171,33 @@ describe("OpenClawAgentRunner", () => {
     );
 
     expect(config.agents?.defaults?.sandbox?.scope).toBe("session");
-    expect(config.tools?.deny).toEqual(expect.arrayContaining(["browser", "edit", "write"]));
+    expect(config.tools?.deny).toEqual(expect.arrayContaining(["browser", "write"]));
+    expect(config.tools?.deny).not.toContain("edit");
     expect(config.agents?.defaults?.tools?.deny).toEqual(
-      expect.arrayContaining(["browser", "edit", "write"]),
+      expect.arrayContaining(["browser", "write"]),
     );
+    expect(config.agents?.defaults?.tools?.deny).not.toContain("edit");
     expect(config.agents?.list?.[0]?.sandbox?.scope).toBe("session");
     expect(config.agents?.list?.[0]?.tools?.deny).toEqual(
-      expect.arrayContaining(["process", "edit", "write"]),
+      expect.arrayContaining(["process", "write"]),
     );
+    expect(config.agents?.list?.[0]?.tools?.deny).not.toContain("edit");
   });
 
   it("allows staged fs tool re-enable through OPENCLAWCODE_ENABLE_FS_TOOLS", async () => {
     const { __testing } = await import("./agent-runner.js");
 
-    expect(__testing.resolveOpenClawCodeDeniedTools({})).toEqual(["edit", "write"]);
+    expect(__testing.resolveOpenClawCodeDeniedTools({})).toEqual(["write"]);
     expect(
       __testing.resolveOpenClawCodeDeniedTools({
         OPENCLAWCODE_ENABLE_FS_TOOLS: "edit",
       }),
     ).toEqual(["write"]);
+    expect(
+      __testing.resolveOpenClawCodeDeniedTools({
+        OPENCLAWCODE_ENABLE_FS_TOOLS: "write",
+      }),
+    ).toEqual([]);
     expect(
       __testing.resolveOpenClawCodeDeniedTools({
         OPENCLAWCODE_ENABLE_FS_TOOLS: "edit,write",
@@ -221,16 +232,19 @@ describe("OpenClawAgentRunner", () => {
       "main",
       {
         env: {
-          OPENCLAWCODE_ENABLE_FS_TOOLS: "edit",
+          OPENCLAWCODE_ENABLE_FS_TOOLS: "write",
         },
       },
     );
 
-    expect(config.tools?.deny).toEqual(expect.arrayContaining(["browser", "write"]));
+    expect(config.tools?.deny).toEqual(expect.arrayContaining(["browser"]));
     expect(config.tools?.deny).not.toContain("edit");
-    expect(config.agents?.defaults?.tools?.deny).toEqual(expect.arrayContaining(["write"]));
+    expect(config.tools?.deny).not.toContain("write");
+    expect(config.agents?.defaults?.tools?.deny ?? []).toEqual([]);
     expect(config.agents?.defaults?.tools?.deny).not.toContain("edit");
-    expect(config.agents?.list?.[0]?.tools?.deny).toEqual(expect.arrayContaining(["write"]));
+    expect(config.agents?.defaults?.tools?.deny).not.toContain("write");
+    expect(config.agents?.list?.[0]?.tools?.deny ?? []).toEqual([]);
     expect(config.agents?.list?.[0]?.tools?.deny).not.toContain("edit");
+    expect(config.agents?.list?.[0]?.tools?.deny).not.toContain("write");
   });
 });

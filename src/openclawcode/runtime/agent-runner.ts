@@ -31,7 +31,7 @@ export interface AgentRunner {
   run(request: AgentRunRequest): Promise<AgentRunResult>;
 }
 
-const OPENCLAWCODE_DEFAULT_DENIED_TOOLS = ["edit", "write"] as const;
+const OPENCLAWCODE_DEFAULT_DENIED_TOOLS = ["write"] as const;
 const OPENCLAWCODE_ENABLE_FS_TOOLS_ENV = "OPENCLAWCODE_ENABLE_FS_TOOLS";
 
 function resolveOpenClawCodeDeniedTools(env: NodeJS.ProcessEnv = process.env): string[] {
@@ -39,10 +39,7 @@ function resolveOpenClawCodeDeniedTools(env: NodeJS.ProcessEnv = process.env): s
     String(env[OPENCLAWCODE_ENABLE_FS_TOOLS_ENV] ?? "")
       .split(",")
       .map((entry) => entry.trim().toLowerCase())
-      .filter(
-        (entry): entry is (typeof OPENCLAWCODE_DEFAULT_DENIED_TOOLS)[number] =>
-          entry === "edit" || entry === "write",
-      ),
+      .filter((entry): entry is "edit" | "write" => entry === "edit" || entry === "write"),
   );
   return OPENCLAWCODE_DEFAULT_DENIED_TOOLS.filter((tool) => !enabled.has(tool));
 }
