@@ -347,7 +347,9 @@ function toWorkflowRunJson(run: WorkflowRun) {
   return {
     ...run,
     stageLabel: formatWorkflowStageLabel(run.stage),
+    totalAttemptCount: run.attempts?.total ?? null,
     planningAttemptCount: run.attempts?.planning ?? null,
+    buildAttemptCount: run.attempts?.building ?? null,
     verificationAttemptCount: run.attempts?.verifying ?? null,
     changedFiles: run.buildResult?.changedFiles ?? [],
     changeDisposition: changeDisposition.changeDisposition,

@@ -114,7 +114,9 @@ describe("openclawCodeRunCommand", () => {
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.stage).toBe("ready-for-human-review");
     expect(payload.stageLabel).toBe("Ready For Human Review");
+    expect(payload.totalAttemptCount).toBe(1);
     expect(payload.planningAttemptCount).toBe(1);
+    expect(payload.buildAttemptCount).toBe(1);
     expect(payload.verificationAttemptCount).toBe(1);
     expect(payload.changedFiles).toEqual([
       "src/openclawcode/app/run-issue.ts",
@@ -201,7 +203,9 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.totalAttemptCount).toBe(1);
     expect(payload.planningAttemptCount).toBe(1);
+    expect(payload.buildAttemptCount).toBe(1);
     expect(payload.verificationAttemptCount).toBe(1);
     expect(payload.changedFiles).toEqual([]);
     expect(payload.changeDisposition).toBeNull();
@@ -258,7 +262,9 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.totalAttemptCount).toBeNull();
     expect(payload.planningAttemptCount).toBeNull();
+    expect(payload.buildAttemptCount).toBeNull();
     expect(payload.verificationAttemptCount).toBeNull();
   });
 
