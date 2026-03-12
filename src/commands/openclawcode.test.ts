@@ -82,6 +82,7 @@ describe("openclawCodeRunCommand", () => {
       "Verification completed and the run is ready for human review.",
     );
     expect(payload.verificationHasFindings).toBe(false);
+    expect(payload.verificationHasFollowUps).toBe(false);
     expect(payload.verificationFindingCount).toBe(0);
     expect(payload.verificationMissingCoverageCount).toBe(0);
     expect(payload.verificationFollowUpCount).toBe(0);
@@ -133,6 +134,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationApprovedForHumanReview).toBeNull();
     expect(payload.verificationSummary).toBeNull();
     expect(payload.verificationHasFindings).toBe(false);
+    expect(payload.verificationHasFollowUps).toBe(false);
     expect(payload.verificationFindingCount).toBeNull();
     expect(payload.verificationMissingCoverageCount).toBeNull();
     expect(payload.verificationFollowUpCount).toBeNull();
@@ -143,6 +145,26 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.autoMergePolicyReason).toBe(
       "Not eligible for auto-merge: verification has not approved the run.",
     );
+  });
+
+  it("reports verificationHasFollowUps when verifier follow-up work exists", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        verificationReport: {
+          ...createRun().verificationReport!,
+          followUps: ["Add a regression test for the JSON follow-up flag."],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.verificationHasFollowUps).toBe(true);
+    expect(payload.verificationFollowUpCount).toBe(1);
+    expect(payload.verificationReport.followUps).toEqual([
+      "Add a regression test for the JSON follow-up flag.",
+    ]);
   });
 
   it("forwards rerun flags into the workflow request and prints stable rerun JSON fields", async () => {

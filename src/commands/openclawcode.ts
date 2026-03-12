@@ -310,6 +310,8 @@ function toWorkflowRunJson(run: WorkflowRun) {
     verificationSummary: run.verificationReport?.summary ?? null,
     verificationHasFindings:
       run.verificationReport == null ? false : run.verificationReport.findings.length > 0,
+    verificationHasFollowUps:
+      run.verificationReport == null ? false : run.verificationReport.followUps.length > 0,
     verificationFindingCount: run.verificationReport?.findings.length ?? null,
     verificationMissingCoverageCount: run.verificationReport?.missingCoverage.length ?? null,
     verificationFollowUpCount: run.verificationReport?.followUps.length ?? null,
