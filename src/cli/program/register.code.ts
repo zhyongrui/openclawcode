@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import {
+  openclawCodeListValidationIssuesCommand,
   openclawCodeRunCommand,
   openclawCodeSeedValidationIssueCommand,
   openclawCodeSeedValidationIssueTemplateIds,
@@ -36,6 +37,10 @@ ${formatHelpExamples([
   [
     "openclaw code seed-validation-issue --template command-json-boolean --field-name verificationHasSignals --source-path verificationReport.followUps --dry-run",
     "Draft a low-risk validation issue without creating it on GitHub.",
+  ],
+  [
+    "openclaw code list-validation-issues --json",
+    "Inspect the current validation-pool inventory for the current repo.",
   ],
 ])}
 
@@ -151,6 +156,29 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
             docPath: opts.docPath as string | undefined,
             summary: opts.summary as string | undefined,
             dryRun: Boolean(opts.dryRun),
+            json: Boolean(opts.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  code
+    .command("list-validation-issues")
+    .description("List the current repository-local validation issue pool")
+    .option("--owner <owner>", "GitHub owner")
+    .option("--repo <repo>", "GitHub repository name")
+    .option("--repo-root <dir>", "Local repository root")
+    .option("--state <state>", "Issue state to query (open, closed, all)", "open")
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        await openclawCodeListValidationIssuesCommand(
+          {
+            owner: opts.owner as string | undefined,
+            repo: opts.repo as string | undefined,
+            repoRoot: opts.repoRoot as string | undefined,
+            state: opts.state as "open" | "closed" | "all" | undefined,
             json: Boolean(opts.json),
           },
           defaultRuntime,

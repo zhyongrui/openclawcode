@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkflowRun } from "../openclawcode/index.js";
 import {
+  openclawCodeListValidationIssuesCommand,
   openclawCodeRunCommand,
   openclawCodeSeedValidationIssueCommand,
   openclawCodeSeedValidationIssueTemplateIds,
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => {
     resolveGitHubRepoFromGit: vi.fn(),
     runIssueWorkflow: vi.fn(),
     createIssue: vi.fn(),
+    listIssues: vi.fn(),
   };
 });
 
@@ -19,6 +21,7 @@ vi.mock("../openclawcode/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../openclawcode/index.js")>();
   class MockGitHubRestClient {
     createIssue = mocks.createIssue;
+    listIssues = mocks.listIssues;
   }
   return {
     ...actual,
@@ -51,6 +54,57 @@ describe("openclawCodeRunCommand", () => {
       labels: [],
       url: "https://github.com/openclaw/openclaw/issues/99",
     });
+    mocks.listIssues.mockResolvedValue([
+      {
+        owner: "openclaw",
+        repo: "openclaw",
+        number: 99,
+        title:
+          "[Feature]: Expose verificationHasMissingCoverage in openclaw code run --json output",
+        body: [
+          "Summary",
+          "Add one stable top-level boolean field to `openclaw code run --json` named `verificationHasMissingCoverage`.",
+          "",
+          "Proposed solution",
+          "Update `src/commands/openclawcode.ts` so the JSON output includes `verificationHasMissingCoverage: boolean`.",
+        ].join("\n"),
+        labels: [],
+        url: "https://github.com/openclaw/openclaw/issues/99",
+        state: "open",
+        createdAt: "2026-03-12T00:00:00.000Z",
+        updatedAt: "2026-03-12T00:00:00.000Z",
+      },
+      {
+        owner: "openclaw",
+        repo: "openclaw",
+        number: 100,
+        title: "[Docs]: Clarify copied-root teardown expectations after fresh-operator validation",
+        body: [
+          "Summary",
+          "copied-root teardown expectations after fresh-operator validation",
+          "",
+          "- keep the change docs-only",
+          "- avoid broad rewrites outside the named document",
+        ].join("\n"),
+        labels: [],
+        url: "https://github.com/openclaw/openclaw/issues/100",
+        state: "open",
+        createdAt: "2026-03-12T00:00:00.000Z",
+        updatedAt: "2026-03-12T00:00:00.000Z",
+      },
+      {
+        owner: "openclaw",
+        repo: "openclaw",
+        number: 101,
+        title: "Unrelated issue",
+        body: "Not a validation issue.",
+        labels: [],
+        url: "https://github.com/openclaw/openclaw/issues/101",
+        state: "open",
+        createdAt: "2026-03-12T00:00:00.000Z",
+        updatedAt: "2026-03-12T00:00:00.000Z",
+      },
+    ]);
   });
 
   it("prints stable top-level JSON fields for workflow scope, pr metadata, review, and merge policy", async () => {
@@ -627,6 +681,33 @@ describe("openclawCodeRunCommand", () => {
       issueNumber: 99,
       issueUrl: "https://github.com/openclaw/openclaw/issues/99",
       dryRun: false,
+      created: true,
+      reusedExisting: false,
+    });
+  });
+
+  it("reuses an existing open validation issue instead of creating a duplicate", async () => {
+    await openclawCodeSeedValidationIssueCommand(
+      {
+        template: "command-json-boolean",
+        repoRoot: "/repo",
+        fieldName: "verificationHasMissingCoverage",
+        sourcePath: "verificationReport.missingCoverage",
+        json: true,
+      },
+      runtime,
+    );
+
+    expect(mocks.createIssue).not.toHaveBeenCalled();
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload).toMatchObject({
+      template: "command-json-boolean",
+      issueClass: "command-layer",
+      issueNumber: 99,
+      issueUrl: "https://github.com/openclaw/openclaw/issues/99",
+      dryRun: false,
+      created: false,
+      reusedExisting: true,
     });
   });
 
@@ -636,6 +717,46 @@ describe("openclawCodeRunCommand", () => {
       "command-json-number",
       "operator-doc-note",
       "webhook-precheck-high-risk",
+    ]);
+  });
+
+  it("lists the current validation issue pool in JSON form", async () => {
+    await openclawCodeListValidationIssuesCommand(
+      {
+        repoRoot: "/repo",
+        json: true,
+      },
+      runtime,
+    );
+
+    expect(mocks.listIssues).toHaveBeenCalledWith({
+      owner: "openclaw",
+      repo: "openclaw",
+      state: "open",
+    });
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload).toMatchObject({
+      owner: "openclaw",
+      repo: "openclaw",
+      state: "open",
+      totalValidationIssues: 2,
+      counts: {
+        commandLayer: 1,
+        operatorDocs: 1,
+        highRiskValidation: 0,
+      },
+    });
+    expect(payload.issues).toEqual([
+      expect.objectContaining({
+        issueNumber: 99,
+        template: "command-json-boolean",
+        issueClass: "command-layer",
+      }),
+      expect.objectContaining({
+        issueNumber: 100,
+        template: "operator-doc-note",
+        issueClass: "operator-docs",
+      }),
     ]);
   });
 });

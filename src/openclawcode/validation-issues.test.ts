@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildValidationIssueDraft, listValidationIssueTemplates } from "./validation-issues.js";
+import {
+  buildValidationIssueDraft,
+  classifyValidationIssue,
+  listValidationIssueTemplates,
+} from "./validation-issues.js";
 
 describe("validation issue templates", () => {
   it("builds command-json-number drafts from the required field metadata", () => {
@@ -14,6 +18,11 @@ describe("validation issue templates", () => {
       issueClass: "command-layer",
       title: "[Feature]: Expose publishedPullRequestNumber in openclaw code run --json output",
     });
+    expect(
+      draft.body.startsWith(
+        "<!-- openclawcode-validation template=command-json-number class=command-layer -->",
+      ),
+    ).toBe(true);
     expect(draft.body).toContain("`publishedPullRequestNumber: number | null`");
     expect(draft.body).toContain("`draftPullRequest.number`");
   });
@@ -37,6 +46,43 @@ describe("validation issue templates", () => {
         fieldName: "verificationHasSignals",
       }),
     ).toThrow("--source-path is required for this template");
+  });
+
+  it("classifies marked validation issues without relying on title heuristics", () => {
+    const draft = buildValidationIssueDraft({
+      template: "operator-doc-note",
+      docPath: "docs/openclawcode/operator-setup.md",
+      summary: "the preferred path for replenishing the validation issue pool",
+    });
+
+    expect(
+      classifyValidationIssue({
+        title: draft.title,
+        body: draft.body,
+      }),
+    ).toEqual({
+      template: "operator-doc-note",
+      issueClass: "operator-docs",
+    });
+  });
+
+  it("falls back to legacy body heuristics for pre-marker issues", () => {
+    expect(
+      classifyValidationIssue({
+        title:
+          "[Feature]: Expose verificationHasMissingCoverage in openclaw code run --json output",
+        body: [
+          "Summary",
+          "Add one stable top-level boolean field to `openclaw code run --json` named `verificationHasMissingCoverage`.",
+          "",
+          "Proposed solution",
+          "Update `src/commands/openclawcode.ts` so the JSON output includes `verificationHasMissingCoverage: boolean`.",
+        ].join("\n"),
+      }),
+    ).toEqual({
+      template: "command-json-boolean",
+      issueClass: "command-layer",
+    });
   });
 
   it("lists the supported validation templates in a stable order", () => {

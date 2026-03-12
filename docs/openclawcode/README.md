@@ -102,12 +102,17 @@ loop with:
   - `/occode-inbox` recent ledger entries include a `suitability:` line
 - operator setup health checks that now retry transient gateway reachability and
   signed webhook probe failures during short restart windows
-- a repo-native validation-pool seeding command:
+- a repo-native validation-pool CLI surface:
   - `openclaw code seed-validation-issue`
-  - supports stable low-risk templates plus `--dry-run --json`
-  - has already created:
-    - command-layer issue `#59`
+  - `openclaw code list-validation-issues`
+  - seeded issue creation now reuses an existing open match instead of creating
+    a duplicate
+  - current live inventory is visible without opening GitHub manually and
+    includes:
+    - command-layer issues `#50`, `#54`, `#55`
     - docs/operator issue `#60`
+  - duplicate issue `#59` was detected through the new inventory path and then
+    closed
 - real live lifecycle replay against `PR #37`, covering:
   - `pull_request_review` changes requested
   - `pull_request_review` approved
@@ -219,7 +224,7 @@ Still pending for a fuller product loop:
 
 - consuming the replenished validation pool through new live proofs, then
   reseeding it before it runs dry again
-- making validation-pool inventory and age visible without checking GitHub
-  manually
+- surfacing the same validation-pool inventory through operator-facing status
+  views instead of only the CLI
 - broader packaging and install proof beyond the current local operator
   environments

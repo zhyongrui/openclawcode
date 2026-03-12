@@ -274,6 +274,7 @@ pool runs dry. The preferred replenishment path is the repo-local CLI:
 ```bash
 openclaw code seed-validation-issue --template command-json-boolean --field-name verificationHasMissingCoverage --source-path verificationReport.missingCoverage
 openclaw code seed-validation-issue --template operator-doc-note --doc-path docs/openclawcode/mvp-runbook.md --summary "copied-root teardown expectations after fresh-operator validation"
+openclaw code list-validation-issues --json
 ```
 
 Operator rules:
@@ -282,7 +283,11 @@ Operator rules:
   issue open for future live proofs
 - use `--dry-run --json` first if you want to review the title and body before
   creating the issue on GitHub
+- use `openclaw code list-validation-issues` before and after a live proof to
+  see whether the pool needs replenishment
 - use this command instead of ad hoc GitHub API calls when the pool is empty
+- repeated seeding of the same template/title now reuses the existing open issue
+  instead of creating a duplicate
 - reseed the pool immediately after a live proof consumes the last issue in one
   category
 

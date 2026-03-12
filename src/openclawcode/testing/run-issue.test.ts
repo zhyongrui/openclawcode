@@ -61,6 +61,10 @@ class FakeGitHubClient implements GitHubIssueClient {
     };
   }
 
+  async listIssues(): Promise<Array<IssueRef & { url: string; state: "open" | "closed" }>> {
+    return [];
+  }
+
   async fetchIssueState(): Promise<{ state: "open" | "closed" }> {
     return { state: "open" };
   }

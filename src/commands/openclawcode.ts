@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { WorkflowRerunContext, WorkflowRun } from "../openclawcode/index.js";
 import {
+  classifyValidationIssue,
   FileSystemWorkflowRunStore,
   buildValidationIssueDraft,
   GitHubPullRequestMerger,
@@ -53,6 +54,14 @@ export interface OpenClawCodeSeedValidationIssueOpts {
   docPath?: string;
   summary?: string;
   dryRun?: boolean;
+  json?: boolean;
+}
+
+export interface OpenClawCodeListValidationIssuesOpts {
+  owner?: string;
+  repo?: string;
+  repoRoot?: string;
+  state?: "open" | "closed" | "all";
   json?: boolean;
 }
 
@@ -261,6 +270,20 @@ function formatWorkflowStageLabel(stage: WorkflowRun["stage"]): string {
       return segment.charAt(0).toUpperCase() + segment.slice(1);
     })
     .join(" ");
+}
+
+function resolveValidationIssueAgeDays(
+  createdAt: string | undefined,
+  now = Date.now(),
+): number | null {
+  if (!createdAt) {
+    return null;
+  }
+  const parsed = Date.parse(createdAt);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return Math.round(((now - parsed) / 86_400_000) * 10) / 10;
 }
 
 function resolveRunSummary(run: WorkflowRun): string {
@@ -500,6 +523,48 @@ export async function openclawCodeSeedValidationIssueCommand(
   }
 
   const github = new GitHubRestClient();
+  const existing = (
+    await github.listIssues({
+      owner: repoRef.owner,
+      repo: repoRef.repo,
+      state: "open",
+    })
+  )
+    .filter((issue) => {
+      const classified = classifyValidationIssue({
+        title: issue.title,
+        body: issue.body,
+      });
+      return classified?.template === draft.template && issue.title === draft.title;
+    })
+    .toSorted((left, right) => left.number - right.number)[0];
+
+  if (existing) {
+    if (opts.json) {
+      runtime.log(
+        JSON.stringify(
+          {
+            ...draft,
+            owner: existing.owner,
+            repo: existing.repo,
+            issueNumber: existing.number,
+            issueUrl: existing.url,
+            dryRun: false,
+            created: false,
+            reusedExisting: true,
+          },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
+    runtime.log(`Using existing issue #${existing.number}: ${existing.url}`);
+    runtime.log(`Template: ${draft.template}`);
+    runtime.log(`Issue class: ${draft.issueClass}`);
+    return;
+  }
+
   const created = await github.createIssue({
     owner: repoRef.owner,
     repo: repoRef.repo,
@@ -517,6 +582,8 @@ export async function openclawCodeSeedValidationIssueCommand(
           issueNumber: created.number,
           issueUrl: created.url,
           dryRun: false,
+          created: true,
+          reusedExisting: false,
         },
         null,
         2,
@@ -528,6 +595,88 @@ export async function openclawCodeSeedValidationIssueCommand(
   runtime.log(`Created issue #${created.number}: ${created.url}`);
   runtime.log(`Template: ${draft.template}`);
   runtime.log(`Issue class: ${draft.issueClass}`);
+}
+
+export async function openclawCodeListValidationIssuesCommand(
+  opts: OpenClawCodeListValidationIssuesOpts,
+  runtime: RuntimeEnv,
+): Promise<void> {
+  const repoRoot = path.resolve(opts.repoRoot ?? process.cwd());
+  const repoRef = await resolveRepoRef({
+    owner: opts.owner,
+    repo: opts.repo,
+    repoRoot,
+  });
+  const github = new GitHubRestClient();
+  const issues = (
+    await github.listIssues({
+      owner: repoRef.owner,
+      repo: repoRef.repo,
+      state: opts.state ?? "open",
+    })
+  )
+    .flatMap((issue) => {
+      const classified = classifyValidationIssue({
+        title: issue.title,
+        body: issue.body,
+      });
+      if (!classified) {
+        return [];
+      }
+      return [
+        {
+          issueNumber: issue.number,
+          title: issue.title,
+          url: issue.url,
+          state: issue.state,
+          createdAt: issue.createdAt ?? null,
+          updatedAt: issue.updatedAt ?? null,
+          ageDays: resolveValidationIssueAgeDays(issue.createdAt),
+          template: classified.template,
+          issueClass: classified.issueClass,
+        },
+      ];
+    })
+    .toSorted((left, right) => left.issueNumber - right.issueNumber);
+
+  const counts = {
+    commandLayer: issues.filter((issue) => issue.issueClass === "command-layer").length,
+    operatorDocs: issues.filter((issue) => issue.issueClass === "operator-docs").length,
+    highRiskValidation: issues.filter((issue) => issue.issueClass === "high-risk-validation")
+      .length,
+  };
+
+  if (opts.json) {
+    runtime.log(
+      JSON.stringify(
+        {
+          owner: repoRef.owner,
+          repo: repoRef.repo,
+          state: opts.state ?? "open",
+          totalValidationIssues: issues.length,
+          counts,
+          issues,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  runtime.log(`Repo: ${repoRef.owner}/${repoRef.repo}`);
+  runtime.log(`State: ${opts.state ?? "open"}`);
+  runtime.log(`Validation issues: ${issues.length}`);
+  runtime.log(`- command-layer: ${counts.commandLayer}`);
+  runtime.log(`- operator-docs: ${counts.operatorDocs}`);
+  runtime.log(`- high-risk-validation: ${counts.highRiskValidation}`);
+  for (const issue of issues) {
+    const age = issue.ageDays == null ? "unknown age" : `${issue.ageDays.toFixed(1)}d`;
+    runtime.log(
+      `#${issue.issueNumber} [${issue.issueClass}/${issue.template}] ${age} ${issue.title}`,
+    );
+    runtime.log(issue.url);
+  }
 }
 
 export function openclawCodeSeedValidationIssueTemplateIds(): ValidationIssueTemplateId[] {

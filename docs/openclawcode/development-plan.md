@@ -149,15 +149,19 @@ turning the working loop into a cleanly operable product:
   queued run
 - operator health checks now retry transient gateway reachability and signed
   webhook probe failures during short restart windows
-- validation-pool upkeep now has a repo-native CLI path through
-  `openclaw code seed-validation-issue`
-- real seeding proof has already replenished the pool with:
-  - command-layer issue `#59`
+- validation-pool upkeep now has a repo-native CLI surface through:
+  - `openclaw code seed-validation-issue`
+  - `openclaw code list-validation-issues`
+- live inventory proof now shows the current open pool directly:
+  - command-layer issues `#50`, `#54`, `#55`
   - docs/operator issue `#60`
-- policy docs are now being brought back in sync with the live-tested guarded
-  auto-merge behavior
-- the next engineering priority is now validation-pool inventory plus
-  consume-and-reseed workflow on the long-lived `main` baseline
+- duplicate seeding attempts now reuse an existing open issue with the same
+  template and title instead of creating a fresh duplicate
+- duplicate issue `#59` was detected via the new inventory command and then
+  closed to restore a clean pool
+- policy docs are now in sync with the live-tested guarded auto-merge behavior
+- the next engineering priority is now consume-and-reseed workflow plus
+  inventory visibility on operator-facing surfaces
 - packaging and installation are now documented locally, but still need more
   proof under a fresh operator environment
 
@@ -300,9 +304,11 @@ Exit criteria:
   low-risk docs/operator issue available
 - when the validation pool is empty, Codex replenishes it through
   `openclaw code seed-validation-issue` instead of an ad hoc GitHub API call
-- the current replenishment proof is explicit and reusable:
-  - issue `#59` for command-layer work
-  - issue `#60` for docs/operator work
+- the current live inventory is explicit and reusable:
+  - command-layer issues `#50`, `#54`, `#55`
+  - docs/operator issue `#60`
+- duplicate seed attempts are absorbed back into the existing pool instead of
+  creating another open issue with the same title
 
 ### Current Checkpoint
 
@@ -1044,10 +1050,10 @@ The next implementation slice should follow this order:
    reseed immediately after the proof closes
 3. do the same for one seeded docs/operator issue, or explicitly leave one open
    so the pool never returns to zero
-4. make validation-pool inventory and age visible through a lightweight CLI or
-   operator surface so GitHub browsing is not the only way to inspect it
-5. keep README, this plan, and operator runbooks aligned with the live-tested
-   guarded auto-merge and validation-pool workflow
+4. keep `openclaw code list-validation-issues` as the canonical inventory view
+   and mirror the same pool signal into operator-facing status surfaces
+5. broaden the pool beyond boolean-only command issues if the open pool becomes
+   too homogeneous for future live proofs
 6. update the dev log after each live proof and commit only after targeted
    validation passes
 

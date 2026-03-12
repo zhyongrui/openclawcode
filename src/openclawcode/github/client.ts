@@ -15,6 +15,12 @@ export interface CreatedIssueRef extends IssueRef {
   url: string;
 }
 
+export interface ListedIssueRef extends CreatedIssueRef {
+  state: "open" | "closed";
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface IssueStateRef extends RepoRef {
   issueNumber: number;
 }
@@ -48,6 +54,11 @@ export interface CreateIssueRequest extends RepoRef {
   body: string;
 }
 
+export interface ListIssuesRequest extends RepoRef {
+  state?: "open" | "closed" | "all";
+  perPage?: number;
+}
+
 export interface MergePullRequestRequest extends RepoRef {
   pullNumber: number;
   mergeMethod?: "merge" | "squash" | "rebase";
@@ -64,6 +75,7 @@ export interface ReadyForReviewRequest extends RepoRef {
 export interface GitHubIssueClient {
   fetchIssue(ref: IssueStateRef): Promise<IssueRef>;
   createIssue(request: CreateIssueRequest): Promise<CreatedIssueRef>;
+  listIssues(request: ListIssuesRequest): Promise<ListedIssueRef[]>;
   fetchIssueState(ref: IssueStateRef): Promise<GitHubIssueState>;
   fetchPullRequest(ref: RepoRef & { pullNumber: number }): Promise<GitHubPullRequestState>;
   fetchLatestPullRequestReview(
@@ -84,6 +96,9 @@ type GitHubIssueResponse = {
   html_url?: string;
   body?: string | null;
   state?: "open" | "closed";
+  created_at?: string | null;
+  updated_at?: string | null;
+  pull_request?: { url?: string | null } | null;
   labels?: { nodes?: Array<{ name?: string | null } | null> | null } | Array<{ name?: string }>;
 };
 
@@ -219,6 +234,28 @@ export class GitHubRestClient implements GitHubIssueClient {
         issue.html_url ??
         `https://github.com/${request.owner}/${request.repo}/issues/${issue.number}`,
     };
+  }
+
+  async listIssues(request: ListIssuesRequest): Promise<ListedIssueRef[]> {
+    const issues = await this.request<GitHubIssueResponse[]>(
+      `/repos/${request.owner}/${request.repo}/issues?state=${request.state ?? "open"}&per_page=${request.perPage ?? 100}`,
+    );
+    return issues
+      .filter((issue) => !issue.pull_request)
+      .map((issue) => ({
+        owner: request.owner,
+        repo: request.repo,
+        number: issue.number,
+        title: issue.title,
+        body: issue.body ?? undefined,
+        labels: normalizeLabels(issue.labels),
+        url:
+          issue.html_url ??
+          `https://github.com/${request.owner}/${request.repo}/issues/${issue.number}`,
+        state: issue.state === "closed" ? "closed" : "open",
+        createdAt: typeof issue.created_at === "string" ? issue.created_at : undefined,
+        updatedAt: typeof issue.updated_at === "string" ? issue.updated_at : undefined,
+      }));
   }
 
   async fetchIssueState(ref: IssueStateRef): Promise<GitHubIssueState> {
