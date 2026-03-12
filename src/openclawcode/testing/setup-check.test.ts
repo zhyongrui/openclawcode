@@ -69,7 +69,10 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("OPENCLAWCODE_SETUP_OPERATOR_ROOT");
     expect(script).toContain("OPENCLAWCODE_OPERATOR_ROOT");
     expect(script).toContain("OPENCLAWCODE_SETUP_GITHUB_HOOK_ID");
+    expect(script).toContain("OPENCLAWCODE_SETUP_RETRY_ATTEMPTS");
+    expect(script).toContain("OPENCLAWCODE_SETUP_RETRY_DELAY_SECONDS");
     expect(script).toContain("refresh_github_hook_settings");
+    expect(script).toContain("retry_check");
     expect(script).toContain("pull_request_review");
     expect(script).toContain('"reason":"unconfigured-repo"');
     expect(script).toContain("repoBindingsByRepo");
@@ -241,6 +244,148 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
     expect(curlArgs).toContain("X-GitHub-Event: issues");
     expect(curlArgs).toContain("X-Hub-Signature-256: sha256=test-signature");
     expect(curlArgs).toContain("http://127.0.0.1:18789/plugins/openclawcode/github");
+  });
+
+  it("retries transient gateway and route-probe failures during restart windows", async () => {
+    const rootDir = await createTempDir();
+    tempRoots.add(rootDir);
+    const repoRoot = path.join(rootDir, "repo");
+    const distDir = path.join(repoRoot, "dist");
+    const binDir = path.join(rootDir, "bin");
+    const envFile = path.join(rootDir, "openclawcode.env");
+    const configFile = path.join(rootDir, "openclaw.json");
+    const stateFile = path.join(rootDir, "chatops-state.json");
+    const curlArgsFile = path.join(rootDir, "curl-args.txt");
+    const gatewayAttemptsFile = path.join(rootDir, "gateway-attempts.txt");
+    const probeAttemptsFile = path.join(rootDir, "probe-attempts.txt");
+    const scriptPath = path.resolve("scripts/openclawcode-setup-check.sh");
+    const realPythonPath = resolveRealPythonPath();
+
+    await fs.mkdir(distDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    await fs.writeFile(path.join(distDir, "index.js"), "console.log('ok');\n", "utf8");
+    await fs.writeFile(
+      envFile,
+      "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "approve",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:retry-window",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await fs.writeFile(
+      stateFile,
+      `${JSON.stringify(
+        {
+          repoBindingsByRepo: {
+            "zhyongrui/openclawcode": {
+              repoKey: "zhyongrui/openclawcode",
+              notifyChannel: "feishu",
+              notifyTarget: "user:retry-window",
+              updatedAt: "2026-03-12T08:40:00.000Z",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    await writeExecutable(
+      path.join(binDir, "python3"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+script="$(cat)"
+if [[ "$script" == *"socket.create_connection"* ]]; then
+  count=0
+  if [[ -f "${gatewayAttemptsFile}" ]]; then
+    count="$(cat "${gatewayAttemptsFile}")"
+  fi
+  count=$((count + 1))
+  printf '%s\\n' "$count" >"${gatewayAttemptsFile}"
+  if [[ "$count" -lt 2 ]]; then
+    exit 1
+  fi
+  exit 0
+fi
+if [[ "$script" == *"hmac.new"* ]]; then
+  printf 'sha256=test-signature\\n'
+  exit 0
+fi
+printf '%s' "$script" | "${realPythonPath}" "$@"
+`,
+    );
+    await writeExecutable(
+      path.join(binDir, "curl"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+count=0
+if [[ -f "${probeAttemptsFile}" ]]; then
+  count="$(cat "${probeAttemptsFile}")"
+fi
+count=$((count + 1))
+printf '%s\\n' "$count" >"${probeAttemptsFile}"
+printf '%s\\n' "$@" >>"${curlArgsFile}"
+if [[ "$count" -lt 2 ]]; then
+  exit 7
+fi
+printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
+`,
+    );
+
+    const result = runSetupCheck(scriptPath, {
+      PATH: `${binDir}:${process.env.PATH ?? ""}`,
+      OPENCLAWCODE_SETUP_REPO_ROOT: repoRoot,
+      OPENCLAWCODE_SETUP_ENV_FILE: envFile,
+      OPENCLAWCODE_SETUP_CONFIG_FILE: configFile,
+      OPENCLAWCODE_SETUP_STATE_FILE: stateFile,
+      OPENCLAWCODE_SETUP_GATEWAY_URL: "http://127.0.0.1:18789",
+      OPENCLAWCODE_SETUP_WEBHOOK_ROUTE: "/plugins/openclawcode/github",
+      OPENCLAWCODE_GITHUB_REPO: "zhyongrui/openclawcode",
+      OPENCLAWCODE_SETUP_RETRY_ATTEMPTS: "2",
+      OPENCLAWCODE_SETUP_RETRY_DELAY_SECONDS: "0.01",
+      OPENCLAWCODE_TUNNEL_LOG_FILE: path.join(rootDir, "tunnel.log"),
+      OPENCLAWCODE_TUNNEL_PID_FILE: path.join(rootDir, "tunnel.pid"),
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("[PASS] gateway reachable: http://127.0.0.1:18789");
+    expect(result.stdout).toContain("[PASS] signed webhook probe reached plugin route");
+    expect(await fs.readFile(gatewayAttemptsFile, "utf8")).toBe("2\n");
+    expect(await fs.readFile(probeAttemptsFile, "utf8")).toBe("2\n");
   });
 
   it("derives env, config, and state paths from OPENCLAWCODE_SETUP_OPERATOR_ROOT", async () => {

@@ -140,8 +140,17 @@ turning the working loop into a cleanly operable product:
   approval or auto-queue
 - operator-facing status and inbox views now surface suitability decisions and
   summaries
-- the next engineering priority is now promotion back to the long-lived `main`
-  operator baseline, plus validation-pool upkeep and policy-doc cleanup
+- the long-lived `main` operator baseline is now revalidated through merged
+  issue `#56` / `PR #57`, restored `approve` trigger mode, and a strict setup
+  health check returning `15 pass`, `0 warn`, `0 fail`
+- the webhook high-risk precheck path is now revalidated on the long-lived
+  `main` operator through issue `#58`, including accepted delivery reason
+  `precheck-escalated`, run id `intake-precheck-58`, and no pending approval or
+  queued run
+- operator health checks now retry transient gateway reachability and signed
+  webhook probe failures during short restart windows
+- the next engineering priority is now validation-pool upkeep plus policy-doc
+  cleanup for Phase 5 operator productization
 - packaging and installation are now documented locally, but still need more
   proof under a fresh operator environment
 - policy docs lag the implemented guarded auto-merge behavior and need to be
@@ -223,7 +232,7 @@ Exit criteria:
 
 Status:
 
-- active next phase
+- complete as of 2026-03-12 on the long-lived `main` operator baseline
 - explicit suitability assessments now persist `auto-run`,
   `needs-human-review`, or `escalate` decisions before workspace preparation
 - a real high-risk direct CLI proof is now complete through issue `#53`, run
@@ -232,8 +241,9 @@ Status:
   `precheck-escalated` snapshots instead of `pendingApprovals` or `queue`
 - operator-facing status and inbox views now expose suitability decisions and
   summaries for both workflow runs and webhook prechecks
-- the remaining gap is re-validating the same behavior on the long-lived main
-  operator after promotion
+- the long-lived `main` operator baseline is now revalidated through issue
+  `#58`, which produced accepted delivery reason `precheck-escalated`, run id
+  `intake-precheck-58`, and no pending approval or queued run
 
 Goal:
 
@@ -356,9 +366,20 @@ The current repository state already supports:
   - accepted delivery reason `precheck-escalated`
   - an `escalated` snapshot with run id `intake-precheck-9053`
   - no `pendingApprovals` entry and no queued run
+- a long-lived `main` baseline merged proof for issue `#56`, including:
+  - `PR #57` merged to `main`
+  - issue `#56` closed after merge
+  - local `main` fast-forwarded to merge commit `316ea9a5571159cc85e11f11cc4cccd87ffdd632`
+- a long-lived `main` webhook precheck proof through issue `#58`, including:
+  - accepted delivery reason `precheck-escalated`
+  - an `escalated` snapshot with run id `intake-precheck-58`
+  - no `pendingApprovals` entry and no queued run
 - operator-facing suitability surfaces that now:
   - include suitability decision and summary in run status messages
   - include a `suitability:` ledger line in `/occode-inbox` recent activity
+- operator health-check resilience that now:
+  - retries transient gateway reachability failures during restart windows
+  - retries transient signed webhook probe failures during the same window
 - runner-level tool hardening that originally removed `edit` and `write` from
   live `openclawcode` agent sessions while the sandbox edit bridge was being
   repaired

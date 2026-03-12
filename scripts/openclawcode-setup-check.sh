@@ -12,6 +12,8 @@ readonly DEFAULT_GITHUB_REPO="zhyongrui/openclawcode"
 readonly DEFAULT_GITHUB_HOOK_EVENTS="issues,pull_request,pull_request_review"
 readonly DEFAULT_TUNNEL_LOG_FILE="/tmp/openclawcode-webhook-tunnel.log"
 readonly DEFAULT_TUNNEL_PID_FILE="/tmp/openclawcode-webhook-tunnel.pid"
+readonly DEFAULT_RETRY_ATTEMPTS="${OPENCLAWCODE_SETUP_RETRY_ATTEMPTS:-5}"
+readonly DEFAULT_RETRY_DELAY_SECONDS="${OPENCLAWCODE_SETUP_RETRY_DELAY_SECONDS:-1}"
 
 REPO_ROOT="${OPENCLAWCODE_SETUP_REPO_ROOT:-$DEFAULT_REPO_ROOT}"
 OPERATOR_ROOT="${OPENCLAWCODE_SETUP_OPERATOR_ROOT:-${OPENCLAWCODE_OPERATOR_ROOT:-$DEFAULT_OPERATOR_ROOT}}"
@@ -32,6 +34,7 @@ SKIP_ROUTE_PROBE=0
 PASS_COUNT=0
 WARN_COUNT=0
 FAIL_COUNT=0
+LAST_RETRY_ERROR=""
 
 usage() {
   cat <<EOF
@@ -58,6 +61,8 @@ Environment overrides:
   OPENCLAWCODE_GITHUB_REPO
   OPENCLAWCODE_SETUP_GITHUB_HOOK_ID
   OPENCLAWCODE_SETUP_GITHUB_HOOK_EVENTS
+  OPENCLAWCODE_SETUP_RETRY_ATTEMPTS
+  OPENCLAWCODE_SETUP_RETRY_DELAY_SECONDS
   OPENCLAWCODE_TUNNEL_LOG_FILE
   OPENCLAWCODE_TUNNEL_PID_FILE
   OPENCLAWCODE_OPERATOR_ROOT
@@ -77,6 +82,25 @@ warn() {
 fail() {
   FAIL_COUNT=$((FAIL_COUNT + 1))
   printf '[FAIL] %s\n' "$1"
+}
+
+retry_check() {
+  local attempts="$1"
+  local delay_seconds="$2"
+  local callback="$3"
+  local attempt=1
+
+  LAST_RETRY_ERROR=""
+  while true; do
+    if "$callback"; then
+      return 0
+    fi
+    if (( attempt >= attempts )); then
+      return 1
+    fi
+    sleep "$delay_seconds"
+    attempt=$((attempt + 1))
+  done
 }
 
 refresh_github_hook_settings() {
@@ -218,7 +242,7 @@ check_github_token() {
   fi
 }
 
-check_gateway_port() {
+probe_gateway_port_once() {
   if python3 - "$GATEWAY_URL" <<'PY'
 import socket
 import sys
@@ -232,10 +256,53 @@ with socket.create_connection((host, port), timeout=2):
     pass
 PY
   then
+    return 0
+  fi
+
+  LAST_RETRY_ERROR="gateway not reachable: ${GATEWAY_URL}"
+  return 1
+}
+
+check_gateway_port() {
+  if retry_check "$DEFAULT_RETRY_ATTEMPTS" "$DEFAULT_RETRY_DELAY_SECONDS" probe_gateway_port_once
+  then
     pass "gateway reachable: ${GATEWAY_URL}"
   else
-    fail "gateway not reachable: ${GATEWAY_URL}"
+    fail "${LAST_RETRY_ERROR:-gateway not reachable: ${GATEWAY_URL}}"
   fi
+}
+
+probe_route_once() {
+  local response
+  if ! response="$(
+    curl \
+      --silent \
+      --show-error \
+      --connect-timeout 2 \
+      --max-time 5 \
+      --write-out $'\n%{http_code}' \
+      -X POST \
+      -H "Content-Type: application/json" \
+      -H "X-GitHub-Event: issues" \
+      -H "X-Hub-Signature-256: ${signature}" \
+      --data "$payload" \
+      "${GATEWAY_URL}${WEBHOOK_ROUTE}"
+  )"; then
+    LAST_RETRY_ERROR="signed webhook probe failed to reach ${GATEWAY_URL}${WEBHOOK_ROUTE}"
+    return 1
+  fi
+
+  local status_code="${response##*$'\n'}"
+  local body="${response%$'\n'*}"
+  if [[ "$status_code" != "202" ]]; then
+    LAST_RETRY_ERROR="signed webhook probe returned HTTP ${status_code}"
+    return 1
+  fi
+  if [[ "$body" == *'"reason":"unconfigured-repo"'* ]]; then
+    return 0
+  fi
+  LAST_RETRY_ERROR="signed webhook probe returned unexpected body: ${body}"
+  return 1
 }
 
 check_route_probe() {
@@ -264,35 +331,11 @@ print(f"sha256={digest}")
 PY
   )"
 
-  local response
-  if ! response="$(
-    curl \
-      --silent \
-      --show-error \
-      --connect-timeout 2 \
-      --max-time 5 \
-      --write-out $'\n%{http_code}' \
-      -X POST \
-      -H "Content-Type: application/json" \
-      -H "X-GitHub-Event: issues" \
-      -H "X-Hub-Signature-256: ${signature}" \
-      --data "$payload" \
-      "${GATEWAY_URL}${WEBHOOK_ROUTE}"
-  )"; then
-    fail "signed webhook probe failed to reach ${GATEWAY_URL}${WEBHOOK_ROUTE}"
-    return
-  fi
-
-  local status_code="${response##*$'\n'}"
-  local body="${response%$'\n'*}"
-  if [[ "$status_code" != "202" ]]; then
-    fail "signed webhook probe returned HTTP ${status_code}"
-    return
-  fi
-  if [[ "$body" == *'"reason":"unconfigured-repo"'* ]]; then
+  if retry_check "$DEFAULT_RETRY_ATTEMPTS" "$DEFAULT_RETRY_DELAY_SECONDS" probe_route_once
+  then
     pass "signed webhook probe reached plugin route"
   else
-    fail "signed webhook probe returned unexpected body: ${body}"
+    fail "${LAST_RETRY_ERROR:-signed webhook probe failed to reach ${GATEWAY_URL}${WEBHOOK_ROUTE}}"
   fi
 }
 

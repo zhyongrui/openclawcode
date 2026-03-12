@@ -76,6 +76,11 @@ loop with:
     with `14 pass`, `0 warn`, and `0 fail`
 - a refreshed `main` baseline promoted from `sync/upstream-2026-03-11`, pushed
   to `origin/main`, and restarted under the local live gateway
+- a repaired long-lived `main` merged proof through issue `#56`:
+  - `PR #57` merged to `main`
+  - issue `#56` closed after merge
+  - local `main` fast-forwarded to merge commit
+    `316ea9a5571159cc85e11f11cc4cccd87ffdd632`
 - real end-to-end validation against this repository, including a webhook-driven
   issue run that opened, merged, and closed automatically
 - a copied-root fresh-operator merged proof through issue `#51`, run
@@ -88,9 +93,15 @@ loop with:
 - a copied-root webhook precheck proof for synthetic issue `#9053`, which now:
   - returns `reason: "precheck-escalated"`
   - writes an `escalated` snapshot instead of `pendingApprovals` or `queue`
+- a long-lived `main` webhook precheck proof through issue `#58`, which now:
+  - returns `reason: "precheck-escalated"`
+  - writes an `escalated` snapshot with run id `intake-precheck-58`
+  - leaves `pendingApprovals` and `queue` untouched
 - suitability is now visible in operator-facing surfaces too:
   - run status messages include suitability decision and summary
   - `/occode-inbox` recent ledger entries include a `suitability:` line
+- operator setup health checks that now retry transient gateway reachability and
+  signed webhook probe failures during short restart windows
 - real live lifecycle replay against `PR #37`, covering:
   - `pull_request_review` changes requested
   - `pull_request_review` approved
