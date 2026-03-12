@@ -400,6 +400,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     verificationFindingCount: run.verificationReport?.findings.length ?? null,
     verificationMissingCoverageCount: run.verificationReport?.missingCoverage.length ?? null,
     verificationFollowUpCount: run.verificationReport?.followUps.length ?? null,
+    historyEntryCount: run.history?.length ?? null,
     rerunRequested: Boolean(run.rerunContext),
     rerunHasReviewContext,
     rerunReason: run.rerunContext?.reason ?? null,

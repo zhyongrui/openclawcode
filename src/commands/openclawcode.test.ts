@@ -610,6 +610,35 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationFollowUpCount).toBe(2);
   });
 
+  it("prints historyEntryCount when history is present", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        history: [
+          "Draft PR opened: https://github.com/openclaw/openclaw/pull/42",
+          "Verification approved for human review",
+        ],
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.historyEntryCount).toBe(2);
+  });
+
+  it("prints historyEntryCount as null when history is missing", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        history: undefined,
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.historyEntryCount).toBeNull();
+  });
+
   it("prints failed auto-merge disposition when merge execution fails", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
