@@ -174,6 +174,7 @@ loop with:
     - command-layer issue `#74`
     - command-layer issue `#75`
     - command-layer issue `#76`
+    - command-layer issue `#77`
     - docs/operator issue `#60`
   - duplicate issue `#59` was detected through the new inventory path and then
     closed

@@ -644,7 +644,10 @@ describe("openclawCodeRunCommand", () => {
             "Should this count stay top-level for downstream consumers?",
             "Do we want a matching boolean later?",
           ],
-          testPlan: [],
+          testPlan: [
+            "Run the focused command JSON unit tests.",
+            "Run the openclawcode-targeted Vitest config.",
+          ],
           risks: [
             {
               id: "risk-provider-output",
@@ -687,11 +690,12 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.openQuestionCount).toBe(2);
     expect(payload.riskCount).toBe(2);
     expect(payload.assumptionCount).toBe(2);
+    expect(payload.testPlanCount).toBe(2);
     expect(payload.stageRecordCount).toBe(2);
     expect(payload.historyEntryCount).toBe(2);
   });
 
-  it("prints historyEntryCount, stageRecordCount, acceptanceCriteriaCount, openQuestionCount, riskCount, and assumptionCount as null when metadata is missing", async () => {
+  it("prints historyEntryCount, stageRecordCount, acceptanceCriteriaCount, openQuestionCount, riskCount, assumptionCount, and testPlanCount as null when metadata is missing", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         executionSpec: undefined,
@@ -707,6 +711,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.openQuestionCount).toBeNull();
     expect(payload.riskCount).toBeNull();
     expect(payload.assumptionCount).toBeNull();
+    expect(payload.testPlanCount).toBeNull();
     expect(payload.stageRecordCount).toBeNull();
     expect(payload.historyEntryCount).toBeNull();
   });
