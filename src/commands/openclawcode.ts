@@ -367,6 +367,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     suitabilityDecision: run.suitability?.decision ?? null,
     suitabilitySummary: run.suitability?.summary ?? null,
     suitabilityReasons: run.suitability?.reasons ?? null,
+    suitabilityReasonCount: run.suitability?.reasons.length ?? null,
     suitabilityClassification: run.suitability?.classification ?? null,
     suitabilityRiskLevel: run.suitability?.riskLevel ?? null,
     suitabilityEvaluatedAt: run.suitability?.evaluatedAt ?? null,

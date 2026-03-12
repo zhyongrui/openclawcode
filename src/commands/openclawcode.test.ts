@@ -147,6 +147,7 @@ describe("openclawCodeRunCommand", () => {
       "Planner risk level is medium.",
       "No high-risk issue signals were detected in the issue text or labels.",
     ]);
+    expect(payload.suitabilityReasonCount).toBe(3);
     expect(payload.suitabilityClassification).toBe("command-layer");
     expect(payload.suitabilityRiskLevel).toBe("medium");
     expect(payload.suitabilityEvaluatedAt).toBe("2026-01-01T00:00:00.000Z");
@@ -222,6 +223,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.suitabilitySummary).toBe(
       "Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
     );
+    expect(payload.suitabilityReasonCount).toBe(3);
     expect(payload.draftPullRequestBranchName).toBeNull();
     expect(payload.draftPullRequestBaseBranch).toBeNull();
     expect(payload.draftPullRequestNumber).toBeNull();
@@ -250,6 +252,20 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.autoMergePolicyReason).toBe(
       "Not eligible for auto-merge: verification has not approved the run.",
     );
+  });
+
+  it("prints null suitabilityReasonCount when suitability metadata is unavailable", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        suitability: undefined,
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.suitabilityReasons).toBeNull();
+    expect(payload.suitabilityReasonCount).toBeNull();
   });
 
   it("prints null attempt counts when workflow attempt metadata is unavailable", async () => {
