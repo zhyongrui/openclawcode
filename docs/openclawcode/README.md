@@ -139,6 +139,14 @@ loop with:
     `ready-for-human-review` with `OPENCLAWCODE_ENABLE_FS_TOOLS=write`
   - the live builder tool list now exposes `write` again alongside `read` and
     `edit`, and the run stayed stable under the expanded fs-tool surface
+- builder prompt hardening that now explicitly tells sandboxed issue runs not
+  to use package-manager or formatter commands for validation
+- a sixth sync-branch live proof on issue `#36`:
+  - `zhyongrui-openclawcode-36-1773285317777` reached
+    `ready-for-human-review` with `OPENCLAWCODE_ENABLE_FS_TOOLS=write`
+  - the builder summary explicitly records that it avoided sandbox
+    package-manager, formatter, and full-test commands, leaving validation to
+    the workflow host
 - a docker-gated sandbox write e2e regression that now proves
   `createSandboxedWriteTool(...)` can:
   - create a new mounted workspace file through alias-style `file_path` params

@@ -98,6 +98,9 @@ describe("AgentBackedBuilder prompt", () => {
     expect(prompt).toContain(
       "Do not run the full final validation command inside the agent sandbox",
     );
+    expect(prompt).toContain(
+      "Do not run package-manager or formatter commands inside the agent sandbox",
+    );
   });
 
   it("adds command-layer hints for CLI-facing issues", () => {

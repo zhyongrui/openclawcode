@@ -122,6 +122,7 @@ function buildBuilderPrompt(run: WorkflowRun, testCommands: string[]): string {
     "- Avoid broad scans such as `rg ... .` unless narrower paths were insufficient.",
     "- Add or update tests when needed.",
     "- Do not run the full final validation command inside the agent sandbox unless absolutely necessary; prefer lightweight, issue-specific checks.",
+    "- Do not run package-manager or formatter commands inside the agent sandbox (for example `pnpm`, `npm`, `yarn`, or `prettier`); use file-local sanity checks instead and leave validation to the workflow host.",
     ...guardrail.notes.map((entry) => `- ${entry}`),
     "- Keep changes scoped to the issue.",
     "- Do not ask for clarification unless the issue is impossible to implement safely.",

@@ -273,6 +273,12 @@ The sync-branch live rerun gap is now closed:
 - run `zhyongrui-openclawcode-36-1773284933205` then reached
   `ready-for-human-review` with `OPENCLAWCODE_ENABLE_FS_TOOLS=write`, and the
   live builder tool list exposed `write` again without destabilizing the run
+- builder prompts now explicitly forbid sandbox package-manager or formatter
+  commands and push that validation responsibility back to the workflow host
+- run `zhyongrui-openclawcode-36-1773285317777` then reached
+  `ready-for-human-review` with `OPENCLAWCODE_ENABLE_FS_TOOLS=write`, and the
+  builder summary explicitly recorded that it avoided sandbox package-manager,
+  formatter, and full-test commands
 
 This means the next iteration can shift from sandbox directory-read cleanup to
 merged live proof under the expanded fs-tool surface, fresh-environment proof,
