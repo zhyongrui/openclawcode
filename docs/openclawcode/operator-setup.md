@@ -303,7 +303,57 @@ At that point the supported setup is complete.
 The next validation target should be a real `pull_request` or `pull_request_review`
 event replay against the same route.
 
-## 10. Keep The Validation Pool Seeded
+## 10. Current Known-Good Local State
+
+The long-lived local operator on this workstation has already been proven
+against `zhyongrui/openclawcode` with:
+
+- operator root `~/.openclaw`
+- one bound Feishu conversation for repo notifications and command handling
+- webhook route `/plugins/openclawcode/github`
+- strict health check passing with:
+  - `./scripts/openclawcode-setup-check.sh --strict`
+  - `15 pass / 0 warn / 0 fail`
+
+Live operator proofs on that setup now include:
+
+- GitHub issue webhook intake reaching Feishu with an approval prompt
+- `/occode-start zhyongrui/openclawcode#65` completing through build, test,
+  PR publication, verification, merge, and issue closure
+- `/occode-start zhyongrui/openclawcode#68` completing through the same merged
+  path from the bound Feishu conversation
+- one-line `/occode-intake` creating a real GitHub issue and synthesizing the
+  minimal issue body automatically before queueing work
+
+If you are reusing the same local operator root, do not re-bootstrap the repo
+binding from scratch unless you intentionally want to replace the saved chat
+target. A single `/occode-bind <owner>/<repo>` from the desired Feishu
+conversation is enough to retarget notifications safely.
+
+## 11. Live Testing Notes
+
+The recent full-loop proofs exposed a few operator rules that are worth keeping
+in the runbook instead of rediscovering them in chat:
+
+- after rebuilding the repo, restart the long-lived gateway before trusting
+  chat-visible changes; the validation-pool summary rollout only appeared in
+  `/occode-inbox` after the gateway was restarted onto the new build
+- `HTTP 400: Internal server error` during build is currently a provider-side
+  failure mode, not a chat-intake formatting bug
+- when those provider failures repeat, use `/occode-rerun <owner>/<repo>#<issue>`
+  after the pause window clears; the workflow now preserves a stage-specific
+  failed artifact so reruns target the real failed run
+- `/occode-status` only shows provider-pause details while the pause is
+  actually active; once the pause clears, the same issue will fall back to its
+  normal failed or merged status summary
+- one-line `/occode-intake` is now the fastest safe smoke test for the bound
+  Feishu path because it exercises:
+  - chat command parsing
+  - GitHub issue creation
+  - minimal body synthesis
+  - queue handoff
+
+## 12. Keep The Validation Pool Seeded
 
 Do not wait for a human to create a perfect low-risk issue when the validation
 pool runs dry. The preferred replenishment path is the repo-local CLI:

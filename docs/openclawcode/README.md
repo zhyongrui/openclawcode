@@ -113,6 +113,13 @@ loop with:
     non-default port
   - passes `scripts/openclawcode-setup-check.sh --strict` against that gateway
     with `14 pass`, `0 warn`, and `0 fail`
+- the long-lived local operator rooted at `~/.openclaw` is now also proven as
+  a real Feishu-driven control plane for `zhyongrui/openclawcode`:
+  - repo notifications and commands are bound to one real Feishu conversation
+  - `./scripts/openclawcode-setup-check.sh --strict` passes there with
+    `15 pass`, `0 warn`, and `0 fail`
+  - after code changes, restarting the long-lived gateway is required before
+    trusting chat-visible behavior updates
 - a refreshed `main` baseline promoted from `sync/upstream-2026-03-11`, pushed
   to `origin/main`, and restarted under the local live gateway
 - a repaired long-lived `main` merged proof through issue `#56`:
@@ -122,6 +129,14 @@ loop with:
     `316ea9a5571159cc85e11f11cc4cccd87ffdd632`
 - real end-to-end validation against this repository, including a webhook-driven
   issue run that opened, merged, and closed automatically
+- real Feishu-commanded live proofs on the long-lived operator:
+  - `/occode-start zhyongrui/openclawcode#65` reached merged state through
+    build, test, PR publication, verification, and merge
+  - `/occode-start zhyongrui/openclawcode#68` reached the same merged path
+  - one-line `/occode-intake` created real issue `#71` and synthesized the
+    minimal issue body automatically before queueing work
+  - the resulting `#71` failure confirmed that `HTTP 400: Internal server error`
+    is currently a provider-side build failure mode, not a chat-intake bug
 - a copied-root fresh-operator merged proof through issue `#51`, run
   `zhyongrui-openclawcode-51-1773297182598`, and merged `PR #52`
 - an explicit suitability gate that now records `auto-run`,
