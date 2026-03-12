@@ -78,6 +78,10 @@ real bundled OpenClaw chatops adapter:
   successful build summary
 - transient provider failures such as `HTTP 400: Internal server error` now get
   one narrow builder/verifier retry window before the workflow gives up
+- that outer retry window is now shorter for provider-side
+  `HTTP 400: Internal server error` failures than it is for timeout or overload
+  retries, so repeated fresh failures surface faster without removing the
+  recovery attempt entirely
 - openclawcode issue-worktree runs now disable the embedded Pi SDK's inner
   retry loop so provider-side transient failures surface through the workflow's
   own builder/verifier retry policy instead of silently stretching a single
@@ -1135,15 +1139,13 @@ Why next:
 
 The next implementation slice should follow this order:
 
-1. tighten the remaining outer builder/verifier retry latency now that
-   openclawcode worktrees no longer hide inner SDK retries
-2. keep the validation pool above one low-risk command-layer issue and one
+1. keep the validation pool above one low-risk command-layer issue and one
    low-risk docs/operator issue by using `openclaw code seed-validation-issue`
-3. consume and reseed that pool on the long-lived `main` baseline once the
+2. consume and reseed that pool on the long-lived `main` baseline once the
    provider pause clears and the model path is stable again
-4. keep `openclaw code list-validation-issues` as the canonical inventory view
+3. keep `openclaw code list-validation-issues` as the canonical inventory view
    and mirror the same pool signal into operator-facing status surfaces
-5. update the dev log after each live proof and commit only after targeted
+4. update the dev log after each live proof and commit only after targeted
    validation passes
 
 ## Test Strategy

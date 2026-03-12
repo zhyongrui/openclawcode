@@ -25,6 +25,7 @@ export interface AgentBackedVerifierOptions {
 
 const DEFAULT_TRANSIENT_RETRY_ATTEMPTS = 2;
 const DEFAULT_TRANSIENT_RETRY_DELAY_MS = 1_000;
+const PROVIDER_INTERNAL_ERROR_RETRY_DELAY_MS = 250;
 
 function renderIssueBody(run: WorkflowRun): string {
   return run.issue.body?.trim() ? run.issue.body.trim() : "No issue body provided.";
@@ -328,6 +329,22 @@ function isRetryableAgentFailure(error: unknown): boolean {
   return /(?:^|[\s:])HTTP 400:\s*Internal server error$/i.test(message.trim());
 }
 
+function resolveTransientRetryDelayMs(params: {
+  error: unknown;
+  attempt: number;
+  delayMs?: number;
+}): number {
+  const baseDelayMs = Math.max(0, params.delayMs ?? DEFAULT_TRANSIENT_RETRY_DELAY_MS);
+  if (baseDelayMs === 0) {
+    return 0;
+  }
+  const message = params.error instanceof Error ? params.error.message : String(params.error);
+  if (/(?:^|[\s:])HTTP 400:\s*Internal server error$/i.test(message.trim())) {
+    return Math.min(baseDelayMs * params.attempt, PROVIDER_INTERNAL_ERROR_RETRY_DELAY_MS);
+  }
+  return baseDelayMs * params.attempt;
+}
+
 async function sleep(ms: number): Promise<void> {
   if (ms <= 0) {
     return;
@@ -352,7 +369,13 @@ async function runAgentWithTransientRetry<T>(params: {
       if (attempt >= attempts || !isRetryableAgentFailure(error)) {
         throw error;
       }
-      await sleep(delayMs * attempt);
+      await sleep(
+        resolveTransientRetryDelayMs({
+          error,
+          attempt,
+          delayMs,
+        }),
+      );
     }
   }
 
@@ -475,4 +498,5 @@ export const __testing = {
   buildBuilderPrompt,
   buildVerifierPrompt,
   isRetryableAgentFailure,
+  resolveTransientRetryDelayMs,
 };

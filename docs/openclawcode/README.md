@@ -65,6 +65,10 @@ loop with:
 - transient provider failures such as `HTTP 400: Internal server error` now get
   one narrow retry window in the builder/verifier path before the workflow
   gives up
+- provider-side `HTTP 400: Internal server error` retries now use a shorter
+  outer wait window than timeout or overload retries, so repeated fresh
+  failures surface faster while the workflow still preserves one recovery
+  attempt
 - openclawcode issue-worktree runs now disable the embedded Pi SDK's inner
   retry loop, so provider-side transient failures surface through the workflow
   retry policy instead of silently stretching one builder attempt

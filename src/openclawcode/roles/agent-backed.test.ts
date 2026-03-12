@@ -154,6 +154,42 @@ describe("AgentBackedBuilder prompt", () => {
   });
 });
 
+describe("AgentBacked transient retry timing", () => {
+  it("keeps HTTP 400 internal provider retries on a short leash", () => {
+    expect(
+      __testing.resolveTransientRetryDelayMs({
+        error: new Error("HTTP 400: Internal server error"),
+        attempt: 1,
+        delayMs: 1_000,
+      }),
+    ).toBe(250);
+    expect(
+      __testing.resolveTransientRetryDelayMs({
+        error: new Error("HTTP 400: Internal server error"),
+        attempt: 2,
+        delayMs: 1_000,
+      }),
+    ).toBe(250);
+  });
+
+  it("keeps overload and timeout retries on the original linear backoff", () => {
+    expect(
+      __testing.resolveTransientRetryDelayMs({
+        error: new Error("Request timed out after waiting for the provider."),
+        attempt: 1,
+        delayMs: 1_000,
+      }),
+    ).toBe(1_000);
+    expect(
+      __testing.resolveTransientRetryDelayMs({
+        error: new Error("Provider overloaded, please retry later."),
+        attempt: 2,
+        delayMs: 1_000,
+      }),
+    ).toBe(2_000);
+  });
+});
+
 class FakeAgentRunner implements AgentRunner {
   async run() {
     return {
