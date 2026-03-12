@@ -114,6 +114,8 @@ describe("openclawCodeRunCommand", () => {
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.stage).toBe("ready-for-human-review");
     expect(payload.stageLabel).toBe("Ready For Human Review");
+    expect(payload.planningAttemptCount).toBe(1);
+    expect(payload.verificationAttemptCount).toBe(1);
     expect(payload.changedFiles).toEqual([
       "src/openclawcode/app/run-issue.ts",
       "src/openclawcode/contracts/types.ts",
@@ -199,6 +201,8 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.planningAttemptCount).toBe(1);
+    expect(payload.verificationAttemptCount).toBe(1);
     expect(payload.changedFiles).toEqual([]);
     expect(payload.changeDisposition).toBeNull();
     expect(payload.changeDispositionReason).toBeNull();
@@ -242,6 +246,20 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.autoMergePolicyReason).toBe(
       "Not eligible for auto-merge: verification has not approved the run.",
     );
+  });
+
+  it("prints null attempt counts when workflow attempt metadata is unavailable", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        attempts: undefined as unknown as WorkflowRun["attempts"],
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.planningAttemptCount).toBeNull();
+    expect(payload.verificationAttemptCount).toBeNull();
   });
 
   it("reports verificationHasFollowUps when verifier follow-up work exists", async () => {
