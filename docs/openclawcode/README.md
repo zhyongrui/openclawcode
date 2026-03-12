@@ -57,6 +57,9 @@ loop with:
   - aborts instead of continuing with a conflicted reusable branch refresh
 - a compact `/occode-inbox` operator ledger for recent lifecycle events, final
   disposition, rerun lineage, and last notification metadata
+- a manual `/occode-sync` recovery command that reconciles local run records
+  with tracked GitHub PR status when operators need to force a reconciliation
+  pass from chat
 - a repeatable operator setup runbook plus a repo-local setup verification
   script for gateway, webhook, binding, tunnel health, and required GitHub
   webhook event subscriptions
