@@ -66,8 +66,8 @@ Remaining work:
 
 Immediate queue:
 
-- `#83` Node floor setup-check gate
 - `#84` refreshed-branch promotion checklist
+- operator-host Node upgrade to satisfy the refreshed CLI floor
 - follow with the next live proof on the refreshed sync branch
 
 ### Track 2: Chat-Native Intake
@@ -185,4 +185,4 @@ As of this revision:
 - active feature branch:
   - `sync/upstream-2026-03-12-refresh`
 - next planned slice after the current one:
-  - `#84` refreshed-branch promotion checklist
+  - operator-host Node upgrade followed by a refreshed-branch live proof

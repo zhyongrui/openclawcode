@@ -258,6 +258,69 @@ Fresh-root note:
   `openclawcode.env`, `openclaw.json`, and
   `plugins/openclawcode/chatops-state.json` from `OPENCLAWCODE_OPERATOR_ROOT`
   unless you explicitly override the individual file paths
+
+## 9. Promotion Checklist For Refreshed Sync Branches
+
+Use this checklist before promoting a refreshed sync branch back to the
+long-lived `main` operator baseline.
+
+1. Build the refreshed branch and run:
+
+```bash
+pnpm build
+./scripts/openclawcode-setup-check.sh --strict
+```
+
+2. Confirm the local Node runtime satisfies the CLI startup floor recorded in
+   `dist/cli-startup-metadata.json`.
+   On this workstation the refreshed branch currently reports:
+   - required floor: `22.16.0`
+   - current local runtime: `22.12.0`
+   - expected strict result: fail until Node is upgraded
+
+3. Keep the long-lived `main` operator on the pre-promotion baseline until the
+   refreshed branch passes `setup-check --strict` on the host that will run it.
+
+4. Run at least one low-risk real proof on the refreshed branch before
+   promotion:
+   - webhook intake still reaches chat
+   - one issue completes through PR publication and merge or a deliberate
+     escalation
+   - `/occode-inbox` and `/occode-status` reflect the new branch behavior
+
+5. Promote only after the refreshed branch has both:
+   - passing focused tests plus `pnpm build`
+   - a passing real operator proof on the same runtime floor that will run `main`
+
+6. After promotion to `main`, restart the long-lived gateway and rerun:
+
+```bash
+./scripts/openclawcode-setup-check.sh --strict
+```
+
+7. If the promoted operator misbehaves, roll back immediately:
+   - switch the working tree back to the last known-good `main` commit
+   - rebuild with `pnpm build`
+   - restart the gateway on that known-good commit
+   - rerun `./scripts/openclawcode-setup-check.sh --strict`
+
+## 10. Copied-Root Teardown After Fresh Validation
+
+When you validate a copied or temporary operator root, treat it as disposable.
+
+After the proof completes:
+
+- stop the temporary gateway or tunnel processes tied to that copied root
+- delete or archive the copied `OPENCLAWCODE_OPERATOR_ROOT` instead of reusing
+  it as the new long-lived baseline
+- remove temporary tunnel pid/log files that were only meant for the copied
+  root proof
+- keep the canonical long-lived operator state in `~/.openclaw` until a
+  deliberate promotion step says otherwise
+
+The copied-root proof is there to reduce promotion risk, not to replace the
+long-lived operator root by accident.
+
 - `openclawcode-webhook-tunnel.sh` also derives its default env file from the
   same root, so one exported variable is enough for both scripts
 

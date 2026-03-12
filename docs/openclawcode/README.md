@@ -212,7 +212,10 @@ loop with:
     the CLI startup floor
   - a real local strict proof now fails on this workstation exactly where it
     should: `Node 22.12.0 < 22.16.0`
-  - the next refreshed-branch ops slice is `#84` for the promotion checklist
+  - operator docs now include a refreshed-branch promotion checklist and
+    copied-root teardown guidance
+  - the next refreshed-branch ops slice is upgrading the operator host to a
+    Node runtime that satisfies the new floor before promotion
 - real live lifecycle replay against `PR #37`, covering:
   - `pull_request_review` changes requested
   - `pull_request_review` approved
