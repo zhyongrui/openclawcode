@@ -81,6 +81,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationSummary).toBe(
       "Verification completed and the run is ready for human review.",
     );
+    expect(payload.verificationHasFindings).toBe(false);
     expect(payload.verificationFindingCount).toBe(0);
     expect(payload.verificationMissingCoverageCount).toBe(0);
     expect(payload.verificationFollowUpCount).toBe(0);
@@ -131,6 +132,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationDecision).toBeNull();
     expect(payload.verificationApprovedForHumanReview).toBeNull();
     expect(payload.verificationSummary).toBeNull();
+    expect(payload.verificationHasFindings).toBe(false);
     expect(payload.verificationFindingCount).toBeNull();
     expect(payload.verificationMissingCoverageCount).toBeNull();
     expect(payload.verificationFollowUpCount).toBeNull();
@@ -401,6 +403,7 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.verificationApprovedForHumanReview).toBe(false);
+    expect(payload.verificationHasFindings).toBe(true);
     expect(payload.verificationFindingCount).toBe(2);
     expect(payload.verificationMissingCoverageCount).toBe(1);
     expect(payload.verificationFollowUpCount).toBe(2);
