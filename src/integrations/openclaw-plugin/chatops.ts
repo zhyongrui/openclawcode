@@ -79,6 +79,18 @@ export interface OpenClawCodeChatopsRepoRef {
   repo: string;
 }
 
+export interface OpenClawCodeChatopsIssueDraftCommand {
+  action: "intake";
+  repo: {
+    owner: string;
+    repo: string;
+  };
+  draft: {
+    title: string;
+    body: string;
+  };
+}
+
 export interface OpenClawCodeChatopsRunRequest {
   owner: string;
   repo: string;
@@ -465,6 +477,57 @@ export function parseChatopsCommand(
   return {
     action,
     issue,
+  };
+}
+
+export function parseChatopsIssueDraftCommand(
+  input: string,
+  defaults?: { owner?: string; repo?: string },
+): OpenClawCodeChatopsIssueDraftCommand | null {
+  const normalized = input.replace(/\r\n/g, "\n").trim();
+  const match = /^\/occode-intake\b/i.exec(normalized);
+  if (!match) {
+    return null;
+  }
+
+  const [firstLine = "", ...remainingLines] = normalized.split("\n");
+  const firstLineArgs = firstLine.replace(/^\/occode-intake\b\s*/i, "").trim();
+
+  let repo = firstLineArgs ? parseChatopsRepoReference(firstLineArgs) : null;
+  let draftLines = remainingLines;
+
+  if (!repo) {
+    if (!defaults?.owner || !defaults?.repo) {
+      return null;
+    }
+    repo = {
+      owner: defaults.owner,
+      repo: defaults.repo,
+    };
+    draftLines = firstLineArgs ? [firstLineArgs, ...remainingLines] : remainingLines;
+  }
+
+  const firstContentIndex = draftLines.findIndex((line) => line.trim().length > 0);
+  if (firstContentIndex < 0) {
+    return null;
+  }
+
+  const title = draftLines[firstContentIndex]?.trim() ?? "";
+  const body = draftLines
+    .slice(firstContentIndex + 1)
+    .join("\n")
+    .trim();
+  if (!title || !body) {
+    return null;
+  }
+
+  return {
+    action: "intake",
+    repo,
+    draft: {
+      title,
+      body,
+    },
   };
 }
 

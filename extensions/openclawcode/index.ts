@@ -17,6 +17,7 @@ import {
   formatIssueKey,
   formatRepoKey,
   parseChatopsCommand,
+  parseChatopsIssueDraftCommand,
   parseChatopsRepoReference,
   collectLatestLocalRunStatuses,
   resolveOpenClawCodePluginConfig,
@@ -29,6 +30,7 @@ import {
   type OpenClawCodeGitHubDeliveryRecord,
   type OpenClawCodeIssueStatusSnapshot,
 } from "../../src/integrations/openclaw-plugin/index.js";
+import { GitHubRestClient } from "../../src/openclawcode/github/index.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
 const DEFAULT_RUN_TIMEOUT_MS = 30 * 60_000;
@@ -216,6 +218,143 @@ function buildPrecheckedEscalationStatus(params: {
     `Summary: ${params.summary}`,
     "Suitability: escalate",
   ].join("\n");
+}
+
+function buildSyntheticIssueWebhookEvent(params: {
+  issue: {
+    owner: string;
+    repo: string;
+    number: number;
+    title: string;
+    body?: string;
+    labels?: string[];
+  };
+}): GitHubIssueWebhookEvent {
+  return {
+    action: "opened",
+    repository: {
+      owner: params.issue.owner,
+      name: params.issue.repo,
+    },
+    issue: {
+      number: params.issue.number,
+      title: params.issue.title,
+      body: params.issue.body,
+      labels: (params.issue.labels ?? []).map((name) => ({ name })),
+    },
+  };
+}
+
+async function recordPrecheckedEscalationSnapshot(params: {
+  store: OpenClawCodeChatopsStore;
+  issue: {
+    owner: string;
+    repo: string;
+    number: number;
+  };
+  destination: {
+    channel: string;
+    target: string;
+  };
+  summary: string;
+  suitabilityDecision: "escalate";
+}): Promise<boolean> {
+  const timestamp = new Date().toISOString();
+  return await params.store.recordPrecheckedEscalation({
+    issueKey: formatIssueKey(params.issue),
+    status: buildPrecheckedEscalationStatus({
+      issue: params.issue,
+      summary: params.summary,
+    }),
+    stage: "escalated",
+    runId: `intake-precheck-${params.issue.number}`,
+    updatedAt: timestamp,
+    owner: params.issue.owner,
+    repo: params.issue.repo,
+    issueNumber: params.issue.number,
+    notifyChannel: params.destination.channel,
+    notifyTarget: params.destination.target,
+    suitabilityDecision: params.suitabilityDecision,
+    suitabilitySummary: params.summary,
+  });
+}
+
+async function enqueueInteractiveIssueIntake(params: {
+  store: OpenClawCodeChatopsStore;
+  repoConfig: OpenClawCodeChatopsRepoConfig;
+  issue: {
+    owner: string;
+    repo: string;
+    number: number;
+  };
+  destination: {
+    channel: string;
+    target: string;
+  };
+  status: string;
+}): Promise<Awaited<ReturnType<OpenClawCodeChatopsStore["promotePendingApprovalToQueue"]>>> {
+  return await params.store.promotePendingApprovalToQueue({
+    issueKey: formatIssueKey(params.issue),
+    request: buildRunRequestFromCommand({
+      command: {
+        action: "start",
+        issue: {
+          owner: params.issue.owner,
+          repo: params.issue.repo,
+          number: params.issue.number,
+        },
+      },
+      config: params.repoConfig,
+    }),
+    fallbackNotifyChannel: params.destination.channel,
+    fallbackNotifyTarget: params.destination.target,
+    status: params.status,
+  });
+}
+
+function buildIntakeQueuedMessage(params: {
+  issue: {
+    owner: string;
+    repo: string;
+    number: number;
+    title: string;
+    url?: string;
+  };
+}): string {
+  const issueKey = formatIssueKey(params.issue);
+  return [
+    "openclawcode created and queued a new GitHub issue from chat.",
+    `Issue: ${issueKey}`,
+    `Title: ${params.issue.title}`,
+    params.issue.url ? `URL: ${params.issue.url}` : undefined,
+    "Status: queued for execution",
+    `Use /occode-status ${issueKey} to inspect progress.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildIntakeEscalatedMessage(params: {
+  issue: {
+    owner: string;
+    repo: string;
+    number: number;
+    title: string;
+    url?: string;
+  };
+  summary: string;
+}): string {
+  const issueKey = formatIssueKey(params.issue);
+  return [
+    "openclawcode created a new GitHub issue from chat, but suitability escalated it immediately.",
+    `Issue: ${issueKey}`,
+    `Title: ${params.issue.title}`,
+    params.issue.url ? `URL: ${params.issue.url}` : undefined,
+    `Summary: ${params.summary}`,
+    `Use /occode-status ${issueKey} to inspect the tracked status.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function buildInboxMessage(params: {
@@ -632,23 +771,12 @@ async function handleIssueWebhookEvent(params: {
     binding: params.binding,
   });
   if (decision.precheck?.decision === "escalate") {
-    const timestamp = new Date().toISOString();
-    const accepted = await params.store.recordPrecheckedEscalation({
-      issueKey,
-      status: buildPrecheckedEscalationStatus({
-        issue: decision.issue,
-        summary: decision.precheck.summary,
-      }),
-      stage: "escalated",
-      runId: `intake-precheck-${decision.issue.number}`,
-      updatedAt: timestamp,
-      owner: decision.issue.owner,
-      repo: decision.issue.repo,
-      issueNumber: decision.issue.number,
-      notifyChannel: destination.channel,
-      notifyTarget: destination.target,
+    const accepted = await recordPrecheckedEscalationSnapshot({
+      store: params.store,
+      issue: decision.issue,
+      destination,
+      summary: decision.precheck.summary,
       suitabilityDecision: decision.precheck.decision,
-      suitabilitySummary: decision.precheck.summary,
     });
     if (!accepted) {
       return await params.respondJson({
@@ -678,25 +806,13 @@ async function handleIssueWebhookEvent(params: {
   }
 
   if (params.repoConfig.triggerMode === "auto") {
-    const enqueued = await params.store.enqueue(
-      {
-        issueKey,
-        notifyChannel: destination.channel,
-        notifyTarget: destination.target,
-        request: buildRunRequestFromCommand({
-          command: {
-            action: "start",
-            issue: {
-              owner: decision.issue.owner,
-              repo: decision.issue.repo,
-              number: decision.issue.number,
-            },
-          },
-          config: params.repoConfig,
-        }),
-      },
-      "Auto-started from issue webhook.",
-    );
+    const enqueued = await enqueueInteractiveIssueIntake({
+      store: params.store,
+      repoConfig: params.repoConfig,
+      issue: decision.issue,
+      destination,
+      status: "Auto-started from issue webhook.",
+    });
     if (!enqueued) {
       return await params.respondJson({
         accepted: false,
@@ -1137,6 +1253,130 @@ export default {
       path: "/plugins/openclawcode/github",
       auth: "plugin",
       handler: async (req, res) => await handleGithubWebhook(api, store, req, res),
+    });
+
+    api.registerCommand({
+      name: "occode-intake",
+      description: "Create a GitHub issue from chat and queue it for openclawcode execution.",
+      acceptsArgs: true,
+      handler: async (ctx) => {
+        const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
+        const defaultRepo = resolveDefaultRepoConfig(pluginConfig.repos);
+        const command = parseChatopsIssueDraftCommand(ctx.commandBody, {
+          owner: defaultRepo?.owner,
+          repo: defaultRepo?.repo,
+        });
+        if (!command) {
+          return {
+            text: [
+              "Usage: /occode-intake owner/repo",
+              "[issue title]",
+              "[issue body...]",
+              "Or, when exactly one repo is configured:",
+              "/occode-intake",
+              "[issue title]",
+              "[issue body...]",
+            ].join("\n"),
+          };
+        }
+
+        const repoConfig = resolveRepoConfig(pluginConfig.repos, command.repo);
+        if (!repoConfig) {
+          return {
+            text: `No openclawcode repo config found for ${command.repo.owner}/${command.repo.repo}.`,
+          };
+        }
+
+        const binding = await store.getRepoBinding(formatRepoKey(command.repo));
+        const destination = resolveInteractiveNotificationDestination({
+          ctx,
+          repoConfig,
+          binding,
+        });
+        const github = new GitHubRestClient();
+        let createdIssue: Awaited<ReturnType<GitHubRestClient["createIssue"]>>;
+        try {
+          createdIssue = await github.createIssue({
+            owner: repoConfig.owner,
+            repo: repoConfig.repo,
+            title: command.draft.title,
+            body: command.draft.body,
+          });
+        } catch (error) {
+          return {
+            text: `Failed to create a GitHub issue for ${repoConfig.owner}/${repoConfig.repo}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          };
+        }
+        const decision = decideIssueWebhookIntake({
+          event: buildSyntheticIssueWebhookEvent({ issue: createdIssue }),
+          config: {
+            ...repoConfig,
+            triggerLabels: [],
+            skipLabels: [],
+          },
+        });
+        const issueKey = formatIssueKey(createdIssue);
+        if (!decision.accept || !decision.issue) {
+          return {
+            text: [
+              `Created GitHub issue ${issueKey}.`,
+              createdIssue.url,
+              `Automatic intake was skipped: ${decision.reason}`,
+              `Use /occode-start ${issueKey} if you want to run it manually.`,
+            ].join("\n"),
+          };
+        }
+
+        if (decision.precheck?.decision === "escalate") {
+          const accepted = await recordPrecheckedEscalationSnapshot({
+            store,
+            issue: decision.issue,
+            destination,
+            summary: decision.precheck.summary,
+            suitabilityDecision: decision.precheck.decision,
+          });
+          if (!accepted) {
+            return {
+              text: [
+                `Created GitHub issue ${issueKey}.`,
+                createdIssue.url,
+                (await store.getStatus(issueKey)) ?? `${issueKey} is already tracked.`,
+              ].join("\n"),
+            };
+          }
+          return {
+            text: buildIntakeEscalatedMessage({
+              issue: createdIssue,
+              summary: decision.precheck.summary,
+            }),
+          };
+        }
+
+        const queued = await enqueueInteractiveIssueIntake({
+          store,
+          repoConfig,
+          issue: decision.issue,
+          destination,
+          status: "Queued from chat intake.",
+        });
+        if (!queued) {
+          return {
+            text: [
+              `Created GitHub issue ${issueKey}.`,
+              createdIssue.url,
+              (await store.getStatus(issueKey)) ?? `${issueKey} is already queued or running.`,
+            ].join("\n"),
+          };
+        }
+
+        return {
+          text: buildIntakeQueuedMessage({
+            issue: createdIssue,
+          }),
+        };
+      },
     });
 
     api.registerCommand({

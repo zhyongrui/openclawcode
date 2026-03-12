@@ -190,6 +190,21 @@ function pullRequestReviewWebhookPayload(params: {
   });
 }
 
+function createGitHubIssueResponse(params: {
+  issueNumber: number;
+  title: string;
+  body: string;
+  labels?: string[];
+}) {
+  return {
+    number: params.issueNumber,
+    title: params.title,
+    body: params.body,
+    html_url: `https://github.com/zhyongrui/openclawcode/issues/${params.issueNumber}`,
+    labels: (params.labels ?? []).map((name) => ({ name })),
+  };
+}
+
 async function waitForAssertion(
   assertion: () => void | Promise<void>,
   attempts = 20,
@@ -340,6 +355,7 @@ describe("openclawcode extension", () => {
     mocked.runMessageAction.mockReset();
     mocked.runMessageAction.mockResolvedValue({ kind: "send" });
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("records pending approvals and sends a chat prompt in approve mode", async () => {
@@ -967,6 +983,180 @@ describe("openclawcode extension", () => {
         params: expect.objectContaining({
           message: expect.stringContaining("auto-started"),
         }),
+      });
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("creates and queues a low-risk issue through /occode-intake", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      vi.stubEnv("GH_TOKEN", "test-token");
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify(
+            createGitHubIssueResponse({
+              issueNumber: 220,
+              title: "[Feature]: Expose issueCount in openclaw code run --json output",
+              body: "Summary\nAdd a stable top-level issueCount field.",
+            }),
+          ),
+          {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      const result = await fixture.commands.get("occode-intake")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: [
+          "/occode-intake",
+          "[Feature]: Expose issueCount in openclaw code run --json output",
+          "Summary",
+          "Add a stable top-level issueCount field.",
+        ].join("\n"),
+        args: "",
+        to: "user:intake-chat",
+        config: {},
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe(
+        "https://api.github.com/repos/zhyongrui/openclawcode/issues",
+      );
+      expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+        method: "POST",
+      });
+      expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+        title: "[Feature]: Expose issueCount in openclaw code run --json output",
+        body: "Summary\nAdd a stable top-level issueCount field.",
+      });
+      expect(result).toEqual({
+        text: [
+          "openclawcode created and queued a new GitHub issue from chat.",
+          "Issue: zhyongrui/openclawcode#220",
+          "Title: [Feature]: Expose issueCount in openclaw code run --json output",
+          "URL: https://github.com/zhyongrui/openclawcode/issues/220",
+          "Status: queued for execution",
+          "Use /occode-status zhyongrui/openclawcode#220 to inspect progress.",
+        ].join("\n"),
+      });
+
+      const snapshot = await fixture.store.snapshot();
+      expect(snapshot.queue).toHaveLength(1);
+      expect(snapshot.queue[0]).toMatchObject({
+        issueKey: "zhyongrui/openclawcode#220",
+        notifyChannel: "feishu",
+        notifyTarget: "user:intake-chat",
+        request: {
+          owner: "zhyongrui",
+          repo: "openclawcode",
+          issueNumber: 220,
+          branchName: "openclawcode/issue-220",
+        },
+      });
+      expect(snapshot.pendingApprovals).toEqual([]);
+      expect(snapshot.statusByIssue["zhyongrui/openclawcode#220"]).toBe("Queued from chat intake.");
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("prechecks high-risk /occode-intake issues into escalated snapshots", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      vi.stubEnv("GH_TOKEN", "test-token");
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify(
+              createGitHubIssueResponse({
+                issueNumber: 221,
+                title: "Rotate auth secrets for webhook permissions",
+                body: "Update authentication, secret handling, and permission checks.",
+                labels: ["security"],
+              }),
+            ),
+            {
+              status: 201,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        ),
+      );
+
+      const result = await fixture.commands.get("occode-intake")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: [
+          "/occode-intake",
+          "Rotate auth secrets for webhook permissions",
+          "Update authentication, secret handling, and permission checks.",
+        ].join("\n"),
+        args: "",
+        to: "user:intake-chat",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: [
+          "openclawcode created a new GitHub issue from chat, but suitability escalated it immediately.",
+          "Issue: zhyongrui/openclawcode#221",
+          "Title: Rotate auth secrets for webhook permissions",
+          "URL: https://github.com/zhyongrui/openclawcode/issues/221",
+          "Summary: Webhook intake precheck escalated the issue before chat approval. Issue text references high-risk areas: auth, secrets, security, permissions.",
+          "Use /occode-status zhyongrui/openclawcode#221 to inspect the tracked status.",
+        ].join("\n"),
+      });
+
+      const snapshot = await fixture.store.snapshot();
+      expect(snapshot.queue).toEqual([]);
+      expect(snapshot.pendingApprovals).toEqual([]);
+      expect(snapshot.statusSnapshotsByIssue["zhyongrui/openclawcode#221"]).toMatchObject({
+        stage: "escalated",
+        issueNumber: 221,
+        notifyChannel: "feishu",
+        notifyTarget: "user:intake-chat",
+        suitabilityDecision: "escalate",
+      });
+      expect(snapshot.statusByIssue["zhyongrui/openclawcode#221"]).toContain(
+        "Webhook intake precheck escalated the issue before chat approval",
+      );
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("requires both a title and body for /occode-intake", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      const result = await fixture.commands.get("occode-intake")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: ["/occode-intake", "[Feature]: Expose issueCount"].join("\n"),
+        args: "",
+        to: "user:intake-chat",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: [
+          "Usage: /occode-intake owner/repo",
+          "[issue title]",
+          "[issue body...]",
+          "Or, when exactly one repo is configured:",
+          "/occode-intake",
+          "[issue title]",
+          "[issue body...]",
+        ].join("\n"),
       });
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
