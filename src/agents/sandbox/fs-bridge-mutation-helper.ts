@@ -257,7 +257,14 @@ function buildPinnedMutationPlan(params: {
   return {
     checks: params.checks,
     recheckBeforeCommand: true,
-    script: ["set -eu", "python3 - \"$@\" <<'PY'", SANDBOX_PINNED_MUTATION_PYTHON, "PY"].join("\n"),
+    script: [
+      "set -eu",
+      "PYTHON_CODE=$(cat <<'PY'",
+      SANDBOX_PINNED_MUTATION_PYTHON,
+      "PY",
+      ")",
+      'python3 -c "$PYTHON_CODE" "$@"',
+    ].join("\n"),
     args: params.args,
   };
 }
