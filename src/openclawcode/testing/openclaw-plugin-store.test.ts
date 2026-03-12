@@ -30,7 +30,7 @@ function createQueuedRun(issueNumber: number) {
       branchName: `openclawcode/issue-${issueNumber}`,
       builderAgent: "main",
       verifierAgent: "main",
-      testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+      testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads"],
       openPullRequest: true,
       mergeOnApprove: true,
     },

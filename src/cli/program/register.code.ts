@@ -22,7 +22,7 @@ ${formatHelpExamples([
     "Plan and run the workflow for issue #123 in the current repo.",
   ],
   [
-    'openclaw code run --issue 123 --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs"',
+    'openclaw code run --issue 123 --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads"',
     "Run a targeted test command after the builder edits code.",
   ],
   [

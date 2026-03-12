@@ -149,7 +149,9 @@ Example direction:
             notifyTarget: "chat:123456",
             builderAgent: "main",
             verifierAgent: "main",
-            testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
             triggerLabels: ["openclawcode:auto"],
             skipLabels: ["openclawcode:manual-only"],
             openPullRequest: true,

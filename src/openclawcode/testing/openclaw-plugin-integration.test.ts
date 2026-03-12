@@ -21,7 +21,7 @@ const repoConfig = {
   notifyTarget: "chat:123",
   builderAgent: "main",
   verifierAgent: "main",
-  testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+  testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads"],
   triggerLabels: ["openclawcode:auto"],
   skipLabels: ["openclawcode:manual-only"],
   openPullRequest: true,
@@ -59,8 +59,10 @@ function createRun(): WorkflowRun {
         blockedFiles: [],
         summary: "Scope check passed for command-layer issue.",
       },
-      testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
-      testResults: ["PASS pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+      testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads"],
+      testResults: [
+        "PASS pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+      ],
       notes: [],
     },
     draftPullRequest: {
@@ -274,7 +276,7 @@ describe("openclaw plugin integration helpers", () => {
       branchName: "openclawcode/issue-46",
       builderAgent: "main",
       verifierAgent: "main",
-      testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+      testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads"],
       openPullRequest: true,
       mergeOnApprove: true,
     });
@@ -306,7 +308,7 @@ describe("openclaw plugin integration helpers", () => {
       branchName: "openclawcode/issue-47",
       builderAgent: "main",
       verifierAgent: "main",
-      testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+      testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads"],
       openPullRequest: true,
       mergeOnApprove: true,
     });

@@ -65,6 +65,8 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("--connect-timeout 2");
     expect(script).toContain("--max-time 5");
     expect(script).toContain("GitHub webhook subscription check");
+    expect(script).toContain("vitest.openclawcode.config.mjs");
+    expect(script).toContain("--pool threads");
   });
 
   it("keeps the webhook tunnel helper aligned with the required GitHub event set", async () => {
@@ -124,7 +126,41 @@ describeWithShell("openclawcode-setup-check.sh", () => {
       "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
       "utf8",
     );
-    await fs.writeFile(configFile, "{}\n", "utf8");
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "approve",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:strict-root",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
     await fs.writeFile(
       stateFile,
       `${JSON.stringify(
@@ -221,7 +257,41 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
       "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
       "utf8",
     );
-    await fs.writeFile(configFile, "{}\n", "utf8");
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "approve",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:strict-root",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
     await fs.writeFile(
       stateFile,
       `${JSON.stringify(
@@ -321,7 +391,41 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
       ].join("\n"),
       "utf8",
     );
-    await fs.writeFile(configFile, "{}\n", "utf8");
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "approve",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:strict-root",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
     await fs.writeFile(
       stateFile,
       `${JSON.stringify(
@@ -397,7 +501,125 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
       "[PASS] GitHub webhook 123456 subscribed to required events: issues,pull_request,pull_request_review",
     );
     expect(result.stdout).toContain(
+      "[PASS] repo test commands avoid the known vitest worker timeout trap",
+    );
+    expect(result.stdout).toContain(
       "[PASS] trycloudflare tunnel running: https://strict-root.trycloudflare.com",
+    );
+  });
+
+  it("fails when repo test commands use vitest.openclawcode.config.mjs without --pool threads", async () => {
+    const rootDir = await createTempDir();
+    tempRoots.add(rootDir);
+    const repoRoot = path.join(rootDir, "repo");
+    const distDir = path.join(repoRoot, "dist");
+    const binDir = path.join(rootDir, "bin");
+    const envFile = path.join(rootDir, "openclawcode.env");
+    const configFile = path.join(rootDir, "openclaw.json");
+    const stateFile = path.join(rootDir, "chatops-state.json");
+    const scriptPath = path.resolve("scripts/openclawcode-setup-check.sh");
+    const realPythonPath = resolveRealPythonPath();
+
+    await fs.mkdir(distDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    await fs.writeFile(path.join(distDir, "index.js"), "console.log('ok');\n", "utf8");
+    await fs.writeFile(
+      envFile,
+      "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "auto",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:primary",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await fs.writeFile(
+      stateFile,
+      `${JSON.stringify(
+        {
+          repoBindingsByRepo: {
+            "zhyongrui/openclawcode": {
+              repoKey: "zhyongrui/openclawcode",
+              notifyChannel: "feishu",
+              notifyTarget: "user:bound-chat",
+              updatedAt: "2026-03-12T07:00:00.000Z",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    await writeExecutable(
+      path.join(binDir, "python3"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+script="$(cat)"
+if [[ "$script" == *"socket.create_connection"* ]]; then
+  exit 0
+fi
+if [[ "$script" == *"hmac.new"* ]]; then
+  printf 'sha256=test-signature\\n'
+  exit 0
+fi
+printf '%s' "$script" | "${realPythonPath}" "$@"
+`,
+    );
+    await writeExecutable(
+      path.join(binDir, "curl"),
+      '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'{"accepted":false,"reason":"unconfigured-repo"}\\n202\'\n',
+    );
+
+    const result = runSetupCheck(scriptPath, {
+      ...process.env,
+      PATH: `${binDir}:${process.env.PATH ?? ""}`,
+      OPENCLAWCODE_SETUP_REPO_ROOT: repoRoot,
+      OPENCLAWCODE_SETUP_ENV_FILE: envFile,
+      OPENCLAWCODE_SETUP_CONFIG_FILE: configFile,
+      OPENCLAWCODE_SETUP_STATE_FILE: stateFile,
+      OPENCLAWCODE_SETUP_GATEWAY_URL: "http://127.0.0.1:18789",
+      OPENCLAWCODE_SETUP_WEBHOOK_ROUTE: "/plugins/openclawcode/github",
+      OPENCLAWCODE_GITHUB_REPO: "zhyongrui/openclawcode",
+      OPENCLAWCODE_TUNNEL_LOG_FILE: path.join(rootDir, "tunnel.log"),
+      OPENCLAWCODE_TUNNEL_PID_FILE: path.join(rootDir, "tunnel.pid"),
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain(
+      "[FAIL] repo test command for zhyongrui/openclawcode must add --pool threads when using vitest.openclawcode.config.mjs",
     );
   });
 

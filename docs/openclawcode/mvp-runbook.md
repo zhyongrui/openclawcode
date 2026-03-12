@@ -52,7 +52,7 @@ openclaw code run \
   --owner zhyongrui \
   --repo openclawcode \
   --repo-root /home/zyr/pros/openclawcode \
-  --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs"
+  --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads"
 ```
 
 This will:
@@ -72,7 +72,7 @@ openclaw code run \
   --owner zhyongrui \
   --repo openclawcode \
   --repo-root /home/zyr/pros/openclawcode \
-  --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs" \
+  --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads" \
   --open-pr
 ```
 
@@ -86,7 +86,7 @@ openclaw code run \
   --owner zhyongrui \
   --repo openclawcode \
   --repo-root /home/zyr/pros/openclawcode \
-  --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs" \
+  --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads" \
   --open-pr \
   --merge-on-approve
 ```
@@ -103,7 +103,7 @@ openclaw code run \
   --owner zhyongrui \
   --repo openclawcode \
   --repo-root /home/zyr/pros/openclawcode \
-  --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs"
+  --test "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads"
 ```
 
 Use `OPENCLAWCODE_ENABLE_FS_TOOLS=edit,write` only when you intentionally want

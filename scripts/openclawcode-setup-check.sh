@@ -329,6 +329,86 @@ PY
   fi
 }
 
+check_repo_test_commands() {
+  if [[ ! -f "$CONFIG_FILE" ]]; then
+    return
+  fi
+
+  local result
+  if ! result="$(
+    python3 - "$CONFIG_FILE" "$GITHUB_REPO" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+repo_key = sys.argv[2]
+
+with config_path.open("r", encoding="utf-8") as handle:
+    config = json.load(handle)
+
+entries = ((config.get("plugins") or {}).get("entries") or {})
+plugin = entries.get("openclawcode") or {}
+repos = (((plugin.get("config") or {}).get("repos")) or [])
+
+match = None
+for repo in repos:
+    if not isinstance(repo, dict):
+        continue
+    owner = repo.get("owner")
+    name = repo.get("repo")
+    if isinstance(owner, str) and isinstance(name, str) and f"{owner}/{name}" == repo_key:
+        match = repo
+        break
+
+if match is None:
+    print(json.dumps({"found": False, "unsafe": []}))
+    raise SystemExit(0)
+
+unsafe = []
+for command in match.get("testCommands") or []:
+    if not isinstance(command, str):
+        continue
+    if "vitest.openclawcode.config.mjs" in command and "--pool threads" not in command:
+      unsafe.append(command)
+
+print(json.dumps({"found": True, "unsafe": unsafe}))
+PY
+  )"; then
+    fail "unable to inspect repo test commands in ${CONFIG_FILE}"
+    return
+  fi
+
+  local verdict
+  verdict="$(
+    python3 - "$result" <<'PY'
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+if not payload.get("found"):
+    print("missing")
+elif payload.get("unsafe"):
+    print("\n".join(payload["unsafe"]))
+    raise SystemExit(2)
+else:
+    print("safe")
+PY
+  )" || {
+    local code=$?
+    if [[ "$code" -eq 2 ]]; then
+      fail "repo test command for ${GITHUB_REPO} must add --pool threads when using vitest.openclawcode.config.mjs"
+    else
+      fail "unable to evaluate repo test commands in ${CONFIG_FILE}"
+    fi
+    return
+  }
+
+  if [[ "$verdict" == "safe" ]]; then
+    pass "repo test commands avoid the known vitest worker timeout trap"
+  fi
+}
+
 check_github_hook_subscription() {
   if [[ -z "$GITHUB_HOOK_ID" ]]; then
     warn "GitHub hook id missing; webhook event subscription was not verified"
@@ -472,6 +552,7 @@ check_github_token
 check_gateway_port
 check_route_probe
 check_repo_binding
+check_repo_test_commands
 check_github_hook_subscription
 check_tunnel_status
 print_summary_and_exit

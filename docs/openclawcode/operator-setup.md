@@ -104,7 +104,9 @@ Add or update the bundled plugin entry in
               notifyTarget: "<bootstrap-target>",
               builderAgent: "main",
               verifierAgent: "main",
-              testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+              testCommands: [
+                "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+              ],
               openPullRequest: true,
               mergeOnApprove: false,
             },

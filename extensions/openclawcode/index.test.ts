@@ -310,7 +310,9 @@ async function registerPluginFixture(params?: {
             notifyTarget: "chat:primary",
             builderAgent: "main",
             verifierAgent: "main",
-            testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
           },
         ],
       },
@@ -1594,7 +1596,9 @@ describe("openclawcode extension", () => {
             branchName: "openclawcode/issue-303",
             builderAgent: "main",
             verifierAgent: "main",
-            testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
             openPullRequest: true,
             mergeOnApprove: true,
           },
@@ -1615,7 +1619,9 @@ describe("openclawcode extension", () => {
             branchName: "openclawcode/issue-302",
             builderAgent: "main",
             verifierAgent: "main",
-            testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
             openPullRequest: true,
             mergeOnApprove: true,
             rerunContext: {

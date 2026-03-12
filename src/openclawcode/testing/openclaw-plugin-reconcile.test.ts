@@ -120,7 +120,9 @@ describe("openclaw plugin local-run reconciliation", () => {
         notifyTarget: "chat:1",
         builderAgent: "main",
         verifierAgent: "main",
-        testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+        testCommands: [
+          "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+        ],
       });
 
       expect(statuses).toHaveLength(1);
@@ -171,7 +173,9 @@ describe("openclaw plugin local-run reconciliation", () => {
         notifyTarget: "chat:1",
         builderAgent: "main",
         verifierAgent: "main",
-        testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+        testCommands: [
+          "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+        ],
       });
 
       expect(statuses).toHaveLength(1);
@@ -229,7 +233,9 @@ describe("openclaw plugin local-run reconciliation", () => {
         notifyTarget: "chat:1",
         builderAgent: "main",
         verifierAgent: "main",
-        testCommands: ["pnpm exec vitest run --config vitest.openclawcode.config.mjs"],
+        testCommands: [
+          "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+        ],
       });
 
       expect(statuses).toHaveLength(1);
