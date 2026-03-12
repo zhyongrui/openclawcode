@@ -64,6 +64,9 @@ real bundled OpenClaw chatops adapter:
 - explicit chat-side issue drafting that can create a GitHub issue from the
   current chat and route it through the same suitability precheck and queue
   path as webhook-created issues
+- `/occode-intake` now also accepts a single-line request and synthesizes a
+  minimal issue body automatically, which narrows the gap toward more natural
+  chat-native intake
 - persisted plugin queue state with structured workflow status snapshots
 - local-run reconciliation from `.openclawcode/runs`, including PR continuity
   recovery when a newer rerun artifact omits draft PR metadata

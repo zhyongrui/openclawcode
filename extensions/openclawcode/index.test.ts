@@ -1152,13 +1152,84 @@ describe("openclawcode extension", () => {
     }
   });
 
-  it("requires both a title and body for /occode-intake", async () => {
+  it("accepts a one-line request for /occode-intake and synthesizes a minimal body", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      vi.stubEnv("GH_TOKEN", "test-token");
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify(
+            createGitHubIssueResponse({
+              issueNumber: 222,
+              title: "Expose issueCount in openclaw code run --json output",
+              body: [
+                "Summary",
+                "Expose issueCount in openclaw code run --json output",
+                "",
+                "Problem to solve",
+                "This issue was drafted directly from chat intake and needs the workflow to translate the request into the concrete code change.",
+                "",
+                "Requested from chat intake",
+                "Expose issueCount in openclaw code run --json output",
+              ].join("\n"),
+            }),
+          ),
+          {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      const result = await fixture.commands.get("occode-intake")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: [
+          "/occode-intake",
+          "Expose issueCount in openclaw code run --json output",
+        ].join("\n"),
+        args: "",
+        to: "user:intake-chat",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: [
+          "openclawcode created and queued a new GitHub issue from chat.",
+          "Issue: zhyongrui/openclawcode#222",
+          "Title: Expose issueCount in openclaw code run --json output",
+          "URL: https://github.com/zhyongrui/openclawcode/issues/222",
+          "Status: queued for execution",
+          "Use /occode-status zhyongrui/openclawcode#222 to inspect progress.",
+        ].join("\n"),
+      });
+      expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+        title: "Expose issueCount in openclaw code run --json output",
+        body: [
+          "Summary",
+          "Expose issueCount in openclaw code run --json output",
+          "",
+          "Problem to solve",
+          "This issue was drafted directly from chat intake and needs the workflow to translate the request into the concrete code change.",
+          "",
+          "Requested from chat intake",
+          "Expose issueCount in openclaw code run --json output",
+        ].join("\n"),
+      });
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("requires a non-empty title or request line for /occode-intake", async () => {
     const fixture = await registerPluginFixture();
     try {
       const result = await fixture.commands.get("occode-intake")?.handler({
         channel: "feishu",
         isAuthorizedSender: true,
-        commandBody: ["/occode-intake", "[Feature]: Expose issueCount"].join("\n"),
+        commandBody: "/occode-intake",
         args: "",
         to: "user:intake-chat",
         config: {},
@@ -1167,12 +1238,12 @@ describe("openclawcode extension", () => {
       expect(result).toEqual({
         text: [
           "Usage: /occode-intake owner/repo",
-          "[issue title]",
-          "[issue body...]",
+          "[issue title or one-line request]",
+          "[optional issue body...]",
           "Or, when exactly one repo is configured:",
           "/occode-intake",
-          "[issue title]",
-          "[issue body...]",
+          "[issue title or one-line request]",
+          "[optional issue body...]",
         ].join("\n"),
       });
     } finally {

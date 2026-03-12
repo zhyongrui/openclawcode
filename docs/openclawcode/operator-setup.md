@@ -278,6 +278,16 @@ Detailed issue body...
 That should create the GitHub issue, queue low-risk work immediately, and still
 precheck obviously high-risk text into an `escalated` snapshot.
 
+For lighter-weight intake, a single request line is now enough too:
+
+```text
+/occode-intake
+Expose stageRecordCount in openclaw code run --json output
+```
+
+That path synthesizes a minimal issue body automatically before creating the
+GitHub issue.
+
 You can also validate the operator-facing validation inventory from the same
 conversation:
 

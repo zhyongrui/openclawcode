@@ -517,7 +517,7 @@ export function parseChatopsIssueDraftCommand(
     .slice(firstContentIndex + 1)
     .join("\n")
     .trim();
-  if (!title || !body) {
+  if (!title) {
     return null;
   }
 
@@ -526,9 +526,22 @@ export function parseChatopsIssueDraftCommand(
     repo,
     draft: {
       title,
-      body,
+      body: body || buildMinimalChatIssueBody(title),
     },
   };
+}
+
+function buildMinimalChatIssueBody(title: string): string {
+  return [
+    "Summary",
+    title,
+    "",
+    "Problem to solve",
+    "This issue was drafted directly from chat intake and needs the workflow to translate the request into the concrete code change.",
+    "",
+    "Requested from chat intake",
+    title,
+  ].join("\n");
 }
 
 function defaultBranchName(issueNumber: number): string {

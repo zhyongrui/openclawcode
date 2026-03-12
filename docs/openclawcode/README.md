@@ -47,6 +47,8 @@ loop with:
   notifications for tracked lifecycle changes
 - explicit chat-side issue drafting via `/occode-intake`, which can:
   - create a new GitHub issue from the bound chat
+  - accept either a full issue draft or a single-line request and synthesize a
+    minimal issue body automatically
   - queue low-risk issues immediately through the existing workflow path
   - precheck obvious high-risk issues into `escalated` snapshots before any
     branch mutation

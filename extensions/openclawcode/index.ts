@@ -1490,12 +1490,12 @@ export default {
           return {
             text: [
               "Usage: /occode-intake owner/repo",
-              "[issue title]",
-              "[issue body...]",
+              "[issue title or one-line request]",
+              "[optional issue body...]",
               "Or, when exactly one repo is configured:",
               "/occode-intake",
-              "[issue title]",
-              "[issue body...]",
+              "[issue title or one-line request]",
+              "[optional issue body...]",
             ].join("\n"),
           };
         }
