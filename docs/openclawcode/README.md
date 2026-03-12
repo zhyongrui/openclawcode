@@ -65,6 +65,17 @@ loop with:
 - transient provider failures such as `HTTP 400: Internal server error` now get
   one narrow retry window in the builder/verifier path before the workflow
   gives up
+- openclawcode issue-worktree runs now disable the embedded Pi SDK's inner
+  retry loop, so provider-side transient failures surface through the workflow
+  retry policy instead of silently stretching one builder attempt
+- live rerun proof on issue `#71` now confirms that repeated provider-side
+  `HTTP 400` failures surface as `Build failed: HTTP 400: Internal server error`
+  in `/occode-status` instead of drifting into a later verifier parse failure
+- fresh live rerun proofs on issues `#71` and `#66` now confirm that:
+  - each outer builder retry creates a fresh embedded session that records only
+    one assistant `400 Internal server error`
+  - repeated fresh failures still reactivate the queue-level provider pause
+    instead of continuing to drain the queue during provider instability
 - local-run reconciliation that can recover tracked PR linkage from older run
   artifacts when a newer rerun artifact omits draft PR metadata
 - merge-based reusable worktree refresh that:
@@ -249,6 +260,10 @@ loop with:
 
 Still pending for a fuller product loop:
 
+- surfacing active provider pause and recovery expectations even more clearly
+  across operator-facing status surfaces
+- tightening outer retry latency during provider-instability windows now that
+  the embedded SDK retry loop is clamped for openclawcode worktrees
 - consuming the replenished validation pool through new live proofs, then
   reseeding it before it runs dry again
 - lifting chat intake from explicit command syntax to a more natural

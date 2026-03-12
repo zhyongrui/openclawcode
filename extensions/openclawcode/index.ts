@@ -177,6 +177,32 @@ function buildValidationPoolLines(summary: ValidationPoolSummary | undefined): s
   return lines;
 }
 
+function buildProviderPauseLines(params: {
+  pause:
+    | {
+        until: string;
+        triggeredAt: string;
+        lastFailureAt: string;
+        failureCount: number;
+        reason: string;
+      }
+    | undefined;
+  now?: string;
+}): string[] {
+  if (!params.pause) {
+    return [];
+  }
+  const now = params.now ?? new Date().toISOString();
+  if (params.pause.until <= now) {
+    return [];
+  }
+  return [
+    `Provider pause: active until ${params.pause.until}`,
+    `- failures: ${params.pause.failureCount} | last failure: ${params.pause.lastFailureAt}`,
+    `- reason: ${params.pause.reason}`,
+  ];
+}
+
 async function appendValidationIssueStatusContext(params: {
   text: string;
   issue: { owner: string; repo: string; number: number };
@@ -500,6 +526,7 @@ function buildInboxMessage(params: {
     .slice(0, 5);
 
   const lines = [`openclawcode inbox for ${repoKey}`];
+  lines.push(...buildProviderPauseLines({ pause: params.state.providerPause }));
 
   if (pending.length > 0) {
     lines.push(`Pending approvals: ${pending.length}`);
@@ -1338,6 +1365,10 @@ async function processNextQueuedRun(
   store: OpenClawCodeChatopsStore,
 ): Promise<void> {
   if (workerActive) {
+    return;
+  }
+  const providerPause = await store.getActiveProviderPause();
+  if (providerPause) {
     return;
   }
   const next = await store.startNext();

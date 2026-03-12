@@ -5,6 +5,7 @@ import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawCodeChatopsStore } from "../../src/integrations/openclaw-plugin/index.js";
+import type { WorkflowRun } from "../../src/openclawcode/contracts/index.js";
 import type {
   OpenClawPluginCommandDefinition,
   OpenClawPluginService,
@@ -297,6 +298,66 @@ async function writeLocalRun(params: {
   );
 }
 
+function buildTransientProviderFailedStatus(issueNumber: number): string {
+  return [
+    `openclawcode status for zhyongrui/openclawcode#${issueNumber}`,
+    "Stage: Failed",
+    "Summary: Build failed: HTTP 400: Internal server error",
+  ].join("\n");
+}
+
+function createWorkflowRun(params: {
+  issueNumber: number;
+  stage?: WorkflowRun["stage"];
+  updatedAt?: string;
+}): WorkflowRun {
+  const updatedAt = params.updatedAt ?? "2026-03-12T12:00:00.000Z";
+  return {
+    id: `run-${params.issueNumber}`,
+    stage: params.stage ?? "ready-for-human-review",
+    issue: {
+      owner: "zhyongrui",
+      repo: "openclawcode",
+      number: params.issueNumber,
+      title: `Issue ${params.issueNumber}`,
+      labels: [],
+    },
+    createdAt: updatedAt,
+    updatedAt,
+    attempts: {
+      total: 1,
+      planning: 1,
+      building: 1,
+      verifying: 1,
+    },
+    stageRecords: [],
+    history: [],
+    workspace: {
+      repoRoot: "/home/zyr/pros/openclawcode",
+      baseBranch: "main",
+      branchName: `openclawcode/issue-${params.issueNumber}`,
+      worktreePath: `/tmp/openclawcode-${params.issueNumber}`,
+      preparedAt: updatedAt,
+    },
+    buildResult: {
+      branchName: `openclawcode/issue-${params.issueNumber}`,
+      summary: `Summary for issue ${params.issueNumber}`,
+      changedFiles: ["src/example.ts"],
+      issueClassification: "command-layer",
+      testCommands: [],
+      testResults: [],
+      notes: [],
+    },
+    verificationReport: {
+      decision: "approve-for-human-review",
+      summary: `Summary for issue ${params.issueNumber}`,
+      findings: [],
+      missingCoverage: [],
+      followUps: [],
+    },
+  };
+}
+
 async function registerPluginFixture(params?: {
   triggerMode?: "approve" | "auto";
   repoRoot?: string;
@@ -421,6 +482,11 @@ describe("openclawcode extension", () => {
       ]);
       expect(snapshot.queue).toEqual([]);
     } finally {
+      await fixture.service?.stop?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
     }
@@ -2244,6 +2310,126 @@ describe("openclawcode extension", () => {
           "- #60 | operator-docs | operator-doc-note | [Docs]: Clarify copied-root fresh-operator proof expectations",
           "- #66 | command-layer | command-json-number | [Feature]: Expose stageRecordCount in openclaw code run --json output",
         ].join("\n"),
+      });
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("shows an active provider pause through /occode-inbox", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 6601,
+          stage: "failed",
+          updatedAt: "2099-03-12T12:00:00.000Z",
+        }),
+        buildTransientProviderFailedStatus(6601),
+      );
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 6602,
+          stage: "failed",
+          updatedAt: "2099-03-12T12:05:00.000Z",
+        }),
+        buildTransientProviderFailedStatus(6602),
+      );
+
+      const result = await fixture.commands.get("occode-inbox")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-inbox",
+        args: "",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: [
+          "openclawcode inbox for zhyongrui/openclawcode",
+          "Provider pause: active until 2099-03-12T12:15:00.000Z",
+          "- failures: 2 | last failure: 2099-03-12T12:05:00.000Z",
+          "- reason: Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
+          "Pending approvals: 0",
+          "Running: 0",
+          "Queued: 0",
+          "Recent ledger: 2",
+          "- zhyongrui/openclawcode#6602 | Failed | final: failed | 2099-03-12T12:05:00.000Z",
+          "- zhyongrui/openclawcode#6601 | Failed | final: failed | 2099-03-12T12:00:00.000Z",
+        ].join("\n"),
+      });
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not start queued work while a provider pause is active", async () => {
+    const fixture = await registerPluginFixture({ pollIntervalMs: 10 });
+    try {
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 6701,
+          stage: "failed",
+          updatedAt: "2099-03-12T12:00:00.000Z",
+        }),
+        buildTransientProviderFailedStatus(6701),
+      );
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 6702,
+          stage: "failed",
+          updatedAt: "2099-03-12T12:05:00.000Z",
+        }),
+        buildTransientProviderFailedStatus(6702),
+      );
+      await fixture.store.enqueue(
+        {
+          issueKey: "zhyongrui/openclawcode#6703",
+          notifyChannel: "feishu",
+          notifyTarget: "user:pause-chat",
+          request: {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            issueNumber: 6703,
+            repoRoot: fixture.repoRoot,
+            baseBranch: "main",
+            branchName: "openclawcode/issue-6703",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
+            openPullRequest: true,
+            mergeOnApprove: false,
+          },
+        },
+        "Queued from test.",
+      );
+
+      await fixture.service?.start({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      await waitForAssertion(async () => {
+        expect(fixture.runCommandWithTimeout).not.toHaveBeenCalled();
+        const snapshot = await fixture.store.snapshot();
+        expect(snapshot.currentRun).toBeUndefined();
+        expect(snapshot.queue.map((entry) => entry.issueKey)).toEqual([
+          "zhyongrui/openclawcode#6703",
+        ]);
+        expect(snapshot.providerPause).toMatchObject({
+          failureCount: 2,
+        });
+      });
+
+      await fixture.service?.stop?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
       });
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });

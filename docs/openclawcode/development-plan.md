@@ -78,6 +78,10 @@ real bundled OpenClaw chatops adapter:
   successful build summary
 - transient provider failures such as `HTTP 400: Internal server error` now get
   one narrow builder/verifier retry window before the workflow gives up
+- openclawcode issue-worktree runs now disable the embedded Pi SDK's inner
+  retry loop so provider-side transient failures surface through the workflow's
+  own builder/verifier retry policy instead of silently stretching a single
+  build attempt
 - GitHub-side healing for:
   - merged PRs
   - approved reviews
@@ -210,8 +214,26 @@ turning the working loop into a cleanly operable product:
     summary
   - `/occode-status` then surfaced the stale build summary instead of the true
     failing stage note
-  - both behaviors are now fixed and ready for live rerun validation on the
-    same issue
+  - both behaviors are now fixed
+- a fresh live rerun proof on issue `#71` is now complete:
+  - rerun `zhyongrui-openclawcode-71-1773319180096` failed directly in the
+    build stage on the same repeated provider-side `HTTP 400` condition
+  - `/occode-status #71` now surfaces
+    `Build failed: HTTP 400: Internal server error`
+    instead of the old stale verification-path summary
+  - this confirms the remaining blocker is upstream model stability, not local
+    workflow-fidelity drift
+- a second live provider-instability proof is now complete on the updated
+  operator build:
+  - rerun `zhyongrui-openclawcode-71-1773321945403` failed in the build stage
+    after two outer builder attempts, with each embedded builder session
+    emitting only one assistant `400 Internal server error`
+  - rerun `zhyongrui-openclawcode-66-1773322176634` behaved the same way and
+    reactivated the queue-level provider pause with two fresh failures in the
+    rolling window
+  - this confirms both halves of the guardrail now hold live:
+    - single builder attempts no longer burn multiple hidden provider retries
+    - repeated fresh workflow failures still pause queue consumption
 - policy docs are now in sync with the live-tested guarded auto-merge behavior
 - the next engineering priority is now consume-and-reseed workflow plus
   broader chat-native intake behavior
@@ -235,6 +257,12 @@ The short-term objective is:
   bridge toward more natural chat-driven issue drafting
 - keep operator-facing validation-pool surfaces stable so the pool can be
   maintained without dropping into CLI
+- keep the repaired failed-run summaries stable so provider-side errors stay
+  attributable to the build/verifier stage that actually failed
+- keep the new openclawcode-worktree retry clamp stable so the outer workflow
+  owns provider backoff instead of the embedded SDK
+- keep provider-pause activation observable and predictable after fresh
+  transient failures
 - keep `main` usable as the live validation base instead of letting the real
   runner drift behind the latest integration work
 - keep the now-proven merged-PR path stable on refreshed integration branches
@@ -1101,17 +1129,16 @@ Why next:
 
 The next implementation slice should follow this order:
 
-1. keep the validation pool above one low-risk command-layer issue and one
+1. keep the provider-pause signal visible from operator surfaces while the
+   upstream model path is unstable
+2. tighten the remaining outer builder/verifier retry latency now that
+   openclawcode worktrees no longer hide inner SDK retries
+3. keep the validation pool above one low-risk command-layer issue and one
    low-risk docs/operator issue by using `openclaw code seed-validation-issue`
-2. consume the refreshed command-layer issues `#63` and `#64` on the long-lived
-   `main` baseline, then reseed immediately so the command-layer pool returns
-   to at least two open issues
-3. do the same for docs/operator issue `#60`, or explicitly leave one open so
-   that pool never returns to zero
-4. keep `openclaw code list-validation-issues` as the canonical inventory view
+4. consume and reseed that pool on the long-lived `main` baseline once the
+   provider pause clears and the model path is stable again
+5. keep `openclaw code list-validation-issues` as the canonical inventory view
    and mirror the same pool signal into operator-facing status surfaces
-5. broaden the pool beyond boolean-only command issues if the open pool becomes
-   too homogeneous for future live proofs
 6. update the dev log after each live proof and commit only after targeted
    validation passes
 

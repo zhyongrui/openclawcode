@@ -69,6 +69,21 @@ export interface OpenClawCodeGitHubDeliveryRecord {
   pullRequestNumber?: number;
 }
 
+export interface OpenClawCodeTransientProviderFailureRecord {
+  issueKey: string;
+  runId: string;
+  failedAt: string;
+  summary: string;
+}
+
+export interface OpenClawCodeProviderPause {
+  until: string;
+  triggeredAt: string;
+  lastFailureAt: string;
+  failureCount: number;
+  reason: string;
+}
+
 interface OpenClawCodeQueueState {
   version: 1;
   pendingApprovals: OpenClawCodePendingApproval[];
@@ -78,9 +93,15 @@ interface OpenClawCodeQueueState {
   statusSnapshotsByIssue: Record<string, OpenClawCodeIssueStatusSnapshot>;
   repoBindingsByRepo: Record<string, OpenClawCodeRepoNotificationBinding>;
   githubDeliveriesById: Record<string, OpenClawCodeGitHubDeliveryRecord>;
+  recentProviderFailures: OpenClawCodeTransientProviderFailureRecord[];
+  providerPause?: OpenClawCodeProviderPause;
 }
 
 const MAX_GITHUB_DELIVERY_RECORDS = 200;
+const PROVIDER_FAILURE_WINDOW_MS = 15 * 60_000;
+const PROVIDER_PAUSE_MS = 10 * 60_000;
+const PROVIDER_FAILURE_THRESHOLD = 2;
+const PROVIDER_INTERNAL_ERROR_PATTERN = /HTTP 400:\s*Internal server error/i;
 
 function cloneDefaultState(): OpenClawCodeQueueState {
   return {
@@ -91,6 +112,7 @@ function cloneDefaultState(): OpenClawCodeQueueState {
     statusSnapshotsByIssue: {},
     repoBindingsByRepo: {},
     githubDeliveriesById: {},
+    recentProviderFailures: [],
   };
 }
 
@@ -228,6 +250,52 @@ function normalizeGitHubDeliveryRecord(raw: unknown): OpenClawCodeGitHubDelivery
   };
 }
 
+function normalizeTransientProviderFailureRecord(
+  raw: unknown,
+): OpenClawCodeTransientProviderFailureRecord | undefined {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  const candidate = raw as Partial<OpenClawCodeTransientProviderFailureRecord>;
+  if (
+    typeof candidate.issueKey !== "string" ||
+    typeof candidate.runId !== "string" ||
+    typeof candidate.failedAt !== "string" ||
+    typeof candidate.summary !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    issueKey: candidate.issueKey,
+    runId: candidate.runId,
+    failedAt: candidate.failedAt,
+    summary: candidate.summary,
+  };
+}
+
+function normalizeProviderPause(raw: unknown): OpenClawCodeProviderPause | undefined {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  const candidate = raw as Partial<OpenClawCodeProviderPause>;
+  if (
+    typeof candidate.until !== "string" ||
+    typeof candidate.triggeredAt !== "string" ||
+    typeof candidate.lastFailureAt !== "string" ||
+    typeof candidate.failureCount !== "number" ||
+    typeof candidate.reason !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    until: candidate.until,
+    triggeredAt: candidate.triggeredAt,
+    lastFailureAt: candidate.lastFailureAt,
+    failureCount: candidate.failureCount,
+    reason: candidate.reason,
+  };
+}
+
 function buildStatusSnapshot(params: {
   run: WorkflowRun;
   status: string;
@@ -266,6 +334,70 @@ function buildStatusSnapshot(params: {
   };
 }
 
+function isTransientProviderFailureStatus(status: string): boolean {
+  return PROVIDER_INTERNAL_ERROR_PATTERN.test(status);
+}
+
+function pruneRecentProviderFailures(
+  entries: OpenClawCodeTransientProviderFailureRecord[],
+  referenceAt: string,
+): OpenClawCodeTransientProviderFailureRecord[] {
+  const cutoff = new Date(referenceAt).getTime() - PROVIDER_FAILURE_WINDOW_MS;
+  return entries.filter((entry) => new Date(entry.failedAt).getTime() >= cutoff);
+}
+
+function buildProviderPause(
+  failures: OpenClawCodeTransientProviderFailureRecord[],
+): OpenClawCodeProviderPause | undefined {
+  if (failures.length < PROVIDER_FAILURE_THRESHOLD) {
+    return undefined;
+  }
+  const lastFailureAt = failures[failures.length - 1]?.failedAt;
+  if (!lastFailureAt) {
+    return undefined;
+  }
+  return {
+    until: new Date(new Date(lastFailureAt).getTime() + PROVIDER_PAUSE_MS).toISOString(),
+    triggeredAt: lastFailureAt,
+    lastFailureAt,
+    failureCount: failures.length,
+    reason: [
+      `Paused after ${failures.length} recent provider-side transient failures.`,
+      "Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
+    ].join(" "),
+  };
+}
+
+function applyProviderFailureStateFromSnapshot(
+  state: OpenClawCodeQueueState,
+  snapshot: OpenClawCodeIssueStatusSnapshot,
+): void {
+  if (snapshot.stage !== "failed") {
+    state.recentProviderFailures = [];
+    state.providerPause = undefined;
+    return;
+  }
+
+  const recent = pruneRecentProviderFailures(state.recentProviderFailures, snapshot.updatedAt);
+  if (!isTransientProviderFailureStatus(snapshot.status)) {
+    state.recentProviderFailures = recent;
+    state.providerPause =
+      state.providerPause && state.providerPause.until > snapshot.updatedAt
+        ? state.providerPause
+        : undefined;
+    return;
+  }
+
+  recent.push({
+    issueKey: snapshot.issueKey,
+    runId: snapshot.runId,
+    failedAt: snapshot.updatedAt,
+    summary: snapshot.status,
+  });
+  state.recentProviderFailures = recent;
+  state.providerPause = buildProviderPause(recent);
+}
+
 function normalizeState(raw: unknown): OpenClawCodeQueueState {
   if (!raw || typeof raw !== "object") {
     return cloneDefaultState();
@@ -301,6 +433,12 @@ function normalizeState(raw: unknown): OpenClawCodeQueueState {
       return record ? [[deliveryId, record]] : [];
     }),
   );
+  const recentProviderFailures = Array.isArray(candidate.recentProviderFailures)
+    ? candidate.recentProviderFailures.flatMap((value) => {
+        const record = normalizeTransientProviderFailureRecord(value);
+        return record ? [record] : [];
+      })
+    : [];
   return {
     version: 1,
     pendingApprovals: Array.isArray(candidate.pendingApprovals) ? candidate.pendingApprovals : [],
@@ -316,6 +454,8 @@ function normalizeState(raw: unknown): OpenClawCodeQueueState {
     statusSnapshotsByIssue,
     repoBindingsByRepo,
     githubDeliveriesById,
+    recentProviderFailures,
+    providerPause: normalizeProviderPause(candidate.providerPause),
   };
 }
 
@@ -455,6 +595,7 @@ export class OpenClawCodeChatopsStore {
       });
       state.statusByIssue[snapshot.issueKey] = status;
       state.statusSnapshotsByIssue[snapshot.issueKey] = snapshot;
+      applyProviderFailureStateFromSnapshot(state, snapshot);
     });
   }
 
@@ -576,7 +717,10 @@ export class OpenClawCodeChatopsStore {
     }>,
   ): Promise<void> {
     await this.mutateState((state) => {
-      for (const record of records) {
+      const orderedRecords = [...records].toSorted((left, right) =>
+        left.run.updatedAt.localeCompare(right.run.updatedAt),
+      );
+      for (const record of orderedRecords) {
         const isActive =
           state.pendingApprovals.some((entry) => entry.issueKey === record.issueKey) ||
           state.currentRun?.issueKey === record.issueKey ||
@@ -589,7 +733,9 @@ export class OpenClawCodeChatopsStore {
           continue;
         }
         state.statusByIssue[record.issueKey] = record.status;
-        state.statusSnapshotsByIssue[record.issueKey] = buildStatusSnapshot(record);
+        const snapshot = buildStatusSnapshot(record);
+        state.statusSnapshotsByIssue[record.issueKey] = snapshot;
+        applyProviderFailureStateFromSnapshot(state, snapshot);
       }
     });
   }
@@ -727,6 +873,29 @@ export class OpenClawCodeChatopsStore {
       state.currentRun = next;
       state.statusByIssue[next.issueKey] = status;
       return next;
+    });
+  }
+
+  async getActiveProviderPause(
+    referenceAt = new Date().toISOString(),
+  ): Promise<OpenClawCodeProviderPause | undefined> {
+    return await this.mutateState((state) => {
+      state.recentProviderFailures = pruneRecentProviderFailures(
+        state.recentProviderFailures,
+        referenceAt,
+      );
+      const pause = state.providerPause;
+      if (!pause) {
+        return undefined;
+      }
+      if (
+        pause.until <= referenceAt ||
+        state.recentProviderFailures.length < PROVIDER_FAILURE_THRESHOLD
+      ) {
+        state.providerPause = undefined;
+        return undefined;
+      }
+      return pause;
     });
   }
 

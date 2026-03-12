@@ -167,6 +167,68 @@ describe("OpenClawCodeChatopsStore", () => {
     }
   });
 
+  it("tracks repeated transient provider failures and clears the pause after a later success", async () => {
+    const fixture = await createStore();
+
+    try {
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 1201,
+          stage: "failed",
+          updatedAt: "2026-03-12T12:00:00.000Z",
+        }),
+        [
+          "openclawcode status for zhyongrui/openclawcode#1201",
+          "Stage: Failed",
+          "Summary: Build failed: HTTP 400: Internal server error",
+        ].join("\n"),
+      );
+      expect((await fixture.store.snapshot()).providerPause).toBeUndefined();
+
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 1202,
+          stage: "failed",
+          updatedAt: "2026-03-12T12:05:00.000Z",
+        }),
+        [
+          "openclawcode status for zhyongrui/openclawcode#1202",
+          "Stage: Failed",
+          "Summary: Build failed: HTTP 400: Internal server error",
+        ].join("\n"),
+      );
+
+      const paused = await fixture.store.snapshot();
+      expect(paused.recentProviderFailures).toHaveLength(2);
+      expect(paused.providerPause).toMatchObject({
+        failureCount: 2,
+        lastFailureAt: "2026-03-12T12:05:00.000Z",
+      });
+      expect(await fixture.store.getActiveProviderPause("2026-03-12T12:06:00.000Z")).toMatchObject({
+        failureCount: 2,
+      });
+
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 1203,
+          stage: "merged",
+          updatedAt: "2026-03-12T12:06:30.000Z",
+        }),
+        [
+          "openclawcode status for zhyongrui/openclawcode#1203",
+          "Stage: Merged",
+          "Summary: Merge completed.",
+        ].join("\n"),
+      );
+
+      const recovered = await fixture.store.snapshot();
+      expect(recovered.recentProviderFailures).toEqual([]);
+      expect(recovered.providerPause).toBeUndefined();
+    } finally {
+      await fs.rm(fixture.rootDir, { recursive: true, force: true });
+    }
+  });
+
   it("ignores stale finishCurrent writes after a newer workflow status was recorded", async () => {
     const fixture = await createStore();
 

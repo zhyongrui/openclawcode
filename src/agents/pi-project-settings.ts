@@ -5,10 +5,20 @@ import { applyPiCompactionSettingsFromConfig } from "./pi-settings.js";
 
 export const DEFAULT_EMBEDDED_PI_PROJECT_SETTINGS_POLICY = "sanitize";
 export const SANITIZED_PROJECT_PI_KEYS = ["shellPath", "shellCommandPrefix"] as const;
+const OPENCLAWCODE_WORKTREE_MARKER = "/.openclawcode/worktrees/";
 
 export type EmbeddedPiProjectSettingsPolicy = "trusted" | "sanitize" | "ignore";
 
 type PiSettingsSnapshot = ReturnType<SettingsManager["getGlobalSettings"]>;
+type PiRetrySettingsManagerLike = {
+  applyOverrides: (overrides: {
+    retry?: {
+      enabled?: boolean;
+      maxRetries?: number;
+      baseDelayMs?: number;
+    };
+  }) => void;
+};
 
 function sanitizeProjectSettings(settings: PiSettingsSnapshot): PiSettingsSnapshot {
   const sanitized = { ...settings };
@@ -61,6 +71,27 @@ export function createEmbeddedPiSettingsManager(params: {
   return SettingsManager.inMemory(settings);
 }
 
+export function shouldDisableEmbeddedPiRetryForWorkspace(cwd: string): boolean {
+  return cwd.replace(/\\/g, "/").includes(OPENCLAWCODE_WORKTREE_MARKER);
+}
+
+export function applyEmbeddedPiRetrySettingsForWorkspace(params: {
+  settingsManager: PiRetrySettingsManagerLike;
+  cwd: string;
+}): { didOverride: boolean } {
+  if (!shouldDisableEmbeddedPiRetryForWorkspace(params.cwd)) {
+    return { didOverride: false };
+  }
+
+  // openclawcode workflows already apply their own narrow builder/verifier retry policy.
+  // Disable the SDK's inner retry loop for issue worktrees so provider-side 5xx/400-internal
+  // failures surface promptly instead of silently stretching a single workflow attempt.
+  params.settingsManager.applyOverrides({
+    retry: { enabled: false },
+  });
+  return { didOverride: true };
+}
+
 export function createPreparedEmbeddedPiSettingsManager(params: {
   cwd: string;
   agentDir: string;
@@ -70,6 +101,10 @@ export function createPreparedEmbeddedPiSettingsManager(params: {
   applyPiCompactionSettingsFromConfig({
     settingsManager,
     cfg: params.cfg,
+  });
+  applyEmbeddedPiRetrySettingsForWorkspace({
+    settingsManager,
+    cwd: params.cwd,
   });
   return settingsManager;
 }
