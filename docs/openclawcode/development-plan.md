@@ -42,7 +42,7 @@ observable artifacts.
 
 ## Current Baseline
 
-As of 2026-03-11, the repository already has a working issue-driven core plus a
+As of 2026-03-12, the repository already has a working issue-driven core plus a
 real bundled OpenClaw chatops adapter:
 
 - workflow contracts and stage transitions
@@ -210,6 +210,10 @@ The current repository state already supports:
   - `OPENCLAWCODE_ENABLE_FS_TOOLS=edit` allows a narrow live edit-only replay
   - `OPENCLAWCODE_ENABLE_FS_TOOLS=edit,write` allows a fuller live fs-tool
     replay without changing the default safe path
+- a refreshed upstream integration branch, `sync/upstream-2026-03-12`, that
+  cleanly merges `upstream/main` through `841ee24340` and still passes:
+  - `pnpm build`
+  - `pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads`
 
 The last local blockers found while preparing the live replay are now closed:
 
@@ -222,8 +226,9 @@ The last local blockers found while preparing the live replay are now closed:
   older run artifacts when the newest rerun record missed that metadata
 
 This means the next iteration can shift from bridge root-cause hunting to
-staged runner re-enable, hardening fresh-operator setup, and trusting the
-visible lifecycle state under repeated live runs.
+staged runner re-enable on the refreshed sync branch, hardening
+fresh-operator setup, and trusting the visible lifecycle state under repeated
+live runs.
 
 ### Near-Term Delivery Streams
 
@@ -379,7 +384,8 @@ Validation rule:
 The next concrete issue order should be:
 
 1. use the new runner switch to stage the deterministic sandbox edit path for
-   live validation without removing the runner carveout globally in one jump
+   live validation from `sync/upstream-2026-03-12` without removing the runner
+   carveout globally in one jump
 2. prove the local repair through the docker-gated sandbox edit paths,
    including linked-worktree mounts, before removing the live runner carveout
 3. re-run one low-risk command-layer issue on the live route without that

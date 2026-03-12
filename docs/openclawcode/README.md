@@ -102,6 +102,10 @@ loop with:
     deny
   - `OPENCLAWCODE_ENABLE_FS_TOOLS=edit,write` removes both runner-added fs
     denies for controlled live validation
+- a refreshed upstream integration branch, `sync/upstream-2026-03-12`, that now
+  merges `upstream/main` through `841ee24340` and still passes:
+  - `pnpm build`
+  - `pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads`
 - a docker-gated sandbox edit end-to-end regression that exercises alias-style
   edit parameters through the real workspace mount path before the runner-level
   deny is removed
@@ -121,8 +125,8 @@ loop with:
 Still pending for a fuller product loop:
 
 - fresh live validation with the deterministic sandbox edit path using the new
-  staged runner switch, followed by removal of the temporary `edit`/`write`
-  deny
+  staged runner switch on the refreshed sync branch, followed by removal of the
+  temporary `edit`/`write` deny
 - stronger suitability/risk gating ahead of autonomous execution
 - proof under a fresh operator environment using docs and scripts only
 - broader policy-doc polish
