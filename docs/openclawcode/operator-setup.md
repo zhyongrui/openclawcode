@@ -417,6 +417,10 @@ in the runbook instead of rediscovering them in chat:
   - recovered windows render as `pause cleared after ...`
   - that distinction is useful during rerun decisions because it shows whether
     the system is still paused or has already resumed queue drain
+- `/occode-rerun` now reuses that same distinction in its queued reply:
+  - active pauses are rendered inline in the rerun confirmation
+  - cleared pauses are rendered as a recovery probe, which makes it obvious
+    that the rerun is testing whether the provider has recovered
 - one-line `/occode-intake` is now the fastest safe smoke test for the bound
   Feishu path because it exercises:
   - chat command parsing

@@ -1781,6 +1781,52 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("mentions cleared provider pause context when /occode-rerun probes recovery", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.setStatusSnapshot({
+        issueKey: "zhyongrui/openclawcode#2151",
+        status: "openclawcode status for zhyongrui/openclawcode#2151\nStage: Failed",
+        stage: "failed",
+        runId: "run-2151",
+        updatedAt: "2026-03-12T12:05:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 2151,
+        branchName: "openclawcode/issue-2151",
+        notifyChannel: "telegram",
+        notifyTarget: "chat:old-thread",
+        providerFailureCount: 2,
+        lastProviderFailureAt: "2026-03-12T12:05:00.000Z",
+        providerPauseUntil: "2026-03-12T12:15:00.000Z",
+        providerPauseReason:
+          "Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
+      });
+
+      const result = await fixture.commands.get("occode-rerun")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-rerun #2151",
+        args: "#2151",
+        to: "user:rerun-chat",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: [
+          "Queued rerun for zhyongrui/openclawcode#2151 from Failed state. I will post status updates here.",
+          "Provider recovery: pause cleared after 2026-03-12T12:15:00.000Z",
+          "- last failure: 2026-03-12T12:05:00.000Z | failures: 2",
+          "- reason: Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
+          "- note: this rerun is probing recovery after the cleared pause window.",
+        ].join("\n"),
+      });
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
   it("falls back to the stored snapshot notification target for /occode-rerun", async () => {
     const fixture = await registerPluginFixture();
     try {

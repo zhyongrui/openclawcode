@@ -309,10 +309,11 @@ Remaining work:
 
 Preferred near-to-mid-term order:
 
-1. rerun refreshed-branch proof issue `#87` once provider stability improves,
-   now using the persisted per-issue provider history as the operator baseline
-2. add provider-aware rerun summaries so queued reruns explain whether they are
-   probing recovery after a cleared pause or still waiting behind an active one
+1. rerun refreshed-branch proof issue `#87` now that queued reruns can explain
+   whether they are waiting behind an active pause or probing recovery after a
+   cleared pause
+2. if `#87` is still noisy, mint the next equivalent low-risk validation issue
+   and keep the same provider-aware rerun path
 3. run one more low-risk refreshed-branch live proof after that rerun-path
    improvement lands
 4. promote the refreshed sync branch back to `main`
@@ -349,6 +350,5 @@ As of this revision:
 - active feature branch:
   - `sync/upstream-2026-03-12-refresh`
 - next planned slice after the current one:
-  - provider-aware rerun summaries on top of the new per-issue provider
-    history, then rerun proof issue `#87` once the build path is not blocked by
-    provider `400`
+  - rerun refreshed-branch proof issue `#87` with the new provider-aware rerun
+    summary path, then promote if the live proof is finally clean

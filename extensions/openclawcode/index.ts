@@ -302,6 +302,47 @@ function buildProviderFailureContextLines(params: {
   return reason ? [line, `${reasonLabel}: ${reason}`] : [line];
 }
 
+function buildProviderRerunLines(params: {
+  snapshot: OpenClawCodeIssueStatusSnapshot;
+  pause: ActiveProviderPause | undefined;
+  now?: string;
+}): string[] {
+  const activePauseLines = buildProviderPauseLines({
+    pause: params.pause,
+    now: params.now,
+  });
+  if (activePauseLines.length > 0) {
+    return activePauseLines;
+  }
+
+  const now = params.now ?? new Date().toISOString();
+  if (!params.snapshot.providerPauseUntil || params.snapshot.providerPauseUntil > now) {
+    return [];
+  }
+
+  const details: string[] = [
+    `Provider recovery: pause cleared after ${params.snapshot.providerPauseUntil}`,
+  ];
+  if (params.snapshot.lastProviderFailureAt || params.snapshot.providerFailureCount) {
+    details.push(
+      `- last failure: ${[
+        params.snapshot.lastProviderFailureAt,
+        params.snapshot.providerFailureCount
+          ? `failures: ${params.snapshot.providerFailureCount}`
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join(" | ")}`,
+    );
+  }
+  const reason = trimToSingleLine(params.snapshot.providerPauseReason);
+  if (reason) {
+    details.push(`- reason: ${reason}`);
+  }
+  details.push("- note: this rerun is probing recovery after the cleared pause window.");
+  return details;
+}
+
 async function appendValidationIssueStatusContext(params: {
   text: string;
   issue: { owner: string; repo: string; number: number };
@@ -1920,11 +1961,15 @@ export default {
         }
         const providerPause = await store.getActiveProviderPause();
         kickQueueDrain(api, store);
+        const providerLines = buildProviderRerunLines({
+          snapshot,
+          pause: providerPause,
+        });
         return {
-          text: appendProviderPauseText({
-            text: `Queued rerun for ${issueKey} from ${stageLabel} state. I will post status updates here.`,
-            pause: providerPause,
-          }),
+          text: [
+            `Queued rerun for ${issueKey} from ${stageLabel} state. I will post status updates here.`,
+            ...providerLines,
+          ].join("\n"),
         };
       },
     });

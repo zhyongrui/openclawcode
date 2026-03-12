@@ -294,6 +294,11 @@ turning the working loop into a cleanly operable product:
     `pause cleared after ...`, which closes the earlier ambiguity where the
     pause banner disappeared and operators had to guess whether context was
     lost or the provider had recovered
+- `/occode-rerun` queue replies now reuse that same operator context:
+  - active pauses still render the active pause window
+  - cleared pauses now render as a recovery probe so the operator can see that
+    the rerun is intentionally testing whether provider-side build failures
+    have recovered
 - policy docs are now in sync with the live-tested guarded auto-merge behavior
 - the next engineering priority is now consume-and-reseed workflow plus
   broader chat-native intake behavior
@@ -1219,20 +1224,17 @@ Why next:
 
 The next implementation slice should follow this order:
 
-1. extend `/occode-rerun` queue messaging so it can explain whether a rerun is
-   probing recovery after a cleared provider pause or still waiting behind an
-   active one
-2. run that change on `sync/upstream-2026-03-12-refresh` with focused chatops
-   tests, the full `vitest.openclawcode.config.mjs` suite, and `pnpm build`
-3. use the green `./scripts/openclawcode-setup-check.sh --strict` result as the
+1. use the green `./scripts/openclawcode-setup-check.sh --strict` result as the
    live preflight gate on the refreshed branch
-4. rerun proof issue `#87` once provider stability improves, or mint the next
-   equivalent low-risk validation issue if `#87` becomes noisy
-5. promote only after the refreshed branch can pass both strict setup checks
+2. rerun proof issue `#87` now that provider-aware rerun summaries can show
+   whether the operator is probing recovery after a cleared pause
+3. if `#87` is still noisy, mint the next equivalent low-risk validation issue
+   and keep the same provider-aware rerun path
+4. promote only after the refreshed branch can pass both strict setup checks
    and a real low-risk live proof on the target runtime
-6. after promotion, rerun the same strict check and one chat-visible proof on
+5. after promotion, rerun the same strict check and one chat-visible proof on
    `main`
-7. keep docs/operator issue `#60` open as the standing docs-side proof target
+6. keep docs/operator issue `#60` open as the standing docs-side proof target
    only until the copied-root teardown guidance is judged complete
 
 ## Test Strategy

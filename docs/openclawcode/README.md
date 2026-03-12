@@ -85,6 +85,9 @@ loop with:
   `/occode-inbox` too:
   - `/occode-start` and `/occode-rerun` now tell the operator when work was
     queued behind an active provider pause
+  - `/occode-rerun` now also distinguishes an active pause from a cleared pause
+    and explicitly says when the rerun is probing recovery after the pause
+    window has elapsed
   - `/occode-status` now appends the same pause window, failure count, and
     pause reason so a queued or failed issue can be interpreted without
     switching back to the inbox
