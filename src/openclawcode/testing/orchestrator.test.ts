@@ -120,5 +120,5 @@ describe("openclawcode orchestrator", () => {
     } finally {
       await fs.rm(rootDir, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 });

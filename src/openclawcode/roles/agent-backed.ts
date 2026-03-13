@@ -11,6 +11,7 @@ export interface AgentBackedBuilderOptions {
   shellRunner: ShellRunner;
   testCommands: string[];
   agentId?: string;
+  timeoutSeconds?: number;
   autoCommit?: boolean;
   transientRetryAttempts?: number;
   transientRetryDelayMs?: number;
@@ -19,6 +20,7 @@ export interface AgentBackedBuilderOptions {
 export interface AgentBackedVerifierOptions {
   agentRunner: AgentRunner;
   agentId?: string;
+  timeoutSeconds?: number;
   transientRetryAttempts?: number;
   transientRetryDelayMs?: number;
 }
@@ -405,6 +407,7 @@ export class AgentBackedBuilder implements Builder {
           prompt,
           workspaceDir: run.workspace.worktreePath,
           agentId: this.options.agentId,
+          timeoutSeconds: this.options.timeoutSeconds,
         }),
     });
 
@@ -488,6 +491,7 @@ export class AgentBackedVerifier implements Verifier {
           prompt,
           workspaceDir: run.workspace.worktreePath,
           agentId: this.options.agentId,
+          timeoutSeconds: this.options.timeoutSeconds,
         }),
     });
     return parseVerificationReport(result.text);

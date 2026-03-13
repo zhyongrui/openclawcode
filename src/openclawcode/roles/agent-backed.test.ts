@@ -245,6 +245,35 @@ class FlakyAgentRunner implements AgentRunner {
   }
 }
 
+class RecordingAgentRunner implements AgentRunner {
+  readonly requests: Array<{
+    prompt: string;
+    workspaceDir: string;
+    agentId?: string;
+    timeoutSeconds?: number;
+  }> = [];
+
+  constructor(
+    private readonly response: {
+      text: string;
+      raw?: unknown;
+    },
+  ) {}
+
+  async run(request: {
+    prompt: string;
+    workspaceDir: string;
+    agentId?: string;
+    timeoutSeconds?: number;
+  }) {
+    this.requests.push(request);
+    return {
+      text: this.response.text,
+      raw: this.response.raw ?? {},
+    };
+  }
+}
+
 describe("AgentBackedBuilder scope enforcement", () => {
   it("fails command-layer builds that edit blocked workflow-core files", async () => {
     const worktreePath = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-agent-backed-"));
@@ -347,6 +376,36 @@ describe("AgentBackedBuilder scope enforcement", () => {
       await fs.rm(worktreePath, { recursive: true, force: true });
     }
   });
+
+  it("passes a bounded timeout to the builder agent run", async () => {
+    const worktreePath = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-agent-backed-"));
+    const agentRunner = new RecordingAgentRunner({
+      text: "Implemented within the bounded timeout window.",
+    });
+    const builder = new AgentBackedBuilder({
+      agentRunner,
+      shellRunner: new FakeShellRunner(),
+      testCommands: [],
+      timeoutSeconds: 123,
+      autoCommit: false,
+      collectChangedFiles: async () => [],
+    });
+
+    try {
+      await builder.build({
+        ...createRun(),
+        workspace: {
+          ...createRun().workspace!,
+          worktreePath,
+        },
+      });
+
+      expect(agentRunner.requests).toHaveLength(1);
+      expect(agentRunner.requests[0]?.timeoutSeconds).toBe(123);
+    } finally {
+      await fs.rm(worktreePath, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("AgentBackedVerifier", () => {
@@ -381,6 +440,40 @@ describe("AgentBackedVerifier", () => {
         decision: "approve-for-human-review",
         summary: "Looks good after retry.",
       });
+    } finally {
+      await fs.rm(worktreePath, { recursive: true, force: true });
+    }
+  });
+
+  it("passes a bounded timeout to the verifier agent run", async () => {
+    const worktreePath = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-agent-backed-"));
+    const agentRunner = new RecordingAgentRunner({
+      text: JSON.stringify({
+        decision: "approve-for-human-review",
+        summary: "Looks good within the bounded timeout window.",
+        findings: [],
+        missingCoverage: [],
+        followUps: [],
+      }),
+    });
+    const verifier = new AgentBackedVerifier({
+      agentRunner,
+      timeoutSeconds: 45,
+      transientRetryAttempts: 1,
+      transientRetryDelayMs: 0,
+    });
+
+    try {
+      await verifier.verify({
+        ...createRun(),
+        workspace: {
+          ...createRun().workspace!,
+          worktreePath,
+        },
+      });
+
+      expect(agentRunner.requests).toHaveLength(1);
+      expect(agentRunner.requests[0]?.timeoutSeconds).toBe(45);
     } finally {
       await fs.rm(worktreePath, { recursive: true, force: true });
     }

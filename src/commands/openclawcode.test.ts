@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkflowRun } from "../openclawcode/index.js";
 import {
+  DEFAULT_OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS,
+  DEFAULT_OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS,
   openclawCodeListValidationIssuesCommand,
   openclawCodeRunCommand,
   openclawCodeSeedValidationIssueCommand,
@@ -14,6 +16,8 @@ const mocks = vi.hoisted(() => {
     runIssueWorkflow: vi.fn(),
     createIssue: vi.fn(),
     listIssues: vi.fn(),
+    builderCtorArgs: [] as unknown[],
+    verifierCtorArgs: [] as unknown[],
   };
 });
 
@@ -32,8 +36,16 @@ vi.mock("../openclawcode/index.js", async (importOriginal) => {
     GitHubRestClient: MockGitHubRestClient,
     HeuristicPlanner: class {},
     OpenClawAgentRunner: class {},
-    AgentBackedBuilder: class {},
-    AgentBackedVerifier: class {},
+    AgentBackedBuilder: class {
+      constructor(options: unknown) {
+        mocks.builderCtorArgs.push(options);
+      }
+    },
+    AgentBackedVerifier: class {
+      constructor(options: unknown) {
+        mocks.verifierCtorArgs.push(options);
+      }
+    },
     FileSystemWorkflowRunStore: class {},
   };
 });
@@ -105,6 +117,9 @@ describe("openclawCodeRunCommand", () => {
         updatedAt: "2026-03-12T00:00:00.000Z",
       },
     ]);
+    mocks.builderCtorArgs.length = 0;
+    mocks.verifierCtorArgs.length = 0;
+    vi.unstubAllEnvs();
   });
 
   it("prints stable top-level JSON fields for workflow scope, pr metadata, review, and merge policy", async () => {
@@ -194,6 +209,49 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.autoMergePolicyReason).toBe(
       "Eligible for auto-merge under the current command-layer policy.",
     );
+  });
+
+  it("uses bounded default builder and verifier timeouts for workflow runs", async () => {
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    expect(mocks.builderCtorArgs.at(-1)).toEqual(
+      expect.objectContaining({
+        timeoutSeconds: DEFAULT_OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS,
+      }),
+    );
+    expect(mocks.verifierCtorArgs.at(-1)).toEqual(
+      expect.objectContaining({
+        timeoutSeconds: DEFAULT_OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS,
+      }),
+    );
+  });
+
+  it("lets the operator override builder and verifier timeouts through env vars", async () => {
+    vi.stubEnv("OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS", "90");
+    vi.stubEnv("OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS", "45");
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    expect(mocks.builderCtorArgs.at(-1)).toEqual(
+      expect.objectContaining({
+        timeoutSeconds: 90,
+      }),
+    );
+    expect(mocks.verifierCtorArgs.at(-1)).toEqual(
+      expect.objectContaining({
+        timeoutSeconds: 45,
+      }),
+    );
+  });
+
+  it("fails fast on invalid workflow timeout env vars", async () => {
+    vi.stubEnv("OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS", "0");
+
+    await expect(
+      openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime),
+    ).rejects.toThrow("OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS must be a positive integer when set.");
+
+    expect(mocks.runIssueWorkflow).not.toHaveBeenCalled();
   });
 
   it("prints empty top-level scope fields and blocks auto-merge when workflow data is missing", async () => {

@@ -1512,3 +1512,23 @@ when all of the following are true:
 
 Until then, the right approach is controlled real-world testing against this
 repository, with each discovered failure converted into code, tests, and notes.
+
+## Timeout Guardrails
+
+The refreshed-branch live proof on issue `#85` exposed a failure mode distinct
+from the earlier provider `HTTP 400` responses:
+
+- the run could stall in `building`
+- the saved artifact stopped at `Build started`
+- no bounded failed artifact appeared until the outer proof wrapper timed out
+
+That gap is now explicitly closed:
+
+- issue-worktree builder runs default to `300` seconds
+- issue-worktree verifier runs default to `180` seconds
+- operator overrides now exist:
+  - `OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS`
+  - `OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS`
+- generic non-provider workflow failures now persist
+  `failureDiagnostics.summary`, so timeout-style failures remain visible in the
+  stable JSON contract and operator surfaces

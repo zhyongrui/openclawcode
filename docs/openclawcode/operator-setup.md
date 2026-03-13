@@ -536,3 +536,9 @@ More live-proof notes worth carrying into new sessions:
 - one heavier openclawcode suite run on refreshed branches can still time out
   under parallel pressure; the stable proof command remains:
   - `pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads --maxWorkers 1`
+- bounded workflow timeout knobs are now available for issue-worktree runs:
+  - `OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS=<positive-integer>`
+  - `OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS=<positive-integer>`
+  - defaults are `300` seconds for builder and `180` seconds for verifier
+  - use these when a provider or model needs tighter or looser bounds than the
+    generic host agent timeout during live proofs
