@@ -401,6 +401,8 @@ The short-term objective is:
   local prompt inflation signals
 - persist provider/model diagnostics in failed workflow notes before choosing
   the next fallback behavior
+- keep those same diagnostics visible in operator surfaces and snapshots so
+  chat-visible failure triage does not regress once a provider pause clears
 - keep operator preflight and promotion checks consumable by automation so a
   different operator host can gate rollout without parsing human-only text
 - keep the new openclawcode-worktree retry clamp stable so the outer workflow

@@ -194,6 +194,10 @@ As of 2026-03-12:
   - last transient failure timestamp
     so operators no longer have to infer whether pause state disappeared because
     the system recovered or because status reconciliation dropped context
+- refreshed-branch operator surfaces now also preserve structured
+  `failureDiagnostics` inside status snapshots, so `/occode-status` and
+  `/occode-inbox` can show provider/model prompt telemetry after the active
+  pause has already cleared
 - direct reruns of refreshed-branch issue `#87` now prove that the lightweight
   bootstrap context fix is active:
   - the oversized `AGENTS.md` truncation warning is gone

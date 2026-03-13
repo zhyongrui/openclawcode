@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type {
+  WorkflowFailureDiagnostics,
   SuitabilityDecision,
   WorkflowRun,
   WorkflowStage,
@@ -44,6 +45,7 @@ export interface OpenClawCodeIssueStatusSnapshot {
   rerunPriorStage?: WorkflowStage;
   suitabilityDecision?: SuitabilityDecision;
   suitabilitySummary?: string;
+  failureDiagnostics?: WorkflowFailureDiagnostics;
   providerFailureCount?: number;
   lastProviderFailureAt?: string;
   providerPauseUntil?: string;
@@ -182,6 +184,7 @@ function normalizeStatusSnapshot(raw: unknown): OpenClawCodeIssueStatusSnapshot 
         : undefined,
     suitabilitySummary:
       typeof candidate.suitabilitySummary === "string" ? candidate.suitabilitySummary : undefined,
+    failureDiagnostics: normalizeWorkflowFailureDiagnostics(candidate.failureDiagnostics),
     providerFailureCount:
       typeof candidate.providerFailureCount === "number"
         ? candidate.providerFailureCount
@@ -213,6 +216,37 @@ function normalizeStatusSnapshot(raw: unknown): OpenClawCodeIssueStatusSnapshot 
         ? candidate.lastNotificationError
         : undefined,
   };
+}
+
+function normalizeWorkflowFailureDiagnostics(raw: unknown): WorkflowFailureDiagnostics | undefined {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  const candidate = raw as Partial<WorkflowFailureDiagnostics>;
+  const normalized: WorkflowFailureDiagnostics = {
+    summary: typeof candidate.summary === "string" ? candidate.summary : undefined,
+    provider: typeof candidate.provider === "string" ? candidate.provider : undefined,
+    model: typeof candidate.model === "string" ? candidate.model : undefined,
+    systemPromptChars:
+      typeof candidate.systemPromptChars === "number" ? candidate.systemPromptChars : undefined,
+    skillsPromptChars:
+      typeof candidate.skillsPromptChars === "number" ? candidate.skillsPromptChars : undefined,
+    toolSchemaChars:
+      typeof candidate.toolSchemaChars === "number" ? candidate.toolSchemaChars : undefined,
+    toolCount: typeof candidate.toolCount === "number" ? candidate.toolCount : undefined,
+    skillCount: typeof candidate.skillCount === "number" ? candidate.skillCount : undefined,
+    injectedWorkspaceFileCount:
+      typeof candidate.injectedWorkspaceFileCount === "number"
+        ? candidate.injectedWorkspaceFileCount
+        : undefined,
+    bootstrapWarningShown:
+      typeof candidate.bootstrapWarningShown === "boolean"
+        ? candidate.bootstrapWarningShown
+        : undefined,
+    lastCallUsageTotal:
+      typeof candidate.lastCallUsageTotal === "number" ? candidate.lastCallUsageTotal : undefined,
+  };
+  return Object.values(normalized).some((value) => value !== undefined) ? normalized : undefined;
 }
 
 function normalizeRepoNotificationBinding(
@@ -343,6 +377,7 @@ function buildStatusSnapshot(params: {
     rerunPriorStage: params.run.rerunContext?.priorStage,
     suitabilityDecision: params.run.suitability?.decision,
     suitabilitySummary: params.run.suitability?.summary,
+    failureDiagnostics: params.run.failureDiagnostics,
     lastNotificationChannel: params.notifyChannel,
     lastNotificationTarget: params.notifyTarget,
     lastNotificationAt: params.notifiedAt,

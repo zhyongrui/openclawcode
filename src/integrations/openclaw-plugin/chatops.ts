@@ -2,6 +2,7 @@ import path from "node:path";
 import process from "node:process";
 import type {
   IssueRef,
+  WorkflowFailureDiagnostics,
   WorkflowRerunContext,
   WorkflowRun,
 } from "../../openclawcode/contracts/index.js";
@@ -702,6 +703,56 @@ function resolveRunSummary(run: WorkflowRun): string {
   return `Run is currently at stage ${run.stage}.`;
 }
 
+function formatWorkflowFailureDiagnostics(
+  diagnostics: WorkflowFailureDiagnostics | undefined,
+): string | undefined {
+  if (!diagnostics) {
+    return undefined;
+  }
+
+  const modelId =
+    diagnostics.provider && diagnostics.model
+      ? `${diagnostics.provider}/${diagnostics.model}`
+      : (diagnostics.provider ?? diagnostics.model);
+  const parts = [
+    modelId ? `model=${modelId}` : undefined,
+    typeof diagnostics.systemPromptChars === "number"
+      ? `prompt=${diagnostics.systemPromptChars}`
+      : undefined,
+    typeof diagnostics.skillsPromptChars === "number"
+      ? `skillsPrompt=${diagnostics.skillsPromptChars}`
+      : undefined,
+    typeof diagnostics.toolSchemaChars === "number"
+      ? `schema=${diagnostics.toolSchemaChars}`
+      : undefined,
+    typeof diagnostics.toolCount === "number" ? `tools=${diagnostics.toolCount}` : undefined,
+    typeof diagnostics.skillCount === "number" ? `skills=${diagnostics.skillCount}` : undefined,
+    typeof diagnostics.injectedWorkspaceFileCount === "number"
+      ? `files=${diagnostics.injectedWorkspaceFileCount}`
+      : undefined,
+    typeof diagnostics.lastCallUsageTotal === "number"
+      ? `usage=${diagnostics.lastCallUsageTotal}`
+      : undefined,
+    diagnostics.bootstrapWarningShown === true
+      ? "bootstrap=warned"
+      : diagnostics.bootstrapWarningShown === false
+        ? "bootstrap=clean"
+        : undefined,
+  ].filter((entry): entry is string => Boolean(entry));
+  return parts.length > 0 ? parts.join(", ") : trimToSingleLine(diagnostics.summary);
+}
+
+export function buildWorkflowFailureDiagnosticLines(params: {
+  diagnostics: WorkflowFailureDiagnostics | undefined;
+  topLevel?: boolean;
+}): string[] {
+  const compact = formatWorkflowFailureDiagnostics(params.diagnostics);
+  if (!compact) {
+    return [];
+  }
+  return [`${params.topLevel ? "Failure diagnostics" : "  diagnostics"}: ${compact}`];
+}
+
 export function buildRunStatusMessage(run: WorkflowRun): string {
   const lines = [
     `openclawcode status for ${formatIssueKey(run.issue)}`,
@@ -716,6 +767,8 @@ export function buildRunStatusMessage(run: WorkflowRun): string {
   if (run.suitability?.summary) {
     lines.push(`Suitability summary: ${run.suitability.summary}`);
   }
+
+  lines.push(...buildWorkflowFailureDiagnosticLines({ diagnostics: run.failureDiagnostics }));
 
   if (run.draftPullRequest?.url) {
     lines.push(`PR: ${run.draftPullRequest.url}`);

@@ -310,6 +310,7 @@ function createWorkflowRun(params: {
   issueNumber: number;
   stage?: WorkflowRun["stage"];
   updatedAt?: string;
+  failureDiagnostics?: WorkflowRun["failureDiagnostics"];
 }): WorkflowRun {
   const updatedAt = params.updatedAt ?? "2026-03-12T12:00:00.000Z";
   return {
@@ -355,6 +356,7 @@ function createWorkflowRun(params: {
       missingCoverage: [],
       followUps: [],
     },
+    failureDiagnostics: params.failureDiagnostics,
   };
 }
 
@@ -2263,6 +2265,54 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("shows structured failure diagnostics through /occode-status after a failed run is recorded", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 6623,
+          stage: "failed",
+          updatedAt: "2026-03-12T12:06:00.000Z",
+          failureDiagnostics: {
+            summary: "HTTP 400: Internal server error",
+            provider: "crs",
+            model: "gpt-5.4",
+            systemPromptChars: 8629,
+            skillsPromptChars: 1245,
+            toolSchemaChars: 3030,
+            toolCount: 4,
+            skillCount: 1,
+            injectedWorkspaceFileCount: 0,
+            lastCallUsageTotal: 0,
+            bootstrapWarningShown: false,
+          },
+        }),
+        buildTransientProviderFailedStatus(6623),
+      );
+
+      const result = await fixture.commands.get("occode-status")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-status #6623",
+        args: "#6623",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: [
+          "openclawcode status for zhyongrui/openclawcode#6623",
+          "Stage: Failed",
+          "Summary: Build failed: HTTP 400: Internal server error",
+          "Provider failure context: last transient failure at 2026-03-12T12:06:00.000Z | failures: 1",
+          "Failure diagnostics: model=crs/gpt-5.4, prompt=8629, skillsPrompt=1245, schema=3030, tools=4, skills=1, files=0, usage=0, bootstrap=clean",
+        ].join("\n"),
+      });
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
   it("heals /occode-status from GitHub when a tracked pull request was merged externally", async () => {
     const fixture = await registerPluginFixture();
     try {
@@ -2791,6 +2841,57 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain(
         "provider-reason: Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
       );
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("shows structured failure diagnostics in the inbox ledger for failed runs", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 6713,
+          stage: "failed",
+          updatedAt: "2026-03-12T12:06:00.000Z",
+          failureDiagnostics: {
+            summary: "HTTP 400: Internal server error",
+            provider: "crs",
+            model: "gpt-5.4",
+            systemPromptChars: 8629,
+            skillsPromptChars: 1245,
+            toolSchemaChars: 3030,
+            toolCount: 4,
+            skillCount: 1,
+            injectedWorkspaceFileCount: 0,
+            lastCallUsageTotal: 0,
+            bootstrapWarningShown: false,
+          },
+        }),
+        buildTransientProviderFailedStatus(6713),
+      );
+
+      const result = await fixture.commands.get("occode-inbox")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-inbox",
+        args: "",
+        config: {},
+      });
+
+      expect(result).toEqual({
+        text: [
+          "openclawcode inbox for zhyongrui/openclawcode",
+          "Pending approvals: 0",
+          "Running: 0",
+          "Queued: 0",
+          "Recent ledger: 1",
+          "- zhyongrui/openclawcode#6713 | Failed | final: failed | 2026-03-12T12:06:00.000Z",
+          "  provider: last transient failure at 2026-03-12T12:06:00.000Z | failures: 1",
+          "  diagnostics: model=crs/gpt-5.4, prompt=8629, skillsPrompt=1245, schema=3030, tools=4, skills=1, files=0, usage=0, bootstrap=clean",
+        ].join("\n"),
+      });
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });

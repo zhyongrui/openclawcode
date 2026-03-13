@@ -11,6 +11,7 @@ import {
   buildOpenClawCodeRunArgv,
   buildRunRequestFromCommand,
   buildRunStatusMessage,
+  buildWorkflowFailureDiagnosticLines,
   decideIssueWebhookIntake,
   extractWorkflowRunFromCommandOutput,
   findLatestLocalRunStatusForIssue,
@@ -763,6 +764,11 @@ function buildInboxMessage(params: {
         }),
       );
       lines.push(...buildProviderFailureContextLines({ snapshot: entry }));
+      lines.push(
+        ...buildWorkflowFailureDiagnosticLines({
+          diagnostics: entry.failureDiagnostics,
+        }),
+      );
       lines.push(...buildNotificationLedgerLines(entry));
     }
   } else {
@@ -2125,8 +2131,15 @@ export default {
               })
             : [];
         const resolvedWithProvider =
-          providerLines.length > 0
-            ? [resolvedStatusText, ...providerLines].join("\n")
+          providerLines.length > 0 || currentSnapshot?.failureDiagnostics
+            ? [
+                resolvedStatusText,
+                ...providerLines,
+                ...buildWorkflowFailureDiagnosticLines({
+                  diagnostics: currentSnapshot?.failureDiagnostics,
+                  topLevel: true,
+                }),
+              ].join("\n")
             : resolvedStatusText;
         return {
           text:

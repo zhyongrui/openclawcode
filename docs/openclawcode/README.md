@@ -77,6 +77,11 @@ loop with:
   outer wait window than timeout or overload retries, so repeated fresh
   failures surface faster while the workflow still preserves one recovery
   attempt
+- those persisted failure diagnostics now flow through operator state too:
+  - `/occode-status` can show structured failed-run diagnostics after a run is
+    recorded
+  - `/occode-inbox` recent ledger entries can show the same structured
+    diagnostics without parsing the last history line
 - openclawcode issue-worktree runs now disable the embedded Pi SDK's inner
   retry loop, so provider-side transient failures surface through the workflow
   retry policy instead of silently stretching one builder attempt
