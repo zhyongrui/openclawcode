@@ -63,6 +63,7 @@ those nested objects.
 - `issueClassification`
 - `scopeCheck`
 - `scopeCheckSummary`
+- `scopeCheckSummaryPresent`
 - `scopeCheckPassed`
 - `scopeCheckHasBlockedFiles`
 - `scopeBlockedFiles`
