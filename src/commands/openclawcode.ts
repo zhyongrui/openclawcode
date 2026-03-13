@@ -361,6 +361,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     issueClassification: run.buildResult?.issueClassification ?? null,
     scopeCheck: run.buildResult?.scopeCheck ?? null,
     scopeCheckSummary: run.buildResult?.scopeCheck?.summary ?? null,
+    scopeCheckSummaryPresent: (run.buildResult?.scopeCheck?.summary?.length ?? 0) > 0,
     scopeCheckPassed: run.buildResult?.scopeCheck?.ok ?? null,
     scopeCheckHasBlockedFiles:
       run.buildResult?.scopeCheck == null
