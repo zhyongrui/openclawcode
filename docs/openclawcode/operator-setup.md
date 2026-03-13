@@ -268,6 +268,12 @@ The JSON output now also includes:
 - `modelInventory.configuredFallbacks`
 - `modelInventory.missingConfiguredFallbacks`
 - `modelInventory.fallbackReady`
+- `readiness.basic`
+- `readiness.strict`
+- `readiness.lowRiskProofReady`
+- `readiness.fallbackProofReady`
+- `readiness.promotionReady`
+- `readiness.nextAction`
 
 Fresh-root note:
 

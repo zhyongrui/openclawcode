@@ -98,6 +98,8 @@ The remaining work should be consumed in this order:
 5. external automation surfaces
    - keep `openclaw code run --json`, setup-check JSON, and validation-pool
      inventory stable enough for other AI sessions, CI, and operator tooling
+   - keep those surfaces opinionated enough to say what the next rollout or
+     proof action should be, not just dump raw counters
 6. fresh-host reproducibility
    - stand up the operator from docs on a clean root or host
    - pass strict checks

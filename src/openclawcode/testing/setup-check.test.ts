@@ -142,6 +142,7 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("vitest.openclawcode.config.mjs");
     expect(script).toContain("--pool threads");
     expect(script).toContain('"modelInventory":');
+    expect(script).toContain('"readiness":');
     expect(script).toContain('"checks":[');
     expect(script).toContain('"summary":{"pass":');
   });
@@ -442,6 +443,14 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
         missingConfiguredFallbacks?: string[];
         fallbackReady: boolean;
       };
+      readiness: {
+        basic: boolean;
+        strict: boolean;
+        lowRiskProofReady: boolean;
+        fallbackProofReady: boolean;
+        promotionReady: boolean;
+        nextAction: string;
+      };
       summary: { pass: number; warn: number; fail: number };
       checks: Array<{ status: string; message: string }>;
     };
@@ -455,6 +464,14 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
       keys: ["crs/gpt-5.4"],
       configuredFallbacks: [],
       fallbackReady: false,
+    });
+    expect(payload.readiness).toMatchObject({
+      basic: true,
+      strict: false,
+      lowRiskProofReady: false,
+      fallbackProofReady: false,
+      promotionReady: false,
+      nextAction: "resolve-warnings-before-promotion",
     });
     expect(payload.summary.fail).toBe(0);
     expect(payload.summary.pass).toBeGreaterThan(0);

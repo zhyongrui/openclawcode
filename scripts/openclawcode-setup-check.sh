@@ -40,6 +40,7 @@ FAIL_COUNT=0
 LAST_RETRY_ERROR=""
 RESULTS_FILE="${TMPDIR:-/tmp}/openclawcode-setup-check-results.$$"
 MODEL_INVENTORY_JSON='{"available":0,"keys":[],"configuredFallbacks":[],"fallbackReady":false}'
+READINESS_JSON='{"basic":false,"strict":false,"lowRiskProofReady":false,"fallbackProofReady":false,"promotionReady":false,"nextAction":"fix-failing-checks"}'
 
 : >"$RESULTS_FILE"
 
@@ -761,6 +762,66 @@ check_tunnel_status() {
   warn "trycloudflare tunnel is not running"
 }
 
+refresh_readiness_json() {
+  local strict_ready="false"
+  local basic_ready="false"
+  local low_risk_ready="false"
+  local fallback_ready="false"
+  local promotion_ready="false"
+  local next_action="fix-failing-checks"
+
+  if [[ "$FAIL_COUNT" -eq 0 ]]; then
+    basic_ready="true"
+  fi
+
+  if [[ "$FAIL_COUNT" -eq 0 && "$WARN_COUNT" -eq 0 ]]; then
+    strict_ready="true"
+    low_risk_ready="true"
+    promotion_ready="true"
+  fi
+
+  local model_fallback_ready
+  model_fallback_ready="$(
+    python3 - "$MODEL_INVENTORY_JSON" <<'PY'
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+print("true" if payload.get("fallbackReady") else "false")
+PY
+  )" || model_fallback_ready="false"
+
+  if [[ "$strict_ready" == "true" && "$model_fallback_ready" == "true" ]]; then
+    fallback_ready="true"
+  fi
+
+  if [[ "$basic_ready" != "true" ]]; then
+    next_action="fix-failing-checks"
+  elif [[ "$strict_ready" != "true" ]]; then
+    next_action="resolve-warnings-before-promotion"
+  elif [[ "$fallback_ready" == "true" ]]; then
+    next_action="ready-for-low-risk-or-fallback-proof"
+  else
+    next_action="ready-for-low-risk-proof"
+  fi
+
+  READINESS_JSON="$(
+    python3 - "$basic_ready" "$strict_ready" "$low_risk_ready" "$fallback_ready" "$promotion_ready" "$next_action" <<'PY'
+import json
+import sys
+
+print(json.dumps({
+    "basic": sys.argv[1] == "true",
+    "strict": sys.argv[2] == "true",
+    "lowRiskProofReady": sys.argv[3] == "true",
+    "fallbackProofReady": sys.argv[4] == "true",
+    "promotionReady": sys.argv[5] == "true",
+    "nextAction": sys.argv[6],
+}))
+PY
+  )" || READINESS_JSON='{"basic":false,"strict":false,"lowRiskProofReady":false,"fallbackProofReady":false,"promotionReady":false,"nextAction":"fix-failing-checks"}'
+}
+
 print_summary_and_exit() {
   local exit_code=0
   if [[ "$FAIL_COUNT" -gt 0 ]]; then
@@ -769,6 +830,8 @@ print_summary_and_exit() {
   if [[ "$STRICT_MODE" -eq 1 && "$WARN_COUNT" -gt 0 ]]; then
     exit_code=1
   fi
+
+  refresh_readiness_json
 
   if [[ "$OUTPUT_JSON" -eq 1 ]]; then
     local checks_json=""
@@ -786,10 +849,27 @@ print_summary_and_exit() {
     printf '"operatorRoot":"%s",' "$(json_escape "$OPERATOR_ROOT")"
     printf '"gatewayUrl":"%s",' "$(json_escape "$GATEWAY_URL")"
     printf '"modelInventory":%s,' "$MODEL_INVENTORY_JSON"
+    printf '"readiness":%s,' "$READINESS_JSON"
     printf '"summary":{"pass":%s,"warn":%s,"fail":%s},' "$PASS_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
     printf '"checks":[%s]}\n' "$checks_json"
   else
     printf '\nSummary: %s pass, %s warn, %s fail\n' "$PASS_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
+    python3 - "$READINESS_JSON" <<'PY'
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+print(
+    "Readiness: basic={basic}, strict={strict}, low-risk-proof={low_risk}, fallback-proof={fallback}, promotion={promotion}".format(
+        basic=str(payload.get("basic", False)).lower(),
+        strict=str(payload.get("strict", False)).lower(),
+        low_risk=str(payload.get("lowRiskProofReady", False)).lower(),
+        fallback=str(payload.get("fallbackProofReady", False)).lower(),
+        promotion=str(payload.get("promotionReady", False)).lower(),
+    )
+)
+print(f"Next action: {payload.get('nextAction', 'fix-failing-checks')}")
+PY
   fi
 
   exit "$exit_code"
