@@ -149,6 +149,7 @@ describe("openclawCodeRunCommand", () => {
       summary: "Scope check passed for command-layer issue.",
     });
     expect(payload.scopeCheckSummary).toBe("Scope check passed for command-layer issue.");
+    expect(payload.scopeCheckSummaryPresent).toBe(true);
     expect(payload.scopeCheckPassed).toBe(true);
     expect(payload.scopeCheckHasBlockedFiles).toBe(false);
     expect(payload.scopeBlockedFiles).toEqual([]);
@@ -658,6 +659,7 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.scopeCheckSummary).toBe("Scope check failed for command-layer issue.");
+    expect(payload.scopeCheckSummaryPresent).toBe(true);
     expect(payload.scopeCheckPassed).toBe(false);
     expect(payload.scopeCheckHasBlockedFiles).toBe(true);
     expect(payload.scopeBlockedFiles).toEqual(["src/openclawcode/orchestrator/run.ts"]);
@@ -666,6 +668,28 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.autoMergePolicyReason).toBe(
       "Not eligible for auto-merge: the scope check did not pass.",
     );
+  });
+
+  it("reports scopeCheckSummaryPresent as false when the summary is empty", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        buildResult: {
+          ...createRun().buildResult!,
+          scopeCheck: {
+            ok: true,
+            blockedFiles: [],
+            summary: "",
+          },
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.scopeCheckSummary).toBe("");
+    expect(payload.scopeCheckSummaryPresent).toBe(false);
+    expect(payload.scopeCheckPassed).toBe(true);
   });
 
   it("prints verification counts for ready-for-human-review runs", async () => {
