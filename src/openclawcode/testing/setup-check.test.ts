@@ -96,6 +96,7 @@ describe("openclawcode-setup-check.sh source", () => {
 
     expect(script).toContain("--strict");
     expect(script).toContain("--skip-route-probe");
+    expect(script).toContain("--json");
     expect(script).toContain("OPENCLAWCODE_GITHUB_WEBHOOK_SECRET");
     expect(script).toContain("GH_TOKEN/GITHUB_TOKEN");
     expect(script).toContain("OPENCLAWCODE_SETUP_OPERATOR_ROOT");
@@ -117,6 +118,8 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("node --version");
     expect(script).toContain("vitest.openclawcode.config.mjs");
     expect(script).toContain("--pool threads");
+    expect(script).toContain('"checks":[');
+    expect(script).toContain('"summary":{"pass":');
   });
 
   it("keeps the webhook tunnel helper aligned with the required GitHub event set", async () => {
@@ -284,6 +287,152 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
     expect(curlArgs).toContain("X-GitHub-Event: issues");
     expect(curlArgs).toContain("X-Hub-Signature-256: sha256=test-signature");
     expect(curlArgs).toContain("http://127.0.0.1:18789/plugins/openclawcode/github");
+  });
+
+  it("emits machine-readable JSON with --json", async () => {
+    const rootDir = await createTempDir();
+    tempRoots.add(rootDir);
+    const repoRoot = path.join(rootDir, "repo");
+    const distDir = path.join(repoRoot, "dist");
+    const binDir = path.join(rootDir, "bin");
+    const envFile = path.join(rootDir, "openclawcode.env");
+    const configFile = path.join(rootDir, "openclaw.json");
+    const stateFile = path.join(rootDir, "chatops-state.json");
+    const scriptPath = path.resolve("scripts/openclawcode-setup-check.sh");
+    const realPythonPath = resolveRealPythonPath();
+
+    await fs.mkdir(distDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    await writeStubCliArtifacts(distDir);
+    await writeStubNode(binDir);
+    await fs.writeFile(
+      envFile,
+      "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "approve",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:json-output",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await fs.writeFile(
+      stateFile,
+      `${JSON.stringify(
+        {
+          repoBindingsByRepo: {
+            "zhyongrui/openclawcode": {
+              repoKey: "zhyongrui/openclawcode",
+              notifyChannel: "feishu",
+              notifyTarget: "user:json-output",
+              updatedAt: "2026-03-13T00:00:00.000Z",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    await writeExecutable(
+      path.join(binDir, "python3"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+script="$(cat)"
+if [[ "$script" == *"socket.create_connection"* ]]; then
+  exit 0
+fi
+if [[ "$script" == *"hmac.new"* ]]; then
+  printf 'sha256=test-signature\\n'
+  exit 0
+fi
+printf '%s' "$script" | "${realPythonPath}" "$@"
+`,
+    );
+    await writeExecutable(
+      path.join(binDir, "curl"),
+      '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'{"accepted":false,"reason":"unconfigured-repo"}\\n202\'\n',
+    );
+
+    const result = runSetupCheck(
+      scriptPath,
+      {
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+        OPENCLAWCODE_SETUP_REPO_ROOT: repoRoot,
+        OPENCLAWCODE_SETUP_ENV_FILE: envFile,
+        OPENCLAWCODE_SETUP_CONFIG_FILE: configFile,
+        OPENCLAWCODE_SETUP_STATE_FILE: stateFile,
+        OPENCLAWCODE_SETUP_GATEWAY_URL: "http://127.0.0.1:18789",
+        OPENCLAWCODE_SETUP_WEBHOOK_ROUTE: "/plugins/openclawcode/github",
+        OPENCLAWCODE_GITHUB_REPO: "zhyongrui/openclawcode",
+        OPENCLAWCODE_TUNNEL_LOG_FILE: path.join(rootDir, "tunnel.log"),
+        OPENCLAWCODE_TUNNEL_PID_FILE: path.join(rootDir, "tunnel.pid"),
+      },
+      ["--json"],
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stdout).not.toContain("[PASS]");
+
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      strict: boolean;
+      repoRoot: string;
+      operatorRoot: string;
+      gatewayUrl: string;
+      summary: { pass: number; warn: number; fail: number };
+      checks: Array<{ status: string; message: string }>;
+    };
+
+    expect(payload.ok).toBe(true);
+    expect(payload.strict).toBe(false);
+    expect(payload.repoRoot).toBe(repoRoot);
+    expect(payload.gatewayUrl).toBe("http://127.0.0.1:18789");
+    expect(payload.summary.fail).toBe(0);
+    expect(payload.summary.pass).toBeGreaterThan(0);
+    expect(payload.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "pass",
+          message: expect.stringContaining("built CLI artifact present"),
+        }),
+        expect.objectContaining({
+          status: "pass",
+          message: expect.stringContaining("signed webhook probe reached plugin route"),
+        }),
+      ]),
+    );
   });
 
   it("fails when local Node is below the CLI startup floor", async () => {

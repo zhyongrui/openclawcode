@@ -135,6 +135,8 @@ loop with:
 - a repeatable operator setup runbook plus a repo-local setup verification
   script for gateway, webhook, binding, tunnel health, and required GitHub
   webhook event subscriptions
+- that setup verification script now also supports `--json`, so another
+  operator host or CI job can consume a machine-readable readiness report
 - operator setup scripts that can now derive:
   - `openclawcode.env`
   - `openclaw.json`

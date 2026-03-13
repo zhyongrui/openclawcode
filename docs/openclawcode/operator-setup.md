@@ -246,11 +246,14 @@ Useful flags:
 ```bash
 ./scripts/openclawcode-setup-check.sh --strict
 ./scripts/openclawcode-setup-check.sh --skip-route-probe
+./scripts/openclawcode-setup-check.sh --json
 ```
 
 Use `--strict` when you want warnings to fail the check.
 Use `--skip-route-probe` only during partial setup work when the local route is
 intentionally unavailable.
+Use `--json` when another script, CI job, or external operator host needs a
+machine-readable readiness report instead of human-readable shell lines.
 
 Fresh-root note:
 

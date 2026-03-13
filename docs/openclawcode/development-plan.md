@@ -363,6 +363,8 @@ The short-term objective is:
   local prompt inflation signals
 - persist provider/model diagnostics in failed workflow notes before choosing
   the next fallback behavior
+- keep operator preflight and promotion checks consumable by automation so a
+  different operator host can gate rollout without parsing human-only text
 - keep the new openclawcode-worktree retry clamp stable so the outer workflow
   owns provider backoff instead of the embedded SDK
 - keep provider-pause activation observable and predictable after fresh
@@ -819,11 +821,32 @@ Priority backlog:
 4. align `README.md`, this plan, and policy docs around guarded auto-merge and
    human checkpoints
 5. document a repeatable upgrade, rollback, and upstream-sync workflow
+6. expose setup or promotion results in a machine-readable form for automation
 
 Validation rule:
 
 - a fresh operator should be able to configure the repository and trigger a
   full issue run using docs only
+
+#### Stream 6: External Rollout
+
+Objective:
+
+- make `openclawcode` usable by another operator without relying on local chat
+  scrollback or manual shell interpretation
+
+Priority backlog:
+
+1. expose setup-check results in a machine-readable form
+2. keep promotion and rollback prerequisites explicit in the runbook
+3. prove one external-style operator bring-up from docs after the next
+   promotion
+4. keep supported-vs-experimental surfaces explicit for other users
+
+Validation rule:
+
+- another operator should be able to decide whether a host is ready from docs
+  plus machine-readable preflight output alone
 
 #### Stream 5: Real Workflow Validation and Merge Confidence
 
@@ -1276,6 +1299,8 @@ The next implementation slice should follow this order:
    `main`
 8. keep docs/operator issue `#60` open as the standing docs-side proof target
    only until the copied-root teardown guidance is judged complete
+9. keep setup-check output machine-readable so rollout can plug into CI or
+   other operator automation
 
 ## Test Strategy
 

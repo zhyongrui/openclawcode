@@ -32,15 +32,25 @@ TUNNEL_PID_FILE="${OPENCLAWCODE_TUNNEL_PID_FILE:-$DEFAULT_TUNNEL_PID_FILE}"
 
 STRICT_MODE=0
 SKIP_ROUTE_PROBE=0
+OUTPUT_JSON=0
 
 PASS_COUNT=0
 WARN_COUNT=0
 FAIL_COUNT=0
 LAST_RETRY_ERROR=""
+RESULTS_FILE="${TMPDIR:-/tmp}/openclawcode-setup-check-results.$$"
+
+: >"$RESULTS_FILE"
+
+cleanup() {
+  rm -f "$RESULTS_FILE"
+}
+
+trap cleanup EXIT
 
 usage() {
   cat <<EOF
-Usage: ${SCRIPT_NAME} [--strict] [--skip-route-probe]
+Usage: ${SCRIPT_NAME} [--strict] [--skip-route-probe] [--json]
 
 Checks:
   - repo root and built CLI artifact
@@ -73,19 +83,42 @@ Environment overrides:
 EOF
 }
 
+record_result() {
+  printf '%s\t%s\n' "$1" "$2" >>"$RESULTS_FILE"
+}
+
 pass() {
   PASS_COUNT=$((PASS_COUNT + 1))
-  printf '[PASS] %s\n' "$1"
+  record_result "pass" "$1"
+  if [[ "$OUTPUT_JSON" -eq 0 ]]; then
+    printf '[PASS] %s\n' "$1"
+  fi
 }
 
 warn() {
   WARN_COUNT=$((WARN_COUNT + 1))
-  printf '[WARN] %s\n' "$1"
+  record_result "warn" "$1"
+  if [[ "$OUTPUT_JSON" -eq 0 ]]; then
+    printf '[WARN] %s\n' "$1"
+  fi
 }
 
 fail() {
   FAIL_COUNT=$((FAIL_COUNT + 1))
-  printf '[FAIL] %s\n' "$1"
+  record_result "fail" "$1"
+  if [[ "$OUTPUT_JSON" -eq 0 ]]; then
+    printf '[FAIL] %s\n' "$1"
+  fi
+}
+
+json_escape() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  value="${value//$'\n'/\\n}"
+  value="${value//$'\r'/\\r}"
+  value="${value//$'\t'/\\t}"
+  printf '%s' "$value"
 }
 
 retry_check() {
@@ -621,13 +654,36 @@ check_tunnel_status() {
 }
 
 print_summary_and_exit() {
-  printf '\nSummary: %s pass, %s warn, %s fail\n' "$PASS_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
+  local exit_code=0
   if [[ "$FAIL_COUNT" -gt 0 ]]; then
-    exit 1
+    exit_code=1
   fi
   if [[ "$STRICT_MODE" -eq 1 && "$WARN_COUNT" -gt 0 ]]; then
-    exit 1
+    exit_code=1
   fi
+
+  if [[ "$OUTPUT_JSON" -eq 1 ]]; then
+    local checks_json=""
+    local separator=""
+    while IFS=$'\t' read -r status message; do
+      [[ -n "$status" ]] || continue
+      checks_json="${checks_json}${separator}{\"status\":\"$(json_escape "$status")\",\"message\":\"$(json_escape "$message")\"}"
+      separator=","
+    done <"$RESULTS_FILE"
+
+    printf '{'
+    printf '"ok":%s,' "$([[ "$exit_code" -eq 0 ]] && printf 'true' || printf 'false')"
+    printf '"strict":%s,' "$([[ "$STRICT_MODE" -eq 1 ]] && printf 'true' || printf 'false')"
+    printf '"repoRoot":"%s",' "$(json_escape "$REPO_ROOT")"
+    printf '"operatorRoot":"%s",' "$(json_escape "$OPERATOR_ROOT")"
+    printf '"gatewayUrl":"%s",' "$(json_escape "$GATEWAY_URL")"
+    printf '"summary":{"pass":%s,"warn":%s,"fail":%s},' "$PASS_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
+    printf '"checks":[%s]}\n' "$checks_json"
+  else
+    printf '\nSummary: %s pass, %s warn, %s fail\n' "$PASS_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
+  fi
+
+  exit "$exit_code"
 }
 
 while [[ "$#" -gt 0 ]]; do
@@ -637,6 +693,9 @@ while [[ "$#" -gt 0 ]]; do
       ;;
     --skip-route-probe)
       SKIP_ROUTE_PROBE=1
+      ;;
+    --json)
+      OUTPUT_JSON=1
       ;;
     -h|--help)
       usage

@@ -52,6 +52,8 @@ The program is not done until all of these are true:
 8. the long-lived `main` operator baseline can be trusted as the real demo path
 9. provider or model instability is diagnosable from persisted workflow
    artifacts instead of only raw CLI stderr
+10. onboarding and preflight checks are machine-readable enough to plug into CI
+    or external operator rollout automation
 
 ## Ordered Endgame Backlog
 
@@ -88,6 +90,8 @@ product. Each item should be consumed as one or more narrow slices.
    - document the supported contract as intentional API surface
 7. keep install, promotion, rollback, and copied-root proofs routine
    - update the runbook whenever a new live proof changes the real steps
+   - expose setup and promotion gates in a machine-readable form so other
+     operators and CI jobs can consume them
 8. keep upstream drift bounded
    - continue regular sync branches before conflict hotspots grow expensive
    - record conflict hotspots and promotion decisions in docs and dev logs
@@ -265,6 +269,20 @@ State:
 
 - in progress
 
+### Phase 9: External Rollout And Public Use
+
+Exit criteria:
+
+- another operator can stand up `openclawcode` without chat-scroll tribal
+  knowledge
+- setup, promotion, and rollback checks can run from docs and automation
+- release-facing docs explain what is stable, what is experimental, and what
+  proof is required before promotion
+
+State:
+
+- in progress
+
 ## Work Tracks
 
 ### Track 1: Command JSON Contract
@@ -349,6 +367,7 @@ Remaining work:
 - Node floor checks in setup verification
 - branch-promotion checklist
 - rollback checklist for failed live promotions
+- machine-readable setup and promotion outputs for CI or external rollout
 
 ### Track 7: Upstream Sync Discipline
 
@@ -362,6 +381,21 @@ Remaining work:
 - keep syncing `upstream/main` into dedicated branches
 - record recurring conflict hotspots
 - promote only after tests and a live proof
+
+### Track 8: External Launch
+
+Goal:
+
+- make the fork operable by someone other than the current long-lived local
+  operator owner
+
+Remaining work:
+
+- keep setup and promotion checks consumable from automation as JSON or other
+  stable output
+- document the supported external operator path end-to-end
+- add one explicit "new operator from docs" proof after the next promotion
+- keep release-facing prerequisites, limits, and proof requirements explicit
 
 ### Track 8: Real Full-Loop Proofs
 
@@ -407,7 +441,9 @@ Preferred near-to-mid-term order:
 18. add richer rerun lineage and reason summaries to operator surfaces
 19. add another copied-root fresh-operator live proof after the next major sync
 20. add a chat-native "request -> issue draft preview -> approve -> run" proof
-21. keep seeding and consuming low-risk validation issues so the proof pool
+21. keep setup-check and promotion gates machine-readable so rollout can be
+    automated outside the current local shell workflow
+22. keep seeding and consuming low-risk validation issues so the proof pool
     never goes empty
 
 ## Session Handoff
