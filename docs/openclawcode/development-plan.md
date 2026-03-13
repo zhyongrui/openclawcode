@@ -1617,3 +1617,12 @@ The remaining live-ops startup gap is therefore narrower:
 - the long-lived repo-local operator can still stall before binding when the
   real `~/.openclaw` environment is sourced, so the next startup slice should
   debug that real-config path rather than the generic built entrypoint
+- targeted config isolation now points at the plugin layer specifically:
+  - disabling `openclawcode` while keeping the rest of the real
+    `~/.openclaw` config allows the gateway to bind and Feishu to reach
+    WebSocket readiness
+  - disabling `feishu` while leaving `openclawcode` enabled stalls before the
+    listener and before normal gateway startup logs appear
+- the next code slice should therefore inspect `openclawcode` plugin startup
+  under a missing or delayed live chat surface instead of treating this as a
+  generic gateway bootstrap problem

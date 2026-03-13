@@ -611,6 +611,10 @@ As of this revision:
   - debug why the real `~/.openclaw` operator environment can still stall
     before the listener appears, even though the generic built entrypoint is
     healthy on `main`
+  - start with the now-isolated plugin signal:
+    - `openclawcode-disabled` boots cleanly under the real config
+    - `feishu-disabled` while keeping `openclawcode` enabled stalls before the
+      listener
   - restart the long-lived Feishu operator on the repaired build
   - run one more low-risk merged proof, one no-op completion proof, and one
     blocked or escalated proof on `main`
