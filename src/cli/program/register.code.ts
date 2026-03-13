@@ -105,6 +105,7 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
               | "verifying"
               | "changes-requested"
               | "ready-for-human-review"
+              | "completed-without-changes"
               | "merged"
               | "escalated"
               | "failed"

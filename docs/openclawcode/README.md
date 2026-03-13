@@ -351,9 +351,9 @@ loop with:
   `upstream/main` through `80e7da92ce` and still passes:
   - `pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads --maxWorkers 1`
   - `pnpm build`
-- `sync/upstream-2026-03-13` is now the active feature branch while `main`
-  remains the long-lived Feishu operator baseline until the next live
-  promotion
+- `sync/upstream-2026-03-13` has now been promoted back to `main`
+- `main` is again both the active engineering baseline and the long-lived
+  Feishu operator target branch
 - upstream now expects Node `>=22.16.0` for CLI startup:
   - this workstation now runs the refreshed branch under `22.16.0`
   - the built CLI entrypoint no longer starts below the new floor
@@ -449,3 +449,18 @@ Additional rollout note from the latest refreshed-branch proof:
   - run `zhyongrui-openclawcode-85-1773416913744`
   - `PR #88`
   - merged automatically against `sync/upstream-2026-03-13`
+- a new terminal workflow state now covers already-satisfied low-risk issues:
+  - `completed-without-changes`
+  - verification can now finish a run without a PR when no commits were
+    produced between the issue branch and the base branch
+  - the workflow closes the GitHub issue automatically after verification
+- promoted-`main` direct proof now confirms that no-op closeout path:
+  - issue `#44`
+  - run `zhyongrui-openclawcode-44-1773418941601`
+  - final stage `completed-without-changes`
+  - GitHub issue `#44` closed automatically without opening a PR
+- the remaining post-promotion operator blocker is now narrower:
+  - the documented repo-local gateway command currently prints plugin
+    initialization logs but does not bind `127.0.0.1:18789`
+  - direct `tsx`-driven workflow proofs on `main` still work, so workflow code
+    validation can continue while gateway startup is repaired

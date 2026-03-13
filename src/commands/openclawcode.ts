@@ -107,6 +107,14 @@ function resolveAutoMergePolicy(run: WorkflowRun): {
   autoMergePolicyEligible: boolean;
   autoMergePolicyReason: string;
 } {
+  if (run.stage === "completed-without-changes") {
+    return {
+      autoMergePolicyEligible: false,
+      autoMergePolicyReason:
+        "No auto-merge was needed: the run completed without code changes or a pull request.",
+    };
+  }
+
   if (run.stage !== "ready-for-human-review" && run.stage !== "merged") {
     return {
       autoMergePolicyEligible: false,
@@ -264,6 +272,14 @@ function resolveChangeDisposition(run: WorkflowRun): {
     };
   }
 
+  const noOpNote = [...history].toReversed().find((entry) => entry.startsWith("Draft PR skipped:"));
+  if (noOpNote) {
+    return {
+      changeDisposition: "no-op",
+      changeDispositionReason: noOpNote,
+    };
+  }
+
   if (run.buildResult.changedFiles.length > 0) {
     return {
       changeDisposition: "modified",
@@ -271,10 +287,9 @@ function resolveChangeDisposition(run: WorkflowRun): {
     };
   }
 
-  const noOpNote = [...history].toReversed().find((entry) => entry.startsWith("Draft PR skipped:"));
   return {
     changeDisposition: "no-op",
-    changeDispositionReason: noOpNote ?? "Run produced no changed files.",
+    changeDispositionReason: "Run produced no changed files.",
   };
 }
 

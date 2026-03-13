@@ -2127,6 +2127,34 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("shows completed-without-changes local runs through /occode-status", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await writeLocalRun({
+        repoRoot: fixture.repoRoot,
+        issueNumber: 244,
+        stage: "completed-without-changes",
+        summary: "The issue was already satisfied; no code changes or PR were needed.",
+      });
+
+      const result = await fixture.commands.get("occode-status")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-status #244",
+        args: "#244",
+        config: {},
+      });
+
+      expect(result?.text).toContain("Stage: Completed Without Changes");
+      expect(result?.text).toContain(
+        "Summary: The issue was already satisfied; no code changes or PR were needed.",
+      );
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
   it("annotates validation issue metadata through /occode-status", async () => {
     const fixture = await registerPluginFixture();
     try {

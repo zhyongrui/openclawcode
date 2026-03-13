@@ -594,13 +594,16 @@ If a new session starts cold, it should read:
 
 As of this revision:
 
-- active feature branch:
-  - `sync/upstream-2026-03-13`
+- active engineering branch:
+  - `main`
+- current live-ops blocker after the promotion:
+  - the documented repo-local gateway entrypoint starts plugin initialization
+    logs but does not bind `127.0.0.1:18789`
 - next planned slice after the current one:
-  - promote `sync/upstream-2026-03-13` back to `main`
-  - restart the long-lived Feishu operator on the promoted build
-  - run one more low-risk merged proof and one blocked or escalated proof on
-    `main`
+  - repair that built gateway startup regression on `main`
+  - restart the long-lived Feishu operator on the repaired build
+  - run one more low-risk merged proof, one no-op completion proof, and one
+    blocked or escalated proof on `main`
 
 Fresh proof result carried forward:
 
@@ -608,3 +611,9 @@ Fresh proof result carried forward:
   - issue `#85`
   - run `zhyongrui-openclawcode-85-1773416913744`
   - `PR #88`
+  - promoted into `main`
+- `main` now also has a direct no-op completion proof through:
+  - issue `#44`
+  - run `zhyongrui-openclawcode-44-1773418941601`
+  - final stage `completed-without-changes`
+  - issue closed automatically without opening a PR

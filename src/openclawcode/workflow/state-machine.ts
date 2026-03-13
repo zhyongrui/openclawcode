@@ -2,7 +2,7 @@ import type {
   VerificationReport,
   WorkflowAttemptSummary,
   WorkflowRun,
-  WorkflowStage
+  WorkflowStage,
 } from "../contracts/index.js";
 
 const ALLOWED_TRANSITIONS: Record<WorkflowStage, WorkflowStage[]> = {
@@ -12,10 +12,16 @@ const ALLOWED_TRANSITIONS: Record<WorkflowStage, WorkflowStage[]> = {
   "draft-pr-opened": ["verifying", "changes-requested", "failed"],
   verifying: ["ready-for-human-review", "changes-requested", "escalated", "failed"],
   "changes-requested": ["building", "failed", "escalated"],
-  "ready-for-human-review": ["merged", "changes-requested", "escalated"],
+  "ready-for-human-review": [
+    "completed-without-changes",
+    "merged",
+    "changes-requested",
+    "escalated",
+  ],
+  "completed-without-changes": [],
   merged: [],
   escalated: [],
-  failed: []
+  failed: [],
 };
 
 export type TimestampFactory = () => string;
@@ -26,26 +32,26 @@ function nowIso(): string {
 
 function incrementAttempts(
   attempts: WorkflowAttemptSummary,
-  nextStage: WorkflowStage
+  nextStage: WorkflowStage,
 ): WorkflowAttemptSummary {
   switch (nextStage) {
     case "planning":
       return {
         ...attempts,
         total: attempts.total + 1,
-        planning: attempts.planning + 1
+        planning: attempts.planning + 1,
       };
     case "building":
       return {
         ...attempts,
         total: attempts.total + 1,
-        building: attempts.building + 1
+        building: attempts.building + 1,
       };
     case "verifying":
       return {
         ...attempts,
         total: attempts.total + 1,
-        verifying: attempts.verifying + 1
+        verifying: attempts.verifying + 1,
       };
     default:
       return attempts;
@@ -56,7 +62,7 @@ export function transitionRun(
   run: WorkflowRun,
   nextStage: WorkflowStage,
   note: string,
-  now: TimestampFactory = nowIso
+  now: TimestampFactory = nowIso,
 ): WorkflowRun {
   const allowed = ALLOWED_TRANSITIONS[run.stage];
   if (!allowed.includes(nextStage)) {
@@ -77,16 +83,16 @@ export function transitionRun(
         fromStage: run.stage,
         toStage: nextStage,
         note,
-        enteredAt
-      }
-    ]
+        enteredAt,
+      },
+    ],
   };
 }
 
 export function applyVerificationDecision(
   run: WorkflowRun,
   report: VerificationReport,
-  now?: TimestampFactory
+  now?: TimestampFactory,
 ): WorkflowRun {
   switch (report.decision) {
     case "approve-for-human-review":
@@ -95,19 +101,19 @@ export function applyVerificationDecision(
           run,
           "ready-for-human-review",
           "Verification approved for human review",
-          now
+          now,
         ),
-        verificationReport: report
+        verificationReport: report,
       };
     case "request-changes":
       return {
         ...transitionRun(run, "changes-requested", "Verification requested changes", now),
-        verificationReport: report
+        verificationReport: report,
       };
     case "escalate":
       return {
         ...transitionRun(run, "escalated", "Verification escalated to human", now),
-        verificationReport: report
+        verificationReport: report,
       };
   }
 }

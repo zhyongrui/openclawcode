@@ -587,6 +587,50 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.pullRequestPublished).toBe(false);
   });
 
+  it("surfaces completed-without-changes runs as no-op completions", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        stage: "completed-without-changes",
+        draftPullRequest: {
+          ...createRun().draftPullRequest!,
+          number: undefined,
+          url: undefined,
+          openedAt: undefined,
+        },
+        buildResult: {
+          ...createRun().buildResult!,
+          changedFiles: [],
+        },
+        verificationReport: {
+          ...createRun().verificationReport!,
+          summary:
+            "The issue was already satisfied in the workspace, so the run completed without code changes.",
+        },
+        history: [
+          "Draft PR skipped: no new commits were produced between the base branch and openclawcode/issue-2.",
+          "Workflow completed without code changes; no pull request was needed.",
+          "Issue #2 closed automatically after verification determined no code changes were needed.",
+        ],
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.stage).toBe("completed-without-changes");
+    expect(payload.stageLabel).toBe("Completed Without Changes");
+    expect(payload.changeDisposition).toBe("no-op");
+    expect(payload.pullRequestPublished).toBe(false);
+    expect(payload.publishedPullRequestNumber).toBeNull();
+    expect(payload.autoMergePolicyEligible).toBe(false);
+    expect(payload.autoMergePolicyReason).toBe(
+      "No auto-merge was needed: the run completed without code changes or a pull request.",
+    );
+    expect(payload.runSummary).toBe(
+      "The issue was already satisfied in the workspace, so the run completed without code changes.",
+    );
+  });
+
   it("falls back to the build summary when no verification summary exists", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({

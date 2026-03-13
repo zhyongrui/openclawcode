@@ -205,6 +205,12 @@ function formatNoCommitPullRequestNote(run: WorkflowRun): string {
   return `Draft PR skipped: no new commits were produced between the base branch and ${branchName}.`;
 }
 
+function hasNoCommitPullRequestNote(run: WorkflowRun): boolean {
+  return run.history.some((entry) =>
+    entry.startsWith("Draft PR skipped: no new commits were produced"),
+  );
+}
+
 function formatAutoMergeFailure(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("Resource not accessible by personal access token")) {
@@ -221,6 +227,14 @@ function formatIssueClosedNote(issueNumber: number): string {
   return `Issue #${issueNumber} closed automatically after merge.`;
 }
 
+function formatCompletedWithoutChangesNote(): string {
+  return "Workflow completed without code changes; no pull request was needed.";
+}
+
+function formatIssueClosedWithoutChangesNote(issueNumber: number): string {
+  return `Issue #${issueNumber} closed automatically after verification determined no code changes were needed.`;
+}
+
 function formatIssueCloseFailure(issueNumber: number, error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("Resource not accessible by personal access token")) {
@@ -235,6 +249,17 @@ function formatIssueCloseFailure(issueNumber: number, error: unknown): string {
 
 function formatExistingPullRequestNote(pullRequest: PullRequestRef): string {
   return `Reusing existing pull request: ${pullRequest.url}`;
+}
+
+function shouldCompleteWithoutChanges(
+  run: WorkflowRun,
+  publishedPullRequest: PullRequestRef | undefined,
+): boolean {
+  return (
+    run.stage === "ready-for-human-review" &&
+    !publishedPullRequest &&
+    hasNoCommitPullRequestNote(run)
+  );
 }
 
 async function pushIssueBranch(params: {
@@ -470,6 +495,23 @@ export async function runIssueWorkflow(
     throw error;
   }
   await deps.store.save(run);
+
+  if (shouldCompleteWithoutChanges(run, publishedPullRequest)) {
+    run = transitionRun(run, "completed-without-changes", formatCompletedWithoutChangesNote(), now);
+    await deps.store.save(run);
+    try {
+      await deps.github.closeIssue({
+        owner: request.owner,
+        repo: request.repo,
+        issueNumber: request.issueNumber,
+      });
+      run = noteRun(run, formatIssueClosedWithoutChangesNote(request.issueNumber), now);
+    } catch (error) {
+      run = noteRun(run, formatIssueCloseFailure(request.issueNumber, error), now);
+    }
+    await deps.store.save(run);
+    return run;
+  }
 
   if (
     request.mergeOnApprove &&

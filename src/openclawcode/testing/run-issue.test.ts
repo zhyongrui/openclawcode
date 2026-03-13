@@ -1247,6 +1247,7 @@ describe("runIssueWorkflow", () => {
         number: 102,
         url: "https://github.com/zhyongrui/openclawcode/pull/102",
       });
+      const github = new FakeGitHubClient();
       const run = await runIssueWorkflow(
         {
           owner: "zhyongrui",
@@ -1258,7 +1259,7 @@ describe("runIssueWorkflow", () => {
           openPullRequest: true,
         },
         {
-          github: new FakeGitHubClient(),
+          github,
           planner: new HeuristicPlanner(),
           builder: new FakeBuilder("command-layer", []),
           verifier: new FakeVerifier({
@@ -1276,13 +1277,20 @@ describe("runIssueWorkflow", () => {
         },
       );
 
-      expect(run.stage).toBe("ready-for-human-review");
+      expect(run.stage).toBe("completed-without-changes");
       expect(run.history).toContain(
         "Draft PR skipped: no new commits were produced between the base branch and openclawcode/issue-59.",
+      );
+      expect(run.history).toContain(
+        "Workflow completed without code changes; no pull request was needed.",
+      );
+      expect(run.history).toContain(
+        "Issue #59 closed automatically after verification determined no code changes were needed.",
       );
       expect(run.draftPullRequest?.number).toBeUndefined();
       expect(run.draftPullRequest?.url).toBeUndefined();
       expect(publisher.published).toBe(0);
+      expect(github.closedIssues).toEqual([59]);
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }
@@ -1299,6 +1307,7 @@ describe("runIssueWorkflow", () => {
         worktreePath: "/repo/.openclawcode/worktrees/run-60",
         preparedAt: "2026-03-09T13:00:00.000Z",
       };
+      const github = new FakeGitHubClient();
       const run = await runIssueWorkflow(
         {
           owner: "zhyongrui",
@@ -1310,7 +1319,7 @@ describe("runIssueWorkflow", () => {
           openPullRequest: true,
         },
         {
-          github: new FakeGitHubClient(),
+          github,
           planner: new HeuristicPlanner(),
           builder: new FakeBuilder(),
           verifier: new FakeVerifier({
@@ -1328,12 +1337,19 @@ describe("runIssueWorkflow", () => {
         },
       );
 
-      expect(run.stage).toBe("ready-for-human-review");
+      expect(run.stage).toBe("completed-without-changes");
       expect(run.history).toContain(
         "Draft PR skipped: no new commits were produced between the base branch and openclawcode/issue-60.",
       );
+      expect(run.history).toContain(
+        "Workflow completed without code changes; no pull request was needed.",
+      );
+      expect(run.history).toContain(
+        "Issue #60 closed automatically after verification determined no code changes were needed.",
+      );
       expect(run.draftPullRequest?.number).toBeUndefined();
       expect(run.draftPullRequest?.url).toBeUndefined();
+      expect(github.closedIssues).toEqual([60]);
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }

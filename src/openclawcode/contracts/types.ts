@@ -6,6 +6,7 @@ export type WorkflowStage =
   | "verifying"
   | "changes-requested"
   | "ready-for-human-review"
+  | "completed-without-changes"
   | "merged"
   | "escalated"
   | "failed";

@@ -25,24 +25,23 @@ sequence of isolated fixes.
 
 The remaining program is:
 
-1. keep `sync/upstream-2026-03-13` green while finishing provider-resilience
-   and refreshed-branch live proofs
-2. promote that branch back to `main` only after a real low-risk merged proof
-   and a recorded rollback path
-3. re-prove the long-lived `main` Feishu operator with one merged low-risk path
-   and one blocked or escalated path
-4. finish chat-native intake so a teammate can draft, confirm, and launch work
+1. keep `main` green after the `sync/upstream-2026-03-13` promotion and repair
+   the built gateway startup regression so the documented repo-local entrypoint
+   binds `127.0.0.1:18789` again
+2. re-prove the long-lived `main` Feishu operator with one merged low-risk
+   path, one no-op completion path, and one blocked or escalated path
+3. finish chat-native intake so a teammate can draft, confirm, and launch work
    from Feishu without hand-writing GitHub issue bodies
-5. finish the stable machine-readable contract:
+4. finish the stable machine-readable contract:
    - `openclaw code run --json`
    - setup-check JSON
    - validation-pool inventory
      so external automation and other AI sessions can reason about state without
      parsing history strings
-6. finish install, upgrade, promotion, and rollback docs so a fresh operator
+5. finish install, upgrade, promotion, and rollback docs so a fresh operator
    host can stand the system up from scratch
-7. prove that fresh-host path with one real low-risk merged run
-8. package release-facing docs that explain prerequisites, supported scope,
+6. prove that fresh-host path with one real low-risk merged run
+7. package release-facing docs that explain prerequisites, supported scope,
    policy, known limits, and rollback
 
 Every completed slice should either:
@@ -78,7 +77,7 @@ observable artifacts.
 
 ## Current Baseline
 
-As of 2026-03-12, the repository already has a working issue-driven core plus a
+As of 2026-03-13, the repository already has a working issue-driven core plus a
 real bundled OpenClaw chatops adapter:
 
 - workflow contracts and stage transitions
@@ -284,9 +283,9 @@ turning the working loop into a cleanly operable product:
   `upstream/main` through `80e7da92ce` and still passes:
   - `pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads --maxWorkers 1`
   - `pnpm build`
-- `sync/upstream-2026-03-13` is now the active feature branch while `main`
-  stays as the long-lived Feishu operator baseline until the next live proof
-  promotion
+- `sync/upstream-2026-03-13` has now been promoted back to `main`
+- `main` is once again both the active engineering baseline and the long-lived
+  Feishu operator target branch
 - upstream also raised the runtime floor to Node `>=22.16.0`:
   - this workstation now runs local Node `22.16.0`
   - the built CLI entrypoint refuses to start below that floor
@@ -1533,9 +1532,10 @@ That gap is now explicitly closed:
   `failureDiagnostics.summary`, so timeout-style failures remain visible in the
   stable JSON contract and operator surfaces
 
-## Refreshed-Branch Promotion Gate
+## Promoted Main Baseline
 
-`sync/upstream-2026-03-13` has now cleared the low-risk live-proof gate too:
+`sync/upstream-2026-03-13` cleared its low-risk proof gate and has now been
+promoted back to `main`:
 
 - real proof issue:
   - `#85`
@@ -1546,6 +1546,42 @@ That gap is now explicitly closed:
 - real outcome:
   - merged automatically against `sync/upstream-2026-03-13`
 
-That shifts the next slice from "can this refreshed branch prove a low-risk
-merge at all?" to "promote it back to `main`, restart the long-lived operator,
-and re-prove the `main` baseline."
+That promotion also exposed the next real `main`-specific tasks:
+
+- keep the built gateway startup path healthy again on `127.0.0.1:18789`
+- re-prove the long-lived chat-visible operator after the gateway restart path
+  is repaired
+- keep the new no-op completion path as a first-class live proof, not just a
+  unit-tested branch
+
+## No-Op Completion Proof On `main`
+
+The first direct proof on promoted `main` found a product gap that is now
+closed in code.
+
+- proof issue:
+  - `#44`
+- direct proof run:
+  - `zhyongrui-openclawcode-44-1773418941601`
+- final stage:
+  - `completed-without-changes`
+- final effect:
+  - verification approved the no-op result
+  - no PR was opened because no new commits were produced against `main`
+  - issue `#44` closed automatically at `2026-03-13T16:28:24Z`
+
+The workflow now treats that "no commits between base and issue branch" result
+as a first-class terminal state instead of leaving the run at
+`ready-for-human-review`.
+
+## Current Operator Blocker On `main`
+
+The remaining post-promotion blocker is narrower and now documented:
+
+- the documented repo-local command
+  `node dist/index.js gateway run --bind loopback --port 18789`
+  currently logs plugin initialization but does not bind a TCP listener on
+  `127.0.0.1:18789`
+- direct `tsx`-driven `openclaw code run ...` proofs on `main` still work, so
+  workflow-code validation can continue while the built gateway startup path is
+  repaired

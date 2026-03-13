@@ -542,3 +542,14 @@ More live-proof notes worth carrying into new sessions:
   - defaults are `300` seconds for builder and `180` seconds for verifier
   - use these when a provider or model needs tighter or looser bounds than the
     generic host agent timeout during live proofs
+- after promoting `sync/upstream-2026-03-13` back to `main`, this host exposed
+  a narrower operator-only regression:
+  - `node dist/index.js gateway run --bind loopback --port 18789` printed
+    plugin initialization logs but did not bind `127.0.0.1:18789`
+  - direct `tsx`-driven `openclaw code run ...` proofs on `main` still worked,
+    so workflow validation could continue while gateway startup was isolated
+- the old `systemd` unit on this host is not the canonical repo-local baseline:
+  - `openclaw-gateway.service` still points at a global install under
+    `~/.npm-global/lib/node_modules/openclaw/dist/index.js`
+  - use the repo-local build and operator root under `~/.openclaw` when
+    debugging `openclawcode` rollout behavior

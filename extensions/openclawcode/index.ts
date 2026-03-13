@@ -420,6 +420,8 @@ function resolveFinalDisposition(params: {
   }
 
   switch (params.snapshot.stage) {
+    case "completed-without-changes":
+      return "completed without changes";
     case "merged":
       return "merged";
     case "changes-requested":
