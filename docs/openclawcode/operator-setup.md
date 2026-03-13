@@ -78,6 +78,12 @@ Notes:
 - keeping repo and hook metadata in the same env file lets
   `openclawcode-setup-check.sh --strict` verify a copied fresh operator root
   without relying on extra shell exports
+- optional provider-resilience proof knob:
+  - set `OPENCLAWCODE_MODEL_FALLBACKS=provider/model,provider/model` when you
+    want issue-worktree runs to inject an explicit fallback chain without
+    editing the shared agent config permanently
+  - leave it unset during normal operation if you want the runtime to keep
+    using only the configured primary model path
 
 ## 3. Enable The Bundled Plugin
 
@@ -255,6 +261,14 @@ intentionally unavailable.
 Use `--json` when another script, CI job, or external operator host needs a
 machine-readable readiness report instead of human-readable shell lines.
 
+The JSON output now also includes:
+
+- `modelInventory.available`
+- `modelInventory.keys`
+- `modelInventory.configuredFallbacks`
+- `modelInventory.missingConfiguredFallbacks`
+- `modelInventory.fallbackReady`
+
 Fresh-root note:
 
 - `openclawcode-setup-check.sh` derives
@@ -414,6 +428,17 @@ in the runbook instead of rediscovering them in chat:
 - when those provider failures repeat, use `/occode-rerun <owner>/<repo>#<issue>`
   after the pause window clears; the workflow now preserves a stage-specific
   failed artifact so reruns target the real failed run
+- if a low-risk refreshed-branch proof keeps failing with the same compact
+  provider diagnostic line, you can run a bounded fallback proof by exporting
+  `OPENCLAWCODE_MODEL_FALLBACKS=provider/model,provider/model` before
+  restarting the gateway or running a direct `openclaw code run ...` workflow
+- `openclawcode-setup-check.sh` now inspects `models list --json`, so it can
+  tell you whether the host actually exposes more than one discoverable model
+  before you attempt that fallback proof
+- when `OPENCLAWCODE_MODEL_FALLBACKS` is set, setup-check now fails if any
+  requested fallback model is not discoverable on the current host
+- unset `OPENCLAWCODE_MODEL_FALLBACKS` after that proof window if you want to
+  return the long-lived operator to its normal single-primary configuration
 - `/occode-status` and `/occode-inbox` now keep recent provider-failure
   context on the affected issue even after the active pause clears:
   - active windows render as `active pause until ...`
@@ -497,6 +522,11 @@ More live-proof notes worth carrying into new sessions:
   - `systemPromptReport.skills.promptChars` dropped to `1245`
   - the live session now keeps only `coding-agent` plus the four core coding
     tools
+- the long-lived `~/.openclaw` operator currently exposes only one
+  discoverable model through `models list --json`:
+  - `crs/gpt-5.4`
+  - fallback override support is now in code, but another discoverable model
+    still needs to exist before a real fallback proof can succeed on that host
 - one heavier openclawcode suite run on refreshed branches can still time out
   under parallel pressure; the stable proof command remains:
   - `pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads --maxWorkers 1`

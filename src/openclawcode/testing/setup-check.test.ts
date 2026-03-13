@@ -65,13 +65,35 @@ async function writeStubCliArtifacts(distDir: string, minimumNodeVersion = "22.1
   );
 }
 
-async function writeStubNode(binDir: string, version = "22.16.0") {
+async function writeStubNode(
+  binDir: string,
+  version = "22.16.0",
+  modelKeys: string[] = ["crs/gpt-5.4"],
+) {
+  const inventoryJson = JSON.stringify({
+    count: modelKeys.length,
+    models: modelKeys.map((key, index) => ({
+      key,
+      name: `Stub Model ${index + 1}`,
+      input: "text",
+      local: false,
+      available: true,
+      tags: index === 0 ? ["default", "configured"] : ["configured"],
+      missing: false,
+    })),
+  });
   await writeExecutable(
     path.join(binDir, "node"),
     `#!/usr/bin/env bash
 set -euo pipefail
 if [[ "\${1:-}" == "--version" || "\${1:-}" == "-v" ]]; then
   printf 'v${version}\\n'
+  exit 0
+fi
+if [[ "\${1:-}" == *"/dist/index.js" && "\${2:-}" == "models" && "\${3:-}" == "list" && "\${4:-}" == "--json" ]]; then
+  cat <<'EOF'
+${inventoryJson}
+EOF
   exit 0
 fi
 printf 'stub node only supports --version\\n' >&2
@@ -107,6 +129,7 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("OPENCLAWCODE_SETUP_RETRY_DELAY_SECONDS");
     expect(script).toContain("refresh_github_hook_settings");
     expect(script).toContain("retry_check");
+    expect(script).toContain("models list --json");
     expect(script).toContain("pull_request_review");
     expect(script).toContain('"reason":"unconfigured-repo"');
     expect(script).toContain("repoBindingsByRepo");
@@ -118,6 +141,7 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("node --version");
     expect(script).toContain("vitest.openclawcode.config.mjs");
     expect(script).toContain("--pool threads");
+    expect(script).toContain('"modelInventory":');
     expect(script).toContain('"checks":[');
     expect(script).toContain('"summary":{"pass":');
   });
@@ -411,6 +435,13 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
       repoRoot: string;
       operatorRoot: string;
       gatewayUrl: string;
+      modelInventory: {
+        available: number;
+        keys: string[];
+        configuredFallbacks: string[];
+        missingConfiguredFallbacks?: string[];
+        fallbackReady: boolean;
+      };
       summary: { pass: number; warn: number; fail: number };
       checks: Array<{ status: string; message: string }>;
     };
@@ -419,6 +450,12 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
     expect(payload.strict).toBe(false);
     expect(payload.repoRoot).toBe(repoRoot);
     expect(payload.gatewayUrl).toBe("http://127.0.0.1:18789");
+    expect(payload.modelInventory).toMatchObject({
+      available: 1,
+      keys: ["crs/gpt-5.4"],
+      configuredFallbacks: [],
+      fallbackReady: false,
+    });
     expect(payload.summary.fail).toBe(0);
     expect(payload.summary.pass).toBeGreaterThan(0);
     expect(payload.checks).toEqual(
@@ -431,7 +468,132 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
           status: "pass",
           message: expect.stringContaining("signed webhook probe reached plugin route"),
         }),
+        expect.objectContaining({
+          status: "pass",
+          message: expect.stringContaining("fallback proof readiness: false"),
+        }),
       ]),
+    );
+  });
+
+  it("fails when configured model fallback overrides are not discoverable", async () => {
+    const rootDir = await createTempDir();
+    tempRoots.add(rootDir);
+    const repoRoot = path.join(rootDir, "repo");
+    const distDir = path.join(repoRoot, "dist");
+    const binDir = path.join(rootDir, "bin");
+    const envFile = path.join(rootDir, "openclawcode.env");
+    const configFile = path.join(rootDir, "openclaw.json");
+    const stateFile = path.join(rootDir, "chatops-state.json");
+    const scriptPath = path.resolve("scripts/openclawcode-setup-check.sh");
+    const realPythonPath = resolveRealPythonPath();
+
+    await fs.mkdir(distDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    await writeStubCliArtifacts(distDir);
+    await writeStubNode(binDir, "22.16.0", ["crs/gpt-5.4"]);
+    await fs.writeFile(
+      envFile,
+      [
+        "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret",
+        "GH_TOKEN=dummy-token",
+        "OPENCLAWCODE_MODEL_FALLBACKS=openai/gpt-5-mini",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "approve",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:fallback-missing",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await fs.writeFile(
+      stateFile,
+      `${JSON.stringify(
+        {
+          repoBindingsByRepo: {
+            "zhyongrui/openclawcode": {
+              repoKey: "zhyongrui/openclawcode",
+              notifyChannel: "feishu",
+              notifyTarget: "user:fallback-missing",
+              updatedAt: "2026-03-13T00:00:00.000Z",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    await writeExecutable(
+      path.join(binDir, "python3"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+script="$(cat)"
+if [[ "$script" == *"socket.create_connection"* ]]; then
+  exit 0
+fi
+if [[ "$script" == *"hmac.new"* ]]; then
+  printf 'sha256=test-signature\\n'
+  exit 0
+fi
+printf '%s' "$script" | "${realPythonPath}" "$@"
+`,
+    );
+    await writeExecutable(
+      path.join(binDir, "curl"),
+      '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'{"accepted":false,"reason":"unconfigured-repo"}\\n202\'\n',
+    );
+
+    const result = runSetupCheck(scriptPath, {
+      PATH: `${binDir}:${process.env.PATH ?? ""}`,
+      OPENCLAWCODE_SETUP_REPO_ROOT: repoRoot,
+      OPENCLAWCODE_SETUP_ENV_FILE: envFile,
+      OPENCLAWCODE_SETUP_CONFIG_FILE: configFile,
+      OPENCLAWCODE_SETUP_STATE_FILE: stateFile,
+      OPENCLAWCODE_SETUP_GATEWAY_URL: "http://127.0.0.1:18789",
+      OPENCLAWCODE_SETUP_WEBHOOK_ROUTE: "/plugins/openclawcode/github",
+      OPENCLAWCODE_GITHUB_REPO: "zhyongrui/openclawcode",
+      OPENCLAWCODE_TUNNEL_LOG_FILE: path.join(rootDir, "tunnel.log"),
+      OPENCLAWCODE_TUNNEL_PID_FILE: path.join(rootDir, "tunnel.pid"),
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("[PASS] model inventory exposes 1 available model(s)");
+    expect(result.stdout).toContain(
+      "[FAIL] configured OPENCLAWCODE_MODEL_FALLBACKS entries are not discoverable: openai/gpt-5-mini",
     );
   });
 

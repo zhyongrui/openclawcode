@@ -54,6 +54,28 @@ The program is not done until all of these are true:
    artifacts instead of only raw CLI stderr
 10. onboarding and preflight checks are machine-readable enough to plug into CI
     or external operator rollout automation
+11. operators can inject a bounded model fallback chain for live proofs without
+    rewriting the shared agent config by hand
+12. public-facing docs explain how a fresh host gets from zero to a first live
+    proof and how to roll back when promotion fails
+
+## Launch Readiness Ladder
+
+The backlog should end in a public-use path, not only more slices.
+
+1. refreshed branch is green in tests and can pass one low-risk live proof
+2. refreshed branch is promoted back to `main` with rollback notes recorded
+3. long-lived `main` re-proves one merged low-risk path and one blocked or
+   escalated path
+4. copied-root setup, strict health checks, and promotion gates all work from
+   docs and machine-readable output
+5. chat-native intake supports a bounded confirmation path for ambiguous
+   requests
+6. policy and merge rules are documented as stable operator behavior
+7. a fresh external-style operator host can stand up the system from docs and
+   complete one low-risk proof
+8. release-facing docs spell out prerequisites, supported scope, known limits,
+   upgrade steps, and rollback steps
 
 ## Ordered Endgame Backlog
 
@@ -95,6 +117,15 @@ product. Each item should be consumed as one or more narrow slices.
 8. keep upstream drift bounded
    - continue regular sync branches before conflict hotspots grow expensive
    - record conflict hotspots and promotion decisions in docs and dev logs
+9. package the external operator release path
+   - publish a support matrix for supported repo profile, chat path, and
+     experimental surfaces
+   - capture promotion, rollback, and first-proof expectations in release docs
+10. prove a fresh external-style host
+
+- stand up `openclawcode` from docs on a new operator root or fresh host
+- pass strict checks and complete one low-risk live proof without ad hoc
+  repair
 
 ## Current Operating Baseline
 
@@ -155,11 +186,16 @@ As of 2026-03-12:
 - the next provider-resilience slice is now defined more narrowly:
   - provider/model prompt diagnostics must persist into workflow failure notes
     and chat-visible status snapshots
-  - the next live rerun on issue `#87` should prove those diagnostics are
-    visible without opening raw builder stdout
-  - if the failure remains unchanged after that proof, the next repair should
-    move to provider or model fallback behavior instead of more prompt-budget
-    trimming
+  - a direct refreshed-branch proof has now confirmed those diagnostics are
+    visible in the persisted failed note without opening raw builder stdout
+  - the current live operator config still has no configured fallback chain, so
+    the next repair should move to provider or model fallback behavior instead
+    of more prompt-budget trimming
+  - a fresh inventory check on the long-lived operator currently exposes only
+    one discoverable model:
+    - `crs/gpt-5.4`
+    - fallback override support is now ready in code, but a real live fallback
+      proof still needs another discoverable model on that host
 
 ## Execution Loop
 
@@ -283,6 +319,43 @@ State:
 
 - in progress
 
+### Phase 10: Release Packaging And Operator Docs
+
+Exit criteria:
+
+- release-facing docs describe supported setup, upgrade, rollback, and proof
+  requirements end-to-end
+- the supported public operator path does not depend on unpublished local
+  context
+
+State:
+
+- not started
+
+### Phase 11: Multi-Host Proof And Public Beta
+
+Exit criteria:
+
+- at least one fresh external-style operator host can pass setup checks and a
+  first low-risk live proof from docs alone
+- promotion gates and rollback instructions are proven on that host too
+
+State:
+
+- not started
+
+### Phase 12: General Availability Discipline
+
+Exit criteria:
+
+- `main` is the documented supported baseline
+- sync/promote/rollback cadence is routine
+- release notes and known limits are maintained as part of each promotion
+
+State:
+
+- not started
+
 ## Work Tracks
 
 ### Track 1: Command JSON Contract
@@ -338,6 +411,8 @@ Remaining work:
 - persist provider/model prompt diagnostics into workflow notes and chat status
 - keep one narrow provider or model follow-up ready now that prompt pressure is
   materially lower
+- allow issue-worktree runs to inject an explicit fallback chain for live
+  proofs without forcing a full manual config rewrite
 - explicit queue-start or queue-resume feedback after a pause window clears
 - another real rerun or low-risk proof on the refreshed branch now that the
   oversized bootstrap injection warning is gone
@@ -397,7 +472,7 @@ Remaining work:
 - add one explicit "new operator from docs" proof after the next promotion
 - keep release-facing prerequisites, limits, and proof requirements explicit
 
-### Track 8: Real Full-Loop Proofs
+### Track 9: Real Full-Loop Proofs
 
 Goal:
 
@@ -414,12 +489,10 @@ Remaining work:
 
 Preferred near-to-mid-term order:
 
-1. rerun refreshed-branch proof issue `#87` now that queued reruns can explain
-   whether they are waiting behind an active pause or probing recovery after a
-   cleared pause, and confirm the new persisted diagnostics are visible in the
-   failed note itself
-2. if `#87` is still noisy, switch the next slice to provider or model
-   fallback behavior instead of more prompt trimming
+1. add explicit issue-worktree model fallback overrides and retry refreshed-
+   branch proof issue `#87` with a configured fallback chain
+2. if `#87` is still noisy after that retry, switch the next slice to deeper
+   provider or model diagnostics instead of more prompt trimming
 3. if needed, mint the next equivalent low-risk validation issue and keep the
    same provider-aware rerun path
 4. run one more low-risk refreshed-branch live proof after that provider slice
@@ -445,6 +518,26 @@ Preferred near-to-mid-term order:
     automated outside the current local shell workflow
 22. keep seeding and consuming low-risk validation issues so the proof pool
     never goes empty
+23. write a release-facing support matrix covering:
+    - supported repo profile
+    - supported chat path
+    - experimental paths
+    - known provider limitations
+24. add a promotion checklist artifact that records:
+    - sync branch head
+    - strict-check result
+    - live proof ids
+    - rollback target
+25. add a rollback helper or documented rollback command path for failed
+    operator promotions
+26. run one copied-root or fresh-host proof from the public operator docs after
+    the next promotion
+27. publish the first stable `openclaw code run --json` contract reference
+28. package the minimum external operator environment variables and config
+    knobs into one supported section of the runbook
+29. run a public-beta style proof on a repo other than `zhyongrui/openclawcode`
+30. only call the program externally ready once a fresh host can go from docs
+    to first merged low-risk issue without ad hoc local repair
 
 ## Session Handoff
 
@@ -460,7 +553,8 @@ As of this revision:
 - active feature branch:
   - `sync/upstream-2026-03-12-refresh`
 - next planned slice after the current one:
-  - rerun refreshed-branch proof issue `#87` with persisted provider/model
-    diagnostics visible directly in the failed note
+  - add explicit issue-worktree model fallback overrides and retry refreshed-
+    branch proof issue `#87` with a configured fallback chain
   - if that proof still fails with the same compact diagnostics, move the next
-    slice to provider or model fallback instead of more prompt trimming
+    slice to deeper provider or model diagnostics instead of more prompt
+    trimming

@@ -357,6 +357,110 @@ describe("OpenClawAgentRunner", () => {
     expect(config.agents?.list?.[0]?.tools?.deny).not.toContain("write");
   });
 
+  it("parses OPENCLAWCODE_MODEL_FALLBACKS into a unique ordered list", async () => {
+    const { __testing } = await import("./agent-runner.js");
+
+    expect(__testing.resolveOpenClawCodeModelFallbacks({})).toEqual([]);
+    expect(
+      __testing.resolveOpenClawCodeModelFallbacks({
+        OPENCLAWCODE_MODEL_FALLBACKS:
+          " openai/gpt-5-mini , anthropic/claude-haiku-3-5, openai/gpt-5-mini ,, ",
+      }),
+    ).toEqual(["openai/gpt-5-mini", "anthropic/claude-haiku-3-5"]);
+  });
+
+  it("injects model fallbacks for openclawcode runs without overriding explicit fallbacks", async () => {
+    const { __testing } = await import("./agent-runner.js");
+
+    const injected = __testing.forceSessionScopedSandboxForAgent(
+      {
+        agents: {
+          defaults: {
+            model: "crs/gpt-5.4",
+            sandbox: {
+              mode: "all",
+              scope: "agent",
+              workspaceAccess: "rw",
+            },
+          },
+          list: [
+            {
+              id: "main",
+              model: { primary: "crs/gpt-5.4" },
+              sandbox: {
+                mode: "all",
+                scope: "agent",
+                workspaceAccess: "rw",
+              },
+            },
+          ],
+        },
+      },
+      "main",
+      {
+        env: {
+          OPENCLAWCODE_MODEL_FALLBACKS: "openai/gpt-5-mini,anthropic/claude-haiku-3-5",
+        },
+      },
+    );
+
+    expect(injected.agents?.defaults?.model).toEqual({
+      primary: "crs/gpt-5.4",
+      fallbacks: ["openai/gpt-5-mini", "anthropic/claude-haiku-3-5"],
+    });
+    expect(injected.agents?.list?.[0]?.model).toEqual({
+      primary: "crs/gpt-5.4",
+      fallbacks: ["openai/gpt-5-mini", "anthropic/claude-haiku-3-5"],
+    });
+
+    const preserved = __testing.forceSessionScopedSandboxForAgent(
+      {
+        agents: {
+          defaults: {
+            model: {
+              primary: "crs/gpt-5.4",
+              fallbacks: ["google/gemini-2.5-flash"],
+            },
+            sandbox: {
+              mode: "all",
+              scope: "agent",
+              workspaceAccess: "rw",
+            },
+          },
+          list: [
+            {
+              id: "main",
+              model: {
+                primary: "crs/gpt-5.4",
+                fallbacks: [],
+              },
+              sandbox: {
+                mode: "all",
+                scope: "agent",
+                workspaceAccess: "rw",
+              },
+            },
+          ],
+        },
+      },
+      "main",
+      {
+        env: {
+          OPENCLAWCODE_MODEL_FALLBACKS: "openai/gpt-5-mini",
+        },
+      },
+    );
+
+    expect(preserved.agents?.defaults?.model).toEqual({
+      primary: "crs/gpt-5.4",
+      fallbacks: ["google/gemini-2.5-flash"],
+    });
+    expect(preserved.agents?.list?.[0]?.model).toEqual({
+      primary: "crs/gpt-5.4",
+      fallbacks: [],
+    });
+  });
+
   it("detects openclawcode issue worktrees for lightweight bootstrap context", async () => {
     const { __testing } = await import("./agent-runner.js");
 
@@ -415,6 +519,46 @@ describe("OpenClawAgentRunner", () => {
         expect.objectContaining({
           id: "main",
           skills: ["coding-agent"],
+        }),
+      ]),
+    );
+  });
+
+  it("adds fallback overrides to upserted worktree agent entries when configured", async () => {
+    const { __testing } = await import("./agent-runner.js");
+
+    const config = __testing.forceSessionScopedSandboxForAgent(
+      {
+        agents: {
+          defaults: {
+            model: {
+              primary: "crs/gpt-5.4",
+            },
+            sandbox: {
+              mode: "all",
+              scope: "agent",
+              workspaceAccess: "rw",
+            },
+          },
+        },
+      },
+      "main",
+      {
+        workspaceDir: "/tmp/repo/.openclawcode/worktrees/run-99",
+        env: {
+          OPENCLAWCODE_MODEL_FALLBACKS: "openai/gpt-5-mini,anthropic/claude-haiku-3-5",
+        },
+      },
+    );
+
+    expect(config.agents?.list).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "main",
+          skills: ["coding-agent"],
+          model: {
+            fallbacks: ["openai/gpt-5-mini", "anthropic/claude-haiku-3-5"],
+          },
         }),
       ]),
     );

@@ -60,6 +60,7 @@ export class AgentRunFailureError extends Error {
 
 const OPENCLAWCODE_DEFAULT_DENIED_TOOLS = ["write"] as const;
 const OPENCLAWCODE_ENABLE_FS_TOOLS_ENV = "OPENCLAWCODE_ENABLE_FS_TOOLS";
+const OPENCLAWCODE_MODEL_FALLBACKS_ENV = "OPENCLAWCODE_MODEL_FALLBACKS";
 const OPENCLAWCODE_WORKTREE_MARKER = `${path.sep}.openclawcode${path.sep}worktrees${path.sep}`;
 const OPENCLAWCODE_WORKTREE_COORDINATION_TOOLS = [
   "sessions_list",
@@ -79,6 +80,17 @@ function resolveOpenClawCodeDeniedTools(env: NodeJS.ProcessEnv = process.env): s
       .filter((entry): entry is "edit" | "write" => entry === "edit" || entry === "write"),
   );
   return OPENCLAWCODE_DEFAULT_DENIED_TOOLS.filter((tool) => !enabled.has(tool));
+}
+
+function resolveOpenClawCodeModelFallbacks(env: NodeJS.ProcessEnv = process.env): string[] {
+  return Array.from(
+    new Set(
+      String(env[OPENCLAWCODE_MODEL_FALLBACKS_ENV] ?? "")
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 function normalizeSessionToken(value: string): string {
@@ -248,6 +260,7 @@ function forceSessionScopedSandboxForAgent(
 ): OpenClawConfig {
   const next = structuredClone(config);
   const agentId = normalizeAgentId(agentIdRaw);
+  const modelFallbacks = resolveOpenClawCodeModelFallbacks(options?.env);
   const deniedTools = Array.from(
     new Set([
       ...resolveOpenClawCodeDeniedTools(options?.env),
@@ -255,6 +268,36 @@ function forceSessionScopedSandboxForAgent(
     ]),
   );
   const skillFilter = resolveOpenClawCodeWorktreeSkillFilter(options?.workspaceDir ?? "");
+  const appendModelFallbacks = <
+    T extends { model?: string | { primary?: string; fallbacks?: string[] } } | undefined,
+  >(
+    entry: T,
+  ): T => {
+    if (!entry || modelFallbacks.length === 0) {
+      return entry;
+    }
+    const currentModel = entry.model;
+    if (
+      currentModel &&
+      typeof currentModel === "object" &&
+      Object.hasOwn(currentModel, "fallbacks")
+    ) {
+      return entry;
+    }
+    return {
+      ...entry,
+      model:
+        typeof currentModel === "string"
+          ? {
+              primary: currentModel,
+              fallbacks: [...modelFallbacks],
+            }
+          : {
+              ...currentModel,
+              fallbacks: [...modelFallbacks],
+            },
+    } as T;
+  };
   const appendDeniedPolicy = <T extends { deny?: string[] } | undefined>(policy: T): T => {
     const nextPolicy = {
       ...policy,
@@ -271,7 +314,7 @@ function forceSessionScopedSandboxForAgent(
   next.tools = appendDeniedPolicy(next.tools);
   next.agents ??= {};
   next.agents.defaults ??= {};
-  next.agents.defaults = appendDeniedTools(next.agents.defaults);
+  next.agents.defaults = appendModelFallbacks(appendDeniedTools(next.agents.defaults));
   next.agents.defaults.sandbox = {
     ...next.agents.defaults.sandbox,
     scope: "session",
@@ -285,7 +328,7 @@ function forceSessionScopedSandboxForAgent(
       }
       return entry.id === agentId
         ? {
-            ...appendDeniedTools(entry),
+            ...appendModelFallbacks(appendDeniedTools(entry)),
             ...(skillFilter ? { skills: [...skillFilter] } : {}),
             sandbox: {
               ...entry.sandbox,
@@ -298,6 +341,7 @@ function forceSessionScopedSandboxForAgent(
       next.agents.list.push({
         id: agentId,
         skills: [...skillFilter],
+        ...(modelFallbacks.length > 0 ? { model: { fallbacks: [...modelFallbacks] } } : {}),
       });
     }
   }
@@ -308,6 +352,7 @@ function forceSessionScopedSandboxForAgent(
 export const __testing = {
   forceSessionScopedSandboxForAgent,
   resolveOpenClawCodeDeniedTools,
+  resolveOpenClawCodeModelFallbacks,
   extractStopReason,
   extractAgentRunFailureDiagnostics,
   formatAgentRunFailureDiagnostics,

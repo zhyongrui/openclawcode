@@ -39,6 +39,7 @@ WARN_COUNT=0
 FAIL_COUNT=0
 LAST_RETRY_ERROR=""
 RESULTS_FILE="${TMPDIR:-/tmp}/openclawcode-setup-check-results.$$"
+MODEL_INVENTORY_JSON='{"available":0,"keys":[],"configuredFallbacks":[],"fallbackReady":false}'
 
 : >"$RESULTS_FILE"
 
@@ -553,6 +554,113 @@ PY
   fi
 }
 
+check_model_inventory() {
+  if [[ ! -f "${REPO_ROOT}/dist/index.js" ]]; then
+    return
+  fi
+
+  local inventory_raw
+  if ! inventory_raw="$(node "${REPO_ROOT}/dist/index.js" models list --json 2>/dev/null)"; then
+    warn "unable to inspect model inventory with models list --json"
+    return
+  fi
+
+  local parsed
+  if ! parsed="$(
+    python3 - "$inventory_raw" "${OPENCLAWCODE_MODEL_FALLBACKS:-}" <<'PY'
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+configured_raw = sys.argv[2]
+
+models = payload.get("models") or []
+available_keys = []
+for entry in models:
+    if not isinstance(entry, dict):
+        continue
+    key = entry.get("key")
+    if isinstance(key, str) and key.strip() and entry.get("available") is True:
+        trimmed = key.strip()
+        if trimmed not in available_keys:
+            available_keys.append(trimmed)
+
+configured = []
+for raw in configured_raw.split(","):
+    trimmed = raw.strip()
+    if trimmed and trimmed not in configured:
+        configured.append(trimmed)
+
+missing = [entry for entry in configured if entry not in available_keys]
+
+print(json.dumps({
+    "available": len(available_keys),
+    "keys": available_keys,
+    "configuredFallbacks": configured,
+    "missingConfiguredFallbacks": missing,
+    "fallbackReady": len(available_keys) >= 2,
+}))
+PY
+  )"; then
+    warn "unable to parse model inventory from models list --json"
+    return
+  fi
+
+  MODEL_INVENTORY_JSON="$parsed"
+
+  local summary
+  summary="$(
+    python3 - "$parsed" <<'PY'
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+available = int(payload.get("available") or 0)
+keys = payload.get("keys") or []
+configured = payload.get("configuredFallbacks") or []
+missing = payload.get("missingConfiguredFallbacks") or []
+fallback_ready = bool(payload.get("fallbackReady"))
+
+print(f"available={available}")
+print("keys=" + ",".join(keys))
+print("configured=" + ",".join(configured))
+print("missing=" + ",".join(missing))
+print("fallbackReady=" + ("true" if fallback_ready else "false"))
+PY
+  )" || {
+    warn "unable to summarize model inventory readiness"
+    return
+  }
+
+  local available_count=""
+  local keys=""
+  local configured=""
+  local missing=""
+  local fallback_ready=""
+  while IFS='=' read -r key value; do
+    case "$key" in
+      available) available_count="$value" ;;
+      keys) keys="$value" ;;
+      configured) configured="$value" ;;
+      missing) missing="$value" ;;
+      fallbackReady) fallback_ready="$value" ;;
+    esac
+  done <<<"$summary"
+
+  pass "model inventory exposes ${available_count:-0} available model(s): ${keys:-none}"
+
+  if [[ -n "$configured" && -n "$missing" ]]; then
+    fail "configured OPENCLAWCODE_MODEL_FALLBACKS entries are not discoverable: ${missing}"
+    return
+  fi
+
+  if [[ -n "$configured" ]]; then
+    pass "configured model fallback overrides are discoverable: ${configured}"
+  else
+    pass "fallback proof readiness: ${fallback_ready:-false}"
+  fi
+}
+
 check_github_hook_subscription() {
   if [[ -z "$GITHUB_HOOK_ID" ]]; then
     warn "GitHub hook id missing; webhook event subscription was not verified"
@@ -677,6 +785,7 @@ print_summary_and_exit() {
     printf '"repoRoot":"%s",' "$(json_escape "$REPO_ROOT")"
     printf '"operatorRoot":"%s",' "$(json_escape "$OPERATOR_ROOT")"
     printf '"gatewayUrl":"%s",' "$(json_escape "$GATEWAY_URL")"
+    printf '"modelInventory":%s,' "$MODEL_INVENTORY_JSON"
     printf '"summary":{"pass":%s,"warn":%s,"fail":%s},' "$PASS_COUNT" "$WARN_COUNT" "$FAIL_COUNT"
     printf '"checks":[%s]}\n' "$checks_json"
   else
@@ -725,6 +834,7 @@ check_gateway_port
 check_route_probe
 check_repo_binding
 check_repo_test_commands
+check_model_inventory
 check_github_hook_subscription
 check_tunnel_status
 print_summary_and_exit

@@ -104,8 +104,16 @@ loop with:
     preserve compact provider/model diagnostics with the failed note itself
   - those compact diagnostics include provider/model id, prompt footprint,
     tool-schema footprint, usage total, and bootstrap-warning state
-  - the next live rerun on refreshed-branch issue `#87` should therefore make
-    the remaining provider signal visible without opening raw builder stdout
+  - a direct refreshed-branch proof has now confirmed those diagnostics really
+    do land in the saved failed note for issue `#87`, so future sessions no
+    longer need raw builder stdout to see the remaining provider signal
+- refreshed-branch provider follow-up now also has a bounded fallback escape
+  hatch:
+  - issue-worktree runs can read `OPENCLAWCODE_MODEL_FALLBACKS` from the
+    operator environment and inject that fallback chain into the temporary
+    session-scoped runtime config
+  - this is meant for provider-resilience proofs, so another operator can test
+    fallback behavior without rewriting the shared agent config first
 - operator-facing provider-pause messaging is now visible beyond
   `/occode-inbox` too:
   - `/occode-start` and `/occode-rerun` now tell the operator when work was
@@ -137,6 +145,13 @@ loop with:
   webhook event subscriptions
 - that setup verification script now also supports `--json`, so another
   operator host or CI job can consume a machine-readable readiness report
+- setup verification now also inspects local model inventory through
+  `models list --json`:
+  - JSON output now includes `modelInventory`
+  - human-readable output now tells the operator how many discoverable models
+    are available for fallback proofs
+  - if `OPENCLAWCODE_MODEL_FALLBACKS` is configured, setup-check now fails when
+    any requested fallback model is not actually discoverable on that host
 - operator setup scripts that can now derive:
   - `openclawcode.env`
   - `openclaw.json`
