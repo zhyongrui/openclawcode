@@ -1,5 +1,10 @@
 import path from "node:path";
-import type { WorkflowRerunContext, WorkflowRun, WorkflowWorkspace } from "../contracts/index.js";
+import type {
+  WorkflowFailureDiagnostics,
+  WorkflowRerunContext,
+  WorkflowRun,
+  WorkflowWorkspace,
+} from "../contracts/index.js";
 import type { GitHubIssueClient, PullRequestRef, RepoRef } from "../github/index.js";
 import {
   buildPullRequestBody,
@@ -81,6 +86,50 @@ function formatWorkflowFailureNote(stageLabel: string, error: unknown): string {
   return diagnostics
     ? `${stageLabel} failed: ${summary} (${diagnostics})`
     : `${stageLabel} failed: ${summary}`;
+}
+
+function extractWorkflowFailureDiagnostics(error: unknown): WorkflowFailureDiagnostics | undefined {
+  if (!(error instanceof AgentRunFailureError)) {
+    return undefined;
+  }
+
+  return {
+    summary: trimSingleLine(error.message) ?? "Agent run failed.",
+    provider: error.diagnostics.provider,
+    model: error.diagnostics.model,
+    systemPromptChars: error.diagnostics.systemPromptChars,
+    skillsPromptChars: error.diagnostics.skillsPromptChars,
+    toolSchemaChars: error.diagnostics.toolSchemaChars,
+    toolCount: error.diagnostics.toolCount,
+    skillCount: error.diagnostics.skillCount,
+    injectedWorkspaceFileCount: error.diagnostics.injectedWorkspaceFileCount,
+    bootstrapWarningShown: error.diagnostics.bootstrapWarningShown,
+    lastCallUsageTotal: error.diagnostics.lastCallUsageTotal,
+  };
+}
+
+function transitionRunToFailure(
+  run: WorkflowRun,
+  stageLabel: string,
+  error: unknown,
+  now: TimestampFactory,
+): WorkflowRun {
+  const failedRun = transitionRun(
+    {
+      ...run,
+      failureDiagnostics: undefined,
+    },
+    "failed",
+    formatWorkflowFailureNote(stageLabel, error),
+    now,
+  );
+  const diagnostics = extractWorkflowFailureDiagnostics(error);
+  return diagnostics
+    ? {
+        ...failedRun,
+        failureDiagnostics: diagnostics,
+      }
+    : failedRun;
 }
 
 function attachRerunContext(
@@ -271,7 +320,7 @@ export async function runIssueWorkflow(
   try {
     run = await executePlanning(run, deps.planner, now);
   } catch (error) {
-    run = transitionRun(run, "failed", formatWorkflowFailureNote("Planning", error), now);
+    run = transitionRunToFailure(run, "Planning", error, now);
     await deps.store.save(run);
     throw error;
   }
@@ -309,12 +358,7 @@ export async function runIssueWorkflow(
       runId: run.id,
     });
   } catch (error) {
-    run = transitionRun(
-      run,
-      "failed",
-      formatWorkflowFailureNote("Workspace preparation", error),
-      now,
-    );
+    run = transitionRunToFailure(run, "Workspace preparation", error, now);
     await deps.store.save(run);
     throw error;
   }
@@ -334,7 +378,7 @@ export async function runIssueWorkflow(
   try {
     run = await executeBuild(run, deps.builder);
   } catch (error) {
-    run = transitionRun(run, "failed", formatWorkflowFailureNote("Build", error), now);
+    run = transitionRunToFailure(run, "Build", error, now);
     await deps.store.save(run);
     throw error;
   }
@@ -420,7 +464,7 @@ export async function runIssueWorkflow(
   try {
     run = await executeVerification(run, deps.verifier, now);
   } catch (error) {
-    run = transitionRun(run, "failed", formatWorkflowFailureNote("Verification", error), now);
+    run = transitionRunToFailure(run, "Verification", error, now);
     await deps.store.save(run);
     throw error;
   }

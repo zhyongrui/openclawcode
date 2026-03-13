@@ -992,6 +992,19 @@ describe("runIssueWorkflow", () => {
       const [savedRun] = await store.list();
 
       expect(savedRun?.stage).toBe("failed");
+      expect(savedRun?.failureDiagnostics).toEqual({
+        summary: "HTTP 400: Internal server error",
+        provider: "crs",
+        model: "gpt-5.4",
+        systemPromptChars: 8629,
+        skillsPromptChars: 1245,
+        toolSchemaChars: 3030,
+        toolCount: 4,
+        skillCount: 1,
+        injectedWorkspaceFileCount: 0,
+        lastCallUsageTotal: 0,
+        bootstrapWarningShown: false,
+      });
       expect(savedRun?.history.at(-1)).toBe(
         "Build failed: HTTP 400: Internal server error (model=crs/gpt-5.4, prompt=8629, skillsPrompt=1245, schema=3030, tools=4, skills=1, files=0, usage=0, bootstrap=clean)",
       );

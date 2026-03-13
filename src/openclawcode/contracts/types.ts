@@ -117,6 +117,20 @@ export interface WorkflowWorkspace {
   preparedAt: string;
 }
 
+export interface WorkflowFailureDiagnostics {
+  summary?: string;
+  provider?: string;
+  model?: string;
+  systemPromptChars?: number;
+  skillsPromptChars?: number;
+  toolSchemaChars?: number;
+  toolCount?: number;
+  skillCount?: number;
+  injectedWorkspaceFileCount?: number;
+  bootstrapWarningShown?: boolean;
+  lastCallUsageTotal?: number;
+}
+
 export interface WorkflowRun {
   id: string;
   stage: WorkflowStage;
@@ -131,6 +145,7 @@ export interface WorkflowRun {
   buildResult?: BuildResult;
   draftPullRequest?: PullRequestDraft;
   verificationReport?: VerificationReport;
+  failureDiagnostics?: WorkflowFailureDiagnostics;
   rerunContext?: WorkflowRerunContext;
   history: string[];
 }

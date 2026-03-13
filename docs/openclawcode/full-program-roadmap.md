@@ -77,6 +77,35 @@ The backlog should end in a public-use path, not only more slices.
 8. release-facing docs spell out prerequisites, supported scope, known limits,
    upgrade steps, and rollback steps
 
+## Final Delivery Program
+
+The remaining work should be consumed in this order:
+
+1. refreshed-branch readiness
+   - finish provider-resilience and machine-readable failure surfaces on
+     `sync/upstream-2026-03-13`
+   - prove one low-risk merged run there again
+2. promotion readiness
+   - promote the refreshed branch back to `main`
+   - record rollback notes and restart the long-lived operator on the promoted
+     build
+3. long-lived operator re-proof
+   - prove one merged low-risk path and one blocked or escalated path on
+     `main`
+4. chat-native operator completion
+   - let Feishu users draft, confirm, and launch work without manually
+     formatting GitHub issues
+5. external automation surfaces
+   - keep `openclaw code run --json`, setup-check JSON, and validation-pool
+     inventory stable enough for other AI sessions, CI, and operator tooling
+6. fresh-host reproducibility
+   - stand up the operator from docs on a clean root or host
+   - pass strict checks
+   - complete one low-risk merged proof
+7. release packaging
+   - finish support matrix, policy docs, rollout notes, and rollback notes for
+     other teams
+
 ## Ordered Endgame Backlog
 
 This is the ordered queue from the current state to the intended finished

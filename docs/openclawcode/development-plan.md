@@ -18,6 +18,39 @@ losing architectural direction.
 For the exhaustive cross-track backlog that runs all the way to the intended
 operator end-state, see `full-program-roadmap.md`.
 
+## Final Delivery Plan
+
+The work should now converge on a public-usable operator, not an endless
+sequence of isolated fixes.
+
+The remaining program is:
+
+1. keep `sync/upstream-2026-03-13` green while finishing provider-resilience
+   and refreshed-branch live proofs
+2. promote that branch back to `main` only after a real low-risk merged proof
+   and a recorded rollback path
+3. re-prove the long-lived `main` Feishu operator with one merged low-risk path
+   and one blocked or escalated path
+4. finish chat-native intake so a teammate can draft, confirm, and launch work
+   from Feishu without hand-writing GitHub issue bodies
+5. finish the stable machine-readable contract:
+   - `openclaw code run --json`
+   - setup-check JSON
+   - validation-pool inventory
+     so external automation and other AI sessions can reason about state without
+     parsing history strings
+6. finish install, upgrade, promotion, and rollback docs so a fresh operator
+   host can stand the system up from scratch
+7. prove that fresh-host path with one real low-risk merged run
+8. package release-facing docs that explain prerequisites, supported scope,
+   policy, known limits, and rollback
+
+Every completed slice should either:
+
+- remove one blocker from that path
+- harden a proof already on that path
+- or improve the docs or machine-readable surfaces needed to repeat that path
+
 ## Product Target
 
 `openclawcode` should become a GitHub-driven coding assistant built on the

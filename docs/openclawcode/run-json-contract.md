@@ -74,6 +74,11 @@ those nested objects.
 - `testResultCount`
 - `noteCount`
 
+### Failure Diagnostics
+
+- `failureDiagnostics`
+- `failureDiagnosticsSummary`
+
 ### Suitability Signals
 
 - `suitabilityDecision`
@@ -149,6 +154,8 @@ those nested objects.
 - boolean summary fields such as `verificationHasFindings` default to `false`
   when the corresponding section is absent
 - string or timestamp fields use `null` when the underlying value is absent
+- `failureDiagnostics` uses `null` when no structured workflow failure metadata
+  was recorded for the run
 
 ## Consumer Guidance
 

@@ -46,6 +46,10 @@ loop with:
 - an `openclaw code run ...` CLI path for issue-driven execution
 - a versioned top-level JSON contract for `openclaw code run --json`, anchored
   by `contractVersion: 1` and documented in `run-json-contract.md`
+- persisted structured workflow failure diagnostics that now surface in both
+  saved run artifacts and the top-level JSON contract as:
+  - `failureDiagnostics`
+  - `failureDiagnosticsSummary`
 - draft PR publishing and guarded merge hooks in the workflow service layer
 - event-driven `pull_request` / `pull_request_review` webhook intake with chat
   notifications for tracked lifecycle changes
@@ -344,8 +348,7 @@ loop with:
   remains the long-lived Feishu operator baseline until the next live
   promotion
 - upstream now expects Node `>=22.16.0` for CLI startup:
-  - this workstation still runs targeted tests and `pnpm build` under
-    `22.12.0` with warnings
+  - this workstation now runs the refreshed branch under `22.16.0`
   - the built CLI entrypoint no longer starts below the new floor
 - a docker-gated sandbox edit end-to-end regression that exercises alias-style
   edit parameters through the real workspace mount path before the runner-level
