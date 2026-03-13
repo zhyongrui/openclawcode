@@ -433,3 +433,14 @@ Still pending for a fuller product loop:
   consuming `#54`, `#50`, and `#55`
 - broader packaging and install proof beyond the current local operator
   environments
+
+Additional rollout note from the latest refreshed-branch proof:
+
+- issue-worktree builder runs now default to `300` seconds
+- issue-worktree verifier runs now default to `180` seconds
+- operator overrides:
+  - `OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS`
+  - `OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS`
+- generic non-provider failures now also persist
+  `failureDiagnostics.summary`, so timeout-style failures stay visible in saved
+  workflow artifacts and chat-visible status output

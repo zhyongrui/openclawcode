@@ -602,3 +602,5 @@ As of this revision:
   - either add another discoverable model for a real fallback proof or move
     straight to deeper provider/model diagnostics instead of more prompt
     trimming
+  - keep refreshed-branch builder and verifier runs within explicit workflow
+    timeouts so future live proofs fail closed instead of hanging indefinitely

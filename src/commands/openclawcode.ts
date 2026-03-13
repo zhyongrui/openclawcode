@@ -66,11 +66,28 @@ export interface OpenClawCodeListValidationIssuesOpts {
 }
 
 export const OPENCLAWCODE_RUN_JSON_CONTRACT_VERSION = 1;
+export const DEFAULT_OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS = 300;
+export const DEFAULT_OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS = 180;
+
+const OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS_ENV = "OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS";
+const OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS_ENV = "OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS";
 
 function parseIssueNumber(value: string): number {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed < 1) {
     throw new Error("--issue must be a positive integer");
+  }
+  return parsed;
+}
+
+function resolvePositiveTimeoutSeconds(params: { envName: string; fallback: number }): number {
+  const raw = process.env[params.envName]?.trim();
+  if (!raw) {
+    return params.fallback;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    throw new Error(`${params.envName} must be a positive integer when set.`);
   }
   return parsed;
 }
@@ -455,11 +472,20 @@ export async function openclawCodeRunCommand(
   const github = new GitHubRestClient();
   const planner = new HeuristicPlanner();
   const agentRunner = new OpenClawAgentRunner();
+  const builderTimeoutSeconds = resolvePositiveTimeoutSeconds({
+    envName: OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS_ENV,
+    fallback: DEFAULT_OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS,
+  });
+  const verifierTimeoutSeconds = resolvePositiveTimeoutSeconds({
+    envName: OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS_ENV,
+    fallback: DEFAULT_OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS,
+  });
   const builder = new AgentBackedBuilder({
     agentRunner,
     shellRunner,
     testCommands: opts.test ?? [],
     agentId: opts.builderAgent,
+    timeoutSeconds: builderTimeoutSeconds,
     collectChangedFiles: async (run) => {
       if (!run.workspace) {
         return [];
@@ -470,6 +496,7 @@ export async function openclawCodeRunCommand(
   const verifier = new AgentBackedVerifier({
     agentRunner,
     agentId: opts.verifierAgent,
+    timeoutSeconds: verifierTimeoutSeconds,
   });
   const store = new FileSystemWorkflowRunStore(path.join(stateDir, "runs"));
 

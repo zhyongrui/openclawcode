@@ -89,12 +89,13 @@ function formatWorkflowFailureNote(stageLabel: string, error: unknown): string {
 }
 
 function extractWorkflowFailureDiagnostics(error: unknown): WorkflowFailureDiagnostics | undefined {
+  const summary = trimSingleLine(error instanceof Error ? error.message : String(error));
   if (!(error instanceof AgentRunFailureError)) {
-    return undefined;
+    return summary ? { summary } : undefined;
   }
 
   return {
-    summary: trimSingleLine(error.message) ?? "Agent run failed.",
+    summary: summary ?? "Agent run failed.",
     provider: error.diagnostics.provider,
     model: error.diagnostics.model,
     systemPromptChars: error.diagnostics.systemPromptChars,

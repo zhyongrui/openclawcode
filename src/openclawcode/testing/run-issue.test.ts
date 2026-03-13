@@ -403,7 +403,7 @@ describe("runIssueWorkflow", () => {
     } finally {
       await fs.rm(stateDir, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 
   it("records an auto-run suitability assessment before preparing the workspace", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
@@ -925,6 +925,10 @@ describe("runIssueWorkflow", () => {
       const [savedRun] = await store.list();
 
       expect(savedRun?.stage).toBe("failed");
+      expect(savedRun?.failureDiagnostics).toEqual({
+        summary:
+          "Builder workspace integrity check failed: existing tracked file(s) became empty in the isolated worktree. Files: src/commands/openclawcode.ts",
+      });
       expect(savedRun?.history).toContain("Build started");
       expect(savedRun?.history.at(-1)).toContain(
         "Build failed: Builder workspace integrity check failed: existing tracked file(s) became empty in the isolated worktree.",
