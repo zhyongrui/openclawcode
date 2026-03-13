@@ -28,6 +28,24 @@ const shouldEagerRegisterSubcommands = (_argv: string[]) => {
   return isTruthyEnvValue(process.env.OPENCLAW_DISABLE_LAZY_SUBCOMMANDS);
 };
 
+const pendingRegistrations = new WeakMap<Command, Promise<void>[]>();
+
+function trackPendingRegistration(program: Command, work: Promise<void> | void) {
+  const promise = Promise.resolve(work);
+  const pending = pendingRegistrations.get(program) ?? [];
+  pending.push(promise);
+  pendingRegistrations.set(program, pending);
+}
+
+export async function awaitPendingSubCliRegistrations(program: Command): Promise<void> {
+  const pending = pendingRegistrations.get(program);
+  if (!pending || pending.length === 0) {
+    return;
+  }
+  pendingRegistrations.delete(program);
+  await Promise.all(pending);
+}
+
 export const loadValidatedConfigForPluginRegistration =
   async (): Promise<OpenClawConfig | null> => {
     const mod = await import("../../config/config.js");
@@ -341,7 +359,7 @@ function registerLazyCommand(program: Command, entry: SubCliEntry) {
 export function registerSubCliCommands(program: Command, argv: string[] = process.argv) {
   if (shouldEagerRegisterSubcommands(argv)) {
     for (const entry of entries) {
-      void entry.register(program);
+      trackPendingRegistration(program, entry.register(program));
     }
     return;
   }

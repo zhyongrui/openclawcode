@@ -144,7 +144,7 @@ Start the gateway from the repo root after sourcing the env file:
 
 ```bash
 source ~/.openclaw/openclawcode.env
-node dist/index.js gateway run --bind loopback --port 18789
+/home/zyr/.local/node-v22.16.0/bin/node dist/index.js gateway run --bind loopback --port 18789
 ```
 
 If you use a service wrapper or local launcher script, keep these rules:
@@ -152,6 +152,13 @@ If you use a service wrapper or local launcher script, keep these rules:
 - source `~/.openclaw/openclawcode.env` before the gateway starts
 - restart the gateway after changing `openclaw.json`
 - keep the plugin route on the same local port that the tunnel helper targets
+- use a Node runtime that satisfies the current startup floor (`>=22.16.0`)
+- on a fresh built checkout, the first startup may spend about five seconds on
+  `Control UI assets missing; building ...` before `ws://127.0.0.1:18789`
+  begins listening
+- direct diagnostics now support
+  `OPENCLAW_DISABLE_LAZY_SUBCOMMANDS=1 ... dist/index.js gateway run ...`
+  against the same entrypoint without breaking command registration
 
 ## 5. Bind The Repo To The Real Chat Target
 

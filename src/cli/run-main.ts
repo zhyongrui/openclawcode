@@ -115,6 +115,9 @@ export async function runCli(argv: string[] = process.argv) {
     // Register the primary command (builtin or subcli) so help and command parsing
     // are correct even with lazy command registration.
     const primary = getPrimaryCommand(parseArgv);
+    const { awaitPendingSubCliRegistrations, registerSubCliByName } =
+      await import("./program/register.subclis.js");
+    await awaitPendingSubCliRegistrations(program);
     if (primary) {
       const { getProgramContext } = await import("./program/program-context.js");
       const ctx = getProgramContext(program);
@@ -122,8 +125,12 @@ export async function runCli(argv: string[] = process.argv) {
         const { registerCoreCliByName } = await import("./program/command-registry.js");
         await registerCoreCliByName(program, ctx, primary, parseArgv);
       }
-      const { registerSubCliByName } = await import("./program/register.subclis.js");
-      await registerSubCliByName(program, primary);
+      const primaryAlreadyRegistered = program.commands.some(
+        (command) => command.name() === primary,
+      );
+      if (!primaryAlreadyRegistered) {
+        await registerSubCliByName(program, primary);
+      }
     }
 
     const hasBuiltinPrimary =

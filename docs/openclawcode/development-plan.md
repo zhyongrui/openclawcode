@@ -25,9 +25,9 @@ sequence of isolated fixes.
 
 The remaining program is:
 
-1. keep `main` green after the `sync/upstream-2026-03-13` promotion and repair
-   the built gateway startup regression so the documented repo-local entrypoint
-   binds `127.0.0.1:18789` again
+1. keep `main` green after the `sync/upstream-2026-03-13` promotion and keep
+   the documented repo-local gateway entrypoint healthy on Node `>=22.16.0`,
+   including the first-start Control UI auto-build path
 2. re-prove the long-lived `main` Feishu operator with one merged low-risk
    path, one no-op completion path, and one blocked or escalated path
 3. finish chat-native intake so a teammate can draft, confirm, and launch work
@@ -1574,14 +1574,29 @@ The workflow now treats that "no commits between base and issue branch" result
 as a first-class terminal state instead of leaving the run at
 `ready-for-human-review`.
 
-## Current Operator Blocker On `main`
+## Repo-Local Gateway Direct Proof On `main`
 
-The remaining post-promotion blocker is narrower and now documented:
+The repo-local built gateway path is now re-proved on promoted `main`.
 
-- the documented repo-local command
-  `node dist/index.js gateway run --bind loopback --port 18789`
-  currently logs plugin initialization but does not bind a TCP listener on
-  `127.0.0.1:18789`
-- direct `tsx`-driven `openclaw code run ...` proofs on `main` still work, so
-  workflow-code validation can continue while the built gateway startup path is
-  repaired
+- direct built command:
+  - `/home/zyr/.local/node-v22.16.0/bin/node dist/index.js gateway run --bind loopback --port 18789 --allow-unconfigured --verbose`
+- direct no-lazy command:
+  - `OPENCLAW_DISABLE_LAZY_SUBCOMMANDS=1 /home/zyr/.local/node-v22.16.0/bin/node dist/index.js gateway run --bind loopback --port 18789 --allow-unconfigured --verbose`
+- real result:
+  - both entry paths now bind `ws://127.0.0.1:18789`
+  - the first startup on this host may spend about five seconds printing
+    `Control UI assets missing; building ...` before the listener appears
+  - the direct `dist/index.js` entry now delegates to `runCli`, so its command
+    registration behavior matches the primary wrapper path instead of drifting
+    behind it
+  - eager subcommand registration behind
+    `OPENCLAW_DISABLE_LAZY_SUBCOMMANDS=1` is now awaitable, which removes both
+    the earlier `unknown command 'gateway'` failure and the later duplicate
+    registration error
+
+That moves the next `main`-specific work back to product behavior:
+
+- restart and re-prove the long-lived chat-visible Feishu operator on the
+  repaired `main` build
+- continue provider fallback or diagnostics work without carrying a local CLI
+  startup caveat in parallel

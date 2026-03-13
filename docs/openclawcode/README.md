@@ -459,8 +459,12 @@ Additional rollout note from the latest refreshed-branch proof:
   - run `zhyongrui-openclawcode-44-1773418941601`
   - final stage `completed-without-changes`
   - GitHub issue `#44` closed automatically without opening a PR
-- the remaining post-promotion operator blocker is now narrower:
-  - the documented repo-local gateway command currently prints plugin
-    initialization logs but does not bind `127.0.0.1:18789`
-  - direct `tsx`-driven workflow proofs on `main` still work, so workflow code
-    validation can continue while gateway startup is repaired
+- the repo-local built gateway path on promoted `main` is now re-proved:
+  - `/home/zyr/.local/node-v22.16.0/bin/node dist/index.js gateway run --bind loopback --port 18789 --allow-unconfigured --verbose`
+    binds `ws://127.0.0.1:18789`
+  - `OPENCLAW_DISABLE_LAZY_SUBCOMMANDS=1` now also works against that direct
+    `dist/index.js` entrypoint without hitting either `unknown command
+'gateway'` or duplicate command registration failures
+  - the first startup on this host may spend about five seconds printing
+    `Control UI assets missing; building ...` before the gateway listener
+    appears

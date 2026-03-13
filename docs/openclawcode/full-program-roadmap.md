@@ -596,11 +596,15 @@ As of this revision:
 
 - active engineering branch:
   - `main`
-- current live-ops blocker after the promotion:
-  - the documented repo-local gateway entrypoint starts plugin initialization
-    logs but does not bind `127.0.0.1:18789`
+- current live-ops baseline after the promotion:
+  - the documented repo-local gateway entrypoint now binds
+    `127.0.0.1:18789` again when run on Node `>=22.16.0`
+  - the first startup on a fresh built checkout may spend about five seconds
+    printing `Control UI assets missing; building ...` before the listener
+    appears
+  - direct no-lazy diagnostics through
+    `OPENCLAW_DISABLE_LAZY_SUBCOMMANDS=1` now work against `dist/index.js`
 - next planned slice after the current one:
-  - repair that built gateway startup regression on `main`
   - restart the long-lived Feishu operator on the repaired build
   - run one more low-risk merged proof, one no-op completion proof, and one
     blocked or escalated proof on `main`
