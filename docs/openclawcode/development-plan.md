@@ -1532,3 +1532,20 @@ That gap is now explicitly closed:
 - generic non-provider workflow failures now persist
   `failureDiagnostics.summary`, so timeout-style failures remain visible in the
   stable JSON contract and operator surfaces
+
+## Refreshed-Branch Promotion Gate
+
+`sync/upstream-2026-03-13` has now cleared the low-risk live-proof gate too:
+
+- real proof issue:
+  - `#85`
+- real proof run:
+  - `zhyongrui-openclawcode-85-1773416913744`
+- real proof PR:
+  - `#88`
+- real outcome:
+  - merged automatically against `sync/upstream-2026-03-13`
+
+That shifts the next slice from "can this refreshed branch prove a low-risk
+merge at all?" to "promote it back to `main`, restart the long-lived operator,
+and re-prove the `main` baseline."

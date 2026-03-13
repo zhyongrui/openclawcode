@@ -597,10 +597,14 @@ As of this revision:
 - active feature branch:
   - `sync/upstream-2026-03-13`
 - next planned slice after the current one:
-  - use the freshly synced branch to continue provider/model follow-up for
-    issue `#87`
-  - either add another discoverable model for a real fallback proof or move
-    straight to deeper provider/model diagnostics instead of more prompt
-    trimming
-  - keep refreshed-branch builder and verifier runs within explicit workflow
-    timeouts so future live proofs fail closed instead of hanging indefinitely
+  - promote `sync/upstream-2026-03-13` back to `main`
+  - restart the long-lived Feishu operator on the promoted build
+  - run one more low-risk merged proof and one blocked or escalated proof on
+    `main`
+
+Fresh proof result carried forward:
+
+- `sync/upstream-2026-03-13` now has a real low-risk merged proof through:
+  - issue `#85`
+  - run `zhyongrui-openclawcode-85-1773416913744`
+  - `PR #88`

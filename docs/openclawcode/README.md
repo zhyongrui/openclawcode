@@ -444,3 +444,8 @@ Additional rollout note from the latest refreshed-branch proof:
 - generic non-provider failures now also persist
   `failureDiagnostics.summary`, so timeout-style failures stay visible in saved
   workflow artifacts and chat-visible status output
+- refreshed-branch promotion gate is now also satisfied by a real merged proof:
+  - issue `#85`
+  - run `zhyongrui-openclawcode-85-1773416913744`
+  - `PR #88`
+  - merged automatically against `sync/upstream-2026-03-13`
