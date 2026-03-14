@@ -856,6 +856,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.historyEntryCount).toBeNull();
     expect(payload.failureDiagnostics).toBeNull();
     expect(payload.failureDiagnosticsSummary).toBeNull();
+    expect(payload.failureDiagnosticToolCount).toBeNull();
   });
 
   it("prints failure diagnostics when a failed workflow recorded provider metadata", async () => {
@@ -899,6 +900,7 @@ describe("openclawCodeRunCommand", () => {
       bootstrapWarningShown: false,
       lastCallUsageTotal: 0,
     });
+    expect(payload.failureDiagnosticToolCount).toBe(4);
   });
 
   it("prints failed auto-merge disposition when merge execution fails", async () => {
