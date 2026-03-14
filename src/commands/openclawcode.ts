@@ -512,6 +512,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     ...run,
     contractVersion: OPENCLAWCODE_RUN_JSON_CONTRACT_VERSION,
     issueTitle: run.issue.title ?? null,
+    issueRepo: run.issue.repo ?? null,
     stageLabel: formatWorkflowStageLabel(run.stage),
     totalAttemptCount: run.attempts?.total ?? null,
     planningAttemptCount: run.attempts?.planning ?? null,

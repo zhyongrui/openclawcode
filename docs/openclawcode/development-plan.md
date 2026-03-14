@@ -242,7 +242,7 @@ turning the working loop into a cleanly operable product:
 - current live inventory is now:
   - docs/operator issue `#60`
   - docs/operator issue `#86`
-  - command-layer issue `#107` for `issueRepo`
+  - command-layer issue `#108` for `issueOwner`
 - duplicate seeding attempts now reuse an existing open issue with the same
   template and title instead of creating a fresh duplicate
 - duplicate issue `#59` was detected via the new inventory command and then
@@ -279,7 +279,7 @@ turning the working loop into a cleanly operable product:
 - command-layer issue `#100` for `failureDiagnosticBootstrapWarningShown` has
   now also been implemented, documented, and auto-closed through the same path
 - validation-pool tooling now also supports `command-json-string`, so the
-  replenished command-layer pool continues with issue `#107` for `issueRepo`
+  replenished command-layer pool continues with issue `#108` for `issueOwner`
 - command-layer issues `#101` and `#102` have now also been implemented,
   documented, and auto-closed through the same path
 - command-layer issue `#103` for `draftPullRequestTitle` has now also been
@@ -288,6 +288,8 @@ turning the working loop into a cleanly operable product:
   `draftPullRequestBody` have now also been implemented, documented, and
   auto-closed through the same path
 - command-layer issue `#106` for `issueTitle` has now also been implemented,
+  documented, and auto-closed through the same path
+- command-layer issue `#107` for `issueRepo` has now also been implemented,
   documented, and auto-closed through the same path
 - the `failureDiagnostics` family is now effectively mirrored at the top level
   for:
@@ -304,6 +306,8 @@ turning the working loop into a cleanly operable product:
   level via `draftPullRequestBody` and `draftPullRequestOpenedAt`
 - stable workflow identity mirroring now also includes the nested `issue.title`
   field at the top level via `issueTitle`
+- stable workflow identity mirroring now also includes the nested `issue.repo`
+  field at the top level via `issueRepo`
   - bootstrap-warning signal
   - usage total
 - a fresh explicit chat-intake live proof is now complete through issue `#70`:

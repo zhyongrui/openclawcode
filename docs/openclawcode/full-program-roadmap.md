@@ -325,9 +325,11 @@ As of 2026-03-14:
     `draftPullRequestBody` landed
   - the same reconcile path has now also auto-closed `#106` after
     `issueTitle` landed
+  - the same reconcile path has now also auto-closed `#107` after
+    `issueRepo` landed
   - current open validation pool is now narrower and more honest:
     - docs/operator issues `#60`, `#86`
-    - command-layer issue `#107` for `issueRepo`
+    - command-layer issue `#108` for `issueOwner`
 - the remaining startup blocker is now narrower than "openclawcode plugin
   startup":
   - the built openclawcode-only path is healthy

@@ -364,7 +364,8 @@ The program is only "done enough to hand to other people" when all of these are 
 
 These are the next narrow slices that should be consumed from the current state.
 
-- [ ] implement `#107` for `issueRepo`
+- [x] implement `#107` for `issueRepo`
+- [ ] implement `#108` for `issueOwner`
 - [ ] replenish the command-layer validation pool with the next low-risk string mirror
 - [ ] keep `run-json-contract.md` aligned with each new top-level field
 - [ ] keep `development-plan.md` and `full-program-roadmap.md` aligned with the latest pool state
