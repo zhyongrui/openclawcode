@@ -79,6 +79,8 @@ those nested objects.
 
 - `failureDiagnostics`
 - `failureDiagnosticsSummary`
+- `failureDiagnosticProvider`
+- `failureDiagnosticModel`
 - `failureDiagnosticSystemPromptChars`
 - `failureDiagnosticSkillsPromptChars`
 - `failureDiagnosticToolSchemaChars`

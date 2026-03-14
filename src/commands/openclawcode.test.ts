@@ -863,6 +863,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.historyEntryCount).toBeNull();
     expect(payload.failureDiagnostics).toBeNull();
     expect(payload.failureDiagnosticsSummary).toBeNull();
+    expect(payload.failureDiagnosticProvider).toBeNull();
+    expect(payload.failureDiagnosticModel).toBeNull();
     expect(payload.failureDiagnosticSystemPromptChars).toBeNull();
     expect(payload.failureDiagnosticSkillsPromptChars).toBeNull();
     expect(payload.failureDiagnosticToolSchemaChars).toBeNull();
@@ -901,6 +903,8 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.failureDiagnosticsSummary).toBe("HTTP 400: Internal server error");
+    expect(payload.failureDiagnosticProvider).toBe("crs");
+    expect(payload.failureDiagnosticModel).toBe("gpt-5.4");
     expect(payload.failureDiagnosticSystemPromptChars).toBe(8629);
     expect(payload.failureDiagnosticSkillsPromptChars).toBe(1245);
     expect(payload.failureDiagnosticToolSchemaChars).toBe(3030);

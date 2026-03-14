@@ -50,6 +50,8 @@ loop with:
   saved run artifacts and the top-level JSON contract as:
   - `failureDiagnostics`
   - `failureDiagnosticsSummary`
+  - `failureDiagnosticProvider`
+  - `failureDiagnosticModel`
   - `failureDiagnosticSystemPromptChars`
   - `failureDiagnosticSkillsPromptChars`
   - `failureDiagnosticToolSchemaChars`
@@ -284,7 +286,7 @@ loop with:
     includes:
     - docs/operator issue `#60`
     - docs/operator issue `#86`
-    - command-layer issue `#101`
+    - command-layer issue `#103`
   - duplicate issue `#59` was detected through the new inventory path and then
     closed
   - stale command-layer issues `#74` through `#82` are now also auto-closable
@@ -309,6 +311,9 @@ loop with:
   - command-layer issue `#100` has now also been consumed and auto-closed
     through the same reconcile path after
     `failureDiagnosticBootstrapWarningShown` landed
+  - command-layer issues `#101` and `#102` have now also been consumed and
+    auto-closed through the same reconcile path after
+    `failureDiagnosticProvider` and `failureDiagnosticModel` landed
   - command-layer issues `#54` and `#50` have now been consumed and closed on
     `main`
   - command-layer issue `#55` has now been consumed and closed on `main`, and
@@ -341,6 +346,8 @@ loop with:
     `failureDiagnosticInjectedWorkspaceFileCount`
   - `openclaw code run --json` now exposes
     `failureDiagnosticBootstrapWarningShown`
+  - `openclaw code run --json` now exposes `failureDiagnosticProvider`
+  - `openclaw code run --json` now exposes `failureDiagnosticModel`
   - `scripts/openclawcode-setup-check.sh` now reads `minimumNodeVersion` from
     `dist/cli-startup-metadata.json` and checks the local Node runtime against
     the CLI startup floor
