@@ -43,6 +43,7 @@ those nested objects.
 - `contractVersion`
 - `id`
 - `issue`
+- `issueTitle`
 - `stage`
 - `stageLabel`
 - `runSummary`

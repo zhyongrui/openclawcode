@@ -135,6 +135,7 @@ describe("openclawCodeRunCommand", () => {
     expect(runtime.log).toHaveBeenCalledTimes(1);
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.contractVersion).toBe(1);
+    expect(payload.issueTitle).toBe("Include changed file list in JSON output");
     expect(payload.stage).toBe("ready-for-human-review");
     expect(payload.stageLabel).toBe("Ready For Human Review");
     expect(payload.totalAttemptCount).toBe(1);
@@ -367,6 +368,22 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.planningAttemptCount).toBeNull();
     expect(payload.buildAttemptCount).toBeNull();
     expect(payload.verificationAttemptCount).toBeNull();
+  });
+
+  it("prints issueTitle as null when the workflow issue title is unavailable", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        issue: {
+          ...createRun().issue,
+          title: undefined as unknown as WorkflowRun["issue"]["title"],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.issueTitle).toBeNull();
   });
 
   it("reports verificationHasFollowUps when verifier follow-up work exists", async () => {

@@ -239,7 +239,7 @@ turning the working loop into a cleanly operable product:
 - current live inventory is now:
   - docs/operator issue `#60`
   - docs/operator issue `#86`
-  - command-layer issue `#106` for `issueTitle`
+  - command-layer issue `#107` for `issueRepo`
 - duplicate seeding attempts now reuse an existing open issue with the same
   template and title instead of creating a fresh duplicate
 - duplicate issue `#59` was detected via the new inventory command and then
@@ -276,7 +276,7 @@ turning the working loop into a cleanly operable product:
 - command-layer issue `#100` for `failureDiagnosticBootstrapWarningShown` has
   now also been implemented, documented, and auto-closed through the same path
 - validation-pool tooling now also supports `command-json-string`, so the
-  replenished command-layer pool continues with issue `#106` for `issueTitle`
+  replenished command-layer pool continues with issue `#107` for `issueRepo`
 - command-layer issues `#101` and `#102` have now also been implemented,
   documented, and auto-closed through the same path
 - command-layer issue `#103` for `draftPullRequestTitle` has now also been
@@ -284,6 +284,8 @@ turning the working loop into a cleanly operable product:
 - command-layer issues `#104` and `#105` for `draftPullRequestOpenedAt` and
   `draftPullRequestBody` have now also been implemented, documented, and
   auto-closed through the same path
+- command-layer issue `#106` for `issueTitle` has now also been implemented,
+  documented, and auto-closed through the same path
 - the `failureDiagnostics` family is now effectively mirrored at the top level
   for:
   - summary
@@ -297,6 +299,8 @@ turning the working loop into a cleanly operable product:
 - stable draft PR metadata mirroring now also includes the nested
   `draftPullRequest.body` and `draftPullRequest.openedAt` fields at the top
   level via `draftPullRequestBody` and `draftPullRequestOpenedAt`
+- stable workflow identity mirroring now also includes the nested `issue.title`
+  field at the top level via `issueTitle`
   - bootstrap-warning signal
   - usage total
 - a fresh explicit chat-intake live proof is now complete through issue `#70`:
