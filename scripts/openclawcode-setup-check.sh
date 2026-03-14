@@ -48,7 +48,7 @@ FAIL_COUNT=0
 LAST_RETRY_ERROR=""
 RESULTS_FILE="${TMPDIR:-/tmp}/openclawcode-setup-check-results.$$"
 MODEL_INVENTORY_JSON='{"available":0,"keys":[],"configuredFallbacks":[],"fallbackReady":false}'
-READINESS_JSON='{"basic":false,"strict":false,"lowRiskProofReady":false,"fallbackProofReady":false,"promotionReady":false,"nextAction":"fix-failing-checks"}'
+READINESS_JSON='{"basic":false,"strict":false,"lowRiskProofReady":false,"fallbackProofReady":false,"promotionReady":false,"gatewayReachable":false,"routeProbeReady":false,"routeProbeSkipped":false,"builtStartupProofRequested":false,"builtStartupProofReady":false,"nextAction":"fix-failing-checks"}'
 NODE_VERSION_FLOOR_OK=0
 STARTUP_PROOF_TEMP_DIR=""
 
@@ -975,63 +975,67 @@ check_tunnel_status() {
 }
 
 refresh_readiness_json() {
-  local strict_ready="false"
-  local basic_ready="false"
-  local low_risk_ready="false"
-  local fallback_ready="false"
-  local promotion_ready="false"
-  local next_action="fix-failing-checks"
-
-  if [[ "$FAIL_COUNT" -eq 0 ]]; then
-    basic_ready="true"
-  fi
-
-  if [[ "$FAIL_COUNT" -eq 0 && "$WARN_COUNT" -eq 0 ]]; then
-    strict_ready="true"
-    low_risk_ready="true"
-    promotion_ready="true"
-  fi
-
-  local model_fallback_ready
-  model_fallback_ready="$(
-    python3 - "$MODEL_INVENTORY_JSON" <<'PY'
-import json
-import sys
-
-payload = json.loads(sys.argv[1])
-print("true" if payload.get("fallbackReady") else "false")
-PY
-  )" || model_fallback_ready="false"
-
-  if [[ "$strict_ready" == "true" && "$model_fallback_ready" == "true" ]]; then
-    fallback_ready="true"
-  fi
-
-  if [[ "$basic_ready" != "true" ]]; then
-    next_action="fix-failing-checks"
-  elif [[ "$strict_ready" != "true" ]]; then
-    next_action="resolve-warnings-before-promotion"
-  elif [[ "$fallback_ready" == "true" ]]; then
-    next_action="ready-for-low-risk-or-fallback-proof"
-  else
-    next_action="ready-for-low-risk-proof"
-  fi
-
   READINESS_JSON="$(
-    python3 - "$basic_ready" "$strict_ready" "$low_risk_ready" "$fallback_ready" "$promotion_ready" "$next_action" <<'PY'
+    python3 - "$FAIL_COUNT" "$WARN_COUNT" "$MODEL_INVENTORY_JSON" "$RESULTS_FILE" "$PROBE_BUILT_STARTUP" "$SKIP_ROUTE_PROBE" <<'PY'
 import json
 import sys
+from pathlib import Path
+
+fail_count = int(sys.argv[1])
+warn_count = int(sys.argv[2])
+model_inventory = json.loads(sys.argv[3])
+results_path = Path(sys.argv[4])
+built_startup_requested = sys.argv[5] == "1"
+route_probe_skipped = sys.argv[6] == "1"
+
+entries = []
+for line in results_path.read_text(encoding="utf-8").splitlines():
+    if not line.strip():
+        continue
+    status, _, message = line.partition("\t")
+    entries.append((status, message))
+
+def has(status: str, needle: str) -> bool:
+    return any(entry_status == status and needle in message for entry_status, message in entries)
+
+basic_ready = fail_count == 0
+strict_ready = fail_count == 0 and warn_count == 0
+low_risk_ready = strict_ready
+fallback_ready = strict_ready and bool(model_inventory.get("fallbackReady"))
+promotion_ready = strict_ready
+gateway_reachable = has("pass", "gateway reachable:")
+route_probe_ready = has("pass", "signed webhook probe reached plugin route")
+built_startup_ready = has("pass", "built gateway startup proof reached listener")
+
+if not basic_ready:
+    if built_startup_requested and built_startup_ready and not gateway_reachable:
+        next_action = "start-or-restart-live-gateway"
+    elif built_startup_requested and not built_startup_ready:
+        next_action = "fix-built-startup-proof"
+    else:
+        next_action = "fix-failing-checks"
+elif not strict_ready:
+    next_action = "resolve-warnings-before-promotion"
+elif fallback_ready:
+    next_action = "ready-for-low-risk-or-fallback-proof"
+else:
+    next_action = "ready-for-low-risk-proof"
 
 print(json.dumps({
-    "basic": sys.argv[1] == "true",
-    "strict": sys.argv[2] == "true",
-    "lowRiskProofReady": sys.argv[3] == "true",
-    "fallbackProofReady": sys.argv[4] == "true",
-    "promotionReady": sys.argv[5] == "true",
-    "nextAction": sys.argv[6],
+    "basic": basic_ready,
+    "strict": strict_ready,
+    "lowRiskProofReady": low_risk_ready,
+    "fallbackProofReady": fallback_ready,
+    "promotionReady": promotion_ready,
+    "gatewayReachable": gateway_reachable,
+    "routeProbeReady": route_probe_ready,
+    "routeProbeSkipped": route_probe_skipped,
+    "builtStartupProofRequested": built_startup_requested,
+    "builtStartupProofReady": built_startup_ready,
+    "nextAction": next_action,
 }))
 PY
-  )" || READINESS_JSON='{"basic":false,"strict":false,"lowRiskProofReady":false,"fallbackProofReady":false,"promotionReady":false,"nextAction":"fix-failing-checks"}'
+  )" || READINESS_JSON='{"basic":false,"strict":false,"lowRiskProofReady":false,"fallbackProofReady":false,"promotionReady":false,"gatewayReachable":false,"routeProbeReady":false,"routeProbeSkipped":false,"builtStartupProofRequested":false,"builtStartupProofReady":false,"nextAction":"fix-failing-checks"}'
 }
 
 print_summary_and_exit() {
@@ -1072,12 +1076,15 @@ import sys
 
 payload = json.loads(sys.argv[1])
 print(
-    "Readiness: basic={basic}, strict={strict}, low-risk-proof={low_risk}, fallback-proof={fallback}, promotion={promotion}".format(
+    "Readiness: basic={basic}, strict={strict}, low-risk-proof={low_risk}, fallback-proof={fallback}, promotion={promotion}, gateway={gateway}, route-probe={route_probe}, built-startup={built_startup}".format(
         basic=str(payload.get("basic", False)).lower(),
         strict=str(payload.get("strict", False)).lower(),
         low_risk=str(payload.get("lowRiskProofReady", False)).lower(),
         fallback=str(payload.get("fallbackProofReady", False)).lower(),
         promotion=str(payload.get("promotionReady", False)).lower(),
+        gateway=str(payload.get("gatewayReachable", False)).lower(),
+        route_probe=str(payload.get("routeProbeReady", False)).lower(),
+        built_startup=str(payload.get("builtStartupProofReady", False)).lower(),
     )
 )
 print(f"Next action: {payload.get('nextAction', 'fix-failing-checks')}")

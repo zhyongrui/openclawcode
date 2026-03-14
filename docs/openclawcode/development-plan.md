@@ -1397,6 +1397,9 @@ The next implementation slice should follow this order:
     operator rollout later
 13. keep `run-json-contract.md` aligned with `contractVersion` so external
     automation has one explicit reference point instead of scraping dev logs
+14. keep setup-check readiness opinionated enough to tell future sessions
+    whether the next action is "repair the built startup path" or "restart the
+    live gateway" when isolated startup and live route health diverge
 
 ## Test Strategy
 

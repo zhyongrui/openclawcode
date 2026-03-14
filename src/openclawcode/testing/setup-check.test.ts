@@ -24,7 +24,7 @@ function runSetupCheck(scriptPath: string, env: NodeJS.ProcessEnv, args: string[
       ...env,
     },
     encoding: "utf8",
-    timeout: 15_000,
+    timeout: 30_000,
   });
 }
 
@@ -153,6 +153,9 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("--pool threads");
     expect(script).toContain('"modelInventory":');
     expect(script).toContain('"readiness":');
+    expect(script).toContain('"gatewayReachable":');
+    expect(script).toContain('"routeProbeReady":');
+    expect(script).toContain('"builtStartupProofReady":');
     expect(script).toContain('"checks":[');
     expect(script).toContain('"summary":{"pass":');
   });
@@ -459,6 +462,11 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
         lowRiskProofReady: boolean;
         fallbackProofReady: boolean;
         promotionReady: boolean;
+        gatewayReachable: boolean;
+        routeProbeReady: boolean;
+        routeProbeSkipped: boolean;
+        builtStartupProofRequested: boolean;
+        builtStartupProofReady: boolean;
         nextAction: string;
       };
       summary: { pass: number; warn: number; fail: number };
@@ -481,6 +489,11 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
       lowRiskProofReady: false,
       fallbackProofReady: false,
       promotionReady: false,
+      gatewayReachable: true,
+      routeProbeReady: true,
+      routeProbeSkipped: false,
+      builtStartupProofRequested: false,
+      builtStartupProofReady: false,
       nextAction: "resolve-warnings-before-promotion",
     });
     expect(payload.summary.fail).toBe(0);
@@ -1053,6 +1066,211 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
     expect(result.status).toBe(0);
     expect(result.stdout).toContain(
       "[PASS] built gateway startup proof reached listener on ws://127.0.0.1:18890",
+    );
+    await expect(fs.readFile(startupProbeMarker, "utf8")).resolves.toBe("called\n");
+  });
+
+  it("distinguishes a passing built startup proof from a down live gateway in readiness json", async () => {
+    const rootDir = await createTempDir();
+    tempRoots.add(rootDir);
+    const repoRoot = path.join(rootDir, "repo");
+    const distDir = path.join(repoRoot, "dist");
+    const binDir = path.join(rootDir, "bin");
+    const envFile = path.join(rootDir, "openclawcode.env");
+    const configFile = path.join(rootDir, "openclaw.json");
+    const stateFile = path.join(rootDir, "chatops-state.json");
+    const startupProbeMarker = path.join(rootDir, "startup-proof-called");
+    const scriptPath = path.resolve("scripts/openclawcode-setup-check.sh");
+    const realPythonPath = resolveRealPythonPath();
+
+    await fs.mkdir(distDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    await writeStubCliArtifacts(distDir);
+    await fs.writeFile(
+      envFile,
+      "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          channels: {
+            feishu: {
+              enabled: true,
+            },
+          },
+          bindings: [
+            {
+              agentId: "main",
+              match: {
+                channel: "feishu",
+                accountId: "default",
+              },
+            },
+          ],
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "approve",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:startup-proof-json",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await fs.writeFile(
+      stateFile,
+      `${JSON.stringify(
+        {
+          repoBindingsByRepo: {
+            "zhyongrui/openclawcode": {
+              repoKey: "zhyongrui/openclawcode",
+              notifyChannel: "feishu",
+              notifyTarget: "user:startup-proof-json",
+              updatedAt: "2026-03-14T04:30:00.000Z",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    await writeExecutable(
+      path.join(binDir, "node"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\${1:-}" == "--version" || "\${1:-}" == "-v" ]]; then
+  printf 'v22.16.0\\n'
+  exit 0
+fi
+if [[ "\${1:-}" == *"/dist/index.js" && "\${2:-}" == "models" && "\${3:-}" == "list" && "\${4:-}" == "--json" ]]; then
+  cat <<'EOF'
+{"count":1,"models":[{"key":"crs/gpt-5.4","name":"Stub Model 1","input":"text","local":false,"available":true,"tags":["default","configured"],"missing":false}]}
+EOF
+  exit 0
+fi
+if [[ "\${1:-}" == *"/dist/index.js" && "\${2:-}" == "gateway" && "\${3:-}" == "run" ]]; then
+  printf 'called\\n' >"${startupProbeMarker}"
+  python3 - "\${OPENCLAW_CONFIG_PATH}" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    payload = json.load(handle)
+
+assert payload.get("channels") == {}
+assert payload.get("bindings") == []
+plugins = payload.get("plugins") or {}
+assert plugins.get("allow") == ["openclawcode"]
+assert (plugins.get("slots") or {}).get("memory") == "none"
+print("2026-03-14T04:30:30.352+00:00 [gateway] listening on ws://127.0.0.1:18890, ws://[::1]:18890 (PID 12345)")
+PY
+  exit 0
+fi
+printf 'stub node only supports --version, models list, and gateway run\\n' >&2
+exit 1
+`,
+    );
+    await writeExecutable(
+      path.join(binDir, "python3"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+script="$(cat)"
+if [[ "$script" == *"socket.create_connection"* ]]; then
+  exit 1
+fi
+if [[ "$script" == *"hmac.new"* ]]; then
+  printf 'sha256=test-signature\\n'
+  exit 0
+fi
+printf '%s' "$script" | "${realPythonPath}" "$@"
+`,
+    );
+    await writeExecutable(
+      path.join(binDir, "curl"),
+      '#!/usr/bin/env bash\nset -euo pipefail\nprintf "curl: (7) Failed to connect to 127.0.0.1 port 18789 after 0 ms: Couldn\'t connect to server\\n" >&2\nexit 7\n',
+    );
+
+    const result = runSetupCheck(
+      scriptPath,
+      {
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+        OPENCLAWCODE_SETUP_REPO_ROOT: repoRoot,
+        OPENCLAWCODE_SETUP_ENV_FILE: envFile,
+        OPENCLAWCODE_SETUP_CONFIG_FILE: configFile,
+        OPENCLAWCODE_SETUP_STATE_FILE: stateFile,
+        OPENCLAWCODE_SETUP_GATEWAY_URL: "http://127.0.0.1:18789",
+        OPENCLAWCODE_SETUP_WEBHOOK_ROUTE: "/plugins/openclawcode/github",
+        OPENCLAWCODE_GITHUB_REPO: "zhyongrui/openclawcode",
+        OPENCLAWCODE_TUNNEL_LOG_FILE: path.join(rootDir, "tunnel.log"),
+        OPENCLAWCODE_TUNNEL_PID_FILE: path.join(rootDir, "tunnel.pid"),
+      },
+      ["--json", "--probe-built-startup"],
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(1);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      readiness: {
+        basic: boolean;
+        strict: boolean;
+        gatewayReachable: boolean;
+        routeProbeReady: boolean;
+        routeProbeSkipped: boolean;
+        builtStartupProofRequested: boolean;
+        builtStartupProofReady: boolean;
+        nextAction: string;
+      };
+      checks: Array<{ status: string; message: string }>;
+    };
+
+    expect(payload.ok).toBe(false);
+    expect(payload.readiness).toMatchObject({
+      basic: false,
+      strict: false,
+      gatewayReachable: false,
+      routeProbeReady: false,
+      routeProbeSkipped: false,
+      builtStartupProofRequested: true,
+      builtStartupProofReady: true,
+      nextAction: "start-or-restart-live-gateway",
+    });
+    expect(payload.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "fail",
+          message: expect.stringContaining("gateway not reachable"),
+        }),
+        expect.objectContaining({
+          status: "pass",
+          message: expect.stringContaining("built gateway startup proof reached listener"),
+        }),
+      ]),
     );
     await expect(fs.readFile(startupProbeMarker, "utf8")).resolves.toBe("called\n");
   });

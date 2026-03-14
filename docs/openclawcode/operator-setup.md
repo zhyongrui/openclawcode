@@ -340,7 +340,21 @@ The JSON output now also includes:
 - `readiness.lowRiskProofReady`
 - `readiness.fallbackProofReady`
 - `readiness.promotionReady`
+- `readiness.gatewayReachable`
+- `readiness.routeProbeReady`
+- `readiness.routeProbeSkipped`
+- `readiness.builtStartupProofRequested`
+- `readiness.builtStartupProofReady`
 - `readiness.nextAction`
+
+New rollout distinction:
+
+- if `readiness.builtStartupProofReady = true` but
+  `readiness.gatewayReachable = false`, the built entrypoint is healthy and the
+  next repair is to start or restart the long-lived live gateway
+- that case now reports
+  `readiness.nextAction = "start-or-restart-live-gateway"`
+  instead of the older generic `fix-failing-checks`
 
 Fresh-root note:
 

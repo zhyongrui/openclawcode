@@ -166,6 +166,13 @@ loop with:
   - JSON output now includes `modelInventory`
   - JSON output now also includes `readiness` with an explicit next proof or
     rollout action for automation
+  - readiness now also distinguishes:
+    - live gateway reachability
+    - route-probe success
+    - whether the isolated built-startup proof was requested
+    - whether that built-startup proof actually passed
+  - that makes it possible to tell "restart the live gateway" apart from
+    "repair the built startup path" without scraping raw check messages
   - human-readable output now tells the operator how many discoverable models
     are available for fallback proofs
   - if `OPENCLAWCODE_MODEL_FALLBACKS` is configured, setup-check now fails when

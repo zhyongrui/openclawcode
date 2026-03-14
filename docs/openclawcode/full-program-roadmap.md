@@ -100,6 +100,9 @@ The remaining work should be consumed in this order:
      inventory stable enough for other AI sessions, CI, and operator tooling
    - keep those surfaces opinionated enough to say what the next rollout or
      proof action should be, not just dump raw counters
+   - specifically, keep setup-check able to distinguish "built startup proof
+     passed" from "live gateway is still down" so promotion automation does
+     not misclassify a route restart as a startup regression
 6. fresh-host reproducibility
    - stand up the operator from docs on a clean root or host
    - pass strict checks
