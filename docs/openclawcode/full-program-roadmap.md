@@ -83,7 +83,7 @@ The remaining work should be consumed in this order:
 
 1. refreshed-branch readiness
    - finish provider-resilience and machine-readable failure surfaces on
-     `sync/upstream-2026-03-13`
+     `sync/upstream-2026-03-14`
    - prove one low-risk merged run there again
 2. promotion readiness
    - promote the refreshed branch back to `main`
@@ -169,7 +169,7 @@ product. Each item should be consumed as one or more narrow slices.
 As of 2026-03-14:
 
 - active feature branch:
-  - `sync/upstream-2026-03-13`
+  - `sync/upstream-2026-03-14`
 - long-lived live operator baseline:
   - `main`
 - long-lived local operator root:
@@ -237,11 +237,25 @@ As of 2026-03-14:
     - `crs/gpt-5.4`
     - fallback override support is now ready in code, but a real live fallback
       proof still needs another discoverable model on that host
-- a new sync branch, `sync/upstream-2026-03-13`, now cleanly merges
-  `upstream/main` through `80e7da92ce` and still passes:
+- a new sync branch, `sync/upstream-2026-03-14`, now cleanly merges
+  `upstream/main` through `c08317203d` and still passes:
+  - `pnpm exec vitest run src/agents/sandbox/fs-bridge.shell.test.ts src/infra/safe-open-sync.test.ts --pool threads`
   - `pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads --maxWorkers 1`
   - `pnpm build`
-  - no merge conflicts were encountered on this sync
+  - `./scripts/openclawcode-setup-check.sh --strict --json`
+- that sync did surface one operational field note worth keeping:
+  - immediately after the merge, the local install was stale enough to report:
+    - missing `@modelcontextprotocol/sdk`
+    - `Command "tsdown" not found`
+    - `Command "vitest" not found`
+  - the required recovery step was:
+    - `pnpm install --frozen-lockfile`
+  - future sync branches should do that install pass before treating missing
+    package or missing bin failures as source regressions
+- the refreshed branch is now locally promotion-ready in setup-check terms:
+  - `readiness.lowRiskProofReady = true`
+  - `readiness.promotionReady = true`
+  - `readiness.nextAction = "ready-for-low-risk-proof"`
 - `main` now carries the built bundled startup repair for `openclawcode`:
   - the build emits `dist/extensions/openclawcode/index.js`
   - bundled manifest files are copied into `dist/extensions/*`

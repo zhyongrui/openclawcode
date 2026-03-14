@@ -384,8 +384,32 @@ loop with:
   - `pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads --maxWorkers 1`
   - `pnpm build`
 - `sync/upstream-2026-03-13` has now been promoted back to `main`
-- `main` is again both the active engineering baseline and the long-lived
-  Feishu operator target branch
+- `main` is again the long-lived Feishu operator target branch
+- the next sync branch, `sync/upstream-2026-03-14`, now cleanly merges
+  `upstream/main` through `c08317203d` and still passes:
+  - `pnpm exec vitest run src/agents/sandbox/fs-bridge.shell.test.ts src/infra/safe-open-sync.test.ts --pool threads`
+  - `pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads --maxWorkers 1`
+  - `pnpm build`
+  - `./scripts/openclawcode-setup-check.sh --strict --json`
+- the refreshed integration baseline is now:
+  - `sync/upstream-2026-03-14` for active engineering
+  - `main` for the long-lived Feishu operator
+- real sync field note:
+  - if a fresh sync branch reports missing packages or missing bins right after
+    merge, run `pnpm install --frozen-lockfile` before treating it as a source
+    regression
+  - that exact recovery was required here for:
+    - `@modelcontextprotocol/sdk`
+    - `tsdown`
+    - `vitest`
+- the refreshed branch now also passes strict repo-local promotion preflight on
+  the live operator root:
+  - `summary.pass = 19`
+  - `summary.warn = 0`
+  - `summary.fail = 0`
+  - `readiness.lowRiskProofReady = true`
+  - `readiness.promotionReady = true`
+  - `readiness.nextAction = "ready-for-low-risk-proof"`
 - upstream now expects Node `>=22.16.0` for CLI startup:
   - this workstation now runs the refreshed branch under `22.16.0`
   - the built CLI entrypoint no longer starts below the new floor

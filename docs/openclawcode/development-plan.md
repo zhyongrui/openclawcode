@@ -25,9 +25,10 @@ sequence of isolated fixes.
 
 The remaining program is:
 
-1. keep `main` green after the `sync/upstream-2026-03-13` promotion and keep
-   the documented repo-local gateway entrypoint healthy on Node `>=22.16.0`,
-   including the first-start Control UI auto-build path
+1. keep `main` green as the long-lived Feishu operator baseline while the next
+   refreshed branch, `sync/upstream-2026-03-14`, moves through proof and
+   promotion gates on Node `>=22.16.0`, including the first-start Control UI
+   auto-build path
 2. re-prove the long-lived `main` Feishu operator with one merged low-risk
    path, one no-op completion path, and one blocked or escalated path
 3. finish chat-native intake so a teammate can draft, confirm, and launch work
@@ -290,6 +291,20 @@ turning the working loop into a cleanly operable product:
 - `sync/upstream-2026-03-13` has now been promoted back to `main`
 - `main` is once again both the active engineering baseline and the long-lived
   Feishu operator target branch
+- the next refreshed integration branch, `sync/upstream-2026-03-14`, now
+  cleanly merges `upstream/main` through `c08317203d` and still passes:
+  - `pnpm exec vitest run src/agents/sandbox/fs-bridge.shell.test.ts src/infra/safe-open-sync.test.ts --pool threads`
+  - `pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads --maxWorkers 1`
+  - `pnpm build`
+  - `./scripts/openclawcode-setup-check.sh --strict --json`
+- `main` remains the long-lived Feishu operator baseline, but active
+  integration work now continues on `sync/upstream-2026-03-14` until that
+  branch completes another low-risk live proof
+- field note from that sync:
+  - a clean merge can still leave the local dependency install stale enough to
+    report missing packages or missing bins
+  - immediately rerun `pnpm install --frozen-lockfile` before treating those
+    failures as source regressions
 - upstream also raised the runtime floor to Node `>=22.16.0`:
   - this workstation now runs local Node `22.16.0`
   - the built CLI entrypoint refuses to start below that floor
@@ -411,8 +426,8 @@ system that can keep shipping on the same branch that the live runner uses.
 
 The short-term objective is:
 
-- keep `sync/upstream-2026-03-13` as the active engineering branch
-  until the next live operator proof is complete
+- keep `sync/upstream-2026-03-14` as the active engineering branch until the
+  next live operator proof is complete
 - keep `main` as the stable long-lived Feishu operator baseline rather than
   mixing in unproven upstream-sync work immediately
 - keep using real GitHub issues as the driver
@@ -436,6 +451,8 @@ The short-term objective is:
   chat-visible failure triage does not regress once a provider pause clears
 - keep operator preflight and promotion checks consumable by automation so a
   different operator host can gate rollout without parsing human-only text
+- treat `pnpm install --frozen-lockfile` as the first post-sync recovery step
+  when a fresh merge branch surfaces missing-package or missing-bin failures
 - keep the new openclawcode-worktree retry clamp stable so the outer workflow
   owns provider backoff instead of the embedded SDK
 - keep provider-pause activation observable and predictable after fresh
