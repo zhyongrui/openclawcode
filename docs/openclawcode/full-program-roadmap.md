@@ -256,6 +256,18 @@ As of 2026-03-14:
   - `readiness.lowRiskProofReady = true`
   - `readiness.promotionReady = true`
   - `readiness.nextAction = "ready-for-low-risk-proof"`
+- that branch has now also passed the next real low-risk merged proof:
+  - issue `#87`
+  - run `zhyongrui-openclawcode-87-1773494823680`
+  - `PR #95`
+  - merged automatically against `sync/upstream-2026-03-14`
+- live policy field note from that proof:
+  - the verifier still recorded one `missingCoverage` item because the docs
+    run had no explicit repo checks
+  - current policy nonetheless allowed auto-merge because there were no
+    findings and the issue remained policy-eligible
+- the next ordered step is now to promote `sync/upstream-2026-03-14` back to
+  `main` and then re-prove the long-lived operator there
 - `main` now carries the built bundled startup repair for `openclawcode`:
   - the build emits `dist/extensions/openclawcode/index.js`
   - bundled manifest files are copied into `dist/extensions/*`

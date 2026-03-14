@@ -410,6 +410,19 @@ loop with:
   - `readiness.lowRiskProofReady = true`
   - `readiness.promotionReady = true`
   - `readiness.nextAction = "ready-for-low-risk-proof"`
+- the refreshed branch has now also cleared the next real low-risk merged
+  proof:
+  - issue `#87`
+  - run `zhyongrui-openclawcode-87-1773494823680`
+  - `PR #95`
+  - merged automatically against `sync/upstream-2026-03-14`
+- useful live policy note from that proof:
+  - the verifier still reported one `missingCoverage` item because no explicit
+    repo checks were recorded for the docs-only run
+  - current policy still allowed auto-merge because the run had no findings
+    and remained eligible under the low-risk policy
+- the next step is now to promote `sync/upstream-2026-03-14` back to `main`
+  and re-prove the long-lived Feishu operator baseline there
 - upstream now expects Node `>=22.16.0` for CLI startup:
   - this workstation now runs the refreshed branch under `22.16.0`
   - the built CLI entrypoint no longer starts below the new floor

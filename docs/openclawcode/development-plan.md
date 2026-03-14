@@ -300,11 +300,24 @@ turning the working loop into a cleanly operable product:
 - `main` remains the long-lived Feishu operator baseline, but active
   integration work now continues on `sync/upstream-2026-03-14` until that
   branch completes another low-risk live proof
+- `sync/upstream-2026-03-14` has now also cleared that low-risk proof gate:
+  - issue `#87`
+  - run `zhyongrui-openclawcode-87-1773494823680`
+  - `PR #95`
+  - merged automatically against `sync/upstream-2026-03-14`
+- the next promotion step is now concrete rather than speculative:
+  - fast-forward `main` to `sync/upstream-2026-03-14`
+  - re-prove the long-lived `main` baseline on the promoted build
 - field note from that sync:
   - a clean merge can still leave the local dependency install stale enough to
     report missing packages or missing bins
   - immediately rerun `pnpm install --frozen-lockfile` before treating those
     failures as source regressions
+- field note from the live proof:
+  - `#87` merged even though the verifier still reported one
+    `missingCoverage` item because no explicit repo checks were recorded
+  - future policy-hardening work should decide whether that is acceptable
+    steady-state behavior or whether docs-only auto-merge needs a stricter gate
 - upstream also raised the runtime floor to Node `>=22.16.0`:
   - this workstation now runs local Node `22.16.0`
   - the built CLI entrypoint refuses to start below that floor
@@ -474,6 +487,9 @@ The short-term objective is:
   live proof does not stall on missing repository traffic
 - absorb upstream runtime movement continuously, but only through explicit sync
   branches with targeted validation and promotion checkpoints
+- keep current docs-only auto-merge behavior explicit in the docs until policy
+  is tightened: missing coverage alone does not currently block a low-risk
+  docs proof from merging
 
 ### Rolling Execution Loop
 
