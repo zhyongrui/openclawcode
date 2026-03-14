@@ -61,6 +61,9 @@ loop with:
 - stable draft PR metadata now also includes a top-level
   `draftPullRequestTitle` mirror for consumers that should not unpack the
   nested `draftPullRequest` object
+- stable draft PR metadata now also includes top-level mirrors for:
+  - `draftPullRequestBody`
+  - `draftPullRequestOpenedAt`
 - draft PR publishing and guarded merge hooks in the workflow service layer
 - event-driven `pull_request` / `pull_request_review` webhook intake with chat
   notifications for tracked lifecycle changes
@@ -289,7 +292,7 @@ loop with:
     includes:
     - docs/operator issue `#60`
     - docs/operator issue `#86`
-    - command-layer issue `#104`
+    - command-layer issue `#106`
   - duplicate issue `#59` was detected through the new inventory path and then
     closed
   - stale command-layer issues `#74` through `#82` are now also auto-closable
@@ -319,6 +322,9 @@ loop with:
     `failureDiagnosticProvider` and `failureDiagnosticModel` landed
   - command-layer issue `#103` has now also been consumed and auto-closed
     through the same reconcile path after `draftPullRequestTitle` landed
+  - command-layer issues `#104` and `#105` have now also been consumed and
+    auto-closed through the same reconcile path after
+    `draftPullRequestOpenedAt` and `draftPullRequestBody` landed
   - command-layer issues `#54` and `#50` have now been consumed and closed on
     `main`
   - command-layer issue `#55` has now been consumed and closed on `main`, and

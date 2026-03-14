@@ -184,6 +184,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.draftPullRequestTitle).toBe(
       "[Issue #2] Include changed file list in JSON output",
     );
+    expect(payload.draftPullRequestBody).toBe("Draft PR body");
+    expect(payload.draftPullRequestOpenedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(payload.draftPullRequestNumber).toBe(42);
     expect(payload.publishedPullRequestNumber).toBe(42);
     expect(payload.draftPullRequestUrl).toBe("https://github.com/openclaw/openclaw/pull/42");
@@ -307,6 +309,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.draftPullRequestBranchName).toBeNull();
     expect(payload.draftPullRequestBaseBranch).toBeNull();
     expect(payload.draftPullRequestTitle).toBeNull();
+    expect(payload.draftPullRequestBody).toBeNull();
+    expect(payload.draftPullRequestOpenedAt).toBeNull();
     expect(payload.draftPullRequestNumber).toBeNull();
     expect(payload.publishedPullRequestNumber).toBeNull();
     expect(payload.draftPullRequestUrl).toBeNull();
@@ -531,6 +535,8 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.draftPullRequestTitle).toBe(
       "[Issue #2] Include changed file list in JSON output",
     );
+    expect(payload.draftPullRequestBody).toBe("Draft PR body");
+    expect(payload.draftPullRequestOpenedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(payload.draftPullRequestNumber).toBeNull();
     expect(payload.publishedPullRequestNumber).toBeNull();
     expect(payload.draftPullRequestUrl).toBeNull();
