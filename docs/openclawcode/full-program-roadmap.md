@@ -264,9 +264,11 @@ As of 2026-03-14:
   - a real proof on `main` closed stale command-layer issues `#74` through
     `#82`, then later auto-closed `#89` after `failureDiagnosticToolCount`
     landed
+  - the same reconcile path has now also auto-closed `#91` after
+    `failureDiagnosticUsageTotal` landed
   - current open validation pool is now narrower and more honest:
     - docs/operator issues `#60`, `#86`, `#87`
-    - command-layer issue `#91` for `failureDiagnosticUsageTotal`
+    - command-layer issue `#93` for `failureDiagnosticSystemPromptChars`
 - the remaining startup blocker is now narrower than "openclawcode plugin
   startup":
   - the built openclawcode-only path is healthy

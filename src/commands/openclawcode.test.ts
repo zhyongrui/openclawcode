@@ -864,6 +864,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.failureDiagnostics).toBeNull();
     expect(payload.failureDiagnosticsSummary).toBeNull();
     expect(payload.failureDiagnosticToolCount).toBeNull();
+    expect(payload.failureDiagnosticUsageTotal).toBeNull();
   });
 
   it("prints failure diagnostics when a failed workflow recorded provider metadata", async () => {
@@ -895,6 +896,7 @@ describe("openclawCodeRunCommand", () => {
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.failureDiagnosticsSummary).toBe("HTTP 400: Internal server error");
     expect(payload.failureDiagnosticToolCount).toBe(4);
+    expect(payload.failureDiagnosticUsageTotal).toBe(0);
     expect(payload.failureDiagnostics).toEqual({
       summary: "HTTP 400: Internal server error",
       provider: "crs",
@@ -909,6 +911,7 @@ describe("openclawCodeRunCommand", () => {
       lastCallUsageTotal: 0,
     });
     expect(payload.failureDiagnosticToolCount).toBe(4);
+    expect(payload.failureDiagnosticUsageTotal).toBe(0);
   });
 
   it("prints failed auto-merge disposition when merge execution fails", async () => {
