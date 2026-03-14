@@ -155,6 +155,10 @@ loop with:
 - a repeatable operator setup runbook plus a repo-local setup verification
   script for gateway, webhook, binding, tunnel health, and required GitHub
   webhook event subscriptions
+- that setup verification script can now also run an isolated built-startup
+  proof for the bundled `openclawcode` plugin through
+  `--probe-built-startup`, using the same allowlisted diagnostic config that
+  previously existed only as a manual field proof
 - that setup verification script now also supports `--json`, so another
   operator host or CI job can consume a machine-readable readiness report
 - setup verification now also inspects local model inventory through

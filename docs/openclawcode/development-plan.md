@@ -133,6 +133,10 @@ real bundled OpenClaw chatops adapter:
   - temporary webhook ingress
 - a repo-local setup verification script for gateway, webhook, binding, tunnel
   health, and required GitHub webhook event subscriptions
+- that same setup verification script can now also run a bounded built-startup
+  proof for the bundled `openclawcode` plugin through
+  `--probe-built-startup`, using the same allowlisted diagnostic config that
+  was previously only documented as a manual field procedure
 - a built bundled entry for `openclawcode` at
   `dist/extensions/openclawcode/index.js`
 - copied bundled plugin manifests inside `dist/extensions/*` so the built
@@ -1362,33 +1366,36 @@ The next implementation slice should follow this order:
 
 1. use the green `./scripts/openclawcode-setup-check.sh --strict` result as the
    live preflight gate on the refreshed branch
-2. keep direct rerun proof issue `#87` as the standing refreshed-branch probe
+2. use `./scripts/openclawcode-setup-check.sh --strict --probe-built-startup`
+   as the built-startup promotion gate on the same branch so the repaired
+   bundled-plugin startup path stays machine-verifiable
+3. keep direct rerun proof issue `#87` as the standing refreshed-branch probe
    until the post-trim failure signal is no longer just provider
    `HTTP 400`
-3. keep the persisted compact provider/model/system-prompt diagnostics in the
+4. keep the persisted compact provider/model/system-prompt diagnostics in the
    failed workflow note as the default way to interpret live failures; a direct
    refreshed-branch proof has already confirmed they surface on issue `#87`
    without raw stdout inspection
-4. add an explicit issue-worktree fallback override path so refreshed-branch
+5. add an explicit issue-worktree fallback override path so refreshed-branch
    live proofs can try a bounded fallback chain without rewriting the shared
    operator config by hand
-5. use setup-check's model-inventory output to confirm whether the target host
+6. use setup-check's model-inventory output to confirm whether the target host
    actually exposes a discoverable fallback candidate before rerunning `#87`
-6. rerun `#87` again after each provider-resilience slice and record the new
+7. rerun `#87` again after each provider-resilience slice and record the new
    live signal rather than guessing
-7. if that rerun still fails with the same compact diagnostic line even after a
+8. if that rerun still fails with the same compact diagnostic line even after a
    configured fallback chain, switch the next slice from prompt trimming to
    deeper provider/model diagnostics
-8. promote only after the refreshed branch can pass both strict setup checks
+9. promote only after the refreshed branch can pass both strict setup checks
    and a real low-risk live proof on the target runtime
-9. after promotion, rerun the same strict check and one chat-visible proof on
-   `main`
-10. keep docs/operator issue `#60` open as the standing docs-side proof target
+10. after promotion, rerun the same strict check and one chat-visible proof on
+    `main`
+11. keep docs/operator issue `#60` open as the standing docs-side proof target
     only until the copied-root teardown guidance is judged complete
-11. keep setup-check output machine-readable so rollout can plug into CI or
+12. keep setup-check output machine-readable so rollout can plug into CI or
     other operator automation, and use the same release path to drive external
     operator rollout later
-12. keep `run-json-contract.md` aligned with `contractVersion` so external
+13. keep `run-json-contract.md` aligned with `contractVersion` so external
     automation has one explicit reference point instead of scraping dev logs
 
 ## Test Strategy

@@ -16,6 +16,8 @@ readonly DEFAULT_RETRY_ATTEMPTS="${OPENCLAWCODE_SETUP_RETRY_ATTEMPTS:-5}"
 readonly DEFAULT_RETRY_DELAY_SECONDS="${OPENCLAWCODE_SETUP_RETRY_DELAY_SECONDS:-1}"
 readonly DEFAULT_MINIMUM_NODE_VERSION="22.16.0"
 readonly DEFAULT_CLI_PROBE_TIMEOUT_SECONDS="${OPENCLAWCODE_SETUP_CLI_PROBE_TIMEOUT_SECONDS:-10}"
+readonly DEFAULT_STARTUP_PROOF_PORT="${OPENCLAWCODE_SETUP_STARTUP_PROOF_PORT:-18890}"
+readonly DEFAULT_STARTUP_PROOF_TIMEOUT_SECONDS="${OPENCLAWCODE_SETUP_STARTUP_PROOF_TIMEOUT_SECONDS:-20}"
 
 REPO_ROOT="${OPENCLAWCODE_SETUP_REPO_ROOT:-$DEFAULT_REPO_ROOT}"
 OPERATOR_ROOT="${OPENCLAWCODE_SETUP_OPERATOR_ROOT:-${OPENCLAWCODE_OPERATOR_ROOT:-$DEFAULT_OPERATOR_ROOT}}"
@@ -32,10 +34,13 @@ TUNNEL_LOG_FILE="${OPENCLAWCODE_TUNNEL_LOG_FILE:-$DEFAULT_TUNNEL_LOG_FILE}"
 TUNNEL_PID_FILE="${OPENCLAWCODE_TUNNEL_PID_FILE:-$DEFAULT_TUNNEL_PID_FILE}"
 NODE_BIN="${OPENCLAWCODE_SETUP_NODE_BIN:-node}"
 CLI_PROBE_TIMEOUT_SECONDS="$DEFAULT_CLI_PROBE_TIMEOUT_SECONDS"
+STARTUP_PROOF_PORT="$DEFAULT_STARTUP_PROOF_PORT"
+STARTUP_PROOF_TIMEOUT_SECONDS="$DEFAULT_STARTUP_PROOF_TIMEOUT_SECONDS"
 
 STRICT_MODE=0
 SKIP_ROUTE_PROBE=0
 OUTPUT_JSON=0
+PROBE_BUILT_STARTUP=0
 
 PASS_COUNT=0
 WARN_COUNT=0
@@ -45,18 +50,22 @@ RESULTS_FILE="${TMPDIR:-/tmp}/openclawcode-setup-check-results.$$"
 MODEL_INVENTORY_JSON='{"available":0,"keys":[],"configuredFallbacks":[],"fallbackReady":false}'
 READINESS_JSON='{"basic":false,"strict":false,"lowRiskProofReady":false,"fallbackProofReady":false,"promotionReady":false,"nextAction":"fix-failing-checks"}'
 NODE_VERSION_FLOOR_OK=0
+STARTUP_PROOF_TEMP_DIR=""
 
 : >"$RESULTS_FILE"
 
 cleanup() {
   rm -f "$RESULTS_FILE"
+  if [[ -n "$STARTUP_PROOF_TEMP_DIR" ]]; then
+    rm -rf "$STARTUP_PROOF_TEMP_DIR"
+  fi
 }
 
 trap cleanup EXIT
 
 usage() {
   cat <<EOF
-Usage: ${SCRIPT_NAME} [--strict] [--skip-route-probe] [--json]
+Usage: ${SCRIPT_NAME} [--strict] [--skip-route-probe] [--probe-built-startup] [--json]
 
 Checks:
   - repo root and built CLI artifact
@@ -68,6 +77,7 @@ Checks:
   - signed local webhook probe against ${DEFAULT_WEBHOOK_ROUTE}
   - saved repo binding for ${DEFAULT_GITHUB_REPO}
   - tunnel process/url status when using trycloudflare
+  - optional built gateway startup proof using an isolated openclawcode-only config
 
 Environment overrides:
   OPENCLAWCODE_SETUP_REPO_ROOT
@@ -85,10 +95,25 @@ Environment overrides:
   OPENCLAWCODE_SETUP_RETRY_DELAY_SECONDS
   OPENCLAWCODE_SETUP_NODE_BIN
   OPENCLAWCODE_SETUP_CLI_PROBE_TIMEOUT_SECONDS
+  OPENCLAWCODE_SETUP_STARTUP_PROOF_PORT
+  OPENCLAWCODE_SETUP_STARTUP_PROOF_TIMEOUT_SECONDS
+  OPENCLAWCODE_SETUP_PROBE_BUILT_STARTUP
   OPENCLAWCODE_TUNNEL_LOG_FILE
   OPENCLAWCODE_TUNNEL_PID_FILE
   OPENCLAWCODE_OPERATOR_ROOT
 EOF
+}
+
+is_truthy() {
+  local value="${1:-}"
+  case "${value,,}" in
+    1|true|yes|on)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 record_result() {
@@ -689,6 +714,166 @@ PY
   fi
 }
 
+check_built_startup_proof() {
+  if [[ "$PROBE_BUILT_STARTUP" -ne 1 ]]; then
+    return
+  fi
+
+  if [[ ! -f "$CONFIG_FILE" ]]; then
+    fail "cannot run built startup proof without gateway config: ${CONFIG_FILE}"
+    return
+  fi
+
+  local cli_entry="${REPO_ROOT}/dist/index.js"
+  if [[ ! -f "$cli_entry" ]]; then
+    fail "cannot run built startup proof without built CLI artifact: ${cli_entry}"
+    return
+  fi
+
+  local temp_dir
+  temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/openclawcode-startup-proof.XXXXXX")"
+  STARTUP_PROOF_TEMP_DIR="$temp_dir"
+  local proof_config="${temp_dir}/openclawcode-only-allowlist.json"
+  local proof_log="${temp_dir}/gateway.log"
+  local proof_state_dir="${temp_dir}/state"
+  mkdir -p "$proof_state_dir"
+
+  if ! python3 - "$CONFIG_FILE" "$proof_config" "$STARTUP_PROOF_PORT" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+out_path = Path(sys.argv[2])
+port = int(sys.argv[3])
+
+with config_path.open("r", encoding="utf-8") as handle:
+    config = json.load(handle)
+
+plugins = (config.get("plugins") or {}).get("entries") or {}
+openclawcode = plugins.get("openclawcode")
+if not isinstance(openclawcode, dict):
+    raise SystemExit(2)
+
+config["channels"] = {}
+config["bindings"] = []
+gateway = config.get("gateway") or {}
+gateway["port"] = port
+gateway["bind"] = "loopback"
+config["gateway"] = gateway
+config["plugins"] = {
+    "enabled": True,
+    "allow": ["openclawcode"],
+    "slots": {"memory": "none"},
+    "entries": {
+        "openclawcode": {
+            **openclawcode,
+            "enabled": True,
+        }
+    },
+}
+
+with out_path.open("w", encoding="utf-8") as handle:
+    json.dump(config, handle, indent=2)
+    handle.write("\n")
+PY
+  then
+    fail "unable to synthesize built startup proof config from ${CONFIG_FILE}"
+    return
+  fi
+
+  local proof_status
+  if ! proof_status="$(
+    python3 - "$NODE_BIN" "$cli_entry" "$proof_log" "$proof_config" "$proof_state_dir" "$STARTUP_PROOF_TIMEOUT_SECONDS" "$STARTUP_PROOF_PORT" <<'PY'
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+node_bin = sys.argv[1]
+cli_entry = sys.argv[2]
+log_path = Path(sys.argv[3])
+config_path = sys.argv[4]
+state_dir = sys.argv[5]
+timeout_seconds = float(sys.argv[6])
+port = sys.argv[7]
+
+env = os.environ.copy()
+env["OPENCLAW_SKIP_CANVAS_HOST"] = "1"
+env["OPENCLAW_CONFIG_PATH"] = config_path
+env["OPENCLAW_STATE_DIR"] = state_dir
+
+with log_path.open("w", encoding="utf-8") as log_handle:
+    try:
+        completed = subprocess.run(
+            [
+                node_bin,
+                cli_entry,
+                "gateway",
+                "run",
+                "--bind",
+                "loopback",
+                "--port",
+                port,
+                "--allow-unconfigured",
+                "--verbose",
+            ],
+            env=env,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            timeout=timeout_seconds,
+            check=False,
+        )
+        print(f"exit:{completed.returncode}")
+    except subprocess.TimeoutExpired:
+        print("timeout")
+PY
+  )"; then
+    fail "built gateway startup proof failed to execute"
+    return
+  fi
+
+  if grep -q "listening on ws://127.0.0.1:${STARTUP_PROOF_PORT}" "$proof_log"; then
+    pass "built gateway startup proof reached listener on ws://127.0.0.1:${STARTUP_PROOF_PORT}"
+    return
+  fi
+
+  local proof_detail
+  proof_detail="$(
+    python3 - "$proof_log" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+log_path = Path(sys.argv[1])
+if not log_path.exists():
+    print("missing proof log")
+    raise SystemExit(0)
+
+lines = [line.strip() for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+for pattern in [
+    re.compile(r"Error:.*"),
+    re.compile(r".*ERR_[A-Z0-9_]+.*"),
+    re.compile(r".*unknown command.*", re.IGNORECASE),
+    re.compile(r".*plugin not found.*", re.IGNORECASE),
+    re.compile(r".*unknown channel id.*", re.IGNORECASE),
+]:
+    for line in lines:
+        if pattern.match(line):
+            print(line)
+            raise SystemExit(0)
+
+print(lines[-1] if lines else "no log output")
+PY
+  )" || proof_detail="no log output"
+
+  if [[ "$proof_status" == "timeout" ]]; then
+    fail "built gateway startup proof timed out before listener on ws://127.0.0.1:${STARTUP_PROOF_PORT} (${proof_detail})"
+  else
+    fail "built gateway startup proof failed before listener on ws://127.0.0.1:${STARTUP_PROOF_PORT} (${proof_detail})"
+  fi
+}
+
 check_github_hook_subscription() {
   if [[ -z "$GITHUB_HOOK_ID" ]]; then
     warn "GitHub hook id missing; webhook event subscription was not verified"
@@ -913,6 +1098,9 @@ while [[ "$#" -gt 0 ]]; do
     --json)
       OUTPUT_JSON=1
       ;;
+    --probe-built-startup)
+      PROBE_BUILT_STARTUP=1
+      ;;
     -h|--help)
       usage
       exit 0
@@ -925,6 +1113,10 @@ while [[ "$#" -gt 0 ]]; do
   esac
   shift
 done
+
+if is_truthy "${OPENCLAWCODE_SETUP_PROBE_BUILT_STARTUP:-}"; then
+  PROBE_BUILT_STARTUP=1
+fi
 
 refresh_github_hook_settings
 require_command python3
@@ -942,6 +1134,7 @@ check_route_probe
 check_repo_binding
 check_repo_test_commands
 check_model_inventory
+check_built_startup_proof
 check_github_hook_subscription
 check_tunnel_status
 print_summary_and_exit

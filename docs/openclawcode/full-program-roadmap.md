@@ -248,6 +248,9 @@ As of 2026-03-14:
   - `plugins.allow = ["openclawcode"]`
   - `plugins.slots.memory = "none"`
   - listener reached `ws://127.0.0.1:18890`
+- that built-startup proof is now repeatable through
+  `./scripts/openclawcode-setup-check.sh --strict --probe-built-startup --json`,
+  so promotion no longer depends on replaying the proof by hand
 - the remaining startup blocker is now narrower than "openclawcode plugin
   startup":
   - the built openclawcode-only path is healthy

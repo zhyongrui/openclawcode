@@ -22,8 +22,8 @@ Before wiring the plugin, make sure you already have:
 - a Node runtime new enough for the current branch you are operating:
   - the refreshed upstream integration branch now expects Node `>=22.16.0`
     for CLI startup
-  - this workstation still builds under `22.12.0`, but the built
-    `dist/index.js` entrypoint refuses to start below the new floor
+  - this workstation now runs the operator on local Node `22.16.0`
+  - the built `dist/index.js` entrypoint refuses to start below the new floor
 - one chat surface already connected to the local gateway
 - a GitHub token with:
   - repo read/write access for issue fetch, PR publish, and merge operations
@@ -293,6 +293,7 @@ Useful flags:
 ```bash
 ./scripts/openclawcode-setup-check.sh --strict
 ./scripts/openclawcode-setup-check.sh --skip-route-probe
+./scripts/openclawcode-setup-check.sh --probe-built-startup
 ./scripts/openclawcode-setup-check.sh --json
 ```
 
@@ -310,8 +311,22 @@ Additional operator notes:
 - when the configured Node runtime is already below the CLI startup floor, the
   setup check now reports that failure and skips the model-inventory probe
   instead of trying to run the built CLI with a known-bad runtime
-  Use `--json` when another script, CI job, or external operator host needs a
-  machine-readable readiness report instead of human-readable shell lines.
+- `--probe-built-startup` now runs a bounded isolated startup proof for the
+  bundled built `openclawcode` plugin:
+  - it synthesizes a temporary config with:
+    - `channels = {}`
+    - `bindings = []`
+    - `plugins.allow = ["openclawcode"]`
+    - `plugins.slots.memory = "none"`
+  - it then runs `dist/index.js gateway run` on a non-default proof port and
+    waits for a real listener line instead of trusting a dry static check
+- if the long-lived gateway is intentionally down or restarting and you only
+  want the isolated startup proof, combine:
+  - `--skip-route-probe --probe-built-startup`
+  - otherwise `--strict` will still fail on the live route probe even if the
+    isolated built startup proof succeeds
+- use `--json` when another script, CI job, or external operator host needs a
+  machine-readable readiness report instead of human-readable shell lines
 
 The JSON output now also includes:
 
@@ -344,14 +359,16 @@ long-lived `main` operator baseline.
 ```bash
 pnpm build
 ./scripts/openclawcode-setup-check.sh --strict
+./scripts/openclawcode-setup-check.sh --strict --probe-built-startup --json
 ```
 
 2. Confirm the local Node runtime satisfies the CLI startup floor recorded in
    `dist/cli-startup-metadata.json`.
    On this workstation the refreshed branch currently reports:
    - required floor: `22.16.0`
-   - current local runtime: `22.12.0`
-   - expected strict result: fail until Node is upgraded
+   - current local runtime: `22.16.0`
+   - expected strict result: pass once the target host is also using a Node
+     runtime at or above that floor
 
 3. Keep the long-lived `main` operator on the pre-promotion baseline until the
    refreshed branch passes `setup-check --strict` on the host that will run it.
@@ -365,6 +382,7 @@ pnpm build
 
 5. Promote only after the refreshed branch has both:
    - passing focused tests plus `pnpm build`
+   - a passing isolated built-startup proof from setup-check
    - a passing real operator proof on the same runtime floor that will run `main`
 
 6. After promotion to `main`, restart the long-lived gateway and rerun:
