@@ -79,6 +79,7 @@ those nested objects.
 
 - `failureDiagnostics`
 - `failureDiagnosticsSummary`
+- `failureDiagnosticUsageTotal`
 
 ### Suitability Signals
 
