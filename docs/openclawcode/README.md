@@ -178,6 +178,9 @@ loop with:
     are available for fallback proofs
   - if `OPENCLAWCODE_MODEL_FALLBACKS` is configured, setup-check now fails when
     any requested fallback model is not actually discoverable on that host
+- setup-check now also retries transient GitHub webhook subscription probe
+  failures before failing strict mode, which prevents one GitHub TLS/API flap
+  from falsely blocking promotion preflight on an otherwise healthy host
 - operator setup scripts that can now derive:
   - `openclawcode.env`
   - `openclaw.json`

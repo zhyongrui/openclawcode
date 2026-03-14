@@ -1874,6 +1874,148 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
     );
   });
 
+  it("retries transient GitHub hook subscription probe failures before passing strict mode", async () => {
+    const rootDir = await createTempDir();
+    tempRoots.add(rootDir);
+    const repoRoot = path.join(rootDir, "repo");
+    const distDir = path.join(repoRoot, "dist");
+    const binDir = path.join(rootDir, "bin");
+    const operatorRoot = path.join(rootDir, "operator-root");
+    const pluginsDir = path.join(operatorRoot, "plugins", "openclawcode");
+    const envFile = path.join(operatorRoot, "openclawcode.env");
+    const configFile = path.join(operatorRoot, "openclaw.json");
+    const stateFile = path.join(pluginsDir, "chatops-state.json");
+    const hookCounterFile = path.join(rootDir, "hook-check-count.txt");
+    const scriptPath = path.resolve("scripts/openclawcode-setup-check.sh");
+    const realPythonPath = resolveRealPythonPath();
+
+    await fs.mkdir(distDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    await fs.mkdir(pluginsDir, { recursive: true });
+    await writeStubCliArtifacts(distDir);
+    await writeStubNode(binDir);
+    await fs.writeFile(
+      envFile,
+      [
+        "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret",
+        "GH_TOKEN=dummy-token",
+        "OPENCLAWCODE_GITHUB_REPO=zhyongrui/openclawcode",
+        "OPENCLAWCODE_GITHUB_HOOK_ID=123456",
+        "OPENCLAWCODE_GITHUB_HOOK_EVENTS=issues,pull_request,pull_request_review",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "approve",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:strict-root",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await fs.writeFile(
+      stateFile,
+      `${JSON.stringify(
+        {
+          repoBindingsByRepo: {
+            "zhyongrui/openclawcode": {
+              repoKey: "zhyongrui/openclawcode",
+              notifyChannel: "feishu",
+              notifyTarget: "user:strict-root",
+              updatedAt: "2026-03-12T04:10:00.000Z",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    await writeExecutable(
+      path.join(binDir, "python3"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+script="$(cat)"
+if [[ "$script" == *"socket.create_connection"* ]]; then
+  exit 0
+fi
+if [[ "$script" == *"hmac.new"* ]]; then
+  printf 'sha256=test-signature\\n'
+  exit 0
+fi
+if [[ "$script" == *"api.github.com/repos"* && "$script" == *"/hooks/"* ]]; then
+  count=0
+  if [[ -f "${hookCounterFile}" ]]; then
+    count="$(cat "${hookCounterFile}")"
+  fi
+  count="$((count + 1))"
+  printf '%s\\n' "$count" >"${hookCounterFile}"
+  if [[ "$count" -eq 1 ]]; then
+    printf 'urllib.error.URLError: transient TLS failure\\n' >&2
+    exit 1
+  fi
+  printf '{"active": true, "events": ["issues", "pull_request", "pull_request_review"], "missing": []}\\n'
+  exit 0
+fi
+printf '%s' "$script" | "${realPythonPath}" "$@"
+`,
+    );
+    await writeExecutable(
+      path.join(binDir, "curl"),
+      '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'{"accepted":false,"reason":"unconfigured-repo"}\\n202\'\n',
+    );
+
+    const result = runSetupCheck(
+      scriptPath,
+      {
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+        OPENCLAWCODE_SETUP_REPO_ROOT: repoRoot,
+        OPENCLAWCODE_SETUP_OPERATOR_ROOT: operatorRoot,
+        OPENCLAWCODE_SETUP_GATEWAY_URL: "http://127.0.0.1:18789",
+        OPENCLAWCODE_SETUP_WEBHOOK_ROUTE: "/plugins/openclawcode/github",
+        OPENCLAWCODE_SETUP_RETRY_ATTEMPTS: "2",
+        OPENCLAWCODE_SETUP_RETRY_DELAY_SECONDS: "0",
+      },
+      ["--strict"],
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain(
+      "[PASS] GitHub webhook 123456 subscribed to required events: issues,pull_request,pull_request_review",
+    );
+    await expect(fs.readFile(hookCounterFile, "utf8")).resolves.toContain("2");
+  });
+
   it("fails when repo test commands use vitest.openclawcode.config.mjs without --pool threads", async () => {
     const rootDir = await createTempDir();
     tempRoots.add(rootDir);

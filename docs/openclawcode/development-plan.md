@@ -427,6 +427,9 @@ turning the working loop into a cleanly operable product:
   broader chat-native intake behavior
 - packaging and installation are now documented locally, but still need more
   proof under a fresh operator environment
+- setup-check now also retries transient GitHub webhook subscription probe
+  failures, so one TLS/API flap does not falsely block promotion or live-proof
+  preflight on an otherwise healthy operator host
 - the next startup investigation is now narrower:
   - the repaired built openclawcode-only startup path is healthy
   - any remaining full-config startup stall should be debugged as another

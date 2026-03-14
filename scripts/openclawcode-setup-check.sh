@@ -945,9 +945,17 @@ check_github_hook_subscription() {
     return
   fi
 
-  local result
-  if ! result="$(
-    python3 - "$GITHUB_REPO" "$GITHUB_HOOK_ID" "$GITHUB_HOOK_EVENTS" "$token" <<'PY'
+  local result=""
+  local attempts="$DEFAULT_RETRY_ATTEMPTS"
+  local delay_seconds="$DEFAULT_RETRY_DELAY_SECONDS"
+  local attempt=1
+  local error_detail=""
+
+  while true; do
+    local error_file
+    error_file="$(mktemp "${TMPDIR:-/tmp}/openclawcode-setup-check-hook-error.XXXXXX")"
+    if result="$(
+      python3 - "$GITHUB_REPO" "$GITHUB_HOOK_ID" "$GITHUB_HOOK_EVENTS" "$token" <<'PY' 2>"$error_file"
 import json
 import sys
 import urllib.request
@@ -978,10 +986,31 @@ print(json.dumps({
     "missing": missing,
 }))
 PY
-  )"; then
-    fail "GitHub webhook subscription check failed for hook ${GITHUB_HOOK_ID}"
-    return
-  fi
+    )"; then
+      rm -f "$error_file"
+      break
+    fi
+    error_detail="$(python3 - "$error_file" <<'PY'
+import pathlib
+import sys
+
+error_path = pathlib.Path(sys.argv[1])
+text = error_path.read_text(encoding="utf-8").strip()
+print(" ".join(text.split()))
+PY
+    )"
+    rm -f "$error_file"
+    if (( attempt >= attempts )); then
+      if [[ -n "$error_detail" ]]; then
+        fail "GitHub webhook subscription check failed for hook ${GITHUB_HOOK_ID} (${error_detail})"
+      else
+        fail "GitHub webhook subscription check failed for hook ${GITHUB_HOOK_ID}"
+      fi
+      return
+    fi
+    sleep "$delay_seconds"
+    attempt=$((attempt + 1))
+  done
 
   local summary
   summary="$(
