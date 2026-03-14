@@ -24,7 +24,7 @@ function runSetupCheck(scriptPath: string, env: NodeJS.ProcessEnv, args: string[
       ...env,
     },
     encoding: "utf8",
-    timeout: 30_000,
+    timeout: 60_000,
   });
 }
 
@@ -136,6 +136,8 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("retry_check");
     expect(script).toContain("--probe-built-startup");
     expect(script).toContain("models list --json");
+    expect(script).toContain("model-inventory-config.json");
+    expect(script).toContain("OPENCLAW_SKIP_CANVAS_HOST=1");
     expect(script).toContain("run_cli_probe");
     expect(script).toContain('"allow": ["openclawcode"]');
     expect(script).toContain('"slots": {"memory": "none"}');
@@ -635,6 +637,185 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
     expect(result.stdout).toContain(
       "[FAIL] configured OPENCLAWCODE_MODEL_FALLBACKS entries are not discoverable: openai/gpt-5-mini",
     );
+  });
+
+  it("sanitizes the model inventory probe config before running the built CLI", async () => {
+    const rootDir = await createTempDir();
+    tempRoots.add(rootDir);
+    const repoRoot = path.join(rootDir, "repo");
+    const distDir = path.join(repoRoot, "dist");
+    const binDir = path.join(rootDir, "bin");
+    const envFile = path.join(rootDir, "openclawcode.env");
+    const configFile = path.join(rootDir, "openclaw.json");
+    const stateFile = path.join(rootDir, "chatops-state.json");
+    const probeMarker = path.join(rootDir, "models-probe-called");
+    const scriptPath = path.resolve("scripts/openclawcode-setup-check.sh");
+    const realPythonPath = resolveRealPythonPath();
+
+    await fs.mkdir(distDir, { recursive: true });
+    await fs.mkdir(binDir, { recursive: true });
+    await writeStubCliArtifacts(distDir);
+    await fs.writeFile(
+      envFile,
+      "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=test-secret\nGH_TOKEN=dummy-token\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      configFile,
+      `${JSON.stringify(
+        {
+          channels: {
+            feishu: {
+              enabled: true,
+            },
+          },
+          bindings: [
+            {
+              agentId: "main",
+              match: {
+                channel: "feishu",
+                accountId: "default",
+              },
+            },
+          ],
+          plugins: {
+            enabled: true,
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "zhyongrui",
+                      repo: "openclawcode",
+                      repoRoot,
+                      baseBranch: "main",
+                      triggerMode: "approve",
+                      notifyChannel: "feishu",
+                      notifyTarget: "user:model-inventory",
+                      builderAgent: "main",
+                      verifierAgent: "main",
+                      testCommands: [
+                        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await fs.writeFile(
+      stateFile,
+      `${JSON.stringify(
+        {
+          repoBindingsByRepo: {
+            "zhyongrui/openclawcode": {
+              repoKey: "zhyongrui/openclawcode",
+              notifyChannel: "feishu",
+              notifyTarget: "user:model-inventory",
+              updatedAt: "2026-03-14T05:00:00.000Z",
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await writeExecutable(
+      path.join(binDir, "node"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\${1:-}" == "--version" || "\${1:-}" == "-v" ]]; then
+  printf 'v22.16.0\\n'
+  exit 0
+fi
+if [[ "\${1:-}" == *"/dist/index.js" && "\${2:-}" == "models" && "\${3:-}" == "list" && "\${4:-}" == "--json" ]]; then
+  printf 'called\\n' >"${probeMarker}"
+  python3 - "\${OPENCLAW_CONFIG_PATH}" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    payload = json.load(handle)
+
+assert payload.get("channels") == {}
+assert payload.get("bindings") == []
+plugins = payload.get("plugins") or {}
+assert plugins.get("enabled") is False
+assert plugins.get("entries") == {}
+print('{"count":1,"models":[{"key":"crs/gpt-5.4","name":"Stub Model 1","input":"text","local":false,"available":true,"tags":["default","configured"],"missing":false}]}')
+PY
+  exit 0
+fi
+printf 'stub node only supports --version and models list\\n' >&2
+exit 1
+`,
+    );
+    await writeExecutable(
+      path.join(binDir, "python3"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+script="$(cat)"
+if [[ "$script" == *"socket.create_connection"* ]]; then
+  exit 0
+fi
+if [[ "$script" == *"hmac.new"* ]]; then
+  printf 'sha256=test-signature\\n'
+  exit 0
+fi
+printf '%s' "$script" | "${realPythonPath}" "$@"
+`,
+    );
+    await writeExecutable(
+      path.join(binDir, "curl"),
+      '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'{"accepted":false,"reason":"unconfigured-repo"}\\n202\'\n',
+    );
+
+    const result = runSetupCheck(
+      scriptPath,
+      {
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+        OPENCLAWCODE_SETUP_REPO_ROOT: repoRoot,
+        OPENCLAWCODE_SETUP_ENV_FILE: envFile,
+        OPENCLAWCODE_SETUP_CONFIG_FILE: configFile,
+        OPENCLAWCODE_SETUP_STATE_FILE: stateFile,
+        OPENCLAWCODE_SETUP_GATEWAY_URL: "http://127.0.0.1:18789",
+        OPENCLAWCODE_SETUP_WEBHOOK_ROUTE: "/plugins/openclawcode/github",
+        OPENCLAWCODE_GITHUB_REPO: "zhyongrui/openclawcode",
+        OPENCLAWCODE_TUNNEL_LOG_FILE: path.join(rootDir, "tunnel.log"),
+        OPENCLAWCODE_TUNNEL_PID_FILE: path.join(rootDir, "tunnel.pid"),
+      },
+      ["--json"],
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      modelInventory: { available: number; keys: string[] };
+      checks: Array<{ status: string; message: string }>;
+    };
+    expect(payload.ok).toBe(true);
+    expect(payload.modelInventory).toMatchObject({
+      available: 1,
+      keys: ["crs/gpt-5.4"],
+    });
+    expect(payload.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "pass",
+          message: expect.stringContaining("model inventory exposes 1 available model(s)"),
+        }),
+      ]),
+    );
+    await expect(fs.readFile(probeMarker, "utf8")).resolves.toBe("called\n");
   });
 
   it("fails when local Node is below the CLI startup floor", async () => {

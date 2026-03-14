@@ -210,7 +210,7 @@ loop with:
   a real Feishu-driven control plane for `zhyongrui/openclawcode`:
   - repo notifications and commands are bound to one real Feishu conversation
   - `./scripts/openclawcode-setup-check.sh --strict` passes there with
-    `17 pass`, `0 warn`, and `0 fail`
+    `19 pass`, `0 warn`, and `0 fail`
   - after code changes, restarting the long-lived gateway is required before
     trusting chat-visible behavior updates
   - for built-startup diagnostics, use an explicit plugin allowlist plus

@@ -488,7 +488,7 @@ against `zhyongrui/openclawcode` with:
 - webhook route `/plugins/openclawcode/github`
 - strict health check passing with:
   - `./scripts/openclawcode-setup-check.sh --strict`
-  - `17 pass / 0 warn / 0 fail`
+  - `19 pass / 0 warn / 0 fail`
 
 Live operator proofs on that setup now include:
 

@@ -608,15 +608,74 @@ check_model_inventory() {
   fi
 
   local inventory_raw
-  if ! inventory_raw="$(run_cli_probe "${REPO_ROOT}/dist/index.js" models list --json 2>/dev/null)"; then
-    local code=$?
-    if [[ "$code" -eq 124 || "$code" -eq 137 || "$code" -eq 143 ]]; then
+  local probe_temp_dir=""
+  local probe_config_path="$CONFIG_FILE"
+  local probe_state_dir="$OPERATOR_ROOT"
+
+  if [[ -f "$CONFIG_FILE" ]]; then
+    probe_temp_dir="$(mktemp -d "${TMPDIR:-/tmp}/openclawcode-model-inventory.XXXXXX")"
+    probe_config_path="${probe_temp_dir}/model-inventory-config.json"
+    probe_state_dir="${probe_temp_dir}/state"
+    mkdir -p "$probe_state_dir"
+
+    if ! python3 - "$CONFIG_FILE" "$probe_config_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+out_path = Path(sys.argv[2])
+
+with config_path.open("r", encoding="utf-8") as handle:
+    config = json.load(handle)
+
+config["channels"] = {}
+config["bindings"] = []
+config["plugins"] = {
+    "enabled": False,
+    "entries": {},
+}
+
+with out_path.open("w", encoding="utf-8") as handle:
+    json.dump(config, handle, indent=2)
+    handle.write("\n")
+PY
+    then
+      rm -rf "$probe_temp_dir"
+      warn "unable to synthesize model inventory probe config from ${CONFIG_FILE}"
+      return
+    fi
+  fi
+
+  if command -v timeout >/dev/null 2>&1; then
+    inventory_raw="$(
+      env \
+        OPENCLAW_SKIP_CANVAS_HOST=1 \
+        OPENCLAW_CONFIG_PATH="$probe_config_path" \
+        OPENCLAW_STATE_DIR="$probe_state_dir" \
+        timeout --signal=TERM "${CLI_PROBE_TIMEOUT_SECONDS}s" \
+        "$NODE_BIN" "${REPO_ROOT}/dist/index.js" models list --json 2>/dev/null
+    )"
+  else
+    inventory_raw="$(
+      env \
+        OPENCLAW_SKIP_CANVAS_HOST=1 \
+        OPENCLAW_CONFIG_PATH="$probe_config_path" \
+        OPENCLAW_STATE_DIR="$probe_state_dir" \
+        "$NODE_BIN" "${REPO_ROOT}/dist/index.js" models list --json 2>/dev/null
+    )"
+  fi
+  local inventory_status=$?
+  if [[ "$inventory_status" -ne 0 ]]; then
+    [[ -n "$probe_temp_dir" ]] && rm -rf "$probe_temp_dir"
+    if [[ "$inventory_status" -eq 124 || "$inventory_status" -eq 137 || "$inventory_status" -eq 143 ]]; then
       warn "model inventory probe timed out after ${CLI_PROBE_TIMEOUT_SECONDS}s via ${NODE_BIN}"
     else
       warn "unable to inspect model inventory with models list --json via ${NODE_BIN}"
     fi
     return
   fi
+  [[ -n "$probe_temp_dir" ]] && rm -rf "$probe_temp_dir"
 
   local parsed
   if ! parsed="$(
