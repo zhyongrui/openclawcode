@@ -863,6 +863,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.historyEntryCount).toBeNull();
     expect(payload.failureDiagnostics).toBeNull();
     expect(payload.failureDiagnosticsSummary).toBeNull();
+    expect(payload.failureDiagnosticSystemPromptChars).toBeNull();
     expect(payload.failureDiagnosticToolCount).toBeNull();
   });
 
@@ -894,6 +895,7 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.failureDiagnosticsSummary).toBe("HTTP 400: Internal server error");
+    expect(payload.failureDiagnosticSystemPromptChars).toBe(8629);
     expect(payload.failureDiagnosticToolCount).toBe(4);
     expect(payload.failureDiagnostics).toEqual({
       summary: "HTTP 400: Internal server error",
