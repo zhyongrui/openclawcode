@@ -440,6 +440,8 @@ After the health check passes:
 3. verify the chat receives the approval prompt or auto-start notification
 4. run `/occode-start <owner>/<repo>#<issue>` if the repo is in approve mode
 5. confirm `/occode-inbox` shows the issue moving through queued or running state
+   - if intake succeeded but the work stays queued behind an active provider
+     pause, check `/occode-inbox` for the queue entry and `/occode-status <owner>/<repo>#<issue>` for the issue-level status; both chat-visible surfaces render the active provider-pause context for queued work
 
 You can also validate the explicit chat-side intake path directly from the
 bound conversation:
