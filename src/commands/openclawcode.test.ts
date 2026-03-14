@@ -137,6 +137,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.contractVersion).toBe(1);
     expect(payload.issueTitle).toBe("Include changed file list in JSON output");
     expect(payload.issueRepo).toBe("openclaw");
+    expect(payload.issueOwner).toBe("openclaw");
     expect(payload.stage).toBe("ready-for-human-review");
     expect(payload.stageLabel).toBe("Ready For Human Review");
     expect(payload.totalAttemptCount).toBe(1);
@@ -401,6 +402,22 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.issueRepo).toBeNull();
+  });
+
+  it("prints issueOwner as null when the workflow owner metadata is unavailable", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        issue: {
+          ...createRun().issue,
+          owner: undefined as unknown as WorkflowRun["issue"]["owner"],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.issueOwner).toBeNull();
   });
 
   it("reports verificationHasFollowUps when verifier follow-up work exists", async () => {

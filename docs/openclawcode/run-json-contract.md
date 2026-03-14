@@ -45,6 +45,7 @@ those nested objects.
 - `issue`
 - `issueTitle`
 - `issueRepo`
+- `issueOwner`
 - `stage`
 - `stageLabel`
 - `runSummary`
