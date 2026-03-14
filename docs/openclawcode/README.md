@@ -50,6 +50,7 @@ loop with:
   saved run artifacts and the top-level JSON contract as:
   - `failureDiagnostics`
   - `failureDiagnosticsSummary`
+  - `failureDiagnosticSystemPromptChars`
 - draft PR publishing and guarded merge hooks in the workflow service layer
 - event-driven `pull_request` / `pull_request_review` webhook intake with chat
   notifications for tracked lifecycle changes
