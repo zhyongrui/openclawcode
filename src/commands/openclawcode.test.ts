@@ -138,6 +138,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.runCreatedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(payload.runUpdatedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(payload.issueNumber).toBe(2);
+    expect(payload.issueLabelCount).toBe(2);
     expect(payload.issueUrl).toBe("https://github.com/openclaw/openclaw/issues/2");
     expect(payload.issueTitle).toBe("Include changed file list in JSON output");
     expect(payload.issueRepo).toBe("openclaw");
@@ -480,6 +481,22 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.issueUrl).toBeNull();
+  });
+
+  it("prints issueLabelCount as null when the workflow issue labels are unavailable", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        issue: {
+          ...createRun().issue,
+          labels: undefined as unknown as WorkflowRun["issue"]["labels"],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.issueLabelCount).toBeNull();
   });
 
   it("prints workspaceBaseBranch as null when workspace metadata is unavailable", async () => {
@@ -1547,6 +1564,7 @@ function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
       number: 2,
       title: "Include changed file list in JSON output",
       url: "https://github.com/openclaw/openclaw/issues/2",
+      labels: ["json", "cli"],
     },
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
