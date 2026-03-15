@@ -355,9 +355,11 @@ As of 2026-03-14:
     `publishedPullRequestUrl` landed
   - the same reconcile path has now also auto-closed `#121` after
     `publishedPullRequestBaseBranch` landed
+  - the same reconcile path has now also auto-closed `#122` after
+    `publishedPullRequestBranchName` landed
   - current open validation pool is now narrower and more honest:
     - docs/operator issues `#60`, `#86`
-    - command-layer issue `#122` for `publishedPullRequestBranchName`
+    - command-layer issue `#123` for `publishedPullRequestTitle`
 - the remaining startup blocker is now narrower than "openclawcode plugin
   startup":
   - the built openclawcode-only path is healthy
