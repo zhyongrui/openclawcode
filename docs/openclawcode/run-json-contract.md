@@ -42,6 +42,7 @@ those nested objects.
 
 - `contractVersion`
 - `runCreatedAt`
+- `runUpdatedAt`
 - `id`
 - `issue`
 - `issueTitle`
