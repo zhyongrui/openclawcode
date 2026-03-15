@@ -345,9 +345,11 @@ As of 2026-03-14:
     `runUpdatedAt` landed
   - the same reconcile path has now also auto-closed `#116` after
     `issueNumber` landed
+  - the same reconcile path has now also auto-closed `#117` after
+    `issueUrl` landed
   - current open validation pool is now narrower and more honest:
     - docs/operator issues `#60`, `#86`
-    - command-layer issue `#117` for `issueUrl`
+    - command-layer issue `#118` for `issueLabelCount`
 - the remaining startup blocker is now narrower than "openclawcode plugin
   startup":
   - the built openclawcode-only path is healthy

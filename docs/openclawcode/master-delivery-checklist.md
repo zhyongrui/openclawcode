@@ -374,7 +374,8 @@ These are the next narrow slices that should be consumed from the current state.
 - [x] implement `#114` for `runCreatedAt`
 - [x] implement `#115` for `runUpdatedAt`
 - [x] implement `#116` for `issueNumber`
-- [ ] implement `#117` for `issueUrl`
+- [x] implement `#117` for `issueUrl`
+- [ ] implement `#118` for `issueLabelCount`
 - [ ] replenish the command-layer validation pool with the next low-risk string mirror
 - [ ] keep `run-json-contract.md` aligned with each new top-level field
 - [ ] keep `development-plan.md` and `full-program-roadmap.md` aligned with the latest pool state
