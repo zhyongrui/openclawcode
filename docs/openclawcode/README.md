@@ -312,7 +312,7 @@ loop with:
     includes:
     - docs/operator issue `#60`
     - docs/operator issue `#86`
-    - command-layer issue `#116`
+    - command-layer issue `#117`
   - duplicate issue `#59` was detected through the new inventory path and then
     closed
   - stale command-layer issues `#74` through `#82` are now also auto-closable
@@ -365,6 +365,8 @@ loop with:
     through the same reconcile path after `runCreatedAt` landed
   - command-layer issue `#115` has now also been consumed and auto-closed
     through the same reconcile path after `runUpdatedAt` landed
+  - command-layer issue `#116` has now also been consumed and auto-closed
+    through the same reconcile path after `issueNumber` landed
   - command-layer issues `#54` and `#50` have now been consumed and closed on
     `main`
   - command-layer issue `#55` has now been consumed and closed on `main`, and
