@@ -137,6 +137,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.contractVersion).toBe(1);
     expect(payload.runCreatedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(payload.runUpdatedAt).toBe("2026-01-01T00:00:00.000Z");
+    expect(payload.issueNumber).toBe(2);
     expect(payload.issueTitle).toBe("Include changed file list in JSON output");
     expect(payload.issueRepo).toBe("openclaw");
     expect(payload.issueOwner).toBe("openclaw");
@@ -446,6 +447,22 @@ describe("openclawCodeRunCommand", () => {
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.runUpdatedAt).toBeNull();
+  });
+
+  it("prints issueNumber as null when the workflow issue number is unavailable", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        issue: {
+          ...createRun().issue,
+          number: undefined as unknown as WorkflowRun["issue"]["number"],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.issueNumber).toBeNull();
   });
 
   it("prints workspaceBaseBranch as null when workspace metadata is unavailable", async () => {

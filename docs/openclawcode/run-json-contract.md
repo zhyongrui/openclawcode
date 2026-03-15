@@ -44,6 +44,7 @@ those nested objects.
 - `runCreatedAt`
 - `runUpdatedAt`
 - `id`
+- `issueNumber`
 - `issue`
 - `issueTitle`
 - `issueRepo`
