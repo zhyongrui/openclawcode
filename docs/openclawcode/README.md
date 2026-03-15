@@ -312,7 +312,7 @@ loop with:
     includes:
     - docs/operator issue `#60`
     - docs/operator issue `#86`
-    - command-layer issue `#121`
+    - command-layer issue `#122`
   - duplicate issue `#59` was detected through the new inventory path and then
     closed
   - stale command-layer issues `#74` through `#82` are now also auto-closable

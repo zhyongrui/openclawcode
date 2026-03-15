@@ -139,6 +139,7 @@ those nested objects.
 - `draftPullRequestDisposition`
 - `draftPullRequestDispositionReason`
 - `publishedPullRequestNumber`
+- `publishedPullRequestBaseBranch`
 - `publishedPullRequestUrl`
 - `pullRequestPublished`
 - `publishedPullRequestOpenedAt`
