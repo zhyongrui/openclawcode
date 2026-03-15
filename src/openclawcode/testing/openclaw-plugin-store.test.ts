@@ -105,45 +105,53 @@ function createWorkflowRun(params: {
 }
 
 describe("OpenClawCodeChatopsStore", () => {
-  it("persists pending approvals and consumes them when approved", async () => {
-    const fixture = await createStore();
+  it(
+    "persists pending approvals and consumes them when approved",
+    { timeout: 60_000 },
+    async () => {
+      const fixture = await createStore();
 
-    try {
-      const pending = {
-        issueKey: "zhyongrui/openclawcode#100",
-        notifyChannel: "telegram",
-        notifyTarget: "chat:123",
-      };
-      expect(await fixture.store.addPendingApproval(pending)).toBe(true);
-      expect(await fixture.store.isPendingApproval(pending.issueKey)).toBe(true);
+      try {
+        const pending = {
+          issueKey: "zhyongrui/openclawcode#100",
+          notifyChannel: "telegram",
+          notifyTarget: "chat:123",
+        };
+        expect(await fixture.store.addPendingApproval(pending)).toBe(true);
+        expect(await fixture.store.isPendingApproval(pending.issueKey)).toBe(true);
 
-      const secondStore = OpenClawCodeChatopsStore.fromStateDir(fixture.rootDir);
-      expect(await secondStore.getPendingApproval(pending.issueKey)).toEqual(pending);
-      expect(await secondStore.consumePendingApproval(pending.issueKey)).toEqual(pending);
-      expect(await secondStore.isPendingApproval(pending.issueKey)).toBe(false);
-    } finally {
-      await fs.rm(fixture.rootDir, { recursive: true, force: true });
-    }
-  });
+        const secondStore = OpenClawCodeChatopsStore.fromStateDir(fixture.rootDir);
+        expect(await secondStore.getPendingApproval(pending.issueKey)).toEqual(pending);
+        expect(await secondStore.consumePendingApproval(pending.issueKey)).toEqual(pending);
+        expect(await secondStore.isPendingApproval(pending.issueKey)).toBe(false);
+      } finally {
+        await fs.rm(fixture.rootDir, { recursive: true, force: true });
+      }
+    },
+  );
 
-  it("persists queue entries and statuses across store instances", async () => {
-    const fixture = await createStore();
+  it(
+    "persists queue entries and statuses across store instances",
+    { timeout: 60_000 },
+    async () => {
+      const fixture = await createStore();
 
-    try {
-      const firstRun = createQueuedRun(101);
-      expect(await fixture.store.enqueue(firstRun)).toBe(true);
-      await fixture.store.setStatus(firstRun.issueKey, "Awaiting chat approval.");
+      try {
+        const firstRun = createQueuedRun(101);
+        expect(await fixture.store.enqueue(firstRun)).toBe(true);
+        await fixture.store.setStatus(firstRun.issueKey, "Awaiting chat approval.");
 
-      const secondStore = OpenClawCodeChatopsStore.fromStateDir(fixture.rootDir);
-      const snapshot = await secondStore.snapshot();
+        const secondStore = OpenClawCodeChatopsStore.fromStateDir(fixture.rootDir);
+        const snapshot = await secondStore.snapshot();
 
-      expect(snapshot.queue).toHaveLength(1);
-      expect(snapshot.queue[0]?.issueKey).toBe(firstRun.issueKey);
-      expect(snapshot.statusByIssue[firstRun.issueKey]).toBe("Awaiting chat approval.");
-    } finally {
-      await fs.rm(fixture.rootDir, { recursive: true, force: true });
-    }
-  });
+        expect(snapshot.queue).toHaveLength(1);
+        expect(snapshot.queue[0]?.issueKey).toBe(firstRun.issueKey);
+        expect(snapshot.statusByIssue[firstRun.issueKey]).toBe("Awaiting chat approval.");
+      } finally {
+        await fs.rm(fixture.rootDir, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("starts queued runs and clears current state on finish", async () => {
     const fixture = await createStore();

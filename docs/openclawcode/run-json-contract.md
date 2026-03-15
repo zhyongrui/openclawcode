@@ -117,6 +117,7 @@ those nested objects.
 
 - `workspaceBaseBranch`
 - `workspaceBranchName`
+- `workspaceRepoRoot`
 
 ### Pull Request And Merge State
 

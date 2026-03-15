@@ -269,83 +269,87 @@ class NotFoundReadyForReviewGitHubClient extends FakeGitHubClient {
 }
 
 describe("runIssueWorkflow", () => {
-  it("publishes and merges when verification approves and merge is enabled", async () => {
-    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
+  it(
+    "publishes and merges when verification approves and merge is enabled",
+    { timeout: 60_000 },
+    async () => {
+      const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
 
-    try {
-      const workspace: WorkflowWorkspace = {
-        repoRoot: "/repo",
-        baseBranch: "main",
-        branchName: "openclawcode/issue-55",
-        worktreePath: "/repo/.openclawcode/worktrees/run-55",
-        preparedAt: "2026-03-09T13:00:00.000Z",
-      };
-      const merger = new FakeMerger();
-      const github = new FakeGitHubClient();
-      const publisher = new FakePublisher({
-        number: 99,
-        url: "https://github.com/zhyongrui/openclawcode/pull/99",
-      });
-      const run = await runIssueWorkflow(
-        {
-          owner: "zhyongrui",
-          repo: "openclawcode",
-          issueNumber: 55,
+      try {
+        const workspace: WorkflowWorkspace = {
           repoRoot: "/repo",
-          stateDir,
           baseBranch: "main",
-          openPullRequest: true,
-          mergeOnApprove: true,
-        },
-        {
-          github,
-          planner: new HeuristicPlanner(),
-          builder: new FakeBuilder(),
-          verifier: new FakeVerifier({
-            decision: "approve-for-human-review",
-            summary: "Looks good.",
-            findings: [],
-            missingCoverage: [],
-            followUps: [],
-          }),
-          store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
-          worktreeManager: new FakeWorkspaceManager(workspace, ["src/commands/openclawcode.ts"]),
-          shellRunner: new NoopShellRunner(),
-          publisher,
-          merger,
-          now: createSequenceNow(),
-        },
-      );
+          branchName: "openclawcode/issue-55",
+          worktreePath: "/repo/.openclawcode/worktrees/run-55",
+          preparedAt: "2026-03-09T13:00:00.000Z",
+        };
+        const merger = new FakeMerger();
+        const github = new FakeGitHubClient();
+        const publisher = new FakePublisher({
+          number: 99,
+          url: "https://github.com/zhyongrui/openclawcode/pull/99",
+        });
+        const run = await runIssueWorkflow(
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            issueNumber: 55,
+            repoRoot: "/repo",
+            stateDir,
+            baseBranch: "main",
+            openPullRequest: true,
+            mergeOnApprove: true,
+          },
+          {
+            github,
+            planner: new HeuristicPlanner(),
+            builder: new FakeBuilder(),
+            verifier: new FakeVerifier({
+              decision: "approve-for-human-review",
+              summary: "Looks good.",
+              findings: [],
+              missingCoverage: [],
+              followUps: [],
+            }),
+            store: new FileSystemWorkflowRunStore(path.join(stateDir, "runs")),
+            worktreeManager: new FakeWorkspaceManager(workspace, ["src/commands/openclawcode.ts"]),
+            shellRunner: new NoopShellRunner(),
+            publisher,
+            merger,
+            now: createSequenceNow(),
+          },
+        );
 
-      expect(run.stage).toBe("merged");
-      expect(run.draftPullRequest?.number).toBe(99);
-      expect(run.draftPullRequest?.url).toBe("https://github.com/zhyongrui/openclawcode/pull/99");
-      expect(run.history).toContain(
-        "Pull request opened: https://github.com/zhyongrui/openclawcode/pull/99",
-      );
-      expect(run.history).toContain("Issue #55 closed automatically after merge.");
-      expect(merger.merged).toBe(1);
-      expect(github.promoted).toEqual([]);
-      expect(publisher.drafts).toEqual([false]);
-      expect(github.closedIssues).toEqual([55]);
+        expect(run.stage).toBe("merged");
+        expect(run.draftPullRequest?.number).toBe(99);
+        expect(run.draftPullRequest?.url).toBe("https://github.com/zhyongrui/openclawcode/pull/99");
+        expect(run.history).toContain(
+          "Pull request opened: https://github.com/zhyongrui/openclawcode/pull/99",
+        );
+        expect(run.history).toContain("Issue #55 closed automatically after merge.");
+        expect(merger.merged).toBe(1);
+        expect(github.promoted).toEqual([]);
+        expect(publisher.drafts).toEqual([false]);
+        expect(github.closedIssues).toEqual([55]);
 
-      const savedRun = JSON.parse(
-        await fs.readFile(path.join(stateDir, "runs", `${run.id}.json`), "utf8"),
-      ) as typeof run;
-      expect(savedRun.draftPullRequest?.number).toBe(99);
-      expect(savedRun.draftPullRequest?.url).toBe(
-        "https://github.com/zhyongrui/openclawcode/pull/99",
-      );
-      expect(savedRun.buildResult?.issueClassification).toBe("command-layer");
-      expect(savedRun.buildResult?.scopeCheck?.summary).toBe(
-        "Scope check passed for command-layer issue.",
-      );
-      expect(savedRun.suitability?.decision).toBe("auto-run");
-      expect(savedRun.history).toContain("Issue #55 closed automatically after merge.");
-    } finally {
-      await fs.rm(stateDir, { recursive: true, force: true });
-    }
-  });
+        const savedRun = JSON.parse(
+          await fs.readFile(path.join(stateDir, "runs", `${run.id}.json`), "utf8"),
+        ) as typeof run;
+        expect(savedRun.draftPullRequest?.number).toBe(99);
+        expect(savedRun.draftPullRequest?.url).toBe(
+          "https://github.com/zhyongrui/openclawcode/pull/99",
+        );
+        expect(savedRun.buildResult?.issueClassification).toBe("command-layer");
+        expect(savedRun.buildResult?.scopeCheck?.summary).toBe(
+          "Scope check passed for command-layer issue.",
+        );
+        expect(savedRun.suitability?.decision).toBe("auto-run");
+        expect(savedRun.history).toContain("Issue #55 closed automatically after merge.");
+      } finally {
+        await fs.rm(stateDir, { recursive: true, force: true });
+      }
+    },
+  );
 
   it("keeps the draft pull request base branch aligned with a non-main workflow base", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));

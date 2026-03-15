@@ -242,7 +242,7 @@ turning the working loop into a cleanly operable product:
 - current live inventory is now:
   - docs/operator issue `#60`
   - docs/operator issue `#86`
-  - command-layer issue `#111` for `workspaceRepoRoot`
+  - command-layer issue `#112` for `workspacePreparedAt`
 - duplicate seeding attempts now reuse an existing open issue with the same
   template and title instead of creating a fresh duplicate
 - duplicate issue `#59` was detected via the new inventory command and then
@@ -297,6 +297,10 @@ turning the working loop into a cleanly operable product:
   implemented, documented, and auto-closed through the same path
 - command-layer issue `#110` for `workspaceBranchName` has now also been
   implemented, documented, and auto-closed through the same path
+- command-layer issue `#111` for `workspaceRepoRoot` has now also been
+  implemented, documented, and auto-closed through the same path
+- validation-pool tooling now continues with command-layer issue `#112` for
+  `workspacePreparedAt`
 - the `failureDiagnostics` family is now effectively mirrored at the top level
   for:
   - summary
@@ -320,6 +324,8 @@ turning the working loop into a cleanly operable product:
   `workspace.baseBranch` field at the top level via `workspaceBaseBranch`
 - stable workspace mirroring now also includes the nested
   `workspace.branchName` field at the top level via `workspaceBranchName`
+- stable workspace mirroring now also includes the nested
+  `workspace.repoRoot` field at the top level via `workspaceRepoRoot`
   - bootstrap-warning signal
   - usage total
 - a fresh explicit chat-intake live proof is now complete through issue `#70`:
