@@ -377,8 +377,9 @@ These are the next narrow slices that should be consumed from the current state.
 - [x] implement `#117` for `issueUrl`
 - [x] implement `#118` for `issueLabelCount`
 - [x] implement `#119` for `issueHasLabels`
-- [ ] implement `#120` for `publishedPullRequestUrl`
-- [ ] replenish the command-layer validation pool with the next low-risk string mirror
+- [x] implement `#120` for `publishedPullRequestUrl`
+- [x] replenish the command-layer validation pool with the next low-risk string mirror
+- [ ] implement `#121` for `publishedPullRequestBaseBranch`
 - [ ] keep `run-json-contract.md` aligned with each new top-level field
 - [ ] keep `development-plan.md` and `full-program-roadmap.md` aligned with the latest pool state
 - [ ] decide whether the next productization slice after the current command-layer queue should be:

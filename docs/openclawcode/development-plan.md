@@ -242,7 +242,7 @@ turning the working loop into a cleanly operable product:
 - current live inventory is now:
   - docs/operator issue `#60`
   - docs/operator issue `#86`
-  - command-layer issue `#120` for `publishedPullRequestUrl`
+  - command-layer issue `#121` for `publishedPullRequestBaseBranch`
 - duplicate seeding attempts now reuse an existing open issue with the same
   template and title instead of creating a fresh duplicate
 - duplicate issue `#59` was detected via the new inventory command and then
@@ -315,8 +315,10 @@ turning the working loop into a cleanly operable product:
   implemented, documented, and auto-closed through the same path
 - command-layer issue `#119` for `issueHasLabels` has now also been
   implemented, documented, and auto-closed through the same path
-- validation-pool tooling now continues with command-layer issue `#120` for
-  `publishedPullRequestUrl`
+- command-layer issue `#120` for `publishedPullRequestUrl` has now also been
+  implemented, documented, and auto-closed through the same path
+- validation-pool tooling now continues with command-layer issue `#121` for
+  `publishedPullRequestBaseBranch`
 - the `failureDiagnostics` family is now effectively mirrored at the top level
   for:
   - summary

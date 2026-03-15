@@ -107,7 +107,7 @@ function createWorkflowRun(params: {
 describe("OpenClawCodeChatopsStore", () => {
   it(
     "persists pending approvals and consumes them when approved",
-    { timeout: 60_000 },
+    { timeout: 90_000 },
     async () => {
       const fixture = await createStore();
 

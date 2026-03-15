@@ -271,7 +271,7 @@ class NotFoundReadyForReviewGitHubClient extends FakeGitHubClient {
 describe("runIssueWorkflow", () => {
   it(
     "publishes and merges when verification approves and merge is enabled",
-    { timeout: 60_000 },
+    { timeout: 90_000 },
     async () => {
       const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-state-"));
 

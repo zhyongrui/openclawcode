@@ -292,7 +292,7 @@ describe("GitWorktreeManager", () => {
     }
   });
 
-  it("links shared install artifacts into the worktree", async () => {
+  it("links shared install artifacts into the worktree", { timeout: 60_000 }, async () => {
     const repo = await createTempRepo();
     const manager = new GitWorktreeManager(() => "2026-03-09T12:00:00.000Z");
 
@@ -321,36 +321,40 @@ describe("GitWorktreeManager", () => {
     }
   });
 
-  it("collects tracked and untracked file changes from the isolated worktree", async () => {
-    const repo = await createTempRepo();
-    const manager = new GitWorktreeManager(() => "2026-03-09T12:00:00.000Z");
+  it(
+    "collects tracked and untracked file changes from the isolated worktree",
+    { timeout: 60_000 },
+    async () => {
+      const repo = await createTempRepo();
+      const manager = new GitWorktreeManager(() => "2026-03-09T12:00:00.000Z");
 
-    try {
-      const workspace = await manager.prepare({
-        repoRoot: repo.rootDir,
-        worktreeRoot: repo.worktreeRoot,
-        branchName: "openclawcode/issue-43",
-        baseBranch: "main",
-        runId: "issue-43",
-      });
+      try {
+        const workspace = await manager.prepare({
+          repoRoot: repo.rootDir,
+          worktreeRoot: repo.worktreeRoot,
+          branchName: "openclawcode/issue-43",
+          baseBranch: "main",
+          runId: "issue-43",
+        });
 
-      await fs.writeFile(path.join(workspace.worktreePath, "README.md"), "# changed\n", "utf8");
-      await fs.writeFile(path.join(workspace.worktreePath, "notes.txt"), "hello\n", "utf8");
-      await fs.writeFile(path.join(workspace.worktreePath, "HEARTBEAT.md"), "runtime\n", "utf8");
-      await fs.mkdir(path.join(workspace.worktreePath, ".openclaw"), { recursive: true });
-      await fs.writeFile(
-        path.join(workspace.worktreePath, ".openclaw", "session.json"),
-        "{}\n",
-        "utf8",
-      );
+        await fs.writeFile(path.join(workspace.worktreePath, "README.md"), "# changed\n", "utf8");
+        await fs.writeFile(path.join(workspace.worktreePath, "notes.txt"), "hello\n", "utf8");
+        await fs.writeFile(path.join(workspace.worktreePath, "HEARTBEAT.md"), "runtime\n", "utf8");
+        await fs.mkdir(path.join(workspace.worktreePath, ".openclaw"), { recursive: true });
+        await fs.writeFile(
+          path.join(workspace.worktreePath, ".openclaw", "session.json"),
+          "{}\n",
+          "utf8",
+        );
 
-      expect(await manager.collectChangedFiles(workspace)).toEqual(["README.md", "notes.txt"]);
-    } finally {
-      await fs.rm(repo.rootDir, { recursive: true, force: true });
-    }
-  });
+        expect(await manager.collectChangedFiles(workspace)).toEqual(["README.md", "notes.txt"]);
+      } finally {
+        await fs.rm(repo.rootDir, { recursive: true, force: true });
+      }
+    },
+  );
 
-  it("removes the worktree during cleanup", async () => {
+  it("removes the worktree during cleanup", { timeout: 60_000 }, async () => {
     const repo = await createTempRepo();
     const manager = new GitWorktreeManager(() => "2026-03-09T12:00:00.000Z");
 

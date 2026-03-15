@@ -234,6 +234,7 @@ function resolveAutoMergeDisposition(run: WorkflowRun): {
 function resolvePublishedPullRequest(run: WorkflowRun): {
   pullRequestPublished: boolean;
   publishedPullRequestNumber: number | null;
+  publishedPullRequestUrl: string | null;
   publishedPullRequestOpenedAt: string | null;
 } {
   // Workflow runs only persist one PR object. Once GitHub assigns a number or URL,
@@ -242,6 +243,7 @@ function resolvePublishedPullRequest(run: WorkflowRun): {
   return {
     pullRequestPublished: published,
     publishedPullRequestNumber: published ? (run.draftPullRequest?.number ?? null) : null,
+    publishedPullRequestUrl: published ? (run.draftPullRequest?.url ?? null) : null,
     publishedPullRequestOpenedAt: published ? (run.draftPullRequest?.openedAt ?? null) : null,
   };
 }
@@ -587,6 +589,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     draftPullRequestDispositionReason:
       draftPullRequestDisposition.draftPullRequestDispositionReason,
     pullRequestPublished: publishedPullRequest.pullRequestPublished,
+    publishedPullRequestUrl: publishedPullRequest.publishedPullRequestUrl,
     publishedPullRequestOpenedAt: publishedPullRequest.publishedPullRequestOpenedAt,
     pullRequestMerged: mergedPullRequest.pullRequestMerged,
     mergedPullRequestMergedAt: mergedPullRequest.mergedPullRequestMergedAt,
