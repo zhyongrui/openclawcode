@@ -162,6 +162,8 @@ export function buildScopeGuardrail(run: WorkflowRun): ScopeGuardrail {
         "This issue appears command-layer focused. Prefer the smallest fix in src/commands/openclawcode.ts and its tests first.",
         "If the requested behavior can be derived from existing workflow state, do that instead of changing workflow contracts or persistence.",
         "Do not edit workflow-core modules unless the issue explicitly requires new persisted data or orchestration behavior.",
+        "When editing repetitive command or test files, replace a unique multi-line block or rewrite the full local test case/function instead of relying on short one-line edits.",
+        "If an edit reports multiple matches or verification failure, re-read the file, widen the old_string context, and retry with a more specific replacement.",
       ],
     };
   }

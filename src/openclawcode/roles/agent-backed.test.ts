@@ -126,6 +126,10 @@ describe("AgentBackedBuilder prompt", () => {
     expect(prompt).toContain(
       "If the requested behavior can be derived from existing workflow state",
     );
+    expect(prompt).toContain(
+      "replace a unique multi-line block or rewrite the full local test case/function",
+    );
+    expect(prompt).toContain("If an edit reports multiple matches or verification failure");
   });
 
   it("prefers exact documentation hints for README issues that mention plugin integration", () => {
