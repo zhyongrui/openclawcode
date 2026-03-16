@@ -235,6 +235,7 @@ function resolvePublishedPullRequest(run: WorkflowRun): {
   pullRequestPublished: boolean;
   publishedPullRequestNumber: number | null;
   publishedPullRequestTitle: string | null;
+  publishedPullRequestBody: string | null;
   publishedPullRequestBranchName: string | null;
   publishedPullRequestBaseBranch: string | null;
   publishedPullRequestUrl: string | null;
@@ -247,6 +248,7 @@ function resolvePublishedPullRequest(run: WorkflowRun): {
     pullRequestPublished: published,
     publishedPullRequestNumber: published ? (run.draftPullRequest?.number ?? null) : null,
     publishedPullRequestTitle: published ? (run.draftPullRequest?.title ?? null) : null,
+    publishedPullRequestBody: published ? (run.draftPullRequest?.body ?? null) : null,
     publishedPullRequestBranchName: published ? (run.draftPullRequest?.branchName ?? null) : null,
     publishedPullRequestBaseBranch: published ? (run.draftPullRequest?.baseBranch ?? null) : null,
     publishedPullRequestUrl: published ? (run.draftPullRequest?.url ?? null) : null,
@@ -596,6 +598,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
       draftPullRequestDisposition.draftPullRequestDispositionReason,
     pullRequestPublished: publishedPullRequest.pullRequestPublished,
     publishedPullRequestTitle: publishedPullRequest.publishedPullRequestTitle,
+    publishedPullRequestBody: publishedPullRequest.publishedPullRequestBody,
     publishedPullRequestBranchName: publishedPullRequest.publishedPullRequestBranchName,
     publishedPullRequestBaseBranch: publishedPullRequest.publishedPullRequestBaseBranch,
     publishedPullRequestUrl: publishedPullRequest.publishedPullRequestUrl,
