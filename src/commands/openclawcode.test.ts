@@ -809,6 +809,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.publishedPullRequestTitle).toBe(
       "[Issue #2] Include changed file list in JSON output",
     );
+    expect(payload.publishedPullRequestBody).toBe("Draft PR body");
     expect(payload.publishedPullRequestBranchName).toBe("openclawcode/issue-2");
     expect(payload.publishedPullRequestBaseBranch).toBe("main");
     expect(payload.publishedPullRequestUrl).toBe("https://github.com/openclaw/openclaw/pull/42");
