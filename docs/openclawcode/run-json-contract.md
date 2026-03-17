@@ -214,6 +214,9 @@ those nested objects.
 - `workspaceHasWorktreePath`
 - `workspaceWorktreePath`
 
+`workspacePreparedAt` mirrors `workspace.preparedAt` when that nested value exists
+and otherwise uses `null`.
+
 ### Pull Request And Merge State
 
 - `draftPullRequestBranchName`
