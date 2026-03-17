@@ -1839,6 +1839,22 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.failureDiagnosticUsageTotal).toBe(0);
   });
 
+  it("prints failureDiagnosticBootstrapWarningShown as false when diagnostics omitted bootstrap warnings", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        stage: "failed",
+        failureDiagnostics: {
+          summary: "HTTP 400: Internal server error",
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.failureDiagnosticBootstrapWarningShown).toBe(false);
+  });
+
   it("prints failureDiagnosticBootstrapWarningShown as true when diagnostics flagged bootstrap warnings", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
