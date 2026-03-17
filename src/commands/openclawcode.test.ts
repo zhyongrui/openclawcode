@@ -777,7 +777,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.runAgeSeconds).toBeNull();
   });
 
-  it("prints runHasUpdatedAt as false when the workflow update signal is present but empty", async () => {
+  it("prints runHasUpdatedAt as false and runUpdatedAt as null when the workflow update signal is present but empty", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         updatedAt: [] as unknown as WorkflowRun["updatedAt"],
@@ -787,7 +787,7 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
-    expect(payload.runUpdatedAt).toEqual([]);
+    expect(payload.runUpdatedAt).toBeNull();
     expect(payload.runHasUpdatedAt).toBe(false);
     expect(payload.runAgeSeconds).toBeNull();
   });

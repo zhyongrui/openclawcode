@@ -1984,7 +1984,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     ...run,
     contractVersion: OPENCLAWCODE_RUN_JSON_CONTRACT_VERSION,
     runCreatedAt: run.createdAt ?? null,
-    runUpdatedAt: run.updatedAt ?? null,
+    runUpdatedAt: typeof run.updatedAt === "string" ? run.updatedAt : null,
     runHasUpdatedAt,
     runAgeSeconds: resolveElapsedSeconds(run.createdAt, run.updatedAt),
     issueNumber: run.issue.number ?? null,
