@@ -441,6 +441,44 @@ describe("openclawCodeRunCommand", () => {
     );
   });
 
+  it("treats a boolean build summary as a present build signal in JSON output", async () => {
+    const run = createRun();
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        buildResult: {
+          ...run.buildResult!,
+          summary: true as never,
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.buildSummary).toBe(true);
+    expect(payload.buildHasSignals).toBe(true);
+    expect(payload.buildSummaryPresent).toBe(true);
+  });
+
+  it("treats a non-empty build summary entry list as present build signals in JSON output", async () => {
+    const run = createRun();
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        buildResult: {
+          ...run.buildResult!,
+          summary: ["lint", "tests"] as never,
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.buildSummary).toEqual(["lint", "tests"]);
+    expect(payload.buildHasSignals).toBe(true);
+    expect(payload.buildSummaryPresent).toBe(true);
+  });
+
   it("prints empty top-level scope fields and blocks auto-merge when workflow data is missing", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({

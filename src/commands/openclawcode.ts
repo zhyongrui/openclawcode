@@ -793,6 +793,22 @@ function resolveDraftPullRequestDisposition(run: WorkflowRun): {
   };
 }
 
+function resolveBuildHasSignals(summary: unknown): boolean {
+  if (summary === true) {
+    return true;
+  }
+  if (typeof summary === "string") {
+    return summary.trim().length > 0;
+  }
+  if (Array.isArray(summary)) {
+    return summary.length > 0;
+  }
+  if (summary != null && typeof summary === "object") {
+    return Object.keys(summary).length > 0;
+  }
+  return false;
+}
+
 function resolveChangedFileListStable(run: WorkflowRun): boolean {
   const changedFiles = run.buildResult?.changedFiles;
   if (changedFiles == null) {
@@ -1247,9 +1263,8 @@ function toWorkflowRunJson(run: WorkflowRun) {
     buildAttemptCount: run.attempts?.building ?? null,
     verificationAttemptCount: run.attempts?.verifying ?? null,
     buildSummary: run.buildResult?.summary ?? null,
-    buildHasSignals:
-      run.buildResult?.summary === true || (run.buildResult?.summary?.length ?? 0) > 0,
-    buildSummaryPresent: (run.buildResult?.summary?.length ?? 0) > 0,
+    buildHasSignals: resolveBuildHasSignals(run.buildResult?.summary),
+    buildSummaryPresent: resolveBuildHasSignals(run.buildResult?.summary),
     changedFiles: run.buildResult?.changedFiles ?? [],
     changedFilesPresent: (run.buildResult?.changedFiles.length ?? 0) > 0,
     changedFileListStable: resolveChangedFileListStable(run),
