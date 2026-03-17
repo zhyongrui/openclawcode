@@ -309,7 +309,8 @@ those nested objects.
 - boolean summary fields such as `verificationHasFindings` default to `false`
   when the corresponding section is absent
 - derived boolean fields such as `failureDiagnosticBootstrapWarningShown`
-  default to `false` when the nested diagnostic signal is absent
+  default to `false` when the nested diagnostic signal is absent and otherwise
+  mirror the recorded boolean signal
 - string or timestamp fields use `null` when the underlying value is absent
 - `failureDiagnostics` uses `null` when no structured workflow failure metadata
   was recorded for the run
