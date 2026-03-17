@@ -1247,6 +1247,8 @@ function toWorkflowRunJson(run: WorkflowRun) {
     buildAttemptCount: run.attempts?.building ?? null,
     verificationAttemptCount: run.attempts?.verifying ?? null,
     buildSummary: run.buildResult?.summary ?? null,
+    buildHasSignals:
+      run.buildResult?.summary === true || (run.buildResult?.summary?.length ?? 0) > 0,
     buildSummaryPresent: (run.buildResult?.summary?.length ?? 0) > 0,
     changedFiles: run.buildResult?.changedFiles ?? [],
     changedFilesPresent: (run.buildResult?.changedFiles.length ?? 0) > 0,

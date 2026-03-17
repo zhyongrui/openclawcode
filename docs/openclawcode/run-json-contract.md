@@ -79,6 +79,7 @@ those nested objects.
 ### Change And Scope Signals
 
 - `buildSummary`
+- `buildHasSignals`
 - `buildSummaryPresent`
 - `changedFiles`
 - `changedFilesPresent`

@@ -186,6 +186,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.buildAttemptCount).toBe(1);
     expect(payload.verificationAttemptCount).toBe(1);
     expect(payload.buildSummary).toBe("Updated JSON output");
+    expect(payload.buildHasSignals).toBe(true);
     expect(payload.buildSummaryPresent).toBe(true);
     expect(payload.changedFiles).toEqual([
       "src/openclawcode/app/run-issue.ts",
@@ -465,6 +466,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.buildAttemptCount).toBe(1);
     expect(payload.verificationAttemptCount).toBe(1);
     expect(payload.buildSummary).toBeNull();
+    expect(payload.buildHasSignals).toBe(false);
     expect(payload.buildSummaryPresent).toBe(false);
     expect(payload.changedFiles).toEqual([]);
     expect(payload.changedFilesPresent).toBe(false);
