@@ -1306,6 +1306,42 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.publishedPullRequestOpenedAt).toBe("2026-01-01T00:00:00.000Z");
   });
 
+  it("reports publishedPullRequestHasOpenedAt as false when the published pr has no openedAt", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        draftPullRequest: {
+          ...createRun().draftPullRequest!,
+          openedAt: undefined,
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.pullRequestPublished).toBe(true);
+    expect(payload.publishedPullRequestHasOpenedAt).toBe(false);
+    expect(payload.publishedPullRequestOpenedAt).toBeNull();
+  });
+
+  it("reports publishedPullRequestHasOpenedAt as true when the published pr has openedAt", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        draftPullRequest: {
+          ...createRun().draftPullRequest!,
+          openedAt: "2026-01-02T00:00:00.000Z",
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.pullRequestPublished).toBe(true);
+    expect(payload.publishedPullRequestHasOpenedAt).toBe(true);
+    expect(payload.publishedPullRequestOpenedAt).toBe("2026-01-02T00:00:00.000Z");
+  });
+
   it("treats blank published pull request bodies as absent in convenience signals", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({

@@ -1479,6 +1479,25 @@ function resolveOperatorStateDir(stateDir?: string): string {
   return path.resolve(stateDir ?? envStateDir ?? path.join(os.homedir(), ".openclaw"));
 }
 
+function hasPublishedPullRequestOpenedAt(
+  openedAt: WorkflowRun["draftPullRequest"] extends infer DraftPullRequest
+    ? DraftPullRequest extends { openedAt?: infer OpenedAt }
+      ? OpenedAt
+      : never
+    : never,
+): boolean {
+  if (openedAt === true) {
+    return true;
+  }
+  if (typeof openedAt === "string") {
+    return openedAt.length > 0;
+  }
+  if (Array.isArray(openedAt)) {
+    return openedAt.length > 0;
+  }
+  return false;
+}
+
 function resolvePublishedPullRequest(run: WorkflowRun): {
   pullRequestPublished: boolean;
   publishedPullRequestNumber: number | null;
@@ -1502,7 +1521,8 @@ function resolvePublishedPullRequest(run: WorkflowRun): {
     publishedPullRequestNumber: published ? (run.draftPullRequest?.number ?? null) : null,
     publishedPullRequestHasNumber: published && run.draftPullRequest?.number != null,
     publishedPullRequestHasUrl: published && run.draftPullRequest?.url != null,
-    publishedPullRequestHasOpenedAt: published && run.draftPullRequest?.openedAt != null,
+    publishedPullRequestHasOpenedAt:
+      published && hasPublishedPullRequestOpenedAt(run.draftPullRequest?.openedAt),
     publishedPullRequestHasTitle:
       published && (run.draftPullRequest?.title?.trim().length ?? 0) > 0,
     publishedPullRequestHasBody: published && (run.draftPullRequest?.body?.trim().length ?? 0) > 0,
