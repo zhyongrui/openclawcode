@@ -1615,12 +1615,35 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationSummaryPresent).toBe(true);
   });
 
-  it("reports verificationSummaryPresent as false when the verifier summary is empty", async () => {
+  it("reports verificationHasSignals as true when only the verifier summary is present", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        verificationReport: {
+          ...createRun().verificationReport!,
+          findings: [],
+          missingCoverage: [],
+          followUps: [],
+          summary: "Verification completed without additional findings.",
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.verificationSummaryPresent).toBe(true);
+    expect(payload.verificationHasSignals).toBe(true);
+  });
+
+  it("reports verificationSummaryPresent and verificationHasSignals as false when the verifier summary is empty", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         verificationReport: {
           ...createRun().verificationReport!,
           summary: "",
+          findings: [],
+          missingCoverage: [],
+          followUps: [],
         },
       }),
     );
@@ -1630,6 +1653,7 @@ describe("openclawCodeRunCommand", () => {
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload.verificationSummary).toBe("");
     expect(payload.verificationSummaryPresent).toBe(false);
+    expect(payload.verificationHasSignals).toBe(false);
   });
 
   it("reports suitabilityDecisionIsEscalate when suitability escalates before branch mutation", async () => {

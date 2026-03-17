@@ -2190,7 +2190,8 @@ function toWorkflowRunJson(run: WorkflowRun) {
     verificationHasSignals:
       run.verificationReport == null
         ? false
-        : run.verificationReport.findings.length > 0 ||
+        : (run.verificationReport.summary?.length ?? 0) > 0 ||
+          run.verificationReport.findings.length > 0 ||
           run.verificationReport.missingCoverage.length > 0 ||
           run.verificationReport.followUps.length > 0,
     verificationHasFollowUps:
