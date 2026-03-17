@@ -617,6 +617,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.pullRequestPublished).toBe(false);
     expect(payload.publishedPullRequestTitle).toBeNull();
     expect(payload.publishedPullRequestBody).toBeNull();
+    expect(payload.publishedPullRequestBranchName).toBeNull();
     expect(payload.publishedPullRequestHasNumber).toBe(false);
     expect(payload.publishedPullRequestHasUrl).toBe(false);
     expect(payload.publishedPullRequestHasOpenedAt).toBe(false);
