@@ -41,12 +41,9 @@ entry or interactive approval:
 3. run:
    - `pnpm install`
    - `pnpm build`
-4. prepare a starter operator config and repo mapping
-5. run health checks:
-   - `./scripts/openclawcode-setup-check.sh --strict --json`
-   - `./scripts/openclawcode-setup-check.sh --strict --probe-built-startup --json`
-6. prepare the target repository checkout and show the exact
-   `openclaw code run ...` command to use
+4. run `openclaw code bootstrap --repo owner/repo --json`
+5. prepare the target repository checkout and show the exact
+   `openclaw code run ...` or chat command to use
 
 ## What The User Must Do
 
@@ -76,9 +73,8 @@ Requirements:
 - clone https://github.com/zhyongrui/openclawcode.git to ~/pros/openclawcode
 - run pnpm install
 - run pnpm build
-- run:
-  - ./scripts/openclawcode-setup-check.sh --strict --json
-  - ./scripts/openclawcode-setup-check.sh --strict --probe-built-startup --json
+- then run:
+  - openclaw code bootstrap --repo owner/repo --json
 
 Important repository constraint:
 - this is the forked OpenClaw checkout that contains openclawcode
@@ -95,9 +91,9 @@ When finished, report:
 - pnpm version
 - codex version
 - whether build passed
-- whether strict setup-check passed
-- whether built-startup proof passed
-- the exact next commands for binding or running against a new target repo
+- whether bootstrap completed
+- the bootstrap JSON summary
+- the exact next commands for binding or running against the new target repo
 ```
 
 ## Minimal Install Flow
@@ -108,10 +104,8 @@ The smallest successful machine bootstrap looks like this:
 2. Codex runs `pnpm install`.
 3. Codex runs `pnpm build`.
 4. The user provides `GH_TOKEN` or `GITHUB_TOKEN`.
-5. Codex runs strict setup-check.
-6. Codex runs built-startup setup-check.
-7. Codex prepares the target repo mapping.
-8. The user chooses CLI-only or chatops validation.
+5. Codex runs `openclaw code bootstrap --repo owner/repo --json`.
+6. The user chooses CLI-only or chatops validation.
 
 ## Lowest-Touch User Goal
 
@@ -122,7 +116,7 @@ The desired product outcome is even smaller than today's install flow:
 3. the user chooses `owner/repo`
 4. one bootstrap command configures the operator automatically
 
-That command is not fully productized yet. See
+That command now exists as an MVP, but it is not fully productized yet. See
 `single-login-bootstrap-proposal.md` for the intended end state and the split
 between `openclaw` and `openclawcode`.
 
@@ -137,10 +131,13 @@ There are two supported paths.
 
 Use this when you want the fastest proof on a new machine.
 
-1. clone the new target repo locally
-2. add a repo entry in the operator config, or pass the repo information
-   directly to the CLI
-3. run:
+1. run bootstrap for the target repo:
+
+```bash
+openclaw code bootstrap --repo <owner>/<repo> --json
+```
+
+2. then run:
 
 ```bash
 openclaw code blueprint-init --title "Project Blueprint" --goal "Describe the target goal"
@@ -151,15 +148,21 @@ openclaw code run --issue 123 --owner <owner> --repo <repo> --repo-root <absolut
 
 Use this when you want the real operator flow.
 
-1. bring up the local gateway
-2. connect the real chat surface
-3. bind the repo from the desired conversation:
+1. run bootstrap for the target repo, ideally with explicit chat target values:
+
+```bash
+openclaw code bootstrap --repo <owner>/<repo> --mode chatops --channel feishu --chat-target <target> --json
+```
+
+2. bring up the local gateway if bootstrap reported that it could not start it
+3. connect the real chat surface
+4. bind the repo from the desired conversation if bootstrap only created a placeholder binding:
 
 ```text
 /occode-bind <owner>/<repo>
 ```
 
-4. then use:
+5. then use:
 
 ```text
 /occode-intake

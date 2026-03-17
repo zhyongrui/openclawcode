@@ -91,6 +91,14 @@ loop with:
 - a local builder/verifier runtime adapter built on top of OpenClaw's embedded
   agent entrypoint
 - an `openclaw code run ...` CLI path for issue-driven execution
+- an `openclaw code bootstrap --repo owner/repo` CLI path for low-touch target
+  repo bootstrap, including:
+  - target repo clone/attach
+  - operator env/config materialization
+  - bootstrap repo binding persistence
+  - blueprint / role-routing / discovery / stage-gate seeding
+  - gateway startup attempt
+  - strict setup-check and built-startup proof summary
 - a versioned top-level JSON contract for `openclaw code run --json`, anchored
   by `contractVersion: 1` and documented in `run-json-contract.md`
 - a versioned machine-readable policy contract for:

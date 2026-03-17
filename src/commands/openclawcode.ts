@@ -1,7 +1,12 @@
-import { readFile } from "node:fs/promises";
+import * as childProcess from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import * as net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
+  OpenClawCodeChatopsStore,
   resolveOpenClawCodePluginConfig,
   type OpenClawCodeChatopsRepoConfig,
 } from "../integrations/openclaw-plugin/index.js";
@@ -96,6 +101,24 @@ export interface OpenClawCodeRunOpts {
   rerunRequestedVerifierAgentId?: string;
   suitabilityOverrideActor?: string;
   suitabilityOverrideReason?: string;
+  json?: boolean;
+}
+
+export type OpenClawCodeBootstrapMode = "auto" | "cli-only" | "chatops";
+
+export interface OpenClawCodeBootstrapOpts {
+  repo: string;
+  repoRoot?: string;
+  stateDir?: string;
+  mode?: OpenClawCodeBootstrapMode;
+  channel?: string;
+  chatTarget?: string;
+  baseBranch?: string;
+  builderAgent?: string;
+  verifierAgent?: string;
+  test?: string[];
+  startGateway?: boolean;
+  probeBuiltStartup?: boolean;
   json?: boolean;
 }
 
@@ -386,6 +409,683 @@ async function resolveOperatorRepoConfig(params: {
     null
   );
 }
+
+const OPENCLAWCODE_BOOTSTRAP_CONTRACT_VERSION = 1;
+const DEFAULT_OPENCLAWCODE_BOOTSTRAP_NOTIFY_CHANNEL = "bootstrap";
+const DEFAULT_OPENCLAWCODE_BOOTSTRAP_TRIGGER_MODE = "approve";
+const DEFAULT_OPENCLAWCODE_BOOTSTRAP_BUILDER_AGENT = "main";
+const DEFAULT_OPENCLAWCODE_BOOTSTRAP_VERIFIER_AGENT = "main";
+const DEFAULT_OPENCLAWCODE_BOOTSTRAP_HOOK_EVENTS = "issues,pull_request,pull_request_review";
+const DEFAULT_OPENCLAWCODE_BOOTSTRAP_GATEWAY_PORT = 18789;
+
+interface BootstrapSetupCheckPayload {
+  ok: boolean;
+  strict: boolean;
+  repoRoot: string;
+  operatorRoot: string;
+  readiness: {
+    basic: boolean;
+    strict: boolean;
+    lowRiskProofReady: boolean;
+    fallbackProofReady: boolean;
+    promotionReady: boolean;
+    gatewayReachable: boolean;
+    routeProbeReady: boolean;
+    routeProbeSkipped: boolean;
+    builtStartupProofRequested: boolean;
+    builtStartupProofReady: boolean;
+    nextAction: string;
+  };
+  summary: {
+    pass: number;
+    warn: number;
+    fail: number;
+  };
+  checks?: Array<{
+    status: string;
+    message: string;
+  }>;
+}
+
+function parseBootstrapRepoRef(value: string): { owner: string; repo: string } {
+  const trimmed = value.trim();
+  const parts = trimmed
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length !== 2) {
+    throw new Error(`--repo must be in owner/repo form. Received: ${value}`);
+  }
+  return {
+    owner: parts[0],
+    repo: parts[1],
+  };
+}
+
+function resolveOpenClawCodeOperatorRepoRoot(): string {
+  return path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
+}
+
+async function pathExists(targetPath: string): Promise<boolean> {
+  try {
+    await stat(targetPath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function isDirectoryEmpty(targetPath: string): Promise<boolean> {
+  const entries = await readdir(targetPath);
+  return entries.length === 0;
+}
+
+function buildGitHubRepoUrl(repoRef: { owner: string; repo: string }): string {
+  return `https://github.com/${repoRef.owner}/${repoRef.repo}.git`;
+}
+
+function buildGitHubExtraHeader(token: string): string {
+  const basic = Buffer.from(`x-access-token:${token}`).toString("base64");
+  return `AUTHORIZATION: basic ${basic}`;
+}
+
+function runGitCommand(params: {
+  cwd?: string;
+  args: string[];
+  token?: string;
+  allowFailure?: boolean;
+}): string | null {
+  const args = params.token
+    ? ["-c", `http.extraHeader=${buildGitHubExtraHeader(params.token)}`, ...params.args]
+    : params.args;
+  const result = childProcess.spawnSync("git", args, {
+    cwd: params.cwd,
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    if (params.allowFailure) {
+      return null;
+    }
+    const detail = [result.stderr, result.stdout].filter(Boolean).join("\n").trim();
+    throw new Error(
+      detail
+        ? `git ${params.args.join(" ")} failed: ${detail}`
+        : `git ${params.args.join(" ")} failed`,
+    );
+  }
+  const stdout = result.stdout.trim();
+  return stdout.length > 0 ? stdout : null;
+}
+
+async function resolveBootstrapRepoRoot(params: {
+  requestedRepoRoot?: string;
+  repoRef: {
+    owner: string;
+    repo: string;
+  };
+}): Promise<{
+  repoRoot: string;
+  selection:
+    | "explicit"
+    | "existing-operator-config"
+    | "current-working-tree"
+    | "default-repo-name"
+    | "existing-default-repo-name"
+    | "owner-prefixed-repo-name";
+}> {
+  if (params.requestedRepoRoot) {
+    return {
+      repoRoot: path.resolve(params.requestedRepoRoot),
+      selection: "explicit",
+    };
+  }
+
+  const cwd = path.resolve(process.cwd());
+  try {
+    const currentRepo = await resolveGitHubRepoFromGit(cwd);
+    if (
+      normalizeRepoKeyPart(currentRepo.owner) === normalizeRepoKeyPart(params.repoRef.owner) &&
+      normalizeRepoKeyPart(currentRepo.repo) === normalizeRepoKeyPart(params.repoRef.repo)
+    ) {
+      return {
+        repoRoot: cwd,
+        selection: "current-working-tree",
+      };
+    }
+  } catch {
+    // Ignore non-repository working directories.
+  }
+
+  const defaultRoot = path.join(os.homedir(), "pros", params.repoRef.repo);
+  if (!(await pathExists(defaultRoot))) {
+    return {
+      repoRoot: defaultRoot,
+      selection: "default-repo-name",
+    };
+  }
+  try {
+    const defaultRepo = await resolveGitHubRepoFromGit(defaultRoot);
+    if (
+      normalizeRepoKeyPart(defaultRepo.owner) === normalizeRepoKeyPart(params.repoRef.owner) &&
+      normalizeRepoKeyPart(defaultRepo.repo) === normalizeRepoKeyPart(params.repoRef.repo)
+    ) {
+      return {
+        repoRoot: defaultRoot,
+        selection: "existing-default-repo-name",
+      };
+    }
+  } catch {
+    // Fall through to owner-prefixed root when the default path is occupied by another checkout.
+  }
+
+  return {
+    repoRoot: path.join(os.homedir(), "pros", `${params.repoRef.owner}-${params.repoRef.repo}`),
+    selection: "owner-prefixed-repo-name",
+  };
+}
+
+async function ensureBootstrapRepoCheckout(params: {
+  repoRoot: string;
+  repoRef: {
+    owner: string;
+    repo: string;
+  };
+  token: string;
+}): Promise<{
+  action: "cloned" | "attached";
+  remoteUrl: string;
+}> {
+  const repoRoot = path.resolve(params.repoRoot);
+  const remoteUrl = buildGitHubRepoUrl(params.repoRef);
+  const exists = await pathExists(repoRoot);
+
+  if (!exists) {
+    await mkdir(path.dirname(repoRoot), { recursive: true });
+    runGitCommand({
+      args: ["clone", remoteUrl, repoRoot],
+      token: params.token,
+    });
+  } else {
+    try {
+      const existingRepo = await resolveGitHubRepoFromGit(repoRoot);
+      if (
+        normalizeRepoKeyPart(existingRepo.owner) !== normalizeRepoKeyPart(params.repoRef.owner) ||
+        normalizeRepoKeyPart(existingRepo.repo) !== normalizeRepoKeyPart(params.repoRef.repo)
+      ) {
+        throw new Error(
+          `Existing checkout at ${repoRoot} points to ${existingRepo.owner}/${existingRepo.repo}, not ${params.repoRef.owner}/${params.repoRef.repo}.`,
+        );
+      }
+      return {
+        action: "attached",
+        remoteUrl,
+      };
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("points to")) {
+        const targetStat = await stat(repoRoot);
+        if (!targetStat.isDirectory()) {
+          throw new Error(`Bootstrap target root is not a directory: ${repoRoot}`, {
+            cause: error,
+          });
+        }
+        if (!(await isDirectoryEmpty(repoRoot))) {
+          throw new Error(
+            `Bootstrap target root exists but is not a matching git checkout: ${repoRoot}`,
+            { cause: error },
+          );
+        }
+        runGitCommand({
+          args: ["clone", remoteUrl, repoRoot],
+          token: params.token,
+        });
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  const verified = await resolveGitHubRepoFromGit(repoRoot);
+  if (
+    normalizeRepoKeyPart(verified.owner) !== normalizeRepoKeyPart(params.repoRef.owner) ||
+    normalizeRepoKeyPart(verified.repo) !== normalizeRepoKeyPart(params.repoRef.repo)
+  ) {
+    throw new Error(
+      `Cloned checkout at ${repoRoot} resolved to ${verified.owner}/${verified.repo}, not ${params.repoRef.owner}/${params.repoRef.repo}.`,
+    );
+  }
+  return {
+    action: "cloned",
+    remoteUrl,
+  };
+}
+
+function resolveBootstrapBaseBranch(repoRoot: string, explicitBaseBranch?: string): string {
+  const trimmed = explicitBaseBranch?.trim();
+  if (trimmed) {
+    return trimmed;
+  }
+  const remoteHead = runGitCommand({
+    cwd: repoRoot,
+    args: ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+    allowFailure: true,
+  });
+  if (remoteHead?.startsWith("origin/")) {
+    return remoteHead.slice("origin/".length);
+  }
+  for (const candidate of ["main", "master"]) {
+    const exists = runGitCommand({
+      cwd: repoRoot,
+      args: ["rev-parse", "--verify", `refs/heads/${candidate}`],
+      allowFailure: true,
+    });
+    if (exists) {
+      return candidate;
+    }
+  }
+  return (
+    runGitCommand({
+      cwd: repoRoot,
+      args: ["branch", "--show-current"],
+      allowFailure: true,
+    }) ?? "main"
+  );
+}
+
+async function detectBootstrapTestCommands(repoRoot: string): Promise<{
+  commands: string[];
+  source:
+    | "explicit"
+    | "existing-config"
+    | "vitest-openclawcode"
+    | "package-manager"
+    | "go"
+    | "cargo"
+    | "pytest";
+}> {
+  const openclawVitestConfig = path.join(repoRoot, "vitest.openclawcode.config.mjs");
+  if (await pathExists(openclawVitestConfig)) {
+    return {
+      commands: [
+        "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads --maxWorkers 1",
+      ],
+      source: "vitest-openclawcode",
+    };
+  }
+
+  const packageJsonPath = path.join(repoRoot, "package.json");
+  if (await pathExists(packageJsonPath)) {
+    const rawPackageJson = await readFile(packageJsonPath, "utf8");
+    const packageJson = JSON.parse(rawPackageJson) as {
+      scripts?: {
+        test?: string;
+      };
+    };
+    if (typeof packageJson.scripts?.test === "string" && packageJson.scripts.test.trim()) {
+      if (await pathExists(path.join(repoRoot, "pnpm-lock.yaml"))) {
+        return { commands: ["pnpm test"], source: "package-manager" };
+      }
+      if (await pathExists(path.join(repoRoot, "yarn.lock"))) {
+        return { commands: ["yarn test"], source: "package-manager" };
+      }
+      return { commands: ["npm test"], source: "package-manager" };
+    }
+  }
+
+  if (await pathExists(path.join(repoRoot, "go.mod"))) {
+    return { commands: ["go test ./..."], source: "go" };
+  }
+  if (await pathExists(path.join(repoRoot, "Cargo.toml"))) {
+    return { commands: ["cargo test"], source: "cargo" };
+  }
+  if (
+    (await pathExists(path.join(repoRoot, "pyproject.toml"))) ||
+    (await pathExists(path.join(repoRoot, "pytest.ini")))
+  ) {
+    return { commands: ["pytest"], source: "pytest" };
+  }
+
+  throw new Error(
+    `Unable to infer test commands for ${repoRoot}. Pass --test explicitly so bootstrap can persist a safe repo config.`,
+  );
+}
+
+function resolveBootstrapMode(params: {
+  requestedMode?: OpenClawCodeBootstrapMode;
+  channel?: string;
+  chatTarget?: string;
+}): "cli-only" | "chatops" {
+  if (params.requestedMode && params.requestedMode !== "auto") {
+    return params.requestedMode;
+  }
+  return params.channel && params.chatTarget ? "chatops" : "cli-only";
+}
+
+function shellQuoteEnvValue(value: string): string {
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+function parseEnvLineValue(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("#")) {
+    return null;
+  }
+  const withoutExport = trimmed.startsWith("export ") ? trimmed.slice("export ".length) : trimmed;
+  const match = /^([A-Z0-9_]+)=(.*)$/.exec(withoutExport);
+  if (!match) {
+    return null;
+  }
+  let value = match[2] ?? "";
+  if (
+    (value.startsWith("'") && value.endsWith("'")) ||
+    (value.startsWith('"') && value.endsWith('"'))
+  ) {
+    value = value.slice(1, -1);
+  }
+  return value;
+}
+
+async function writeBootstrapEnvFile(params: {
+  envFilePath: string;
+  repoKey: string;
+  token: string;
+}): Promise<{
+  created: boolean;
+  updatedKeys: string[];
+  webhookSecretGenerated: boolean;
+  values: Record<string, string>;
+}> {
+  const exists = await pathExists(params.envFilePath);
+  const original = exists ? await readFile(params.envFilePath, "utf8") : "";
+  const lines = original ? original.replace(/\r\n/g, "\n").split("\n") : [];
+  const webhookSecretLine = lines.find((line) =>
+    /^\s*(export\s+)?OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=/.test(line),
+  );
+  const existingWebhookSecret = webhookSecretLine ? parseEnvLineValue(webhookSecretLine) : null;
+  const desiredValues = new Map<string, string>([
+    ["GH_TOKEN", params.token],
+    [
+      "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET",
+      existingWebhookSecret || randomBytes(32).toString("hex"),
+    ],
+    ["OPENCLAWCODE_GITHUB_REPO", params.repoKey],
+    ["OPENCLAWCODE_GITHUB_HOOK_EVENTS", DEFAULT_OPENCLAWCODE_BOOTSTRAP_HOOK_EVENTS],
+  ]);
+
+  const updatedKeys: string[] = [];
+  const nextLines = [...lines];
+  for (const [key, value] of desiredValues.entries()) {
+    const rendered = `export ${key}=${shellQuoteEnvValue(value)}`;
+    const index = nextLines.findIndex((line) => new RegExp(`^\\s*(export\\s+)?${key}=`).test(line));
+    if (index >= 0) {
+      if (nextLines[index] !== rendered) {
+        nextLines[index] = rendered;
+        updatedKeys.push(key);
+      }
+      continue;
+    }
+    nextLines.push(rendered);
+    updatedKeys.push(key);
+  }
+
+  await mkdir(path.dirname(params.envFilePath), { recursive: true });
+  const body = `${nextLines.filter((line, index, source) => !(index === source.length - 1 && line === "")).join("\n")}\n`;
+  await writeFile(params.envFilePath, body, "utf8");
+  return {
+    created: !exists,
+    updatedKeys,
+    webhookSecretGenerated: !existingWebhookSecret,
+    values: Object.fromEntries(desiredValues),
+  };
+}
+
+async function writeBootstrapOperatorConfig(params: {
+  configPath: string;
+  repoRef: {
+    owner: string;
+    repo: string;
+  };
+  targetRepoRoot: string;
+  baseBranch: string;
+  notifyChannel: string;
+  notifyTarget: string;
+  builderAgent: string;
+  verifierAgent: string;
+  testCommands: string[];
+}): Promise<{
+  created: boolean;
+  repoEntryAction: "created" | "updated" | "unchanged";
+}> {
+  const exists = await pathExists(params.configPath);
+  const parsed = exists
+    ? (JSON.parse(await readFile(params.configPath, "utf8")) as Record<string, unknown>)
+    : {};
+  const config = parsed;
+  const gateway =
+    config.gateway && typeof config.gateway === "object"
+      ? ({ ...(config.gateway as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+  if (!gateway.mode) {
+    gateway.mode = "local";
+  }
+  if (!gateway.port) {
+    gateway.port = DEFAULT_OPENCLAWCODE_BOOTSTRAP_GATEWAY_PORT;
+  }
+  config.gateway = gateway;
+
+  const plugins =
+    config.plugins && typeof config.plugins === "object"
+      ? ({ ...(config.plugins as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+  plugins.enabled = true;
+  const allow = Array.isArray(plugins.allow) ? [...plugins.allow] : [];
+  if (!allow.includes("openclawcode")) {
+    allow.push("openclawcode");
+  }
+  plugins.allow = allow;
+
+  const entries =
+    plugins.entries && typeof plugins.entries === "object"
+      ? ({ ...(plugins.entries as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+  const pluginEntry =
+    entries.openclawcode && typeof entries.openclawcode === "object"
+      ? ({ ...(entries.openclawcode as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+  pluginEntry.enabled = true;
+  const pluginConfig =
+    pluginEntry.config && typeof pluginEntry.config === "object"
+      ? ({ ...(pluginEntry.config as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+  pluginConfig.githubWebhookSecretEnv = "OPENCLAWCODE_GITHUB_WEBHOOK_SECRET";
+  const existingResolved = resolveOpenClawCodePluginConfig(pluginConfig);
+  const existingRepo = existingResolved.repos.find(
+    (entry) =>
+      normalizeRepoKeyPart(entry.owner) === normalizeRepoKeyPart(params.repoRef.owner) &&
+      normalizeRepoKeyPart(entry.repo) === normalizeRepoKeyPart(params.repoRef.repo),
+  );
+  const nextRepoEntry: OpenClawCodeChatopsRepoConfig = {
+    owner: params.repoRef.owner,
+    repo: params.repoRef.repo,
+    repoRoot: params.targetRepoRoot,
+    baseBranch: params.baseBranch,
+    triggerMode: DEFAULT_OPENCLAWCODE_BOOTSTRAP_TRIGGER_MODE,
+    notifyChannel: params.notifyChannel,
+    notifyTarget: params.notifyTarget,
+    builderAgent: params.builderAgent,
+    verifierAgent: params.verifierAgent,
+    testCommands: params.testCommands,
+    triggerLabels: existingRepo?.triggerLabels ?? [],
+    skipLabels: existingRepo?.skipLabels ?? [],
+    openPullRequest: existingRepo?.openPullRequest ?? true,
+    mergeOnApprove: existingRepo?.mergeOnApprove ?? false,
+  };
+  const existingReposRaw = Array.isArray(pluginConfig.repos) ? pluginConfig.repos : [];
+  const repoIndex = existingReposRaw.findIndex((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return false;
+    }
+    const candidate = entry as Record<string, unknown>;
+    const owner =
+      typeof candidate.owner === "string" && candidate.owner.trim() ? candidate.owner : "";
+    const repo = typeof candidate.repo === "string" && candidate.repo.trim() ? candidate.repo : "";
+    return (
+      normalizeRepoKeyPart(owner) === normalizeRepoKeyPart(params.repoRef.owner) &&
+      normalizeRepoKeyPart(repo) === normalizeRepoKeyPart(params.repoRef.repo)
+    );
+  });
+  let repoEntryAction: "created" | "updated" | "unchanged" = "created";
+  if (repoIndex >= 0) {
+    const currentEntry = existingReposRaw[repoIndex];
+    if (JSON.stringify(currentEntry) === JSON.stringify(nextRepoEntry)) {
+      repoEntryAction = "unchanged";
+    } else {
+      repoEntryAction = "updated";
+    }
+    existingReposRaw[repoIndex] = nextRepoEntry;
+  } else {
+    existingReposRaw.push(nextRepoEntry);
+  }
+  pluginConfig.repos = existingReposRaw;
+  pluginEntry.config = pluginConfig;
+  entries.openclawcode = pluginEntry;
+  plugins.entries = entries;
+  config.plugins = plugins;
+
+  await mkdir(path.dirname(params.configPath), { recursive: true });
+  await writeFile(params.configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  return {
+    created: !exists,
+    repoEntryAction,
+  };
+}
+
+async function ensureBootstrapRepoBinding(params: {
+  operatorStateDir: string;
+  repoKey: string;
+  notifyChannel: string;
+  notifyTarget: string;
+}): Promise<{
+  action: "created" | "updated" | "unchanged";
+}> {
+  const store = OpenClawCodeChatopsStore.fromStateDir(params.operatorStateDir);
+  const current = await store.getRepoBinding(params.repoKey);
+  if (
+    current?.notifyChannel === params.notifyChannel &&
+    current?.notifyTarget === params.notifyTarget
+  ) {
+    return { action: "unchanged" };
+  }
+  await store.setRepoBinding({
+    repoKey: params.repoKey,
+    notifyChannel: params.notifyChannel,
+    notifyTarget: params.notifyTarget,
+  });
+  return {
+    action: current ? "updated" : "created",
+  };
+}
+
+function parseBootstrapSetupCheckPayload(stdout: string): BootstrapSetupCheckPayload | null {
+  const trimmed = stdout.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    return JSON.parse(trimmed) as BootstrapSetupCheckPayload;
+  } catch {
+    return null;
+  }
+}
+
+function runBootstrapSetupCheck(params: {
+  operatorRepoRoot: string;
+  operatorStateDir: string;
+  probeBuiltStartup: boolean;
+}): {
+  payload: BootstrapSetupCheckPayload | null;
+  status: number | null;
+  stderr: string;
+} {
+  const scriptPath = path.join(params.operatorRepoRoot, "scripts", "openclawcode-setup-check.sh");
+  const args = ["--strict", "--json"];
+  if (params.probeBuiltStartup) {
+    args.splice(1, 0, "--probe-built-startup");
+  }
+  const result = childProcess.spawnSync("bash", [scriptPath, ...args], {
+    cwd: params.operatorRepoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      OPENCLAWCODE_SETUP_REPO_ROOT: params.operatorRepoRoot,
+      OPENCLAWCODE_SETUP_OPERATOR_ROOT: params.operatorStateDir,
+    },
+  });
+  return {
+    payload: parseBootstrapSetupCheckPayload(result.stdout),
+    status: result.status,
+    stderr: result.stderr.trim(),
+  };
+}
+
+function isGatewayReachable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: "127.0.0.1", port });
+    const finish = (value: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(value);
+    };
+    socket.once("connect", () => finish(true));
+    socket.once("error", () => finish(false));
+    socket.setTimeout(1000, () => finish(false));
+  });
+}
+
+async function startBootstrapGateway(params: {
+  operatorRepoRoot: string;
+  operatorStateDir: string;
+  extraEnv: Record<string, string>;
+  port?: number;
+}): Promise<{
+  action: "already-running" | "started" | "failed";
+}> {
+  const port = params.port ?? DEFAULT_OPENCLAWCODE_BOOTSTRAP_GATEWAY_PORT;
+  if (await isGatewayReachable(port)) {
+    return { action: "already-running" };
+  }
+  const distEntry = path.join(params.operatorRepoRoot, "dist", "index.js");
+  const child = childProcess.spawn(
+    process.execPath,
+    [distEntry, "gateway", "run", "--bind", "loopback", "--port", String(port)],
+    {
+      cwd: params.operatorRepoRoot,
+      env: {
+        ...process.env,
+        ...params.extraEnv,
+        OPENCLAW_STATE_DIR: params.operatorStateDir,
+      },
+      detached: true,
+      stdio: "ignore",
+    },
+  );
+  child.unref();
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    if (await isGatewayReachable(port)) {
+      return { action: "started" };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return { action: "failed" };
+}
+
+export const openclawCodeBootstrapInternals = {
+  runSetupCheck: runBootstrapSetupCheck,
+  startGateway: startBootstrapGateway,
+};
 
 function logProjectBlueprintSummary(params: {
   summary: Awaited<ReturnType<typeof readProjectBlueprint>>;
@@ -1633,6 +2333,265 @@ export async function openclawCodeRunCommand(
   if (run.draftPullRequest?.url) {
     runtime.log(`Draft PR: ${run.draftPullRequest.url}`);
   }
+}
+
+export async function openclawCodeBootstrapCommand(
+  opts: OpenClawCodeBootstrapOpts,
+  runtime: RuntimeEnv,
+): Promise<void> {
+  const repoRef = parseBootstrapRepoRef(opts.repo);
+  const repoKey = `${repoRef.owner}/${repoRef.repo}`;
+  const operatorRepoRoot = resolveOpenClawCodeOperatorRepoRoot();
+  const operatorStateDir = resolveOperatorStateDir(opts.stateDir);
+  const token = process.env.GH_TOKEN?.trim() || process.env.GITHUB_TOKEN?.trim();
+  if (!token) {
+    throw new Error(
+      "Bootstrap requires GH_TOKEN or GITHUB_TOKEN in the environment so the target repo can be inspected and configured.",
+    );
+  }
+
+  const initialRepoRoot = await resolveBootstrapRepoRoot({
+    requestedRepoRoot: opts.repoRoot,
+    repoRef,
+  });
+  let targetRepoRoot = initialRepoRoot.repoRoot;
+  let repoRootSelection = initialRepoRoot.selection;
+  const existingOperatorRepoConfig = await resolveOperatorRepoConfig({
+    operatorStateDir,
+    repoRoot: targetRepoRoot,
+    repoRef,
+  });
+  if (!opts.repoRoot && existingOperatorRepoConfig?.repoRoot) {
+    targetRepoRoot = path.resolve(existingOperatorRepoConfig.repoRoot);
+    repoRootSelection = "existing-operator-config";
+  }
+
+  const checkout = await ensureBootstrapRepoCheckout({
+    repoRoot: targetRepoRoot,
+    repoRef,
+    token,
+  });
+  targetRepoRoot = path.resolve(targetRepoRoot);
+
+  const mode = resolveBootstrapMode({
+    requestedMode: opts.mode,
+    channel: opts.channel,
+    chatTarget: opts.chatTarget,
+  });
+  const defaultNotifyTarget =
+    mode === "chatops" ? `bind-pending:${repoKey}` : `cli-only:${repoKey}`;
+  const notifyChannel =
+    opts.channel?.trim() ||
+    existingOperatorRepoConfig?.notifyChannel ||
+    DEFAULT_OPENCLAWCODE_BOOTSTRAP_NOTIFY_CHANNEL;
+  const notifyTarget =
+    opts.chatTarget?.trim() || existingOperatorRepoConfig?.notifyTarget || defaultNotifyTarget;
+  const notifyBindingMode =
+    opts.channel?.trim() && opts.chatTarget?.trim()
+      ? "explicit"
+      : existingOperatorRepoConfig?.notifyChannel && existingOperatorRepoConfig?.notifyTarget
+        ? "existing-config"
+        : mode === "chatops"
+          ? "chat-placeholder"
+          : "cli-placeholder";
+
+  const testCommandsResult = opts.test?.length
+    ? {
+        commands: opts.test,
+        source: "explicit" as const,
+      }
+    : existingOperatorRepoConfig?.testCommands?.length
+      ? {
+          commands: existingOperatorRepoConfig.testCommands,
+          source: "existing-config" as const,
+        }
+      : await detectBootstrapTestCommands(targetRepoRoot);
+  const baseBranch = resolveBootstrapBaseBranch(
+    targetRepoRoot,
+    opts.baseBranch ?? existingOperatorRepoConfig?.baseBranch,
+  );
+  const builderAgent =
+    opts.builderAgent?.trim() ||
+    existingOperatorRepoConfig?.builderAgent ||
+    DEFAULT_OPENCLAWCODE_BOOTSTRAP_BUILDER_AGENT;
+  const verifierAgent =
+    opts.verifierAgent?.trim() ||
+    existingOperatorRepoConfig?.verifierAgent ||
+    DEFAULT_OPENCLAWCODE_BOOTSTRAP_VERIFIER_AGENT;
+
+  const envFilePath = path.join(operatorStateDir, "openclawcode.env");
+  const configPath = path.join(operatorStateDir, "openclaw.json");
+  const chatopsStatePath = path.join(
+    operatorStateDir,
+    "plugins",
+    "openclawcode",
+    "chatops-state.json",
+  );
+
+  const envFile = await writeBootstrapEnvFile({
+    envFilePath,
+    repoKey,
+    token,
+  });
+  const config = await writeBootstrapOperatorConfig({
+    configPath,
+    repoRef,
+    targetRepoRoot,
+    baseBranch,
+    notifyChannel,
+    notifyTarget,
+    builderAgent,
+    verifierAgent,
+    testCommands: testCommandsResult.commands,
+  });
+  const binding = await ensureBootstrapRepoBinding({
+    operatorStateDir,
+    repoKey,
+    notifyChannel,
+    notifyTarget,
+  });
+
+  const existingBlueprint = await readProjectBlueprint(targetRepoRoot);
+  const blueprint = existingBlueprint.exists
+    ? existingBlueprint
+    : await createProjectBlueprint({
+        repoRoot: targetRepoRoot,
+        title: `${repoRef.repo} Blueprint`,
+        goal: `Bootstrap ${repoKey} for blueprint-first autonomous development.`,
+      });
+  const blueprintAction = existingBlueprint.exists ? "existing" : "created";
+  const roleRouting = await writeProjectRoleRoutingPlan(targetRepoRoot);
+  const discovery = await writeProjectDiscoveryInventory(targetRepoRoot);
+  const stageGates = await writeProjectStageGateArtifact(targetRepoRoot);
+
+  const gateway =
+    opts.startGateway === false
+      ? { action: "skipped" as const }
+      : await openclawCodeBootstrapInternals.startGateway({
+          operatorRepoRoot,
+          operatorStateDir,
+          extraEnv: envFile.values,
+        });
+  const setupCheck = openclawCodeBootstrapInternals.runSetupCheck({
+    operatorRepoRoot,
+    operatorStateDir,
+    probeBuiltStartup: opts.probeBuiltStartup !== false,
+  });
+  const nextAction =
+    notifyBindingMode === "chat-placeholder"
+      ? "connect-chat-and-run-occode-bind"
+      : (setupCheck.payload?.readiness.nextAction ??
+        (gateway.action === "failed"
+          ? "start-or-restart-live-gateway"
+          : "inspect-setup-check-output"));
+
+  const payload = {
+    contractVersion: OPENCLAWCODE_BOOTSTRAP_CONTRACT_VERSION,
+    repo: {
+      owner: repoRef.owner,
+      repo: repoRef.repo,
+      repoKey,
+      repoRoot: targetRepoRoot,
+      repoRootSelection,
+      checkoutAction: checkout.action,
+      remoteUrl: checkout.remoteUrl,
+      baseBranch,
+    },
+    operator: {
+      operatorRepoRoot,
+      operatorStateDir,
+      envFilePath,
+      configPath,
+      chatopsStatePath,
+    },
+    mode,
+    notify: {
+      notifyChannel,
+      notifyTarget,
+      bindingMode: notifyBindingMode,
+    },
+    credentials: {
+      githubTokenSource: process.env.GH_TOKEN?.trim() ? "GH_TOKEN" : "GITHUB_TOKEN",
+      envFileCreated: envFile.created,
+      envUpdatedKeys: envFile.updatedKeys,
+      webhookSecretGenerated: envFile.webhookSecretGenerated,
+    },
+    config: {
+      configCreated: config.created,
+      repoEntryAction: config.repoEntryAction,
+      builderAgent,
+      verifierAgent,
+      testCommands: testCommandsResult.commands,
+      testCommandSource: testCommandsResult.source,
+    },
+    binding,
+    blueprint: {
+      action: blueprintAction,
+      blueprintPath: blueprint.blueprintPath,
+      status: blueprint.status,
+      revisionId: blueprint.revisionId,
+      defaultedSectionCount: blueprint.defaultedSectionCount,
+    },
+    roleRouting: {
+      artifactPath: roleRouting.artifactPath,
+      unresolvedRoleCount: roleRouting.unresolvedRoleCount,
+      fallbackConfigured: roleRouting.fallbackConfigured,
+    },
+    discovery: {
+      artifactPath: discovery.inventoryPath,
+      evidenceCount: discovery.evidenceCount,
+    },
+    stageGates: {
+      artifactPath: stageGates.artifactPath,
+      blockedGateCount: stageGates.blockedGateCount,
+      needsHumanDecisionCount: stageGates.needsHumanDecisionCount,
+      executionStartReadiness:
+        stageGates.gates.find((gate) => gate.gateId === "execution-start")?.readiness ?? null,
+    },
+    gateway,
+    setupCheck: {
+      status: setupCheck.status,
+      stderr: setupCheck.stderr,
+      payload: setupCheck.payload,
+    },
+    nextAction,
+  };
+
+  if (opts.json) {
+    runtime.log(JSON.stringify(payload, null, 2));
+    return;
+  }
+
+  runtime.log(`Repo: ${repoKey}`);
+  runtime.log(`Target repo root: ${targetRepoRoot}`);
+  runtime.log(`Repo root selection: ${repoRootSelection}`);
+  runtime.log(`Checkout: ${checkout.action}`);
+  runtime.log(`Mode: ${mode}`);
+  runtime.log(`Notify target: ${notifyChannel}:${notifyTarget} (${notifyBindingMode})`);
+  runtime.log(`Operator root: ${operatorStateDir}`);
+  runtime.log(`Env file: ${envFilePath}`);
+  runtime.log(`Config file: ${configPath}`);
+  runtime.log(`Repo entry: ${config.repoEntryAction}`);
+  runtime.log(`Repo binding: ${binding.action}`);
+  runtime.log(`Blueprint: ${blueprintAction} (${blueprint.status ?? "unknown"})`);
+  runtime.log(`Role routing unresolved roles: ${roleRouting.unresolvedRoleCount}`);
+  runtime.log(`Discovery evidence: ${discovery.evidenceCount}`);
+  runtime.log(
+    `Stage gates: blocked=${stageGates.blockedGateCount} needsHuman=${stageGates.needsHumanDecisionCount}`,
+  );
+  runtime.log(`Gateway: ${gateway.action}`);
+  if (setupCheck.payload) {
+    runtime.log(
+      `Setup-check: ok=${setupCheck.payload.ok} pass=${setupCheck.payload.summary.pass} warn=${setupCheck.payload.summary.warn} fail=${setupCheck.payload.summary.fail}`,
+    );
+    runtime.log(`Setup-check next action: ${setupCheck.payload.readiness.nextAction}`);
+  } else {
+    runtime.log(`Setup-check: unavailable (status=${String(setupCheck.status)})`);
+    if (setupCheck.stderr) {
+      runtime.log(setupCheck.stderr);
+    }
+  }
+  runtime.log(`Next action: ${nextAction}`);
 }
 
 export async function openclawCodePolicyShowCommand(

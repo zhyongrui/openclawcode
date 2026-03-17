@@ -46,22 +46,39 @@ surface for a fresh machine or a new repo.
 
 ## Current Reality
 
-Today the repo still expects manual configuration in these areas:
+The repo now includes a first bootstrap command:
+
+```bash
+openclaw code bootstrap --repo owner/repo
+```
+
+The implemented MVP already does these pieces automatically:
+
+- clone or attach the target repo
+- persist `GH_TOKEN`, repo key, and a generated webhook secret into
+  `~/.openclaw/openclawcode.env`
+- materialize the bundled plugin repo entry inside `openclaw.json`
+- persist a bootstrap repo binding in `chatops-state.json`
+- seed `PROJECT-BLUEPRINT.md`, role-routing, discovery, and stage-gate artifacts
+- try to start the local gateway
+- run strict setup-check plus built-startup proof by default
+- emit a machine-readable bootstrap summary through `--json`
+
+What is still manual or only partially automated:
 
 - `docs/openclawcode/operator-setup.md`
-  - explicit `GH_TOKEN`
-  - explicit `OPENCLAWCODE_GITHUB_WEBHOOK_SECRET`
   - explicit `OPENCLAWCODE_GITHUB_HOOK_ID`
-  - explicit plugin repo entry in `openclaw.json`
+- provider credentials still come from the surrounding OpenClaw/operator login
 - `scripts/openclawcode-webhook-tunnel.sh`
   - rewrites an existing webhook
   - does not create the webhook for the operator
 - runtime repo binding
   - `/occode-bind` exists and works
-  - but it still comes after manual repo config/bootstrap
+  - bootstrap can seed a placeholder or explicit binding, but cannot yet
+    discover the active chat target on its own
 
-So the desired experience is clearly reachable, but not yet productized as one
-command.
+So the desired experience is now partially productized as one command, but it
+still stops short of the full single-login end state.
 
 ## Product Split
 
@@ -213,36 +230,38 @@ The first bootstrap should prefer safety over autonomy:
 
 ## Simplest Practical Path Today
 
-Until the full bootstrap command exists, the lowest-touch real workflow should
-be:
+With the current bootstrap MVP, the lowest-touch real workflow is:
 
 1. Codex clones and builds `zhyongrui/openclawcode`.
 2. The user provides one GitHub token.
-3. Codex writes:
-   - `~/.openclaw/openclawcode.env`
-   - `~/.openclaw/openclaw.json`
-4. Codex runs:
-   - `./scripts/openclawcode-setup-check.sh --strict --json`
-   - `./scripts/openclawcode-setup-check.sh --strict --probe-built-startup --json`
-5. If chat is already connected, the user sends one bind or verification
+3. Codex runs:
+   - `openclaw code bootstrap --repo owner/repo --json`
+4. If chat is already connected, the user sends one bind or verification
    command from the real conversation.
 
-That is the shortest currently achievable path without first implementing the
-bootstrap command.
+That is the shortest currently achievable path before webhook creation and chat
+target discovery are automated too.
 
 ## MVP Delivery Plan
 
 ### Phase 1: CLI-Only Bootstrap
 
-Ship:
+Status: shipped as MVP.
 
-- GitHub credential reuse from `openclaw`
+Delivered:
+
 - repo clone/attach
 - repo config materialization
-- strict setup-check
+- operator env persistence
+- placeholder or explicit repo binding persistence
+- strict setup-check and built-startup proof
 - `--json` output
+- blueprint + role-routing + discovery + stage-gate seeding
 
-Do not require ChatOps or webhook creation yet.
+Still missing inside this phase:
+
+- GitHub login handoff from `openclaw onboard`
+- zero-touch provider credential reuse
 
 ### Phase 2: Webhook Bootstrap
 

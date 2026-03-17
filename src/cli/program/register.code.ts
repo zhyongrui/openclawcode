@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import {
+  openclawCodeBootstrapCommand,
   openclawCodeBlueprintClarifyCommand,
   openclawCodeBlueprintDecomposeCommand,
   openclawCodeBlueprintInitCommand,
@@ -52,6 +53,10 @@ export function registerCodeCommands(program: Command) {
         `
 ${theme.heading("Examples:")}
 ${formatHelpExamples([
+  [
+    "openclaw code bootstrap --repo owner/repo --json",
+    "Clone or attach a target repo, persist operator config, seed blueprint artifacts, and run readiness checks.",
+  ],
   [
     'openclaw code blueprint-init --title "OpenClawCode Blueprint" --goal "Ship blueprint-first autonomous development"',
     "Create the fixed repo-local project blueprint scaffold.",
@@ -159,6 +164,47 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
     )
     .action(() => {
       code.help({ error: true });
+    });
+
+  code
+    .command("bootstrap")
+    .description(
+      "Bootstrap a target repository into the local openclawcode operator with minimal manual setup",
+    )
+    .requiredOption("--repo <owner/repo>", "GitHub repo to bootstrap")
+    .option("--repo-root <dir>", "Target repository checkout path")
+    .option("--state-dir <dir>", "Operator state directory")
+    .option("--mode <mode>", "Bootstrap mode (auto, cli-only, chatops)", "auto")
+    .option("--channel <channel>", "Chat channel to bind immediately, such as feishu")
+    .option("--chat-target <target>", "Chat target identifier to persist for notifications")
+    .option("--base-branch <branch>", "Base branch for issue work")
+    .option("--builder-agent <id>", "Builder agent id to persist in repo config")
+    .option("--verifier-agent <id>", "Verifier agent id to persist in repo config")
+    .option("--test <command>", "Test command to persist in repo config", collectOption, [])
+    .option("--no-start-gateway", "Do not try to start the local gateway after writing config")
+    .option("--no-probe-built-startup", "Skip the isolated built-startup proof during setup-check")
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        await openclawCodeBootstrapCommand(
+          {
+            repo: opts.repo as string,
+            repoRoot: opts.repoRoot as string | undefined,
+            stateDir: opts.stateDir as string | undefined,
+            mode: opts.mode as "auto" | "cli-only" | "chatops",
+            channel: opts.channel as string | undefined,
+            chatTarget: opts.chatTarget as string | undefined,
+            baseBranch: opts.baseBranch as string | undefined,
+            builderAgent: opts.builderAgent as string | undefined,
+            verifierAgent: opts.verifierAgent as string | undefined,
+            test: (opts.test as string[] | undefined) ?? [],
+            startGateway: Boolean(opts.startGateway),
+            probeBuiltStartup: Boolean(opts.probeBuiltStartup),
+            json: Boolean(opts.json),
+          },
+          defaultRuntime,
+        );
+      });
     });
 
   code

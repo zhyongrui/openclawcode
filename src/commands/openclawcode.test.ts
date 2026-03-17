@@ -6,12 +6,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawCodeChatopsStore } from "../integrations/openclaw-plugin/store.js";
 import type { WorkflowRun } from "../openclawcode/index.js";
 import {
+  openclawCodeBootstrapCommand,
   openclawCodeBlueprintClarifyCommand,
   openclawCodeBlueprintDecomposeCommand,
   openclawCodeDiscoverWorkItemsCommand,
   DEFAULT_OPENCLAWCODE_BUILDER_TIMEOUT_SECONDS,
   DEFAULT_OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS,
   openclawCodeBlueprintInitCommand,
+  openclawCodeBootstrapInternals,
   openclawCodePolicyShowCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
   openclawCodeBlueprintSetSectionCommand,
@@ -3749,6 +3751,265 @@ describe("openclawCodeRunCommand", () => {
         reusedExisting: false,
       }),
     ]);
+  });
+});
+
+describe("openclawCodeBootstrapCommand", () => {
+  const runtime = createTestRuntime();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    mocks.resolveGitHubRepoFromGit.mockResolvedValue({ owner: "acme", repo: "demo" });
+  });
+
+  it("bootstraps operator files, repo binding, blueprint artifacts, and inferred test commands", async () => {
+    const operatorRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-bootstrap-operator-"));
+    const targetRepoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-bootstrap-target-"));
+    await writeFile(
+      path.join(targetRepoRoot, "package.json"),
+      JSON.stringify(
+        {
+          name: "demo",
+          scripts: {
+            test: "vitest run",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    await writeFile(path.join(targetRepoRoot, "pnpm-lock.yaml"), "lockfileVersion: 9.0\n", "utf8");
+    vi.stubEnv("GH_TOKEN", "ghs_bootstrap_token");
+
+    const setupCheckSpy = vi
+      .spyOn(openclawCodeBootstrapInternals, "runSetupCheck")
+      .mockReturnValue({
+        payload: {
+          ok: true,
+          strict: true,
+          repoRoot: "/operator/repo",
+          operatorRoot,
+          readiness: {
+            basic: true,
+            strict: true,
+            lowRiskProofReady: true,
+            fallbackProofReady: false,
+            promotionReady: true,
+            gatewayReachable: false,
+            routeProbeReady: true,
+            routeProbeSkipped: false,
+            builtStartupProofRequested: false,
+            builtStartupProofReady: false,
+            nextAction: "ready-for-low-risk-proof",
+          },
+          summary: {
+            pass: 9,
+            warn: 0,
+            fail: 0,
+          },
+          checks: [],
+        },
+        stderr: "",
+        status: 0,
+      });
+
+    await openclawCodeBootstrapCommand(
+      {
+        repo: "acme/demo",
+        repoRoot: targetRepoRoot,
+        stateDir: operatorRoot,
+        baseBranch: "main",
+        startGateway: false,
+        probeBuiltStartup: false,
+        json: true,
+      },
+      runtime,
+    );
+
+    setupCheckSpy.mockRestore();
+
+    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    expect(payload.contractVersion).toBe(1);
+    expect(payload.repo.repoKey).toBe("acme/demo");
+    expect(payload.repo.repoRoot).toBe(targetRepoRoot);
+    expect(payload.repo.repoRootSelection).toBe("explicit");
+    expect(payload.repo.checkoutAction).toBe("attached");
+    expect(payload.mode).toBe("cli-only");
+    expect(payload.notify.bindingMode).toBe("cli-placeholder");
+    expect(payload.credentials.githubTokenSource).toBe("GH_TOKEN");
+    expect(payload.config.repoEntryAction).toBe("created");
+    expect(payload.config.testCommands).toEqual(["pnpm test"]);
+    expect(payload.config.testCommandSource).toBe("package-manager");
+    expect(payload.binding.action).toBe("created");
+    expect(payload.blueprint.action).toBe("created");
+    expect(payload.stageGates.executionStartReadiness).toBe("ready");
+    expect(payload.gateway.action).toBe("skipped");
+    expect(payload.setupCheck.payload.readiness.nextAction).toBe("ready-for-low-risk-proof");
+    expect(payload.nextAction).toBe("ready-for-low-risk-proof");
+
+    const envFile = await readFile(path.join(operatorRoot, "openclawcode.env"), "utf8");
+    expect(envFile).toContain("export GH_TOKEN='ghs_bootstrap_token'");
+    expect(envFile).toContain("export OPENCLAWCODE_GITHUB_REPO='acme/demo'");
+    expect(envFile).toContain("export OPENCLAWCODE_GITHUB_WEBHOOK_SECRET=");
+
+    const config = JSON.parse(await readFile(path.join(operatorRoot, "openclaw.json"), "utf8"));
+    const repoEntry = config.plugins.entries.openclawcode.config.repos[0];
+    expect(repoEntry.owner).toBe("acme");
+    expect(repoEntry.repo).toBe("demo");
+    expect(repoEntry.repoRoot).toBe(targetRepoRoot);
+    expect(repoEntry.testCommands).toEqual(["pnpm test"]);
+
+    const chatopsState = JSON.parse(
+      await readFile(
+        path.join(operatorRoot, "plugins", "openclawcode", "chatops-state.json"),
+        "utf8",
+      ),
+    );
+    expect(chatopsState.repoBindingsByRepo["acme/demo"]).toEqual(
+      expect.objectContaining({
+        notifyChannel: "bootstrap",
+        notifyTarget: "cli-only:acme/demo",
+      }),
+    );
+
+    await expect(
+      readFile(path.join(targetRepoRoot, "PROJECT-BLUEPRINT.md"), "utf8"),
+    ).resolves.toContain("Bootstrap acme/demo");
+    const stageGates = JSON.parse(
+      await readFile(path.join(targetRepoRoot, ".openclawcode", "stage-gates.json"), "utf8"),
+    );
+    expect(stageGates.exists).toBe(true);
+  });
+
+  it("reuses existing operator config defaults and accepts explicit chat targets", async () => {
+    const operatorRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-bootstrap-existing-"));
+    const targetRepoRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-bootstrap-existing-target-"),
+    );
+    await writeFile(
+      path.join(operatorRoot, "openclaw.json"),
+      JSON.stringify(
+        {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {
+                  repos: [
+                    {
+                      owner: "acme",
+                      repo: "demo",
+                      repoRoot: targetRepoRoot,
+                      baseBranch: "develop",
+                      triggerMode: "approve",
+                      notifyChannel: "telegram",
+                      notifyTarget: "chat:123",
+                      builderAgent: "builder-existing",
+                      verifierAgent: "verifier-existing",
+                      testCommands: ["npm test"],
+                      openPullRequest: true,
+                      mergeOnApprove: false,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    vi.stubEnv("GITHUB_TOKEN", "github_fallback_token");
+
+    const setupCheckSpy = vi
+      .spyOn(openclawCodeBootstrapInternals, "runSetupCheck")
+      .mockReturnValue({
+        payload: {
+          ok: false,
+          strict: true,
+          repoRoot: "/operator/repo",
+          operatorRoot,
+          readiness: {
+            basic: true,
+            strict: false,
+            lowRiskProofReady: false,
+            fallbackProofReady: false,
+            promotionReady: false,
+            gatewayReachable: false,
+            routeProbeReady: false,
+            routeProbeSkipped: false,
+            builtStartupProofRequested: true,
+            builtStartupProofReady: true,
+            nextAction: "start-or-restart-live-gateway",
+          },
+          summary: {
+            pass: 7,
+            warn: 1,
+            fail: 1,
+          },
+          checks: [],
+        },
+        stderr: "",
+        status: 1,
+      });
+
+    await openclawCodeBootstrapCommand(
+      {
+        repo: "acme/demo",
+        stateDir: operatorRoot,
+        mode: "chatops",
+        channel: "feishu",
+        chatTarget: "user:new-chat",
+        startGateway: false,
+        probeBuiltStartup: true,
+        json: true,
+      },
+      runtime,
+    );
+
+    setupCheckSpy.mockRestore();
+
+    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    expect(payload.repo.repoRootSelection).toBe("existing-operator-config");
+    expect(payload.mode).toBe("chatops");
+    expect(payload.notify.bindingMode).toBe("explicit");
+    expect(payload.notify.notifyChannel).toBe("feishu");
+    expect(payload.notify.notifyTarget).toBe("user:new-chat");
+    expect(payload.config.testCommandSource).toBe("existing-config");
+    expect(payload.config.builderAgent).toBe("builder-existing");
+    expect(payload.config.verifierAgent).toBe("verifier-existing");
+    expect(payload.credentials.githubTokenSource).toBe("GITHUB_TOKEN");
+    expect(payload.nextAction).toBe("start-or-restart-live-gateway");
+
+    const config = JSON.parse(await readFile(path.join(operatorRoot, "openclaw.json"), "utf8"));
+    const repoEntry = config.plugins.entries.openclawcode.config.repos[0];
+    expect(repoEntry.notifyChannel).toBe("feishu");
+    expect(repoEntry.notifyTarget).toBe("user:new-chat");
+    expect(repoEntry.testCommands).toEqual(["npm test"]);
+  });
+
+  it("fails fast when GitHub credentials are missing", async () => {
+    const targetRepoRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-bootstrap-no-token-"),
+    );
+
+    await expect(
+      openclawCodeBootstrapCommand(
+        {
+          repo: "acme/demo",
+          repoRoot: targetRepoRoot,
+          startGateway: false,
+          probeBuiltStartup: false,
+        },
+        runtime,
+      ),
+    ).rejects.toThrow(
+      "Bootstrap requires GH_TOKEN or GITHUB_TOKEN in the environment so the target repo can be inspected and configured.",
+    );
   });
 });
 
