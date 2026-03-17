@@ -299,6 +299,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.workspaceRepoRootPresent).toBe(true);
     expect(payload.workspaceHasPreparedAt).toBe(true);
     expect(payload.workspaceHasWorktreePath).toBe(true);
+    expect(payload.workspaceWorktreePath).toBe("/repo/.openclawcode/worktrees/issue-2");
     expect(payload.draftPullRequestBranchName).toBe("openclawcode/issue-2");
     expect(payload.draftPullRequestBaseBranch).toBe("main");
     expect(payload.draftPullRequestHasTitle).toBe(true);
