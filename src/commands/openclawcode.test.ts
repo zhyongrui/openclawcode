@@ -1306,6 +1306,50 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.publishedPullRequestOpenedAt).toBe("2026-01-01T00:00:00.000Z");
   });
 
+  it("treats an empty published pull request url list as absent", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        draftPullRequest: {
+          ...createRun().draftPullRequest!,
+          number: undefined,
+          url: [] as unknown as WorkflowRun["draftPullRequest"]["url"],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.pullRequestPublished).toBe(false);
+    expect(payload.publishedPullRequestHasNumber).toBe(false);
+    expect(payload.publishedPullRequestHasUrl).toBe(false);
+    expect(payload.publishedPullRequestUrl).toEqual([]);
+  });
+
+  it("treats a populated published pull request url list as present", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        draftPullRequest: {
+          ...createRun().draftPullRequest!,
+          number: undefined,
+          url: [
+            "https://github.com/openclaw/openclaw/pull/42",
+          ] as unknown as WorkflowRun["draftPullRequest"]["url"],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.pullRequestPublished).toBe(true);
+    expect(payload.publishedPullRequestHasNumber).toBe(false);
+    expect(payload.publishedPullRequestHasUrl).toBe(true);
+    expect(payload.publishedPullRequestUrl).toEqual([
+      "https://github.com/openclaw/openclaw/pull/42",
+    ]);
+  });
+
   it("treats blank published pull request bodies as absent in convenience signals", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({

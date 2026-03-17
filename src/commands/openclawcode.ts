@@ -1494,14 +1494,20 @@ function resolvePublishedPullRequest(run: WorkflowRun): {
   publishedPullRequestUrl: string | null;
   publishedPullRequestOpenedAt: string | null;
 } {
+  const publishedPullRequestUrl = run.draftPullRequest?.url;
+  const publishedPullRequestHasUrl =
+    publishedPullRequestUrl === true ||
+    (typeof publishedPullRequestUrl === "string" && publishedPullRequestUrl.length > 0) ||
+    (Array.isArray(publishedPullRequestUrl) && publishedPullRequestUrl.length > 0);
+
   // Workflow runs only persist one PR object. Once GitHub assigns a number or URL,
   // that same draft metadata becomes the published PR source of truth.
-  const published = run.draftPullRequest?.number != null || run.draftPullRequest?.url != null;
+  const published = run.draftPullRequest?.number != null || publishedPullRequestHasUrl;
   return {
     pullRequestPublished: published,
     publishedPullRequestNumber: published ? (run.draftPullRequest?.number ?? null) : null,
     publishedPullRequestHasNumber: published && run.draftPullRequest?.number != null,
-    publishedPullRequestHasUrl: published && run.draftPullRequest?.url != null,
+    publishedPullRequestHasUrl,
     publishedPullRequestHasOpenedAt: published && run.draftPullRequest?.openedAt != null,
     publishedPullRequestHasTitle:
       published && (run.draftPullRequest?.title?.trim().length ?? 0) > 0,
