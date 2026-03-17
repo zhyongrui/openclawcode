@@ -1306,6 +1306,24 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.publishedPullRequestOpenedAt).toBe("2026-01-01T00:00:00.000Z");
   });
 
+  it("marks publishedPullRequestHasNumber true when the stored number contains at least one entry", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        draftPullRequest: {
+          ...createRun().draftPullRequest!,
+          number: [42],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.pullRequestPublished).toBe(true);
+    expect(payload.publishedPullRequestNumber).toEqual([42]);
+    expect(payload.publishedPullRequestHasNumber).toBe(true);
+  });
+
   it("treats blank published pull request bodies as absent in convenience signals", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
