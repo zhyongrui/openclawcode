@@ -298,6 +298,7 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.workspaceBranchMatchesIssue).toBe(true);
     expect(payload.workspaceRepoRootPresent).toBe(true);
     expect(payload.workspaceHasPreparedAt).toBe(true);
+    expect(payload.workspacePreparedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(payload.workspaceHasWorktreePath).toBe(true);
     expect(payload.draftPullRequestBranchName).toBe("openclawcode/issue-2");
     expect(payload.draftPullRequestBaseBranch).toBe("main");
