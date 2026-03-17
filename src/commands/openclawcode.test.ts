@@ -1324,6 +1324,25 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.publishedPullRequestHasTitle).toBe(true);
   });
 
+  it("emits a null draft pull request title when draft metadata omits the nested title", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        draftPullRequest: {
+          ...createRun().draftPullRequest!,
+          title: undefined,
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.draftPullRequestHasTitle).toBe(false);
+    expect(payload.draftPullRequestTitle).toBeNull();
+    expect(payload.publishedPullRequestHasTitle).toBe(false);
+    expect(payload.publishedPullRequestTitle).toBeNull();
+  });
+
   it("prints skipped draft pr disposition when publication is skipped for a no-op run", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
