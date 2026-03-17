@@ -50,7 +50,7 @@ those nested objects.
 - `runHasUpdatedAt`
 - `runAgeSeconds`
 - `id`
-- `issueNumber`
+- `issueNumber` (`number | null`) - mirrors `issue.number` when available; otherwise `null`
 - `issueLabelCount`
 - `issueHasLabels`
 - `issueLabelListPresent`
