@@ -329,6 +329,10 @@ control-plane steps.
     work
 - setup-check now emits an explicit `repair-plugin-activation` next action when
   `/occode-setup` would still be blocked by plugin activation state
+- bootstrap and chat setup summaries now also show the concrete repair path for
+  that state:
+  - restart the host gateway with `openclaw gateway restart`
+  - then retry setup progress from chat with `/occode-setup-status`
 - this remains a visibility and proof-of-readiness fix, not a second
   auto-enable mechanism
 

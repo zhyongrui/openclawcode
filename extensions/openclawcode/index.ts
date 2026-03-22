@@ -496,6 +496,29 @@ function buildChatSetupRepoReadyMessage(params: {
   ].join("\n");
 }
 
+function buildChatSetupBootstrapRepairLines(
+  bootstrap: NonNullable<
+    NonNullable<Awaited<ReturnType<OpenClawCodeChatopsStore["getSetupSession"]>>>["bootstrap"]
+  >,
+): string[] {
+  if (
+    bootstrap.pluginActivation?.ready !== false &&
+    bootstrap.proofReadiness?.chatSetupRoutingReady !== false &&
+    bootstrap.nextAction !== "repair-plugin-activation"
+  ) {
+    return [];
+  }
+
+  return [
+    bootstrap.pluginActivationRepairCommand
+      ? `Repair: ${bootstrap.pluginActivationRepairCommand}`
+      : undefined,
+    bootstrap.chatSetupStatusCommand
+      ? `Chat retry: ${bootstrap.chatSetupStatusCommand}`
+      : undefined,
+  ].filter((entry): entry is string => Boolean(entry));
+}
+
 function buildChatSetupBootstrapCompleteMessage(params: {
   source: "GH_TOKEN" | "GITHUB_TOKEN" | "gh-auth-token";
   repoKey: string;
@@ -545,6 +568,7 @@ function buildChatSetupBootstrapCompleteMessage(params: {
     params.bootstrap.nextSuggestedCommand
       ? `Next suggested command: ${params.bootstrap.nextSuggestedCommand}`
       : undefined,
+    ...buildChatSetupBootstrapRepairLines(params.bootstrap),
     params.bootstrap.autoBindStatus
       ? `Auto-bind: ${params.bootstrap.autoBindStatus}${params.bootstrap.autoBindChannel && params.bootstrap.autoBindTarget ? ` (${params.bootstrap.autoBindChannel}:${params.bootstrap.autoBindTarget})` : ""}`
       : undefined,
@@ -975,6 +999,10 @@ async function completeChatSetupBootstrap(params: {
       blueprintAgreeCommand: payload.handoff?.blueprintAgreeCommand,
       blueprintDecomposeCommand: payload.handoff?.blueprintDecomposeCommand,
       gatesCommand: payload.handoff?.gatesCommand,
+      gatewayRestartCommand: payload.handoff?.gatewayRestartCommand,
+      pluginActivationRepairCommand: payload.handoff?.pluginActivationRepairCommand,
+      chatSetupCommand: payload.handoff?.chatSetupCommand,
+      chatSetupStatusCommand: payload.handoff?.chatSetupStatusCommand,
       chatBindCommand: payload.handoff?.chatBindCommand,
       chatStartCommand: payload.handoff?.chatStartCommand,
       webhookRetryCommand: payload.handoff?.webhookRetryCommand,

@@ -6861,6 +6861,7 @@ describe("openclawCodeBootstrapCommand", () => {
             lowRiskProofReady: true,
             fallbackProofReady: false,
             promotionReady: true,
+            chatSetupRoutingReady: true,
             gatewayReachable: false,
             routeProbeReady: true,
             routeProbeSkipped: false,
@@ -6925,6 +6926,10 @@ describe("openclawCodeBootstrapCommand", () => {
     expect(payload.proofReadiness.needsPublicWebhookUrl).toBe(false);
     expect(payload.handoff.recommendedProofMode).toBe("cli-only");
     expect(payload.handoff.cliRunCommand).toContain("openclaw code run --issue <issue-number>");
+    expect(payload.handoff.gatewayRestartCommand).toBe("openclaw gateway restart");
+    expect(payload.handoff.pluginActivationRepairCommand).toBe("openclaw gateway restart");
+    expect(payload.handoff.chatSetupCommand).toBeNull();
+    expect(payload.handoff.chatSetupStatusCommand).toBeNull();
     expect(payload.handoff.chatBindCommand).toBeNull();
     expect(payload.handoff.chatStartCommand).toBeNull();
     expect(payload.nextAction).toBe("ready-for-low-risk-proof");
@@ -7090,6 +7095,7 @@ describe("openclawCodeBootstrapCommand", () => {
             lowRiskProofReady: false,
             fallbackProofReady: false,
             promotionReady: false,
+            chatSetupRoutingReady: true,
             gatewayReachable: false,
             routeProbeReady: false,
             routeProbeSkipped: false,
@@ -7145,6 +7151,10 @@ describe("openclawCodeBootstrapCommand", () => {
     expect(payload.proofReadiness.needsChatBind).toBe(false);
     expect(payload.proofReadiness.needsPublicWebhookUrl).toBe(true);
     expect(payload.handoff.recommendedProofMode).toBe("chatops");
+    expect(payload.handoff.gatewayRestartCommand).toBe("openclaw gateway restart");
+    expect(payload.handoff.pluginActivationRepairCommand).toBe("openclaw gateway restart");
+    expect(payload.handoff.chatSetupCommand).toBe("/occode-setup acme/demo");
+    expect(payload.handoff.chatSetupStatusCommand).toBe("/occode-setup-status");
     expect(payload.handoff.chatBindCommand).toBeNull();
     expect(payload.handoff.chatStartCommand).toBe("/occode-start acme/demo#<issue-number>");
     expect(payload.handoff.webhookRetryCommand).toContain("--mode chatops");
@@ -7194,6 +7204,7 @@ describe("openclawCodeBootstrapCommand", () => {
             lowRiskProofReady: true,
             fallbackProofReady: false,
             promotionReady: true,
+            chatSetupRoutingReady: true,
             gatewayReachable: false,
             routeProbeReady: true,
             routeProbeSkipped: false,
@@ -7245,6 +7256,10 @@ describe("openclawCodeBootstrapCommand", () => {
     expect(payload.proofReadiness.needsChatBind).toBe(false);
     expect(payload.proofReadiness.needsPublicWebhookUrl).toBe(true);
     expect(payload.handoff.recommendedProofMode).toBe("chatops");
+    expect(payload.handoff.gatewayRestartCommand).toBe("openclaw gateway restart");
+    expect(payload.handoff.pluginActivationRepairCommand).toBe("openclaw gateway restart");
+    expect(payload.handoff.chatSetupCommand).toBe("/occode-setup acme/demo");
+    expect(payload.handoff.chatSetupStatusCommand).toBe("/occode-setup-status");
     expect(payload.handoff.chatBindCommand).toBeNull();
     expect(payload.handoff.chatStartCommand).toBe("/occode-start acme/demo#<issue-number>");
     expect(payload.handoff.webhookRetryCommand).toContain("--chat-target auto");
@@ -7299,6 +7314,7 @@ describe("openclawCodeBootstrapCommand", () => {
             lowRiskProofReady: true,
             fallbackProofReady: false,
             promotionReady: true,
+            chatSetupRoutingReady: true,
             gatewayReachable: false,
             routeProbeReady: true,
             routeProbeSkipped: false,
@@ -7346,9 +7362,101 @@ describe("openclawCodeBootstrapCommand", () => {
     expect(payload.proofReadiness.needsChatBind).toBe(true);
     expect(payload.proofReadiness.needsPublicWebhookUrl).toBe(true);
     expect(payload.handoff.recommendedProofMode).toBe("cli-only");
+    expect(payload.handoff.gatewayRestartCommand).toBe("openclaw gateway restart");
+    expect(payload.handoff.pluginActivationRepairCommand).toBe("openclaw gateway restart");
+    expect(payload.handoff.chatSetupCommand).toBe("/occode-setup acme/demo");
+    expect(payload.handoff.chatSetupStatusCommand).toBe("/occode-setup-status");
     expect(payload.handoff.chatBindCommand).toBe("/occode-bind acme/demo");
     expect(payload.handoff.chatStartCommand).toBe("/occode-start acme/demo#<issue-number>");
     expect(payload.nextAction).toBe("connect-chat-and-run-occode-bind");
+  });
+
+  it("surfaces plugin-activation repair commands in bootstrap JSON when chat routing is blocked", async () => {
+    const operatorRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-bootstrap-plugin-repair-operator-"),
+    );
+    const targetRepoRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-bootstrap-plugin-repair-target-"),
+    );
+    await writeFile(
+      path.join(targetRepoRoot, "package.json"),
+      JSON.stringify({ name: "demo", scripts: { test: "vitest run" } }, null, 2),
+      "utf8",
+    );
+    await writeFile(path.join(targetRepoRoot, "pnpm-lock.yaml"), "lockfileVersion: 9.0\n", "utf8");
+    vi.stubEnv("GH_TOKEN", "ghs_bootstrap_token");
+
+    const setupCheckSpy = vi
+      .spyOn(openclawCodeBootstrapInternals, "runSetupCheck")
+      .mockReturnValue({
+        payload: {
+          ok: false,
+          strict: false,
+          repoRoot: "/operator/repo",
+          operatorRoot,
+          readiness: {
+            basic: false,
+            strict: false,
+            lowRiskProofReady: false,
+            fallbackProofReady: false,
+            promotionReady: false,
+            gatewayReachable: true,
+            routeProbeReady: false,
+            routeProbeSkipped: false,
+            builtStartupProofRequested: true,
+            builtStartupProofReady: true,
+            chatSetupRoutingReady: false,
+            nextAction: "repair-plugin-activation",
+          },
+          pluginActivation: {
+            ready: false,
+            pluginsEnabled: true,
+            allowlisted: false,
+            entryEnabled: true,
+          },
+          summary: {
+            pass: 7,
+            warn: 0,
+            fail: 1,
+          },
+          checks: [],
+        },
+        stderr: "",
+        status: 1,
+      });
+    const webhookUrlSpy = vi
+      .spyOn(openclawCodeBootstrapInternals, "resolveWebhookUrl")
+      .mockResolvedValue({ url: null, source: null });
+
+    await openclawCodeBootstrapCommand(
+      {
+        repo: "acme/demo",
+        repoRoot: targetRepoRoot,
+        stateDir: operatorRoot,
+        mode: "chatops",
+        channel: "feishu",
+        chatTarget: "user:new-chat",
+        startGateway: false,
+        probeBuiltStartup: true,
+        json: true,
+      },
+      runtime,
+    );
+
+    setupCheckSpy.mockRestore();
+    webhookUrlSpy.mockRestore();
+
+    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    expect(payload.nextAction).toBe("repair-plugin-activation");
+    expect(payload.pluginActivation).toMatchObject({
+      ready: false,
+      pluginsEnabled: true,
+      allowlisted: false,
+      entryEnabled: true,
+    });
+    expect(payload.handoff.pluginActivationRepairCommand).toBe("openclaw gateway restart");
+    expect(payload.handoff.chatSetupCommand).toBe("/occode-setup acme/demo");
+    expect(payload.handoff.chatSetupStatusCommand).toBe("/occode-setup-status");
   });
 
   it("fails fast when GitHub credentials are missing", async () => {
@@ -7400,6 +7508,7 @@ describe("openclawCodeBootstrapCommand", () => {
             lowRiskProofReady: true,
             fallbackProofReady: false,
             promotionReady: true,
+            chatSetupRoutingReady: true,
             gatewayReachable: true,
             routeProbeReady: true,
             routeProbeSkipped: false,
@@ -7485,6 +7594,7 @@ describe("openclawCodeBootstrapCommand", () => {
             lowRiskProofReady: true,
             fallbackProofReady: false,
             promotionReady: true,
+            chatSetupRoutingReady: true,
             gatewayReachable: true,
             routeProbeReady: true,
             routeProbeSkipped: false,

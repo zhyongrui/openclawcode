@@ -109,6 +109,10 @@ export type OnboardingBootstrapSummary = {
     blueprintAgreeCommand?: string | null;
     blueprintDecomposeCommand?: string | null;
     gatesCommand?: string | null;
+    gatewayRestartCommand?: string | null;
+    pluginActivationRepairCommand?: string | null;
+    chatSetupCommand?: string | null;
+    chatSetupStatusCommand?: string | null;
     chatBindCommand?: string | null;
     chatStartCommand?: string | null;
     webhookRetryCommand?: string | null;
@@ -145,6 +149,25 @@ function tailMultilineText(value: string, maxLines = 6): string | undefined {
     return undefined;
   }
   return lines.slice(-maxLines).join("\n");
+}
+
+function buildBootstrapRepairGuidanceLines(payload: OnboardingBootstrapSummary): string[] {
+  if (
+    payload.pluginActivation?.ready !== false &&
+    payload.proofReadiness?.chatSetupRoutingReady !== false &&
+    payload.nextAction !== "repair-plugin-activation"
+  ) {
+    return [];
+  }
+
+  return [
+    payload.handoff?.pluginActivationRepairCommand
+      ? `Repair: ${payload.handoff.pluginActivationRepairCommand}`
+      : undefined,
+    payload.handoff?.chatSetupStatusCommand
+      ? `Chat retry: ${payload.handoff.chatSetupStatusCommand}`
+      : undefined,
+  ].filter((entry): entry is string => Boolean(entry));
 }
 
 function isProcessRunning(pid: number | undefined): boolean {
@@ -655,6 +678,7 @@ async function handleNewRepositorySetup(params: {
           payload.config?.blueprintFirstBootstrap
             ? "Bootstrap detected an empty repo and entered blueprint-first startup mode."
             : undefined,
+          ...buildBootstrapRepairGuidanceLines(payload),
           payload.handoff?.cliRunCommand ? `Next: ${payload.handoff.cliRunCommand}` : undefined,
           payload.nextAction ? `Status: ${payload.nextAction}` : undefined,
         ]
@@ -723,6 +747,7 @@ async function handleExistingRepositorySetup(params: {
           typeof payload.proofReadiness?.chatSetupRoutingReady === "boolean"
             ? `Chat routing: ${payload.proofReadiness.chatSetupRoutingReady ? "ready" : "blocked"}`
             : undefined,
+          ...buildBootstrapRepairGuidanceLines(payload),
           payload.handoff?.cliRunCommand ? `Next: ${payload.handoff.cliRunCommand}` : undefined,
           payload.nextAction ? `Status: ${payload.nextAction}` : undefined,
         ]

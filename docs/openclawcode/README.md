@@ -366,6 +366,10 @@ loop with:
     - plugin allowlist missing
     - plugin entry disabled
     - routing actually ready
+  - when routing is still blocked after bootstrap, the same summaries now also
+    surface the concrete repair path:
+    - restart the gateway with `openclaw gateway restart`
+    - then retry chat setup with `/occode-setup-status`
 - setup-check now also retries transient GitHub webhook subscription probe
   failures before failing strict mode, which prevents one GitHub TLS/API flap
   from falsely blocking promotion preflight on an otherwise healthy host

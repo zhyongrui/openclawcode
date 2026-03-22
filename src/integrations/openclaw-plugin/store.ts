@@ -95,6 +95,10 @@ export interface OpenClawCodeSetupSession {
     blueprintAgreeCommand?: string | null;
     blueprintDecomposeCommand?: string | null;
     gatesCommand?: string | null;
+    gatewayRestartCommand?: string | null;
+    pluginActivationRepairCommand?: string | null;
+    chatSetupCommand?: string | null;
+    chatSetupStatusCommand?: string | null;
     chatBindCommand?: string | null;
     chatStartCommand?: string | null;
     webhookRetryCommand?: string | null;
@@ -553,6 +557,30 @@ function normalizeSetupSession(raw: unknown): OpenClawCodeSetupSession | undefin
               typeof candidate.bootstrap.gatesCommand === "string"
                 ? candidate.bootstrap.gatesCommand
                 : candidate.bootstrap.gatesCommand === null
+                  ? null
+                  : undefined,
+            gatewayRestartCommand:
+              typeof candidate.bootstrap.gatewayRestartCommand === "string"
+                ? candidate.bootstrap.gatewayRestartCommand
+                : candidate.bootstrap.gatewayRestartCommand === null
+                  ? null
+                  : undefined,
+            pluginActivationRepairCommand:
+              typeof candidate.bootstrap.pluginActivationRepairCommand === "string"
+                ? candidate.bootstrap.pluginActivationRepairCommand
+                : candidate.bootstrap.pluginActivationRepairCommand === null
+                  ? null
+                  : undefined,
+            chatSetupCommand:
+              typeof candidate.bootstrap.chatSetupCommand === "string"
+                ? candidate.bootstrap.chatSetupCommand
+                : candidate.bootstrap.chatSetupCommand === null
+                  ? null
+                  : undefined,
+            chatSetupStatusCommand:
+              typeof candidate.bootstrap.chatSetupStatusCommand === "string"
+                ? candidate.bootstrap.chatSetupStatusCommand
+                : candidate.bootstrap.chatSetupStatusCommand === null
                   ? null
                   : undefined,
             chatBindCommand:

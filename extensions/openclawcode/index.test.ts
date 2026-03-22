@@ -3980,6 +3980,17 @@ describe("openclawcode extension", () => {
         completedAt: "2026-03-19T02:40:00.000Z",
         repoRoot: "/home/zyr/pros/openclawcode-target",
         blueprintPath: "/home/zyr/pros/openclawcode-target/PROJECT-BLUEPRINT.md",
+        pluginActivation: {
+          ready: false,
+          pluginsEnabled: true,
+          allowlisted: false,
+          entryEnabled: true,
+        },
+        proofReadiness: {
+          chatSetupRoutingReady: false,
+        },
+        pluginActivationRepairCommand: "openclaw gateway restart",
+        chatSetupStatusCommand: "/occode-setup-status",
         nextAction: "clarify-project-blueprint",
         blueprintCommand: "/occode-blueprint zhyongrui/openclawcode",
       },
@@ -4004,6 +4015,8 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
       expect(result?.text).toContain("Repo: zhyongrui/openclawcode");
       expect(result?.text).toContain("/occode-blueprint zhyongrui/openclawcode");
+      expect(result?.text).toContain("Repair: openclaw gateway restart");
+      expect(result?.text).toContain("Chat retry: /occode-setup-status");
       expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
     } finally {
       await cleanupPluginFixture(fixture);

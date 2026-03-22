@@ -5,6 +5,7 @@ import * as net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { formatCliCommand } from "../cli/command-format.js";
 import {
   OpenClawCodeChatopsStore,
   buildRunRequestFromCommand,
@@ -663,6 +664,10 @@ interface BootstrapHandoffPlan {
   blueprintAgreeCommand: string;
   blueprintDecomposeCommand: string;
   gatesCommand: string;
+  gatewayRestartCommand: string;
+  pluginActivationRepairCommand: string | null;
+  chatSetupCommand: string | null;
+  chatSetupStatusCommand: string | null;
   chatBindCommand: string | null;
   chatStartCommand: string | null;
   webhookRetryCommand: string | null;
@@ -1545,6 +1550,8 @@ function buildBootstrapHandoffPlan(params: {
       : params.mode === "chatops"
         ? "ChatOps is configured, but the repo still needs a real conversation bind."
         : "CLI bootstrap is ready without requiring chat routing.";
+  const gatewayRestartCommand = formatCliCommand("openclaw gateway restart");
+  const pluginActivationRepairCommand = formatCliCommand("openclaw gateway restart");
   return {
     recommendedProofMode,
     reason,
@@ -1555,6 +1562,10 @@ function buildBootstrapHandoffPlan(params: {
     blueprintAgreeCommand: `openclaw code blueprint-set-status --repo-root ${shellQuoteArg(params.targetRepoRoot)} --status agreed --json`,
     blueprintDecomposeCommand: `openclaw code blueprint-decompose --repo-root ${shellQuoteArg(params.targetRepoRoot)} --json`,
     gatesCommand: `/occode-gates ${params.repoKey}`,
+    gatewayRestartCommand,
+    pluginActivationRepairCommand,
+    chatSetupCommand: params.mode === "chatops" ? `/occode-setup ${params.repoKey}` : null,
+    chatSetupStatusCommand: params.mode === "chatops" ? "/occode-setup-status" : null,
     chatBindCommand:
       params.mode === "chatops" && params.notifyBindingMode === "chat-placeholder"
         ? `/occode-bind ${params.repoKey}`
@@ -4192,21 +4203,25 @@ export async function openclawCodeBootstrapCommand(
     operatorStateDir,
     probeBuiltStartup: opts.probeBuiltStartup !== false,
   });
+  const setupCheckNextAction =
+    setupCheck.payload?.readiness.nextAction ??
+    (gateway.action === "failed"
+      ? "start-or-restart-live-gateway"
+      : "inspect-setup-check-output");
   const nextAction =
     blueprintFirstBootstrap
       ? "clarify-project-blueprint"
       : notifyBindingMode === "chat-placeholder"
-      ? "connect-chat-and-run-occode-bind"
-      : webhook.action === "failed"
-        ? "review-github-webhook-permissions"
-        : tunnel.action === "failed"
-          ? "start-or-restart-webhook-tunnel"
-          : webhook.action === "skipped" && mode === "chatops"
-            ? "configure-public-webhook-url"
-            : (setupCheck.payload?.readiness.nextAction ??
-              (gateway.action === "failed"
-                ? "start-or-restart-live-gateway"
-                : "inspect-setup-check-output"));
+        ? "connect-chat-and-run-occode-bind"
+        : webhook.action === "failed"
+          ? "review-github-webhook-permissions"
+          : tunnel.action === "failed"
+            ? "start-or-restart-webhook-tunnel"
+            : setupCheckNextAction === "repair-plugin-activation"
+              ? setupCheckNextAction
+              : webhook.action === "skipped" && mode === "chatops"
+                ? "configure-public-webhook-url"
+                : setupCheckNextAction;
   const handoff = buildBootstrapHandoffPlan({
     repoKey,
     repoRef,
@@ -4361,6 +4376,13 @@ export async function openclawCodeBootstrapCommand(
   runtime.log(`CLI proof: ${handoff.cliRunCommand}`);
   runtime.log(`Blueprint inspect: ${handoff.blueprintCommand}`);
   runtime.log(`Stage gates inspect: ${handoff.gatesCommand}`);
+  runtime.log(`Gateway restart: ${handoff.gatewayRestartCommand}`);
+  if (payload.pluginActivation.ready === false || proofReadiness.chatSetupRoutingReady === false) {
+    runtime.log(`Plugin activation repair: ${handoff.pluginActivationRepairCommand}`);
+    if (handoff.chatSetupStatusCommand) {
+      runtime.log(`Chat setup retry: ${handoff.chatSetupStatusCommand}`);
+    }
+  }
   if (handoff.chatBindCommand) {
     runtime.log(`Chat bind: ${handoff.chatBindCommand}`);
   }
