@@ -449,6 +449,8 @@ Strongest ideas:
 - treat TDD and review as required execution stages rather than optional style
 - keep workflow skills small and composable instead of hiding everything inside
   one giant prompt
+- treat isolated worktrees and fresh subagents as part of the normal execution
+  workflow rather than as exceptional debugging tools
 
 Why this matters for `openclawcode`:
 
@@ -466,6 +468,10 @@ Recommended absorption:
 - strengthen the no-code-before-approved-plan contract
 - tighten TDD-first behavior for implementation work, especially bugfixes and
   narrow feature slices
+- make isolated issue worktree setup and clean-baseline verification more
+  explicit in the operator-facing execution contract
+- prefer small fresh-role execution units over long muddy sessions whenever the
+  workflow can naturally checkpoint
 - expose smaller reusable workflow skills or runtime roles for planner, coder,
   verifier, and reviewer behavior
 - use the blueprint/chat intake surfaces as the equivalent of
@@ -489,6 +495,9 @@ Strongest ideas:
 - continuous learning from repeated fixes and failures
 - token and context budgeting as a first-class engineering concern
 - harness and loop auditing so a stalled run explains *why* it is stalled
+- session lifecycle hooks that save, reload, and compact context deliberately
+- mode-specific contexts for development, review, and research instead of one
+  monolithic always-on prompt
 
 Why this matters for `openclawcode`:
 
@@ -510,6 +519,10 @@ Recommended absorption:
 - turn repeated operator incidents into durable learning artifacts and guidance
 - surface loop-health, stall-reason, and context-budget diagnostics through
   normal operator channels instead of raw traces only
+- add explicit mode/context switching for planner, coder, verifier, and
+  research-oriented discovery passes instead of one generic execution context
+- treat session-end evaluation as a source for reusable operator guidance, not
+  just raw logs
 
 Not worth copying directly:
 
@@ -548,6 +561,30 @@ Recommended integration order from this second evaluation pass:
 4. harden mandatory pre-code stage discipline on top of existing blueprint and
    plan approval behavior
 5. surface loop-stall and context-budget diagnostics in normal operator status
+
+## Updated Status In `openclawcode`
+
+Since this evaluation was first written, the first three absorption targets now
+have initial landed surfaces:
+
+1. compact quality-gate summary
+   - landed through `qualityGate*` run JSON fields plus chat/status/inbox
+     mirrors
+2. continuous learning / pattern extraction
+   - landed as first incident-learning summaries derived from persisted issue
+     snapshots
+3. stable command/capability map
+   - landed through `openclaw code capability-map-show`
+
+The highest-value remaining imports from these two repos are now:
+
+1. stricter mandatory pre-code discipline
+   - especially making "approved plan before code" and "tests before edits"
+     more explicit in run contracts and operator-visible stages
+2. loop-health and context-budget diagnostics
+   - especially compact stall reason, compaction pressure, and prompt-budget
+     signals surfaced through normal operator status instead of only failure
+     notes
 
 ## Short Conclusion
 
