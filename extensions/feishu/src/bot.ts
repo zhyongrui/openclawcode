@@ -507,10 +507,10 @@ export async function handleFeishuMessage(params: {
         if (pairingResult.created) {
           log(`feishu[${account.accountId}]: pairing request sender=${ctx.senderOpenId}`);
         }
-        const shouldSendPairingReply = pairingResult.created || pluginMatch !== null;
+        const shouldSendPairingReply = pairingResult.created || shouldComputeCommandAuthorized;
         if (shouldSendPairingReply && pairingResult.code) {
           const text =
-            pluginMatch !== null
+            shouldComputeCommandAuthorized
               ? buildPairingCommandRetryReply({
                   channel: "feishu",
                   idLine: senderIdLine,

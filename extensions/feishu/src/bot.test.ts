@@ -1000,6 +1000,57 @@ describe("handleFeishuMessage command authorization", () => {
     expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
   });
 
+  it("replies with pairing guidance for blocked slash commands even when plugin routing is unavailable", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(true);
+    mockReadAllowFromStore.mockResolvedValue([]);
+    mockUpsertPairingRequest.mockResolvedValue({ code: "ABCDEFGH", created: false });
+    mockMatchPluginCommand.mockReturnValue(null);
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "pairing",
+          allowFrom: [],
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-unapproved",
+        },
+      },
+      message: {
+        message_id: "msg-pairing-slash-reminder",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "/occode-setup new-project" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockSendMessageFeishu).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("This chat command is blocked until pairing is approved."),
+        accountId: "default",
+      }),
+    );
+    expect(mockSendMessageFeishu).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("After approval, resend:\n/occode-setup new-project"),
+        accountId: "default",
+      }),
+    );
+    expect(mockExecutePluginCommand).not.toHaveBeenCalled();
+    expect(mockFinalizeInboundContext).not.toHaveBeenCalled();
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
+  });
+
   it("computes group command authorization from group allowFrom", async () => {
     mockShouldComputeCommandAuthorized.mockReturnValue(true);
     mockResolveCommandAuthorizedFromAuthorizers.mockReturnValue(false);

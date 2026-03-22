@@ -348,6 +348,10 @@ control-plane steps.
 - `/occode-setup-status` and `/occode-setup-retry` remain available as manual
   recovery controls, but they are no longer the only way the operator can see
   progress
+- in Feishu pairing mode, unauthorized slash-style setup messages such as
+  `/occode-setup` now also trigger pairing guidance even before the command can
+  be routed to the plugin, so the operator is told to approve pairing and then
+  resend the same command instead of seeing silence
 
 ### 5. proactive GitHub auth kickoff
 
