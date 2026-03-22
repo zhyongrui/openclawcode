@@ -8733,6 +8733,80 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("notifies the chat when queue drain resumes after the provider pause clears", async () => {
+    const fixture = await registerPluginFixture({ pollIntervalMs: 10 });
+    try {
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 6704,
+          stage: "failed",
+          updatedAt: "2026-03-12T12:00:00.000Z",
+        }),
+        buildTransientProviderFailedStatus(6704),
+      );
+      await fixture.store.recordWorkflowRunStatus(
+        createWorkflowRun({
+          issueNumber: 6705,
+          stage: "failed",
+          updatedAt: "2026-03-12T12:05:00.000Z",
+        }),
+        buildTransientProviderFailedStatus(6705),
+      );
+      await fixture.store.enqueue(
+        {
+          issueKey: "zhyongrui/openclawcode#6706",
+          notifyChannel: "feishu",
+          notifyTarget: "user:resume-chat",
+          request: {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            issueNumber: 6706,
+            repoRoot: fixture.repoRoot,
+            baseBranch: "main",
+            branchName: "openclawcode/issue-6706",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
+            openPullRequest: true,
+            mergeOnApprove: false,
+          },
+        },
+        "Queued from test.",
+      );
+
+      await fixture.service?.start({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      await waitForAssertion(async () => {
+        expect(mocked.runMessageAction.mock.calls.some((call) => {
+          const message = String(call[0]?.params?.message ?? "");
+          return (
+            message.includes("openclawcode is resuming queue drain after the provider pause cleared.") &&
+            message.includes("Next issue: zhyongrui/openclawcode#6706")
+          );
+        })).toBe(true);
+        expect(mocked.runMessageAction.mock.calls.some((call) =>
+          String(call[0]?.params?.message ?? "").includes(
+            "openclawcode is starting zhyongrui/openclawcode#6706.",
+          ),
+        )).toBe(true);
+      });
+    } finally {
+      await fixture.service?.stop?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
   it("reconciles local runs and GitHub snapshots through /occode-sync", async () => {
     const fixture = await registerPluginFixture();
     try {

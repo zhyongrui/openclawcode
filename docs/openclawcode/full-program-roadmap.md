@@ -614,7 +614,6 @@ Remaining work:
   materially lower
 - allow issue-worktree runs to inject an explicit fallback chain for live
   proofs without forcing a full manual config rewrite
-- explicit queue-start or queue-resume feedback after a pause window clears
 - another real rerun or low-risk proof on the refreshed branch now that the
   oversized bootstrap injection warning is gone
 - prepare a provider or model fallback plan if diagnostics prove the failure is

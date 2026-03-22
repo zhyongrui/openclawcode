@@ -1820,6 +1820,19 @@ function appendProviderPauseText(params: {
   return [params.text, ...pauseLines].join("\n");
 }
 
+function buildProviderPauseResumedMessage(params: {
+  pause: ActiveProviderPause;
+  issueKey: string;
+}): string {
+  return [
+    "openclawcode is resuming queue drain after the provider pause cleared.",
+    `Next issue: ${params.issueKey}`,
+    `Previous pause window: ${params.pause.until}`,
+    `Recent failures before recovery: ${params.pause.failureCount} | last failure: ${params.pause.lastFailureAt}`,
+    `Reason: ${params.pause.reason}`,
+  ].join("\n");
+}
+
 function buildProviderFailureContextLines(params: {
   snapshot: OpenClawCodeIssueStatusSnapshot;
   now?: string;
@@ -5695,10 +5708,12 @@ async function processNextQueuedRun(
   if (workerActive) {
     return;
   }
+  const snapshotBeforePauseCheck = await store.snapshot();
   const providerPause = await store.getActiveProviderPause();
   if (providerPause) {
     return;
   }
+  const resumedProviderPause = snapshotBeforePauseCheck.providerPause;
   const next = await store.startNext();
   if (!next) {
     return;
@@ -5707,6 +5722,17 @@ async function processNextQueuedRun(
   workerActive = true;
   const startedAt = new Date().toISOString();
   try {
+    if (resumedProviderPause) {
+      await sendText({
+        api,
+        channel: next.notifyChannel,
+        target: next.notifyTarget,
+        text: buildProviderPauseResumedMessage({
+          pause: resumedProviderPause,
+          issueKey: next.issueKey,
+        }),
+      });
+    }
     await sendText({
       api,
       channel: next.notifyChannel,

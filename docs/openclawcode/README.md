@@ -304,6 +304,9 @@ loop with:
   - `/occode-status` now appends the same pause window, failure count, and
     pause reason so a queued or failed issue can be interpreted without
     switching back to the inbox
+  - when a paused queue becomes runnable again, the next target chat now gets
+    an explicit "resuming queue drain" notice before the normal
+    `openclawcode is starting ...` message
 - provider-failure context now persists on the affected issue snapshot even
   after the active global pause clears:
   - `/occode-status` and `/occode-inbox` keep the last transient failure time,
