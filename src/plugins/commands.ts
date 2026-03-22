@@ -335,7 +335,7 @@ function resolveBindingConversationFromCommand(params: {
   from?: string;
   to?: string;
   accountId?: string;
-  messageThreadId?: number;
+  messageThreadId?: string | number;
 }): {
   channel: string;
   accountId: string;

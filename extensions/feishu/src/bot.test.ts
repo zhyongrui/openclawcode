@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPluginRuntimeMock } from "../../../test/helpers/extensions/plugin-runtime-mock.js";
+import { createRuntimeEnv } from "../../../test/helpers/extensions/runtime-env.js";
 import type { ClawdbotConfig, PluginRuntime, RuntimeEnv } from "../runtime-api.js";
 import type { FeishuMessageEvent } from "./bot.js";
 import {
@@ -121,6 +122,13 @@ function createRuntimeEnv(): RuntimeEnv {
     }),
   } as RuntimeEnv;
 }
+
+vi.mock("../../../src/infra/outbound/session-binding-service.js", () => ({
+  getSessionBindingService: () => ({
+    resolveByConversation: mockResolveBoundConversation,
+    touch: mockTouchBinding,
+  }),
+}));
 
 async function dispatchMessage(params: { cfg: ClawdbotConfig; event: FeishuMessageEvent }) {
   const runtime = createRuntimeEnv();

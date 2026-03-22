@@ -18,37 +18,81 @@ openclaw plugins install <npm-spec>
 
 ## Listed plugins
 
-<CardGroup cols={1}>
-  <Card title="DingTalk" href="https://github.com/largezhou/openclaw-dingtalk">
-    Enterprise robot integration using Stream mode. Supports text, images, and
-    file messages via any DingTalk client.
+### Codex App Server Bridge
 
-    ```bash
-    openclaw plugins install @largezhou/ddingtalk
-    ```
+Independent OpenClaw bridge for Codex App Server conversations. Bind a chat to
+a Codex thread, talk to it with plain text, and control it with chat-native
+commands for resume, planning, review, model selection, compaction, and more.
 
-  </Card>
+- **npm:** `openclaw-codex-app-server`
+- **repo:** [github.com/pwrdrvr/openclaw-codex-app-server](https://github.com/pwrdrvr/openclaw-codex-app-server)
 
-  <Card title="QQbot" href="https://github.com/sliverp/qqbot">
-    Connect to QQ via the QQ Bot API. Supports private chats, group mentions,
-    channel messages, and rich media including voice, images, videos, and files.
+```bash
+openclaw plugins install openclaw-codex-app-server
+```
 
-    ```bash
-    openclaw plugins install @sliverp/qqbot
-    ```
+### DingTalk
 
-  </Card>
+Enterprise robot integration using Stream mode. Supports text, images, and
+file messages via any DingTalk client.
 
-  <Card title="WeChat" href="https://github.com/icesword0760/openclaw-wechat">
-    Connect to WeChat personal accounts via WeChatPadPro (iPad protocol).
-    Supports text, image, and file exchange with keyword-triggered conversations.
+- **npm:** `@largezhou/ddingtalk`
+- **repo:** [github.com/largezhou/openclaw-dingtalk](https://github.com/largezhou/openclaw-dingtalk)
 
-    ```bash
-    openclaw plugins install @icesword760/openclaw-wechat
-    ```
+```bash
+openclaw plugins install @largezhou/ddingtalk
+```
 
-  </Card>
-</CardGroup>
+### Lossless Claw (LCM)
+
+Lossless Context Management plugin for OpenClaw. DAG-based conversation
+summarization with incremental compaction — preserves full context fidelity
+while reducing token usage.
+
+- **npm:** `@martian-engineering/lossless-claw`
+- **repo:** [github.com/Martian-Engineering/lossless-claw](https://github.com/Martian-Engineering/lossless-claw)
+
+```bash
+openclaw plugins install @martian-engineering/lossless-claw
+```
+
+### Opik
+
+Official plugin that exports agent traces to Opik. Monitor agent behavior,
+cost, tokens, errors, and more.
+
+- **npm:** `@opik/opik-openclaw`
+- **repo:** [github.com/comet-ml/opik-openclaw](https://github.com/comet-ml/opik-openclaw)
+
+```bash
+openclaw plugins install @opik/opik-openclaw
+```
+
+### QQbot
+
+Connect OpenClaw to QQ via the QQ Bot API. Supports private chats, group
+mentions, channel messages, and rich media including voice, images, videos,
+and files.
+
+- **npm:** `@sliverp/qqbot`
+- **repo:** [github.com/sliverp/qqbot](https://github.com/sliverp/qqbot)
+
+```bash
+openclaw plugins install @sliverp/qqbot
+```
+
+### wecom
+
+OpenClaw Enterprise WeCom Channel Plugin.
+A bot plugin powered by WeCom AI Bot WebSocket persistent connections,
+supports direct messages & group chats, streaming replies, and proactive messaging.
+
+- **npm:** `@wecom/wecom-openclaw-plugin`
+- **repo:** [github.com/WecomTeam/wecom-openclaw-plugin](https://github.com/WecomTeam/wecom-openclaw-plugin)
+
+```bash
+openclaw plugins install @wecom/wecom-openclaw-plugin
+```
 
 ## Submit your plugin
 
@@ -58,11 +102,13 @@ We welcome community plugins that are useful, documented, and safe to operate.
   <Step title="Publish to npm">
     Your plugin must be installable via `openclaw plugins install \<npm-spec\>`.
     See [Building Plugins](/plugins/building-plugins) for the full guide.
+
   </Step>
 
   <Step title="Host on GitHub">
     Source code must be in a public repository with setup docs and an issue
     tracker.
+
   </Step>
 
   <Step title="Open a PR">
