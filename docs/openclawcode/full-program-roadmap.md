@@ -147,9 +147,11 @@ After the checklist-driven baseline is complete, the next queue is:
    incidents and manual repairs
 3. publish a stable command/capability map for operators and future refactors
 4. tighten mandatory pre-code stage discipline on top of blueprint, stage-gate,
-   and plan-approval behavior
+   and plan-approval behavior, including explicit isolated-worktree execution,
+   smaller fresh-role units, and mode-specific execution contexts
 5. keep loop-stall and context-budget diagnostics visible in normal operator
-   status paths
+   status paths, borrowing from session lifecycle hooks and compact evaluation
+   patterns instead of raw traces only
 
 ## Ordered Endgame Backlog
 

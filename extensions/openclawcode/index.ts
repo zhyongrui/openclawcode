@@ -2419,6 +2419,18 @@ function buildTopLevelQualityGateLines(snapshot: OpenClawCodeIssueStatusSnapshot
   return [`Quality gate: ${snapshot.qualityGateStatus} | ${snapshot.qualityGateSummary}`];
 }
 
+function buildTopLevelPreCodeDisciplineLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
+  if (!snapshot.preCodeDisciplineStatus || !snapshot.preCodeDisciplineSummary) {
+    return [];
+  }
+  if (snapshot.status.includes("\nPre-code discipline:")) {
+    return [];
+  }
+  return [
+    `Pre-code discipline: ${snapshot.preCodeDisciplineStatus} | ${snapshot.preCodeDisciplineSummary}`,
+  ];
+}
+
 function summarizeRepoQualityGates(params: {
   state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
   repo: { owner: string; repo: string };
@@ -2458,6 +2470,15 @@ function buildInboxQualityGateLines(snapshot: OpenClawCodeIssueStatusSnapshot): 
     return [];
   }
   return [`  quality: ${snapshot.qualityGateStatus} | ${trimToSingleLine(snapshot.qualityGateSummary)}`];
+}
+
+function buildInboxPreCodeDisciplineLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
+  if (!snapshot.preCodeDisciplineStatus || !snapshot.preCodeDisciplineSummary) {
+    return [];
+  }
+  return [
+    `  pre-code: ${snapshot.preCodeDisciplineStatus} | ${trimToSingleLine(snapshot.preCodeDisciplineSummary)}`,
+  ];
 }
 
 function buildTopLevelHandoffSummaryLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
@@ -4830,6 +4851,7 @@ function buildInboxMessage(params: {
       }
       lines.push(...buildSuitabilityLedgerLines(entry));
       lines.push(...buildInboxQualityGateLines(entry));
+      lines.push(...buildInboxPreCodeDisciplineLines(entry));
       lines.push(...buildPolicyShortcutLines({ issueKey: entry.issueKey, snapshot: entry }));
       lines.push(
         ...buildRerunLedgerLines({
@@ -7848,6 +7870,7 @@ export default {
             record: deferredRuntimeReroute,
             topLevel: true,
           }),
+          ...(currentSnapshot ? buildTopLevelPreCodeDisciplineLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelQualityGateLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelRuntimeRoutingLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelHandoffSummaryLines(currentSnapshot) : []),

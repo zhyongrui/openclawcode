@@ -10,6 +10,7 @@ export * from "./orchestrator/index.js";
 export * from "./operator-status.js";
 export * from "./policy.js";
 export * from "./persistence/index.js";
+export * from "./pre-code-discipline.js";
 export * from "./project-progress.js";
 export * from "./promotion-artifacts.js";
 export * from "./quality-gate.js";

@@ -70,6 +70,7 @@ import {
   readProjectStageGateArtifact,
   readProjectAutonomousLoopArtifact,
   deriveWorkflowQualityGate,
+  deriveWorkflowPreCodeDiscipline,
   readProjectWorkItemInventory,
   recordProjectStageGateDecision,
   resolveGitHubRepoFromGit,
@@ -3370,6 +3371,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     (typeof run.updatedAt === "string" && run.updatedAt.length > 0);
   const latestPlanEdit = run.planEdits?.at(-1) ?? null;
   const qualityGate = deriveWorkflowQualityGate(run);
+  const preCodeDiscipline = deriveWorkflowPreCodeDiscipline(run);
   return {
     ...run,
     contractVersion: OPENCLAWCODE_RUN_JSON_CONTRACT_VERSION,
@@ -3425,6 +3427,19 @@ function toWorkflowRunJson(run: WorkflowRun) {
     qualityGateWarningCount: qualityGate.warningReasons.length,
     qualityGateHasWarnings: qualityGate.warningReasons.length > 0,
     qualityGateHasFailures: qualityGate.blockingReasons.length > 0,
+    preCodeDiscipline,
+    preCodeDisciplineStatus: preCodeDiscipline.status,
+    preCodeDisciplineSummary: preCodeDiscipline.summary,
+    preCodeDisciplineBlockingReasons: preCodeDiscipline.blockingReasons,
+    preCodeDisciplineBlockingReasonCount: preCodeDiscipline.blockingReasons.length,
+    preCodeDisciplineWarnings: preCodeDiscipline.warningReasons,
+    preCodeDisciplineWarningCount: preCodeDiscipline.warningReasons.length,
+    preCodeDisciplinePlanStatus: preCodeDiscipline.planStatus,
+    preCodeDisciplineExecutionSpecPresent: preCodeDiscipline.executionSpecPresent,
+    preCodeDisciplineTestIntentPresent: preCodeDiscipline.testIntentPresent,
+    preCodeDisciplineTestIntentCount: preCodeDiscipline.testIntentCount,
+    preCodeDisciplinePlanApprovalRequired: preCodeDiscipline.planApprovalRequired,
+    preCodeDisciplinePlanEdited: preCodeDiscipline.planEdited,
     changeDisposition: changeDisposition.changeDisposition,
     changeDispositionReason: changeDisposition.changeDispositionReason,
     issueClassification: run.buildResult?.issueClassification ?? null,
@@ -3764,6 +3779,8 @@ export async function openclawCodeRunCommand(
 
   runtime.log(`Run: ${run.id}`);
   runtime.log(`Stage: ${run.stage}`);
+  const preCodeDiscipline = deriveWorkflowPreCodeDiscipline(run);
+  runtime.log(`Pre-code discipline: ${preCodeDiscipline.status} | ${preCodeDiscipline.summary}`);
   if (run.planEdits?.length) {
     const latestEdit = run.planEdits.at(-1);
     runtime.log(`Plan Edited: ${latestEdit?.editedFields.join(", ")}`);

@@ -63,6 +63,18 @@ Semantics:
   - `qualityGateFindingCount`
   - `qualityGateMissingCoverageCount`
   - `qualityGateFollowUpCount`
+- each `issueSnapshots[*]` entry may also carry stable pre-code discipline
+  fields:
+  - `preCodeDisciplineStatus`
+  - `preCodeDisciplineSummary`
+  - `preCodeDisciplineBlockingReasons`
+  - `preCodeDisciplineWarningReasons`
+  - `preCodeDisciplinePlanStatus`
+  - `preCodeDisciplineExecutionSpecPresent`
+  - `preCodeDisciplineTestIntentPresent`
+  - `preCodeDisciplineTestIntentCount`
+  - `preCodeDisciplinePlanApprovalRequired`
+  - `preCodeDisciplinePlanEdited`
 - each `repos[*]` entry may also carry stable incident-learning summary fields:
   - `incidentLearningSummary`
   - `providerFailureLearningCount`

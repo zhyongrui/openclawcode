@@ -9,10 +9,12 @@ import type {
   WorkflowStage,
 } from "../../openclawcode/contracts/index.js";
 import {
+  deriveWorkflowPreCodeDiscipline,
   deriveWorkflowQualityGate,
   resolveAutoMergeDisposition,
   resolveAutoMergePolicy,
 } from "../../openclawcode/index.js";
+import type { WorkflowPreCodeDisciplineStatus } from "../../openclawcode/index.js";
 import type { OpenClawCodeScopedIssueDraft } from "./chatops.js";
 import type { OpenClawCodeChatopsRunRequest } from "./chatops.js";
 
@@ -227,6 +229,16 @@ export interface OpenClawCodeIssueStatusSnapshot {
   qualityGateFindingCount?: number;
   qualityGateMissingCoverageCount?: number;
   qualityGateFollowUpCount?: number;
+  preCodeDisciplineStatus?: WorkflowPreCodeDisciplineStatus;
+  preCodeDisciplineSummary?: string;
+  preCodeDisciplineBlockingReasons?: string[];
+  preCodeDisciplineWarningReasons?: string[];
+  preCodeDisciplinePlanStatus?: "not-required" | "awaiting-approval" | "approved" | "missing";
+  preCodeDisciplineExecutionSpecPresent?: boolean;
+  preCodeDisciplineTestIntentPresent?: boolean;
+  preCodeDisciplineTestIntentCount?: number;
+  preCodeDisciplinePlanApprovalRequired?: boolean;
+  preCodeDisciplinePlanEdited?: boolean;
   failureDiagnostics?: WorkflowFailureDiagnostics;
   providerFailureCount?: number;
   lastProviderFailureAt?: string;
@@ -1007,6 +1019,54 @@ function normalizeStatusSnapshot(raw: unknown): OpenClawCodeIssueStatusSnapshot 
       typeof candidate.qualityGateFollowUpCount === "number"
         ? candidate.qualityGateFollowUpCount
         : undefined,
+    preCodeDisciplineStatus:
+      candidate.preCodeDisciplineStatus === "ready" ||
+      candidate.preCodeDisciplineStatus === "warn" ||
+      candidate.preCodeDisciplineStatus === "blocked" ||
+      candidate.preCodeDisciplineStatus === "pending"
+        ? candidate.preCodeDisciplineStatus
+        : undefined,
+    preCodeDisciplineSummary:
+      typeof candidate.preCodeDisciplineSummary === "string"
+        ? candidate.preCodeDisciplineSummary
+        : undefined,
+    preCodeDisciplineBlockingReasons: Array.isArray(candidate.preCodeDisciplineBlockingReasons)
+      ? candidate.preCodeDisciplineBlockingReasons.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : undefined,
+    preCodeDisciplineWarningReasons: Array.isArray(candidate.preCodeDisciplineWarningReasons)
+      ? candidate.preCodeDisciplineWarningReasons.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : undefined,
+    preCodeDisciplinePlanStatus:
+      candidate.preCodeDisciplinePlanStatus === "not-required" ||
+      candidate.preCodeDisciplinePlanStatus === "awaiting-approval" ||
+      candidate.preCodeDisciplinePlanStatus === "approved" ||
+      candidate.preCodeDisciplinePlanStatus === "missing"
+        ? candidate.preCodeDisciplinePlanStatus
+        : undefined,
+    preCodeDisciplineExecutionSpecPresent:
+      typeof candidate.preCodeDisciplineExecutionSpecPresent === "boolean"
+        ? candidate.preCodeDisciplineExecutionSpecPresent
+        : undefined,
+    preCodeDisciplineTestIntentPresent:
+      typeof candidate.preCodeDisciplineTestIntentPresent === "boolean"
+        ? candidate.preCodeDisciplineTestIntentPresent
+        : undefined,
+    preCodeDisciplineTestIntentCount:
+      typeof candidate.preCodeDisciplineTestIntentCount === "number"
+        ? candidate.preCodeDisciplineTestIntentCount
+        : undefined,
+    preCodeDisciplinePlanApprovalRequired:
+      typeof candidate.preCodeDisciplinePlanApprovalRequired === "boolean"
+        ? candidate.preCodeDisciplinePlanApprovalRequired
+        : undefined,
+    preCodeDisciplinePlanEdited:
+      typeof candidate.preCodeDisciplinePlanEdited === "boolean"
+        ? candidate.preCodeDisciplinePlanEdited
+        : undefined,
     failureDiagnostics: normalizeWorkflowFailureDiagnostics(candidate.failureDiagnostics),
     providerFailureCount:
       typeof candidate.providerFailureCount === "number"
@@ -1272,6 +1332,7 @@ function buildStatusSnapshot(params: {
   const autoMergePolicy = resolveAutoMergePolicy(params.run);
   const autoMergeDisposition = resolveAutoMergeDisposition(params.run);
   const qualityGate = deriveWorkflowQualityGate(params.run);
+  const preCodeDiscipline = deriveWorkflowPreCodeDiscipline(params.run);
   return {
     issueKey: `${params.run.issue.owner}/${params.run.issue.repo}#${params.run.issue.number}`,
     status: params.status,
@@ -1324,6 +1385,16 @@ function buildStatusSnapshot(params: {
     qualityGateFindingCount: qualityGate.findingCount,
     qualityGateMissingCoverageCount: qualityGate.missingCoverageCount,
     qualityGateFollowUpCount: qualityGate.followUpCount,
+    preCodeDisciplineStatus: preCodeDiscipline.status,
+    preCodeDisciplineSummary: preCodeDiscipline.summary,
+    preCodeDisciplineBlockingReasons: preCodeDiscipline.blockingReasons,
+    preCodeDisciplineWarningReasons: preCodeDiscipline.warningReasons,
+    preCodeDisciplinePlanStatus: preCodeDiscipline.planStatus,
+    preCodeDisciplineExecutionSpecPresent: preCodeDiscipline.executionSpecPresent,
+    preCodeDisciplineTestIntentPresent: preCodeDiscipline.testIntentPresent,
+    preCodeDisciplineTestIntentCount: preCodeDiscipline.testIntentCount,
+    preCodeDisciplinePlanApprovalRequired: preCodeDiscipline.planApprovalRequired,
+    preCodeDisciplinePlanEdited: preCodeDiscipline.planEdited,
     failureDiagnostics: params.run.failureDiagnostics,
     lastNotificationChannel: params.notifyChannel,
     lastNotificationTarget: params.notifyTarget,

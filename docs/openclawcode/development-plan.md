@@ -150,9 +150,13 @@ The next post-checklist productization queue is now:
    - workflow artifacts
    - runtime roles
 4. tighten pre-code execution discipline so plan and test intent remain
-   explicit before implementation starts
+   explicit before implementation starts, including:
+   - isolated issue-worktree execution as an operator-visible contract
+   - smaller fresh-role execution units instead of muddy long-lived sessions
+   - mode-specific planner/coder/verifier/research contexts where useful
 5. keep loop-health and context-budget diagnostics visible in operator-facing
-   status surfaces
+   status surfaces, borrowing from session lifecycle hooks and compact
+   evaluation patterns instead of raw traces alone
 
 Every completed slice should either:
 

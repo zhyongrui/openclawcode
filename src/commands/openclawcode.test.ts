@@ -1861,6 +1861,53 @@ describe("openclawCodeRunCommand", () => {
     ]);
   });
 
+  it("reports blocked pre-code discipline when explicit plan approval is still pending", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        stage: "awaiting-plan-approval",
+        executionSpec: {
+          summary: "Implement the issue safely.",
+          scope: ["Update one operator-facing status surface."],
+          outOfScope: ["Unrelated refactors."],
+          acceptanceCriteria: [
+            {
+              id: "ac-1",
+              text: "Expose the new pre-code discipline summary.",
+              required: true,
+            },
+          ],
+          testPlan: ["pnpm exec vitest run src/commands/openclawcode.test.ts --pool threads"],
+          risks: ["Status contract drift."],
+          assumptions: ["The issue remains command-layer scoped."],
+          openQuestions: [],
+          riskLevel: "medium",
+        },
+        planReview: {
+          required: true,
+          status: "awaiting-approval",
+          planDigest: "sha256:planned",
+          requestedAt: "2026-01-01T00:00:00.000Z",
+          suppliedDigest: null,
+          approvedAt: null,
+          approvedBy: null,
+          approvalSource: null,
+          approvalNote: null,
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.preCodeDisciplineStatus).toBe("blocked");
+    expect(payload.preCodeDisciplinePlanStatus).toBe("awaiting-approval");
+    expect(payload.preCodeDisciplineBlockingReasons).toEqual([
+      "awaiting explicit plan approval before code execution",
+    ]);
+    expect(payload.preCodeDisciplineTestIntentPresent).toBe(true);
+    expect(payload.preCodeDisciplineExecutionSpecPresent).toBe(true);
+  });
+
   it("reports verificationDecisionIsEscalate when the verifier escalates", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({

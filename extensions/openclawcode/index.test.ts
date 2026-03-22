@@ -5107,6 +5107,42 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("shows pre-code discipline context through /occode-status", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.setStatusSnapshot({
+        issueKey: "zhyongrui/openclawcode#6623",
+        status: [
+          "openclawcode status for zhyongrui/openclawcode#6623",
+          "Stage: Awaiting Plan Approval",
+          "Summary: Waiting for explicit plan approval.",
+        ].join("\n"),
+        stage: "awaiting-plan-approval",
+        runId: "run-6623-pre-code",
+        updatedAt: "2026-03-22T12:06:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 6623,
+        preCodeDisciplineStatus: "blocked",
+        preCodeDisciplineSummary: "awaiting explicit plan approval before code execution",
+      });
+
+      const result = await fixture.commands.get("occode-status")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-status #6623",
+        args: "#6623",
+        config: {},
+      });
+
+      expect(result?.text).toContain(
+        "Pre-code discipline: blocked | awaiting explicit plan approval before code execution",
+      );
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("shows suitability policy explanation through /occode-status when autonomous execution is blocked", async () => {
     const fixture = await registerPluginFixture();
     try {
@@ -5679,6 +5715,8 @@ describe("openclawcode extension", () => {
         qualityGateSummary: "verifier approved with warnings | 1 missing coverage item",
         qualityGateWarningReasons: ["1 missing coverage item"],
         qualityGateMissingCoverageCount: 1,
+        preCodeDisciplineStatus: "warn",
+        preCodeDisciplineSummary: "plan edited before execution",
         lastNotificationChannel: "feishu",
         lastNotificationTarget: "user:review-chat",
         lastNotificationAt: "2026-03-11T02:59:00.000Z",
@@ -5740,6 +5778,7 @@ describe("openclawcode extension", () => {
           "  events: review approved @ 2026-03-11T02:58:30.000Z",
           "  suitability: needs-human-review | Suitability recommends human review before autonomous execution. Issue is classified as mixed scope instead of command-layer.",
           "  quality: warn | verifier approved with warnings | 1 missing coverage item",
+          "  pre-code: warn | plan edited before execution",
           "  policy: /occode-policy zhyongrui/openclawcode#305",
           "  rerun: run-300 | from Changes Requested | 2026-03-11T02:40:00.000Z",
           "  reason: Address GitHub review feedback",
