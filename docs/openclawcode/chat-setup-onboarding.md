@@ -9,11 +9,14 @@ surface such as Feishu.
 The first user-visible milestone is:
 
 1. OpenClaw identifies a concrete setup chat target
-2. OpenClaw checks whether GitHub auth is already ready on the host
-3. if auth is missing, OpenClaw starts the host-side GitHub device flow
-4. OpenClaw sends the verification URL and one-time code back into chat
-5. the operator completes approval in the browser
-6. OpenClaw resumes setup from chat without asking the operator to paste a
+2. if that chat is still behind DM pairing, OpenClaw pushes a pairing code to
+   the same chat first
+3. after pairing is approved, OpenClaw checks whether GitHub auth is already
+   ready on the host
+4. if auth is missing, OpenClaw starts the host-side GitHub device flow
+5. OpenClaw sends the verification URL and one-time code back into chat
+6. the operator completes approval in the browser
+7. OpenClaw resumes setup from chat without asking the operator to paste a
    token into chat
 
 That target can come from either:
@@ -153,6 +156,7 @@ Current setup state:
 
 - `drafting-blueprint`
 - `awaiting-repo-choice`
+- `awaiting-chat-pairing`
 - `awaiting-github-device-auth`
 - `github-authenticated`
 - `bootstrap-complete`
@@ -243,15 +247,19 @@ The operator never pastes tokens into chat.
    - the setup-local blueprint draft is agreed
    - repo-name suggestions are ready
    - repo creation can start after the operator chooses a name
-4. `awaiting-github-device-auth`
+4. `awaiting-chat-pairing`
+   - the target chat is known
+   - DM pairing is still required before setup can proceed
+   - OpenClaw has already pushed the pairing code into that chat
+5. `awaiting-github-device-auth`
    - GitHub auth not ready
    - device flow started on host
    - chat shows verification URL and code
-5. `github-authenticated`
+6. `github-authenticated`
    - host auth is now ready
    - chat can validate an existing repo or create a new repo
    - chat can then move into bootstrap execution
-6. `bootstrap-complete`
+7. `bootstrap-complete`
    - bootstrap JSON has been captured into setup state
    - chat can show the exact blueprint, work-item, gate, and proof handoff
      commands
@@ -358,9 +366,12 @@ control-plane steps.
 - this hardening is now landed
 - when the plugin service starts without GitHub auth, it now inspects the
   configured repo notification targets
-- if a target chat does not already have a saved setup session, the service
-  starts one host-side `gh auth login --web` flow proactively and pushes the
-  verification URL plus device code to that chat
+- if a target chat is still gated by DM pairing, the service now creates a
+  setup session in `awaiting-chat-pairing`, pushes the pairing code into that
+  chat, and waits for approval instead of silently assuming setup can run
+- after pairing is approved, the same background service loop automatically
+  starts one host-side `gh auth login --web` flow and pushes the verification
+  URL plus device code to that chat
 - when exactly one repo is mapped to that chat target, the saved setup session
   also pins that repo up front so setup can continue into repo validation and
   bootstrap automatically after auth completes

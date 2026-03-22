@@ -52,6 +52,7 @@ export interface OpenClawCodePendingIntakeClarificationResponse {
 export type OpenClawCodeSetupSessionStage =
   | "drafting-blueprint"
   | "awaiting-repo-choice"
+  | "awaiting-chat-pairing"
   | "awaiting-github-device-auth"
   | "github-authenticated"
   | "bootstrap-complete";
@@ -402,6 +403,7 @@ function normalizeSetupSession(raw: unknown): OpenClawCodeSetupSession | undefin
   if (
     candidate.stage !== "drafting-blueprint" &&
     candidate.stage !== "awaiting-repo-choice" &&
+    candidate.stage !== "awaiting-chat-pairing" &&
     candidate.stage !== "awaiting-github-device-auth" &&
     candidate.stage !== "github-authenticated" &&
     candidate.stage !== "bootstrap-complete"

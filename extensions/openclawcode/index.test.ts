@@ -30,6 +30,7 @@ import type {
   OpenClawPluginService,
 } from "../../src/plugins/types.js";
 import { createMockServerResponse } from "../../src/test-utils/mock-http-response.js";
+import { createPluginRuntimeMock } from "../../test/helpers/extensions/plugin-runtime-mock.js";
 import { onboardingOpenClawCodeDeps } from "../../src/wizard/setup.code.js";
 import plugin from "./index.js";
 
@@ -65,7 +66,9 @@ vi.mock("../../src/wizard/setup.code.js", async (importOriginal) => {
 
 function createApi(params: {
   stateDir: string;
+  config?: Record<string, unknown>;
   pluginConfig: Record<string, unknown>;
+  runtime: OpenClawPluginApi["runtime"];
   runCommandWithTimeout: ReturnType<typeof vi.fn>;
   registerCommand: (command: OpenClawPluginCommandDefinition) => void;
   registerHttpRoute: (params: {
@@ -82,16 +85,9 @@ function createApi(params: {
     id: "openclawcode",
     name: "openclawcode",
     source: "test",
-    config: {},
+    config: params.config ?? {},
     pluginConfig: params.pluginConfig,
-    runtime: {
-      state: {
-        resolveStateDir: () => params.stateDir,
-      },
-      system: {
-        runCommandWithTimeout: params.runCommandWithTimeout,
-      },
-    } as unknown as OpenClawPluginApi["runtime"],
+    runtime: params.runtime,
     logger: { info() {}, warn() {}, error() {} },
     registerTool() {},
     registerHook() {},
@@ -467,12 +463,22 @@ async function registerPluginFixture(params?: {
   repoRoot?: string;
   pollIntervalMs?: number;
   mergeOnApprove?: boolean;
+  config?: Record<string, unknown>;
+  pluginConfigOverride?: Record<string, unknown>;
 }) {
   const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-test-"));
   const repoRoot =
     params?.repoRoot ?? (await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-repo-")));
   const commands = new Map<string, OpenClawPluginCommandDefinition>();
   const runCommandWithTimeout = vi.fn();
+  const runtime = createPluginRuntimeMock({
+    state: {
+      resolveStateDir: () => stateDir,
+    },
+    system: {
+      runCommandWithTimeout,
+    },
+  }) as unknown as OpenClawPluginApi["runtime"];
   let service: OpenClawPluginService | undefined;
   let route:
     | {
@@ -488,6 +494,8 @@ async function registerPluginFixture(params?: {
   plugin.register?.(
     createApi({
       stateDir,
+      config: params?.config,
+      runtime,
       pluginConfig: {
         repos: [
           {
@@ -508,6 +516,7 @@ async function registerPluginFixture(params?: {
           },
         ],
         pollIntervalMs: params?.pollIntervalMs,
+        ...(params?.pluginConfigOverride ?? {}),
       },
       runCommandWithTimeout,
       registerCommand(command) {
@@ -525,6 +534,7 @@ async function registerPluginFixture(params?: {
   return {
     repoRoot,
     stateDir,
+    runtime,
     store: OpenClawCodeChatopsStore.fromStateDir(stateDir),
     commands,
     route,
@@ -3908,6 +3918,38 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("reports pairing-gated setup state through /occode-setup-status", async () => {
+    const fixture = await registerPluginFixture();
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      repoKey: "zhyongrui/openclawcode",
+      stage: "awaiting-chat-pairing",
+      createdAt: "2026-03-19T02:35:00.000Z",
+      updatedAt: "2026-03-19T02:35:00.000Z",
+    });
+
+    try {
+      const result = await fixture.commands.get("occode-setup-status")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-setup-status",
+        args: "",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("OpenClaw Code setup is waiting for chat pairing approval.");
+      expect(result?.text).toContain("Selected repo: zhyongrui/openclawcode");
+      expect(result?.text).toContain(
+        "OpenClaw Code will automatically continue setup here and start GitHub login.",
+      );
+      expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("promotes a pending setup session to authenticated through /occode-setup-status", async () => {
     const fixture = await registerPluginFixture();
     await fixture.store.upsertSetupSession({
@@ -4070,6 +4112,178 @@ describe("openclawcode extension", () => {
           userCode: "WXYZ-1234",
           verificationUri: "https://github.com/login/device",
         },
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("proactively requests pairing before GitHub auth for pairing-gated user chat targets", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-repo-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      config: {
+        channels: {
+          feishu: {
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "user:setup-chat",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
+          },
+        ],
+      },
+    });
+    const readAllowFromStore = fixture.runtime.channel.pairing.readAllowFromStore as unknown as ReturnType<
+      typeof vi.fn
+    >;
+    const upsertPairingRequest = fixture.runtime.channel.pairing.upsertPairingRequest as unknown as ReturnType<
+      typeof vi.fn
+    >;
+    readAllowFromStore.mockResolvedValue([]);
+    upsertPairingRequest.mockResolvedValue({
+      code: "PAIR-1234",
+      created: true,
+    });
+
+    try {
+      await fixture.service?.start({
+        config: fixture.runtime.config.loadConfig(),
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      expect(mocked.startOnboardingGitHubCliDeviceLogin).not.toHaveBeenCalled();
+      expect(upsertPairingRequest).toHaveBeenCalledWith({
+        channel: "feishu",
+        accountId: "default",
+        id: "setup-chat",
+      });
+      expect(mocked.runMessageAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "send",
+          params: expect.objectContaining({
+            channel: "feishu",
+            to: "user:setup-chat",
+            message: expect.stringContaining(
+              "pairing must be approved first",
+            ),
+          }),
+        }),
+      );
+      expect(
+        await fixture.store.getSetupSession({
+          notifyChannel: "feishu",
+          notifyTarget: "user:setup-chat",
+        }),
+      ).toMatchObject({
+        projectMode: "existing-repo",
+        repoKey: "zhyongrui/openclawcode",
+        stage: "awaiting-chat-pairing",
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("automatically continues from pairing approval into proactive GitHub auth", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-repo-"));
+    const fixture = await registerPluginFixture({
+      pollIntervalMs: 10,
+      repoRoot,
+      config: {
+        channels: {
+          feishu: {
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "user:setup-chat",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
+            pollIntervalMs: 10,
+          },
+        ],
+      },
+    });
+    const readAllowFromStore = fixture.runtime.channel.pairing.readAllowFromStore as unknown as ReturnType<
+      typeof vi.fn
+    >;
+    readAllowFromStore.mockResolvedValueOnce([]).mockResolvedValue(["setup-chat"]);
+    mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+      pid: 654,
+      logPath: "/tmp/proactive-gh-auth.log",
+      userCode: "WXYZ-1234",
+      verificationUri: "https://github.com/login/device",
+      startedAt: "2026-03-21T09:00:00.000Z",
+    });
+
+    try {
+      await fixture.service?.start({
+        config: fixture.runtime.config.loadConfig(),
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      await waitForAssertion(async () => {
+        expect(mocked.startOnboardingGitHubCliDeviceLogin).toHaveBeenCalledWith({
+          stateDir: fixture.stateDir,
+        });
+      });
+
+      await waitForAssertion(async () => {
+        expect(
+          mocked.runMessageAction.mock.calls.some((call) =>
+            String(call[0]?.params?.message ?? "").includes(
+              "pairing must be approved first",
+            ),
+          ),
+        ).toBe(true);
+        expect(
+          mocked.runMessageAction.mock.calls.some((call) =>
+            String(call[0]?.params?.message ?? "").includes(
+              "OpenClaw Code setup is waiting for GitHub approval.",
+            ),
+          ),
+        ).toBe(true);
+        expect(
+          await fixture.store.getSetupSession({
+            notifyChannel: "feishu",
+            notifyTarget: "user:setup-chat",
+          }),
+        ).toMatchObject({
+          stage: "awaiting-github-device-auth",
+          githubDeviceAuth: {
+            pid: 654,
+            userCode: "WXYZ-1234",
+          },
+        });
       });
     } finally {
       await cleanupPluginFixture(fixture);
@@ -4303,17 +4517,19 @@ describe("openclawcode extension", () => {
       });
 
       expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
-      expect(
-        await fixture.store.getSetupSession({
-          notifyChannel: "feishu",
-          notifyTarget: "user:setup-chat",
-        }),
-      ).toMatchObject({
-        stage: "awaiting-github-device-auth",
-        githubDeviceAuth: {
-          failureReason: "GitHub device approval expired.",
-          notificationState: "failed",
-        },
+      await waitForAssertion(async () => {
+        expect(
+          await fixture.store.getSetupSession({
+            notifyChannel: "feishu",
+            notifyTarget: "user:setup-chat",
+          }),
+        ).toMatchObject({
+          stage: "awaiting-github-device-auth",
+          githubDeviceAuth: {
+            failureReason: "GitHub device approval expired.",
+            notificationState: "failed",
+          },
+        });
       });
     } finally {
       await cleanupPluginFixture(fixture);

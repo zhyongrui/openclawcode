@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
+import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/routing";
 import { formatCliCommand } from "../../src/cli/command-format.js";
 import { readRequestBodyWithLimit } from "../../src/infra/http-body.js";
 import {
@@ -196,6 +197,46 @@ function resolveCommandNotifyTarget(ctx: {
   return ctx.to?.trim() || ctx.from?.trim() || ctx.senderId?.trim();
 }
 
+function resolveChannelDmPolicy(config: OpenClawPluginApi["config"], channel: string): string | undefined {
+  const channels =
+    config && typeof config === "object" && config.channels && typeof config.channels === "object"
+      ? (config.channels as Record<string, unknown>)
+      : undefined;
+  const channelConfig = channels?.[channel];
+  if (!channelConfig || typeof channelConfig !== "object") {
+    return undefined;
+  }
+  const dmPolicy = (channelConfig as { dmPolicy?: unknown }).dmPolicy;
+  return typeof dmPolicy === "string" && dmPolicy.trim() ? dmPolicy.trim() : undefined;
+}
+
+function resolvePairingSenderIdFromNotifyTarget(target: string): string | undefined {
+  const trimmed = target.trim();
+  if (!trimmed.toLowerCase().startsWith("user:")) {
+    return undefined;
+  }
+  const senderId = trimmed.slice("user:".length).trim();
+  return senderId || undefined;
+}
+
+function resolveProactivePairingIdentity(params: {
+  api: OpenClawPluginApi;
+  channel: string;
+  target: string;
+}): { accountId: string; senderId: string } | undefined {
+  if (resolveChannelDmPolicy(params.api.config, params.channel) !== "pairing") {
+    return undefined;
+  }
+  const senderId = resolvePairingSenderIdFromNotifyTarget(params.target);
+  if (!senderId) {
+    return undefined;
+  }
+  return {
+    accountId: DEFAULT_ACCOUNT_ID,
+    senderId,
+  };
+}
+
 function issueKeyMatchesRepo(issueKey: string, repo: { owner: string; repo: string }): boolean {
   return issueKey.toLowerCase().startsWith(`${formatRepoKey(repo).toLowerCase()}#`);
 }
@@ -263,6 +304,40 @@ function buildChatSetupReadyMessage(params: {
     params.repoKey
       ? `Next: ${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`
       : "Next: send /occode-setup owner/repo to pin the repo for this chat.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildChatSetupAwaitingPairingMessage(params: {
+  api: OpenClawPluginApi;
+  channel: string;
+  senderId: string;
+  code: string;
+  selectionLabel?: string;
+}): string {
+  return [
+    "OpenClaw Code found this chat as a configured setup target, but pairing must be approved first.",
+    params.selectionLabel ? `Selected target: ${params.selectionLabel}` : undefined,
+    params.api.runtime.channel.pairing.buildPairingReply({
+      channel: params.channel,
+      idLine: `Chat identity: ${params.senderId}`,
+      code: params.code,
+    }),
+    "After approval, OpenClaw Code will automatically continue setup here and start GitHub login.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function buildChatSetupAwaitingPairingStatusMessage(params: {
+  repoKey?: string;
+}): string {
+  return [
+    "OpenClaw Code setup is waiting for chat pairing approval.",
+    params.repoKey ? `Selected repo: ${params.repoKey}` : undefined,
+    "Approve the pairing request for this chat first.",
+    "After approval, OpenClaw Code will automatically continue setup here and start GitHub login.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -1062,6 +1137,11 @@ async function continueChatSetupSession(params: {
           session: synced.session,
         });
   }
+  if (synced.session.stage === "awaiting-chat-pairing") {
+    return buildChatSetupAwaitingPairingStatusMessage({
+      repoKey: synced.session.repoKey,
+    });
+  }
   if (synced.session.stage === "bootstrap-complete" && synced.session.githubAuthSource) {
     return buildChatSetupBootstrapCompleteMessage({
       source: synced.session.githubAuthSource,
@@ -1168,28 +1248,93 @@ function cloneGitHubDeviceAuthSession(
   };
 }
 
-async function proactivelyStartChatSetupSessions(
+type ProactiveGitHubAuthTarget = ProactiveChatSetupTarget & {
+  existingSession?: ChatSetupSession;
+};
+
+async function isProactiveSetupTargetPaired(params: {
   api: OpenClawPluginApi,
-  store: OpenClawCodeChatopsStore,
-  repoConfigs: OpenClawCodeChatopsRepoConfig[],
-): Promise<void> {
-  if (repoConfigs.length === 0 || resolveOnboardingGitHubToken()) {
+  target: ProactiveChatSetupTarget;
+}): Promise<boolean> {
+  const pairingIdentity = resolveProactivePairingIdentity({
+    api: params.api,
+    channel: params.target.notifyChannel,
+    target: params.target.notifyTarget,
+  });
+  if (!pairingIdentity) {
+    return true;
+  }
+  const allowFrom = await params.api.runtime.channel.pairing.readAllowFromStore({
+    channel: params.target.notifyChannel,
+    accountId: pairingIdentity.accountId,
+  });
+  return allowFrom.some((entry) => entry.trim() === pairingIdentity.senderId);
+}
+
+async function proactivelyRequestChatPairing(params: {
+  api: OpenClawPluginApi;
+  store: OpenClawCodeChatopsStore;
+  target: ProactiveChatSetupTarget;
+  existingSession?: ChatSetupSession;
+}): Promise<void> {
+  const pairingIdentity = resolveProactivePairingIdentity({
+    api: params.api,
+    channel: params.target.notifyChannel,
+    target: params.target.notifyTarget,
+  });
+  if (!pairingIdentity) {
     return;
   }
+  const request = await params.api.runtime.channel.pairing.upsertPairingRequest({
+    channel: params.target.notifyChannel,
+    accountId: pairingIdentity.accountId,
+    id: pairingIdentity.senderId,
+  });
+  const now = new Date().toISOString();
+  await params.store.upsertSetupSession({
+    ...params.existingSession,
+    notifyChannel: params.target.notifyChannel,
+    notifyTarget: params.target.notifyTarget,
+    projectMode: params.target.projectMode ?? params.existingSession?.projectMode,
+    repoKey: params.target.repoKey ?? params.existingSession?.repoKey,
+    pendingRepoName: params.existingSession?.pendingRepoName,
+    stage: "awaiting-chat-pairing",
+    githubAuthSource: undefined,
+    githubDeviceAuth: undefined,
+    lastFailure: undefined,
+    createdAt: params.existingSession?.createdAt ?? now,
+    updatedAt: now,
+  });
+  try {
+    await sendText({
+      api: params.api,
+      channel: params.target.notifyChannel,
+      target: params.target.notifyTarget,
+      text: buildChatSetupAwaitingPairingMessage({
+        api: params.api,
+        channel: params.target.notifyChannel,
+        senderId: pairingIdentity.senderId,
+        code: request.code,
+        selectionLabel: params.target.repoKey,
+      }),
+    });
+  } catch (error) {
+    params.api.logger.warn(
+      `openclawcode proactive pairing notification failed for ${params.target.notifyChannel}:${params.target.notifyTarget}: ${String(error)}`,
+    );
+  }
+}
 
-  const existingSessions = await store.listSetupSessions();
-  const targets = collectProactiveChatSetupTargets(repoConfigs).filter(
-    (target) =>
-      !existingSessions.some(
-        (session) =>
-          session.notifyChannel === target.notifyChannel &&
-          session.notifyTarget === target.notifyTarget,
-      ),
-  );
+async function proactivelyStartGitHubAuthForTargets(
+  api: OpenClawPluginApi,
+  store: OpenClawCodeChatopsStore,
+  targets: ProactiveGitHubAuthTarget[],
+): Promise<void> {
   if (targets.length === 0) {
     return;
   }
 
+  const existingSessions = await store.listSetupSessions();
   const reusableChallenge = existingSessions.find(
     (session) =>
       session.stage === "awaiting-github-device-auth" &&
@@ -1218,17 +1363,21 @@ async function proactivelyStartChatSetupSessions(
       for (const target of targets) {
         const now = new Date().toISOString();
         await store.upsertSetupSession({
+          ...target.existingSession,
           notifyChannel: target.notifyChannel,
           notifyTarget: target.notifyTarget,
-          projectMode: target.projectMode,
-          repoKey: target.repoKey,
+          projectMode: target.projectMode ?? target.existingSession?.projectMode,
+          repoKey: target.repoKey ?? target.existingSession?.repoKey,
+          pendingRepoName: target.existingSession?.pendingRepoName,
           stage: "awaiting-github-device-auth",
+          githubAuthSource: undefined,
+          githubDeviceAuth: undefined,
           lastFailure: {
             step: "github-auth",
             reason,
             occurredAt: now,
           },
-          createdAt: now,
+          createdAt: target.existingSession?.createdAt ?? now,
           updatedAt: now,
         });
         try {
@@ -1255,13 +1404,17 @@ async function proactivelyStartChatSetupSessions(
   for (const target of targets) {
     const now = new Date().toISOString();
     await store.upsertSetupSession({
+      ...target.existingSession,
       notifyChannel: target.notifyChannel,
       notifyTarget: target.notifyTarget,
-      projectMode: target.projectMode,
-      repoKey: target.repoKey,
+      projectMode: target.projectMode ?? target.existingSession?.projectMode,
+      repoKey: target.repoKey ?? target.existingSession?.repoKey,
+      pendingRepoName: target.existingSession?.pendingRepoName,
       stage: "awaiting-github-device-auth",
+      githubAuthSource: undefined,
       githubDeviceAuth: cloneGitHubDeviceAuthSession(githubDeviceAuth),
-      createdAt: now,
+      lastFailure: undefined,
+      createdAt: target.existingSession?.createdAt ?? now,
       updatedAt: now,
     });
     try {
@@ -1284,12 +1437,85 @@ async function proactivelyStartChatSetupSessions(
   }
 }
 
+async function proactivelyStartChatSetupSessions(
+  api: OpenClawPluginApi,
+  store: OpenClawCodeChatopsStore,
+  repoConfigs: OpenClawCodeChatopsRepoConfig[],
+): Promise<void> {
+  if (repoConfigs.length === 0 || resolveOnboardingGitHubToken()) {
+    return;
+  }
+
+  const existingSessions = await store.listSetupSessions();
+  const targets = collectProactiveChatSetupTargets(repoConfigs).filter(
+    (target) =>
+      !existingSessions.some(
+        (session) =>
+          session.notifyChannel === target.notifyChannel &&
+          session.notifyTarget === target.notifyTarget,
+      ),
+  );
+  if (targets.length === 0) {
+    return;
+  }
+
+  const githubAuthTargets: ProactiveGitHubAuthTarget[] = [];
+  for (const target of targets) {
+    if (await isProactiveSetupTargetPaired({ api, target })) {
+      githubAuthTargets.push(target);
+      continue;
+    }
+    await proactivelyRequestChatPairing({
+      api,
+      store,
+      target,
+    });
+  }
+
+  await proactivelyStartGitHubAuthForTargets(api, store, githubAuthTargets);
+}
+
 async function processPendingSetupSessions(
   api: OpenClawPluginApi,
   store: OpenClawCodeChatopsStore,
 ): Promise<void> {
   const sessions = await store.listSetupSessions();
   for (const session of sessions) {
+    if (session.stage === "awaiting-chat-pairing") {
+      const target = {
+        notifyChannel: session.notifyChannel,
+        notifyTarget: session.notifyTarget,
+        projectMode: session.projectMode,
+        repoKey: session.repoKey,
+      } satisfies ProactiveChatSetupTarget;
+      if (!(await isProactiveSetupTargetPaired({ api, target }))) {
+        continue;
+      }
+      if (resolveOnboardingGitHubToken()) {
+        const message = await continueChatSetupSession({
+          store,
+          session: {
+            ...session,
+            updatedAt: new Date().toISOString(),
+          },
+        });
+        await sendText({
+          api,
+          channel: session.notifyChannel,
+          target: session.notifyTarget,
+          text: message,
+        });
+        continue;
+      }
+      await proactivelyStartGitHubAuthForTargets(api, store, [
+        {
+          ...target,
+          existingSession: session,
+        },
+      ]);
+      continue;
+    }
+
     if (
       session.stage !== "awaiting-github-device-auth" ||
       !session.githubDeviceAuth ||

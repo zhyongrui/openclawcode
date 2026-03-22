@@ -215,28 +215,35 @@ Problem:
 
 Outcome:
 
-- the plugin starts the GitHub device flow proactively when it already knows a
-  concrete notification target
+- the plugin proactively opens the full setup chain when it already knows a
+  concrete notification target:
+  - push pairing first when DM pairing is still required
+  - then push GitHub device auth automatically after pairing approval
 
 Tasks:
 
 - inspect configured repo notification targets on plugin service start
 - skip targets that already have a saved setup session
 - skip proactive kickoff when host GitHub auth is already ready
-- launch one host-side `gh auth login --web` flow and push the verification URL
-  plus device code into the configured chat target
+- when DM pairing is required for that chat target, issue the pairing challenge
+  proactively instead of waiting for `/occode-setup`
+- after pairing approval, launch one host-side `gh auth login --web` flow and
+  push the verification URL plus device code into the configured chat target
 - when exactly one repo maps to that target, pre-pin the repo so setup can
   continue through repo validation and bootstrap after auth completes
 
 Exit signal:
 
-- a newly installed operator sees the GitHub login URL and code in chat
-  without needing to guess that `/occode-setup` must be sent first
+- a newly installed operator sees either:
+  - a pairing code when chat approval is still required
+  - or the GitHub login URL and code when pairing is already satisfied
+- neither step requires guessing that `/occode-setup` must be sent first
 
 Status:
 
-- landed on 2026-03-21 in the plugin service startup path and the chat setup
-  onboarding flow
+- initial proactive auth kickoff landed on 2026-03-21
+- proactive pairing-before-auth landed on 2026-03-22 in the plugin service
+  startup path and the chat setup onboarding flow
 
 ## Validation Strategy
 
@@ -320,7 +327,13 @@ The remaining setup-specific hardening sequence should be:
      the originating chat automatically
    - `/occode-setup-status` remains as a manual recovery/status command, not
      the only way to continue
-5. live-proof the bounded repeat-loop behavior on the real operator host and
+5. proactive pairing-before-auth is now landed for chat-native setup
+   - service-start setup kickoff no longer assumes an unpaired DM can jump
+     straight to GitHub auth
+   - pairing-gated `user:*` targets now receive a pairing code first
+   - once pairing is approved, the background setup loop automatically starts
+     GitHub auth without waiting for `/occode-setup`
+6. live-proof the bounded repeat-loop behavior on the real operator host and
    decide whether it is ready for longer unattended runs
 
 This setup track remains the operator-surface prerequisite for the later

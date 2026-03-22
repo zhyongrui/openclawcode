@@ -100,6 +100,9 @@ loop with:
   - `/occode-setup-status`
     - `/occode-setup` now pushes the next setup message automatically after
       browser-side GitHub auth finishes
+    - when a configured setup chat is still behind DM pairing, OpenClaw Code
+      now pushes the pairing code there first and then automatically starts
+      GitHub login after approval
     - `/occode-setup-status` remains the explicit manual recovery / status
       command
 - a local builder/verifier runtime adapter built on top of OpenClaw's embedded
