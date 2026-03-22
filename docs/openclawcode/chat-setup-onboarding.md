@@ -24,6 +24,8 @@ That target can come from either:
 - the operator sending `/occode-setup`
 - the plugin service starting with a configured repo notification target and no
   saved setup session yet
+- a preferred operator DM target that OpenClaw previously learned from the chat
+  surface itself
 
 ## Why This Matters
 
@@ -378,6 +380,9 @@ control-plane steps.
 - when exactly one repo is mapped to that chat target, the saved setup session
   also pins that repo up front so setup can continue into repo validation and
   bootstrap automatically after auth completes
+- if bootstrap still only has a `bind-pending:*` placeholder, but OpenClaw has
+  already saved one preferred operator DM target for that channel, the plugin
+  now resolves that placeholder through the saved target and starts setup there
 - when multiple repos share the same target, the auth step still starts
   proactively, but repo selection stays explicit after auth so the system does
   not guess the wrong repository

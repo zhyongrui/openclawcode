@@ -247,6 +247,11 @@ Status:
 - initial proactive auth kickoff landed on 2026-03-21
 - proactive pairing-before-auth landed on 2026-03-22 in the plugin service
   startup path and the chat setup onboarding flow
+- preferred operator DM target binding landed on 2026-03-22:
+  - Feishu quick-actions menu events now persist one preferred `user:*` target
+    per channel/account in OpenClaw state
+  - bootstrap and the background setup loop can reuse that saved target when a
+    repo is still on `bind-pending:*`
 
 ## Validation Strategy
 
@@ -331,11 +336,14 @@ The remaining setup-specific hardening sequence should be:
    - `/occode-setup-status` remains as a manual recovery/status command, not
      the only way to continue
 5. proactive pairing-before-auth is now landed for chat-native setup
-   - service-start setup kickoff no longer assumes an unpaired DM can jump
-     straight to GitHub auth
-   - pairing-gated `user:*` targets now receive a pairing code first
-   - once pairing is approved, the background setup loop automatically starts
-     GitHub auth without waiting for `/occode-setup`
+  - service-start setup kickoff no longer assumes an unpaired DM can jump
+    straight to GitHub auth
+  - pairing-gated `user:*` targets now receive a pairing code first
+  - once pairing is approved, the background setup loop automatically starts
+    GitHub auth without waiting for `/occode-setup`
+  - Feishu quick-actions can now bind and persist the preferred operator DM
+    target earlier, so bootstrap placeholders can still resolve into a real
+    proactive setup destination later
 6. live-proof the bounded repeat-loop behavior on the real operator host and
    decide whether it is ready for longer unattended runs
 

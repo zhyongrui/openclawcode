@@ -27,8 +27,14 @@ import { getFeishuRuntime } from "./runtime.js";
 import { getMessageFeishu } from "./send.js";
 import { createFeishuThreadBindingManager } from "./thread-bindings.js";
 import type { FeishuChatType, ResolvedFeishuAccount } from "./types.js";
+import { setPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 
 const FEISHU_REACTION_VERIFY_TIMEOUT_MS = 1_500;
+
+function isFeishuQuickActionsMenuEventKey(eventKey: string): boolean {
+  const normalized = eventKey.trim().toLowerCase();
+  return normalized === "quick-actions" || normalized === "quick_actions" || normalized === "launcher";
+}
 
 export type FeishuReactionCreatedEvent = {
   message_id: string;
@@ -524,6 +530,25 @@ function registerEventHandlers(
         const eventKey = event.event_key?.trim();
         if (!operatorOpenId || !eventKey) {
           return;
+        }
+        if (isFeishuQuickActionsMenuEventKey(eventKey)) {
+          try {
+            const result = await setPreferredOperatorChatTarget({
+              channel: "feishu",
+              accountId,
+              target: `user:${operatorOpenId}`,
+              source: "feishu-quick-actions-menu",
+            });
+            if (result.status === "conflict") {
+              log(
+                `feishu[${accountId}]: keeping existing preferred operator target ${result.binding.target} instead of ${result.attemptedTarget}`,
+              );
+            }
+          } catch (err) {
+            error(
+              `feishu[${accountId}]: failed to persist preferred operator target ${operatorOpenId}: ${String(err)}`,
+            );
+          }
         }
         const syntheticEvent: FeishuMessageEvent = {
           sender: {

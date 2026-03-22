@@ -16,6 +16,7 @@ import {
   type OpenClawCodeIssueStatusSnapshot,
   type OpenClawCodeRepoNotificationBinding,
 } from "../integrations/openclaw-plugin/index.js";
+import { discoverPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
 import {
   createProjectBlueprint,
   inspectProjectBlueprintClarifications,
@@ -97,6 +98,7 @@ import {
   projectRuntimeSteeringStageIds,
   resolveValidationPoolDeficits,
 } from "../openclawcode/index.js";
+import { isConcreteChatNotifyTarget } from "../openclawcode/operator-chat-targets.js";
 import type { RuntimeEnv } from "../runtime.js";
 
 export interface OpenClawCodeRunOpts {
@@ -1471,18 +1473,14 @@ async function ensureBootstrapRepoBinding(params: {
 async function discoverBootstrapNotifyBinding(params: {
   operatorStateDir: string;
   requestedChannel?: string;
-}): Promise<OpenClawCodeRepoNotificationBinding | undefined> {
+}): Promise<{ notifyChannel: string; notifyTarget: string } | undefined> {
   const store = OpenClawCodeChatopsStore.fromStateDir(params.operatorStateDir);
   const bindings = await store.listRepoBindings();
-  if (bindings.length === 0) {
-    return undefined;
-  }
-
   const normalizePairKey = (binding: OpenClawCodeRepoNotificationBinding): string =>
     `${binding.notifyChannel}\u0000${binding.notifyTarget}`;
   const trimmedRequestedChannel = params.requestedChannel?.trim();
 
-  if (trimmedRequestedChannel) {
+  if (bindings.length > 0 && trimmedRequestedChannel) {
     const matchingChannelBindings = bindings.filter(
       (binding) => binding.notifyChannel === trimmedRequestedChannel,
     );
@@ -1494,15 +1492,36 @@ async function discoverBootstrapNotifyBinding(params: {
       ).values(),
     );
     if (uniqueTargetBindings.length === 1) {
-      return uniqueTargetBindings[0];
+      return {
+        notifyChannel: uniqueTargetBindings[0].notifyChannel,
+        notifyTarget: uniqueTargetBindings[0].notifyTarget,
+      };
     }
-    return undefined;
   }
 
-  const uniqueBindings = Array.from(
-    new Map(bindings.map((binding) => [normalizePairKey(binding), binding])).values(),
-  );
-  return uniqueBindings.length === 1 ? uniqueBindings[0] : undefined;
+  if (bindings.length > 0 && !trimmedRequestedChannel) {
+    const uniqueBindings = Array.from(
+      new Map(bindings.map((binding) => [normalizePairKey(binding), binding])).values(),
+    );
+    if (uniqueBindings.length === 1) {
+      return {
+        notifyChannel: uniqueBindings[0].notifyChannel,
+        notifyTarget: uniqueBindings[0].notifyTarget,
+      };
+    }
+  }
+
+  const preferredTarget = await discoverPreferredOperatorChatTarget({
+    stateDir: params.operatorStateDir,
+    requestedChannel: trimmedRequestedChannel,
+  });
+  if (!preferredTarget) {
+    return undefined;
+  }
+  return {
+    notifyChannel: preferredTarget.channel,
+    notifyTarget: preferredTarget.target,
+  };
 }
 
 function buildBootstrapWebhookRetryCommand(params: {
@@ -4017,13 +4036,18 @@ export async function openclawCodeBootstrapCommand(
   const explicitChatTarget = opts.chatTarget?.trim();
   const chatTargetAutoRequested = explicitChatTarget === "auto";
   const concreteChatTarget = chatTargetAutoRequested ? undefined : explicitChatTarget;
+  const existingConfiguredChatTarget = isConcreteChatNotifyTarget(
+    existingOperatorRepoConfig?.notifyTarget,
+  )
+    ? existingOperatorRepoConfig?.notifyTarget.trim()
+    : undefined;
   const shouldDiscoverNotifyBinding =
     chatTargetAutoRequested ||
     Boolean(explicitChannel) ||
     opts.mode === "chatops" ||
     Boolean(existingOperatorRepoConfig?.notifyChannel);
   const discoveredNotifyBinding =
-    !shouldDiscoverNotifyBinding || concreteChatTarget || existingOperatorRepoConfig?.notifyTarget
+    !shouldDiscoverNotifyBinding || concreteChatTarget || existingConfiguredChatTarget
       ? undefined
       : await discoverBootstrapNotifyBinding({
           operatorStateDir,
@@ -4036,9 +4060,7 @@ export async function openclawCodeBootstrapCommand(
       existingOperatorRepoConfig?.notifyChannel ||
       discoveredNotifyBinding?.notifyChannel,
     chatTarget:
-      concreteChatTarget ||
-      existingOperatorRepoConfig?.notifyTarget ||
-      discoveredNotifyBinding?.notifyTarget,
+      concreteChatTarget || existingConfiguredChatTarget || discoveredNotifyBinding?.notifyTarget,
   });
   const defaultNotifyTarget =
     mode === "chatops" ? `bind-pending:${repoKey}` : `cli-only:${repoKey}`;
@@ -4048,14 +4070,11 @@ export async function openclawCodeBootstrapCommand(
     discoveredNotifyBinding?.notifyChannel ||
     DEFAULT_OPENCLAWCODE_BOOTSTRAP_NOTIFY_CHANNEL;
   const notifyTarget =
-    concreteChatTarget ||
-    existingOperatorRepoConfig?.notifyTarget ||
-    discoveredNotifyBinding?.notifyTarget ||
-    defaultNotifyTarget;
+    concreteChatTarget || existingConfiguredChatTarget || discoveredNotifyBinding?.notifyTarget || defaultNotifyTarget;
   const notifyBindingMode: BootstrapNotifyBindingMode =
     explicitChannel && concreteChatTarget
       ? "explicit"
-      : existingOperatorRepoConfig?.notifyChannel && existingOperatorRepoConfig?.notifyTarget
+      : existingOperatorRepoConfig?.notifyChannel && existingConfiguredChatTarget
         ? "existing-config"
         : discoveredNotifyBinding
           ? "auto-discovered"

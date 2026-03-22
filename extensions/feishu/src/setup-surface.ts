@@ -406,6 +406,14 @@ export const feishuSetupWizard: ChannelSetupWizard = {
       }
     }
 
+    await prompter.note(
+      [
+        "After the gateway is running, open your Feishu bot and tap the Quick actions menu once.",
+        "OpenClaw will save that DM as the preferred operator chat target so OpenClaw Code can continue setup proactively later.",
+      ].join("\n"),
+      "Operator chat binding",
+    );
+
     return { cfg: next };
   },
   dmPolicy: feishuDmPolicy,

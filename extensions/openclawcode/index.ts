@@ -111,6 +111,7 @@ import {
   writeProjectWorkItemInventory,
 } from "../../src/openclawcode/work-items.js";
 import { buildOpenClawCodePolicySnapshot } from "../../src/openclawcode/policy.js";
+import { resolveConcreteChatNotifyTarget } from "../../src/openclawcode/operator-chat-targets.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
 const DEFAULT_RUN_TIMEOUT_MS = 30 * 60_000;
@@ -1203,9 +1204,10 @@ type ProactiveChatSetupTarget = {
   repoKey?: string;
 };
 
-function collectProactiveChatSetupTargets(
+async function collectProactiveChatSetupTargets(
   repoConfigs: OpenClawCodeChatopsRepoConfig[],
-): ProactiveChatSetupTarget[] {
+  stateDir: string,
+): Promise<ProactiveChatSetupTarget[]> {
   const grouped = new Map<
     string,
     {
@@ -1215,7 +1217,14 @@ function collectProactiveChatSetupTargets(
     }
   >();
   for (const repoConfig of repoConfigs) {
-    const key = `${repoConfig.notifyChannel}\u0000${repoConfig.notifyTarget}`;
+    const resolvedTarget = await resolveConcreteChatNotifyTarget({
+      stateDir,
+      repoConfig,
+    });
+    if (!resolvedTarget) {
+      continue;
+    }
+    const key = `${resolvedTarget.notifyChannel}\u0000${resolvedTarget.notifyTarget}`;
     const current = grouped.get(key);
     const repoKey = formatRepoKey(repoConfig);
     if (current) {
@@ -1223,8 +1232,8 @@ function collectProactiveChatSetupTargets(
       continue;
     }
     grouped.set(key, {
-      notifyChannel: repoConfig.notifyChannel,
-      notifyTarget: repoConfig.notifyTarget,
+      notifyChannel: resolvedTarget.notifyChannel,
+      notifyTarget: resolvedTarget.notifyTarget,
       repoKeys: [repoKey],
     });
   }
@@ -1447,7 +1456,9 @@ async function proactivelyStartChatSetupSessions(
   }
 
   const existingSessions = await store.listSetupSessions();
-  const targets = collectProactiveChatSetupTargets(repoConfigs).filter(
+  const targets = (
+    await collectProactiveChatSetupTargets(repoConfigs, api.runtime.state.resolveStateDir())
+  ).filter(
     (target) =>
       !existingSessions.some(
         (session) =>

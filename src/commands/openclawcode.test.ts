@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawCodeChatopsStore } from "../integrations/openclaw-plugin/store.js";
+import { setPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
 import type { WorkflowRun } from "../openclawcode/index.js";
 import {
   openclawCodeBootstrapCommand,
@@ -7282,6 +7283,92 @@ describe("openclawCodeBootstrapCommand", () => {
         notifyChannel: "feishu",
         notifyTarget: "user:solo-chat",
       }),
+    );
+  });
+
+  it("reuses a preferred operator target when no repo binding exists yet", async () => {
+    const operatorRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-bootstrap-operator-target-"),
+    );
+    const targetRepoRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-bootstrap-operator-target-repo-"),
+    );
+    await writeFile(
+      path.join(targetRepoRoot, "package.json"),
+      JSON.stringify({ name: "demo", scripts: { test: "vitest run" } }, null, 2),
+      "utf8",
+    );
+    await writeFile(path.join(targetRepoRoot, "pnpm-lock.yaml"), "lockfileVersion: 9.0\n", "utf8");
+    await setPreferredOperatorChatTarget({
+      stateDir: operatorRoot,
+      channel: "feishu",
+      target: "user:preferred-operator",
+      source: "feishu-quick-actions-menu",
+    });
+    vi.stubEnv("GH_TOKEN", "ghs_bootstrap_token");
+
+    const setupCheckSpy = vi
+      .spyOn(openclawCodeBootstrapInternals, "runSetupCheck")
+      .mockReturnValue({
+        payload: {
+          ok: true,
+          strict: true,
+          repoRoot: "/operator/repo",
+          operatorRoot,
+          readiness: {
+            basic: true,
+            strict: true,
+            lowRiskProofReady: true,
+            fallbackProofReady: false,
+            promotionReady: true,
+            chatSetupRoutingReady: true,
+            gatewayReachable: false,
+            routeProbeReady: true,
+            routeProbeSkipped: false,
+            builtStartupProofRequested: false,
+            builtStartupProofReady: false,
+            nextAction: "ready-for-low-risk-proof",
+          },
+          summary: {
+            pass: 9,
+            warn: 0,
+            fail: 0,
+          },
+          checks: [],
+        },
+        stderr: "",
+        status: 0,
+      });
+    const webhookUrlSpy = vi
+      .spyOn(openclawCodeBootstrapInternals, "resolveWebhookUrl")
+      .mockResolvedValue({ url: null, source: null });
+
+    await openclawCodeBootstrapCommand(
+      {
+        repo: "acme/demo",
+        repoRoot: targetRepoRoot,
+        stateDir: operatorRoot,
+        mode: "chatops",
+        channel: "feishu",
+        chatTarget: "auto",
+        startGateway: false,
+        probeBuiltStartup: false,
+        json: true,
+      },
+      runtime,
+    );
+
+    setupCheckSpy.mockRestore();
+    webhookUrlSpy.mockRestore();
+
+    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    expect(payload.notify.bindingMode).toBe("auto-discovered");
+    expect(payload.notify.notifyChannel).toBe("feishu");
+    expect(payload.notify.notifyTarget).toBe("user:preferred-operator");
+
+    const config = JSON.parse(await readFile(path.join(operatorRoot, "openclaw.json"), "utf8"));
+    expect(config.plugins.entries.openclawcode.config.repos[0].notifyTarget).toBe(
+      "user:preferred-operator",
     );
   });
 

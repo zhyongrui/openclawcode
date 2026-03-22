@@ -48,6 +48,9 @@ The wizard guides you through:
 
 - `openclaw gateway status`
 - `openclaw logs --follow`
+- open your Feishu bot and tap **Quick actions** once if you want OpenClaw to
+  remember that DM as the preferred operator chat target for later
+  openclawcode setup
 
 ### Method 2: CLI setup
 
@@ -64,6 +67,9 @@ Choose **Feishu**, then enter the App ID and App Secret.
 - `openclaw gateway status`
 - `openclaw gateway restart`
 - `openclaw logs --follow`
+- open your Feishu bot and tap **Quick actions** once if you want OpenClaw to
+  remember that DM as the preferred operator chat target for later
+  openclawcode setup
 
 ---
 

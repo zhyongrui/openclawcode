@@ -5,6 +5,7 @@ import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawCodeChatopsStore } from "../../src/integrations/openclaw-plugin/index.js";
+import { setPreferredOperatorChatTarget } from "../../src/operator-chat-targets/store.js";
 import {
   readProjectAutonomousLoopArtifact,
 } from "../../src/openclawcode/autonomous-loop.js";
@@ -4114,6 +4115,79 @@ describe("openclawcode extension", () => {
           userCode: "WXYZ-1234",
           verificationUri: "https://github.com/login/device",
         },
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("resolves bind-pending targets through the preferred operator chat target store", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-bind-pending-repo-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      pluginConfigOverride: {
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "bind-pending:zhyongrui/openclawcode",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
+          },
+        ],
+      },
+    });
+    mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+      pid: 654,
+      logPath: "/tmp/proactive-gh-auth.log",
+      userCode: "WXYZ-1234",
+      verificationUri: "https://github.com/login/device",
+      startedAt: "2026-03-21T09:00:00.000Z",
+    });
+    await setPreferredOperatorChatTarget({
+      stateDir: fixture.stateDir,
+      channel: "feishu",
+      target: "user:bound-operator",
+      source: "feishu-quick-actions-menu",
+    });
+
+    try {
+      await fixture.service?.start({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      expect(mocked.startOnboardingGitHubCliDeviceLogin).toHaveBeenCalledWith({
+        stateDir: fixture.stateDir,
+      });
+      expect(mocked.runMessageAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "send",
+          params: expect.objectContaining({
+            channel: "feishu",
+            to: "user:bound-operator",
+            message: expect.stringContaining(
+              "OpenClaw Code setup is waiting for GitHub approval.",
+            ),
+          }),
+        }),
+      );
+      expect(
+        await fixture.store.getSetupSession({
+          notifyChannel: "feishu",
+          notifyTarget: "user:bound-operator",
+        }),
+      ).toMatchObject({
+        repoKey: "zhyongrui/openclawcode",
+        stage: "awaiting-github-device-auth",
       });
     } finally {
       await cleanupPluginFixture(fixture);
