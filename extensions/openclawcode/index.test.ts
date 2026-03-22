@@ -5716,6 +5716,7 @@ describe("openclawcode extension", () => {
         text: [
           "openclawcode inbox for zhyongrui/openclawcode",
           "Quality gates: pass=1 | warn=1 | fail=0 | pending=0",
+          "Recent learnings: review-reruns=1",
           "Pending approvals: 1",
           "- zhyongrui/openclawcode#301 | Awaiting chat approval.",
           "  action: /occode-start zhyongrui/openclawcode#301",

@@ -4,6 +4,7 @@ import type {
   OpenClawCodeChatopsRepoRef,
   OpenClawCodeChatopsRunRequest,
 } from "../integrations/openclaw-plugin/chatops.js";
+import { deriveRepoIncidentLearningSummary } from "../integrations/openclaw-plugin/incident-learning.js";
 import {
   OpenClawCodeChatopsStore,
   type OpenClawCodeDeferredRuntimeReroute,
@@ -35,6 +36,11 @@ export interface OpenClawCodeOperatorRepoSummary {
   qualityGateWarnCount: number;
   qualityGateFailCount: number;
   qualityGatePendingCount: number;
+  incidentLearningSummary?: string;
+  providerFailureLearningCount: number;
+  reviewRerunLearningCount: number;
+  manualRecoveryLearningCount: number;
+  runtimeRerouteLearningCount: number;
 }
 
 export interface OpenClawCodeOperatorStatusSnapshot {
@@ -166,6 +172,7 @@ function buildRepoSummary(params: {
     }) === repoKey
       ? 1
       : 0;
+  const incidentLearning = deriveRepoIncidentLearningSummary(snapshotEntries);
   return {
     repoKey,
     bindingPresent: Boolean(state.repoBindingsByRepo[repoKey]),
@@ -185,6 +192,11 @@ function buildRepoSummary(params: {
     qualityGateWarnCount: snapshotEntries.filter((entry) => entry.qualityGateStatus === "warn").length,
     qualityGateFailCount: snapshotEntries.filter((entry) => entry.qualityGateStatus === "fail").length,
     qualityGatePendingCount: snapshotEntries.filter((entry) => entry.qualityGateStatus === "pending").length,
+    incidentLearningSummary: incidentLearning?.summary,
+    providerFailureLearningCount: incidentLearning?.providerFailureCount ?? 0,
+    reviewRerunLearningCount: incidentLearning?.reviewRerunCount ?? 0,
+    manualRecoveryLearningCount: incidentLearning?.manualRecoveryCount ?? 0,
+    runtimeRerouteLearningCount: incidentLearning?.runtimeRerouteCount ?? 0,
   };
 }
 

@@ -15,6 +15,7 @@ import {
   DEFAULT_OPENCLAWCODE_VERIFIER_TIMEOUT_SECONDS,
   openclawCodeBlueprintInitCommand,
   openclawCodeBootstrapInternals,
+  openclawCodeCapabilityMapShowCommand,
   openclawCodePolicyShowCommand,
   openclawCodeRepoPlanCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
@@ -4787,6 +4788,50 @@ describe("openclawCodeRunCommand", () => {
     });
   });
 
+  it("reports a stable command capability map for chat, cli, artifacts, and runtime roles", async () => {
+    await openclawCodeCapabilityMapShowCommand(
+      {
+        json: true,
+      },
+      runtime,
+    );
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload).toMatchObject({
+      contractVersion: 1,
+      chatCommands: expect.arrayContaining([
+        expect.objectContaining({
+          command: "/occode-status",
+          capabilities: expect.arrayContaining(["issue.status.inspect", "run.quality-gate"]),
+        }),
+      ]),
+      cliCommands: expect.arrayContaining([
+        expect.objectContaining({
+          command: "openclaw code capability-map-show",
+          capabilities: expect.arrayContaining(["capability-map.inspect"]),
+        }),
+      ]),
+      workflowArtifacts: expect.arrayContaining([
+        expect.objectContaining({
+          path: ".openclawcode/role-routing.json",
+        }),
+        expect.objectContaining({
+          path: "openclaw code operator-status-snapshot-show --json",
+        }),
+      ]),
+      runtimeRoles: expect.arrayContaining([
+        expect.objectContaining({
+          roleId: "coder",
+          steeringStages: expect.arrayContaining(["building"]),
+        }),
+        expect.objectContaining({
+          roleId: "verifier",
+          steeringStages: expect.arrayContaining(["verification"]),
+        }),
+      ]),
+    });
+  });
+
   it("reports a stable operator status snapshot for tracked queue and status state", async () => {
     const stateDir = await mkdtemp(path.join(os.tmpdir(), "openclawcode-operator-state-"));
     const store = OpenClawCodeChatopsStore.fromStateDir(stateDir);
@@ -4883,8 +4928,31 @@ describe("openclawCodeRunCommand", () => {
       notifyChannel: "telegram",
       notifyTarget: "chat:primary",
       latestReviewDecision: "approved",
+      rerunReason: "Address GitHub review feedback",
+      rerunRequestedAt: "2026-03-16T00:09:00.000Z",
+      rerunPriorRunId: "run-100",
+      rerunPriorStage: "changes-requested",
+      rerunRequestedCoderAgentId: "codex-rerun",
+      rerunManualTakeoverRequestedAt: "2026-03-16T00:08:30.000Z",
+      providerFailureCount: 2,
+      providerPauseReason:
+        "Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
       qualityGateStatus: "warn",
       qualityGateSummary: "verifier approved with warnings | 1 missing coverage item",
+      handoffEntries: [
+        {
+          kind: "manual-resume",
+          recordedAt: "2026-03-16T00:08:45.000Z",
+          summary: "Resumed after local repair.",
+          actor: "tester",
+        },
+        {
+          kind: "runtime-reroute",
+          recordedAt: "2026-03-16T00:09:00.000Z",
+          summary: "coder=codex-rerun",
+          requestedCoderAgentId: "codex-rerun",
+        },
+      ],
       autoMergePolicyEligible: false,
       autoMergePolicyReason: "Blocked pending merge-promotion gate approval.",
       autoMergeDisposition: "skipped",
@@ -4948,6 +5016,12 @@ describe("openclawCodeRunCommand", () => {
         qualityGateWarnCount: 1,
         qualityGateFailCount: 0,
         qualityGatePendingCount: 0,
+        incidentLearningSummary:
+          "provider-failures=1 | review-reruns=1 | manual-recoveries=1 | runtime-reroutes=1",
+        providerFailureLearningCount: 1,
+        reviewRerunLearningCount: 1,
+        manualRecoveryLearningCount: 1,
+        runtimeRerouteLearningCount: 1,
       }),
     );
   });

@@ -40,6 +40,7 @@ import type {
 } from "../openclawcode/index.js";
 import {
   assessValidationIssueImplementation,
+  buildOpenClawCodeCapabilityMapSnapshot,
   classifyValidationIssue,
   FileSystemWorkflowRunStore,
   buildValidationIssueDraft,
@@ -405,6 +406,10 @@ export interface OpenClawCodeRollbackReceiptShowOpts {
 
 export interface OpenClawCodeOperatorStatusSnapshotShowOpts {
   stateDir?: string;
+  json?: boolean;
+}
+
+export interface OpenClawCodeCapabilityMapShowOpts {
   json?: boolean;
 }
 
@@ -2596,6 +2601,36 @@ function logOpenClawCodeOperatorStatusSnapshot(params: {
     runtime.log(
       `- ${repo.repoKey}: tracked=${repo.trackedIssueCount} pending=${repo.pendingApprovalCount} queued=${repo.queuedRunCount} current=${repo.currentRunCount} ready=${repo.readyForHumanReviewCount} merged=${repo.mergedCount} failed=${repo.failedCount}`,
     );
+  }
+}
+
+function logOpenClawCodeCapabilityMap(params: {
+  snapshot: ReturnType<typeof buildOpenClawCodeCapabilityMapSnapshot>;
+  runtime: RuntimeEnv;
+  json?: boolean;
+}): void {
+  const { snapshot, runtime } = params;
+  if (params.json) {
+    runtime.log(JSON.stringify(snapshot, null, 2));
+    return;
+  }
+
+  runtime.log(`Capability map contract version: ${snapshot.contractVersion}`);
+  runtime.log(`Chat commands: ${snapshot.chatCommands.length}`);
+  for (const command of snapshot.chatCommands) {
+    runtime.log(`- ${command.command} | ${command.capabilities.join(", ")}`);
+  }
+  runtime.log(`CLI commands: ${snapshot.cliCommands.length}`);
+  for (const command of snapshot.cliCommands) {
+    runtime.log(`- ${command.command} | ${command.capabilities.join(", ")}`);
+  }
+  runtime.log(`Workflow artifacts: ${snapshot.workflowArtifacts.length}`);
+  for (const artifact of snapshot.workflowArtifacts) {
+    runtime.log(`- ${artifact.path} | ${artifact.summary}`);
+  }
+  runtime.log(`Runtime roles: ${snapshot.runtimeRoles.length}`);
+  for (const role of snapshot.runtimeRoles) {
+    runtime.log(`- ${role.roleId} | stages=${role.steeringStages.join(", ")}`);
   }
 }
 
@@ -5026,6 +5061,18 @@ export async function openclawCodeOperatorStatusSnapshotShowCommand(
   const stateDir = resolveOperatorStateDir(opts.stateDir);
   const snapshot = await readOpenClawCodeOperatorStatusSnapshot(stateDir);
   logOpenClawCodeOperatorStatusSnapshot({
+    snapshot,
+    runtime,
+    json: Boolean(opts.json),
+  });
+}
+
+export async function openclawCodeCapabilityMapShowCommand(
+  opts: OpenClawCodeCapabilityMapShowOpts,
+  runtime: RuntimeEnv,
+): Promise<void> {
+  const snapshot = buildOpenClawCodeCapabilityMapSnapshot();
+  logOpenClawCodeCapabilityMap({
     snapshot,
     runtime,
     json: Boolean(opts.json),

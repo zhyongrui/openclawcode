@@ -17,6 +17,7 @@ import {
   buildRunStatusMessage,
   buildWorkflowFailureDiagnosticLines,
   classifyChatIssueDraftKind,
+  deriveRepoIncidentLearningSummary,
   decideIssueWebhookIntake,
   extractWorkflowRunFromCommandOutput,
   findLatestLocalRunStatusForIssue,
@@ -2440,6 +2441,18 @@ function summarizeRepoQualityGates(params: {
   return `Quality gates: pass=${counts.pass} | warn=${counts.warn} | fail=${counts.fail} | pending=${counts.pending}`;
 }
 
+function summarizeRepoIncidentLearnings(params: {
+  state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
+  repo: { owner: string; repo: string };
+}): string | undefined {
+  const summary = deriveRepoIncidentLearningSummary(
+    Object.values(params.state.statusSnapshotsByIssue).filter((snapshot) =>
+      issueKeyMatchesRepo(snapshot.issueKey, params.repo),
+    ),
+  );
+  return summary ? `Recent learnings: ${summary.summary}` : undefined;
+}
+
 function buildInboxQualityGateLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
   if (!snapshot.qualityGateStatus || !snapshot.qualityGateSummary) {
     return [];
@@ -4696,6 +4709,13 @@ function buildInboxMessage(params: {
   });
   if (qualityGateSummary) {
     lines.push(qualityGateSummary);
+  }
+  const incidentLearningSummary = summarizeRepoIncidentLearnings({
+    state: params.state,
+    repo: params.repo,
+  });
+  if (incidentLearningSummary) {
+    lines.push(incidentLearningSummary);
   }
 
   if (pending.length > 0) {

@@ -1,5 +1,6 @@
 export * from "./app/index.js";
 export * from "./autonomous-loop.js";
+export * from "./capability-map.js";
 export * from "./contracts/index.js";
 export * from "./discovery.js";
 export * from "./github/index.js";

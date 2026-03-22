@@ -18,6 +18,7 @@ import {
   openclawCodeNextWorkShowCommand,
   openclawCodeAutonomousLoopRunCommand,
   openclawCodeAutonomousLoopShowCommand,
+  openclawCodeCapabilityMapShowCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
   openclawCodePolicyShowCommand,
   openclawCodePromotionGateRefreshCommand,
@@ -168,6 +169,10 @@ ${formatHelpExamples([
   [
     "openclaw code operator-status-snapshot-show --json",
     "Inspect the stable machine-readable operator state snapshot behind chat-visible status.",
+  ],
+  [
+    "openclaw code capability-map-show --json",
+    "Inspect the stable command/capability map across chat, CLI, artifacts, and runtime roles.",
   ],
   [
     "openclaw code policy-show --json",
@@ -926,6 +931,21 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
         await openclawCodeOperatorStatusSnapshotShowCommand(
           {
             stateDir: opts.stateDir as string | undefined,
+            json: Boolean(opts.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  code
+    .command("capability-map-show")
+    .description("Show the stable command/capability map for openclawcode")
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        await openclawCodeCapabilityMapShowCommand(
+          {
             json: Boolean(opts.json),
           },
           defaultRuntime,

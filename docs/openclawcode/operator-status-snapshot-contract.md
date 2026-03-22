@@ -45,8 +45,9 @@ Semantics:
   `statusSnapshotsByIssue` map and is ordered by newest `updatedAt` first.
 - `repos` summarizes the per-repo operator state visible in chat:
   tracked issues, pending approvals, intake drafts, takeovers, deferred runtime
-  reroutes, queued/current work, final issue stages, and per-repo quality-gate
-  counts.
+  reroutes, queued/current work, final issue stages, per-repo quality-gate
+  counts, and recent incident-learning summaries derived from persisted issue
+  snapshots.
 - `currentRun` mirrors the queued run request currently being executed, when
   one exists.
 - `providerPause` mirrors the active provider-pause record when the queue is
@@ -62,6 +63,12 @@ Semantics:
   - `qualityGateFindingCount`
   - `qualityGateMissingCoverageCount`
   - `qualityGateFollowUpCount`
+- each `repos[*]` entry may also carry stable incident-learning summary fields:
+  - `incidentLearningSummary`
+  - `providerFailureLearningCount`
+  - `reviewRerunLearningCount`
+  - `manualRecoveryLearningCount`
+  - `runtimeRerouteLearningCount`
 
 Stability boundary:
 
