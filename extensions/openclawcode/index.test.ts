@@ -2683,6 +2683,8 @@ describe("openclawcode extension", () => {
           "Provider pause: active until 2099-03-12T12:15:00.000Z",
           "- failures: 2 | last failure: 2099-03-12T12:05:00.000Z",
           "- reason: Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
+          "- impact: new work can still queue, but queued runs will not start until the pause clears.",
+          "- recovery: queue drain resumes automatically after the pause window elapses.",
         ].join("\n"),
       });
     } finally {
@@ -3123,6 +3125,8 @@ describe("openclawcode extension", () => {
           "Provider pause: active until 2099-03-12T12:15:00.000Z",
           "- failures: 2 | last failure: 2099-03-12T12:05:00.000Z",
           "- reason: Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
+          "- impact: new work can still queue, but queued runs will not start until the pause clears.",
+          "- recovery: queue drain resumes automatically after the pause window elapses.",
         ].join("\n"),
       });
     } finally {
@@ -4995,6 +4999,8 @@ describe("openclawcode extension", () => {
           "Provider pause: active until 2099-03-12T12:15:00.000Z",
           "- failures: 2 | last failure: 2099-03-12T12:05:00.000Z",
           "- reason: Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
+          "- impact: new work can still queue, but queued runs will not start until the pause clears.",
+          "- recovery: queue drain resumes automatically after the pause window elapses.",
           `Operator repo root: ${fixture.repoRoot}`,
           "Operator baseline: main",
         ].join("\n"),
@@ -8543,14 +8549,18 @@ describe("openclawcode extension", () => {
           "Provider pause: active until 2099-03-12T12:15:00.000Z",
           "- failures: 2 | last failure: 2099-03-12T12:05:00.000Z",
           "- reason: Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
+          "- impact: new work can still queue, but queued runs will not start until the pause clears.",
+          "- recovery: queue drain resumes automatically after the pause window elapses.",
           "Pending approvals: 0",
           "Running: 0",
           "Queued: 0",
           "Recent ledger: 2",
           "- zhyongrui/openclawcode#6602 | Failed | final: failed | 2099-03-12T12:05:00.000Z",
+          "  policy: /occode-policy zhyongrui/openclawcode#6602",
           "  provider: active pause until 2099-03-12T12:15:00.000Z | last transient failure at 2099-03-12T12:05:00.000Z | failures: 2",
           "  provider-reason: Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
           "- zhyongrui/openclawcode#6601 | Failed | final: failed | 2099-03-12T12:00:00.000Z",
+          "  policy: /occode-policy zhyongrui/openclawcode#6601",
           "  provider: last transient failure at 2099-03-12T12:00:00.000Z | failures: 1",
         ].join("\n"),
       });

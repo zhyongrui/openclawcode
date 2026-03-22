@@ -1800,6 +1800,8 @@ function buildProviderPauseLines(params: {
     `Provider pause: active until ${params.pause.until}`,
     `- failures: ${params.pause.failureCount} | last failure: ${params.pause.lastFailureAt}`,
     `- reason: ${params.pause.reason}`,
+    "- impact: new work can still queue, but queued runs will not start until the pause clears.",
+    "- recovery: queue drain resumes automatically after the pause window elapses.",
   ];
 }
 

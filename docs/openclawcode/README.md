@@ -773,8 +773,6 @@ loop with:
 
 Still pending for a fuller product loop:
 
-- surfacing active provider pause and recovery expectations even more clearly
-  across operator-facing status surfaces
 - tightening outer retry latency during provider-instability windows now that
   the embedded SDK retry loop is clamped for openclawcode worktrees
 - consuming the replenished validation pool through new live proofs, then
