@@ -1849,6 +1849,15 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.verificationFindingCount).toBe(2);
     expect(payload.verificationMissingCoverageCount).toBe(1);
     expect(payload.verificationFollowUpCount).toBe(2);
+    expect(payload.qualityGateStatus).toBe("fail");
+    expect(payload.qualityGateHasFailures).toBe(true);
+    expect(payload.qualityGateHasWarnings).toBe(true);
+    expect(payload.qualityGateBlockingReasons).toEqual(["verification requested changes"]);
+    expect(payload.qualityGateWarnings).toEqual([
+      "2 findings",
+      "1 missing coverage item",
+      "2 follow-ups",
+    ]);
   });
 
   it("reports verificationDecisionIsEscalate when the verifier escalates", async () => {

@@ -52,6 +52,15 @@ Semantics:
   paused after repeated transient provider failures.
 - `deferredRuntimeReroutes` mirrors pending coder/verifier reroute requests
   that were captured while an issue was already running.
+- each `issueSnapshots[*]` entry may also carry stable quality-gate summary
+  fields:
+  - `qualityGateStatus`
+  - `qualityGateSummary`
+  - `qualityGateBlockingReasons`
+  - `qualityGateWarningReasons`
+  - `qualityGateFindingCount`
+  - `qualityGateMissingCoverageCount`
+  - `qualityGateFollowUpCount`
 
 Stability boundary:
 

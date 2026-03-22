@@ -11,6 +11,7 @@ export * from "./policy.js";
 export * from "./persistence/index.js";
 export * from "./project-progress.js";
 export * from "./promotion-artifacts.js";
+export * from "./quality-gate.js";
 export * from "./role-routing.js";
 export * from "./roles/index.js";
 export * from "./runtime/index.js";

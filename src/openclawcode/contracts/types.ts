@@ -278,6 +278,7 @@ export interface WorkflowStageGateSnapshot {
 }
 
 export type WorkflowPlanReviewStatus = "not-required" | "awaiting-approval" | "approved";
+export type WorkflowQualityGateStatus = "pass" | "warn" | "fail" | "pending";
 
 export interface WorkflowPlanReviewSnapshot {
   required: boolean;
@@ -297,6 +298,24 @@ export interface WorkflowPlanEditRecord {
   actor: string | null;
   note: string | null;
   editedFields: string[];
+}
+
+export interface WorkflowQualityGateSummary {
+  status: WorkflowQualityGateStatus;
+  summary: string;
+  blockingReasons: string[];
+  warningReasons: string[];
+  scopeCheckPassed: boolean | null;
+  verificationDecision: VerificationDecision | null;
+  findingCount: number;
+  missingCoverageCount: number;
+  followUpCount: number;
+  generatedFileCount: number;
+  largeDiff: boolean;
+  broadFanOut: boolean;
+  testCommandCount: number;
+  testResultCount: number;
+  failureSummary: string | null;
 }
 
 export interface WorkflowRun {

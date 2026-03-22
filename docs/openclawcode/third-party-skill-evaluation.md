@@ -419,3 +419,144 @@ Why this matters:
 - it closes the operator-feedback loop for execution-mode-aware planning
 - it makes refactor/research pauses legible in normal status views instead of
   only inside raw stage-gate artifacts
+
+## Additional Framework Evaluation
+
+This second evaluation pass covers broader agent-engineering repos rather than
+single skills:
+
+- `obra/superpowers`
+- `affaan-m/everything-claude-code`
+
+Local research clones used for this review:
+
+- `/tmp/openclaw-research/superpowers`
+- `/tmp/openclaw-research/everything-claude-code`
+
+These repos are not direct drop-in dependencies for `openclawcode`. The value
+is in extracting workflow and operational patterns that strengthen the existing
+blueprint-first operator.
+
+## What `superpowers` Gets Right
+
+`superpowers` is most useful as a workflow-discipline reference, not as a
+feature catalog.
+
+Strongest ideas:
+
+- do not jump from vague request directly into code
+- make `brainstorm -> spec -> plan -> code -> review` explicit
+- treat TDD and review as required execution stages rather than optional style
+- keep workflow skills small and composable instead of hiding everything inside
+  one giant prompt
+
+Why this matters for `openclawcode`:
+
+- `openclawcode` already has:
+  - blueprint discussion
+  - work-item decomposition
+  - plan approval
+  - stage gates
+  - handoff persistence
+- the remaining gap is not missing primitives; it is making the pre-code stages
+  more consistently enforced and legible to operators
+
+Recommended absorption:
+
+- strengthen the no-code-before-approved-plan contract
+- tighten TDD-first behavior for implementation work, especially bugfixes and
+  narrow feature slices
+- expose smaller reusable workflow skills or runtime roles for planner, coder,
+  verifier, and reviewer behavior
+- use the blueprint/chat intake surfaces as the equivalent of
+  `brainstorm -> spec`, rather than inventing a parallel planning system
+
+Not worth copying directly:
+
+- deprecated or wrapper-style command shells
+- any repo-specific command naming that does not map cleanly onto the existing
+  `openclawcode` command surface
+
+## What `everything-claude-code` Gets Right
+
+`everything-claude-code` is more useful as an operator-harness reference than
+as a product-workflow reference.
+
+Strongest ideas:
+
+- clear command -> capability -> agent mapping
+- explicit quality-gate behavior
+- continuous learning from repeated fixes and failures
+- token and context budgeting as a first-class engineering concern
+- harness and loop auditing so a stalled run explains *why* it is stalled
+
+Why this matters for `openclawcode`:
+
+- `openclawcode` already has the core autonomy loop, but several operator
+  surfaces still depend on log reading or developer context when something goes
+  wrong
+- the next product gains should make the system more self-explanatory and more
+  repeatable under long-lived autonomous use
+
+Recommended absorption:
+
+- add a compact repo-local quality-gate surface that summarizes lint, type,
+  test, coverage, and security outcomes for a run
+- document a stable command/capability map tying together:
+  - chat commands
+  - CLI commands
+  - workflow artifacts
+  - runtime roles
+- turn repeated operator incidents into durable learning artifacts and guidance
+- surface loop-health, stall-reason, and context-budget diagnostics through
+  normal operator channels instead of raw traces only
+
+Not worth copying directly:
+
+- the very large generic command catalog
+- harness-specific hook mechanics that do not fit the OpenClaw plugin/runtime
+  model
+- broad framework abstractions that add surface area without directly reducing
+  operator friction
+
+## Best Cross-Repo Imports For `openclawcode`
+
+The highest-value ideas from these two repos are:
+
+1. mandatory pre-code stage discipline
+2. a first-class quality-gate summary
+3. a stable command/capability map
+4. continuous learning and pattern extraction from real operator incidents
+5. loop-health and context-budget diagnostics
+
+These are good fits because they strengthen the current product direction
+without replacing its architecture:
+
+- keep `PROJECT-BLUEPRINT.md` as the canonical planning artifact
+- keep `openclawcode`'s existing issue/workflow engine as the execution layer
+- improve operator visibility, execution discipline, and repeatability on top
+  of that base
+
+## Priority Order
+
+Recommended integration order from this second evaluation pass:
+
+1. add a compact `quality gate` surface shared by chat and CLI
+2. add continuous learning / pattern-extraction from run failures and manual
+   repairs
+3. publish a stable command/capability map for operators and future refactors
+4. harden mandatory pre-code stage discipline on top of existing blueprint and
+   plan approval behavior
+5. surface loop-stall and context-budget diagnostics in normal operator status
+
+## Short Conclusion
+
+- `superpowers` is most worth absorbing as a development-method discipline
+- `everything-claude-code` is most worth absorbing as an operator and harness
+  hardening reference
+- `openclawcode` should not copy either repo wholesale
+- the right move is to absorb the smallest set of ideas that directly improve:
+  - operator visibility
+  - execution discipline
+  - run repeatability
+  - autonomous failure recovery

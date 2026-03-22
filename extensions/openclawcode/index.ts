@@ -2408,6 +2408,16 @@ function buildTopLevelRuntimeRoutingLines(snapshot: OpenClawCodeIssueStatusSnaps
   return [`Runtime routing: ${snapshot.runtimeRoutingSummary}`];
 }
 
+function buildTopLevelQualityGateLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
+  if (!snapshot.qualityGateStatus || !snapshot.qualityGateSummary) {
+    return [];
+  }
+  if (snapshot.status.includes("\nQuality gate:")) {
+    return [];
+  }
+  return [`Quality gate: ${snapshot.qualityGateStatus} | ${snapshot.qualityGateSummary}`];
+}
+
 function buildTopLevelHandoffSummaryLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
   if (
     !snapshot.handoffEntries ||
@@ -7781,6 +7791,7 @@ export default {
             record: deferredRuntimeReroute,
             topLevel: true,
           }),
+          ...(currentSnapshot ? buildTopLevelQualityGateLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelRuntimeRoutingLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelHandoffSummaryLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelSuitabilityPolicyLines(currentSnapshot) : []),

@@ -68,6 +68,7 @@ import {
   readProjectRollbackSuggestionArtifact,
   readProjectStageGateArtifact,
   readProjectAutonomousLoopArtifact,
+  deriveWorkflowQualityGate,
   readProjectWorkItemInventory,
   recordProjectStageGateDecision,
   resolveGitHubRepoFromGit,
@@ -3333,6 +3334,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
     (Array.isArray(run.updatedAt) && run.updatedAt.length > 0) ||
     (typeof run.updatedAt === "string" && run.updatedAt.length > 0);
   const latestPlanEdit = run.planEdits?.at(-1) ?? null;
+  const qualityGate = deriveWorkflowQualityGate(run);
   return {
     ...run,
     contractVersion: OPENCLAWCODE_RUN_JSON_CONTRACT_VERSION,
@@ -3379,6 +3381,15 @@ function toWorkflowRunJson(run: WorkflowRun) {
     buildGeneratedFilesPresent: (run.buildResult?.policySignals?.generatedFiles.length ?? 0) > 0,
     buildGeneratedFiles: run.buildResult?.policySignals?.generatedFiles ?? null,
     buildGeneratedFileCount: run.buildResult?.policySignals?.generatedFiles.length ?? null,
+    qualityGate,
+    qualityGateStatus: qualityGate.status,
+    qualityGateSummary: qualityGate.summary,
+    qualityGateBlockingReasons: qualityGate.blockingReasons,
+    qualityGateBlockingReasonCount: qualityGate.blockingReasons.length,
+    qualityGateWarnings: qualityGate.warningReasons,
+    qualityGateWarningCount: qualityGate.warningReasons.length,
+    qualityGateHasWarnings: qualityGate.warningReasons.length > 0,
+    qualityGateHasFailures: qualityGate.blockingReasons.length > 0,
     changeDisposition: changeDisposition.changeDisposition,
     changeDispositionReason: changeDisposition.changeDispositionReason,
     issueClassification: run.buildResult?.issueClassification ?? null,

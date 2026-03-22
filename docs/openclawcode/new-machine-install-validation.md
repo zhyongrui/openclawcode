@@ -37,7 +37,7 @@ Do not treat "the process started" as success.
 - `git`
 - `Node >= 22.16.0`
 - `pnpm`
-- one GitHub token exposed as `GH_TOKEN` or `GITHUB_TOKEN`
+- host GitHub auth, preferably through `gh auth login`
 - a real target repository in `<owner>/<repo>` form
 
 Optional:
@@ -112,9 +112,20 @@ test -f dist/index.js
 This is the first real pass/fail gate. If `pnpm build` fails, the machine is
 not ready.
 
-## Phase 4: Export The GitHub Token
+## Phase 4: Establish GitHub Auth
 
-Use either environment variable:
+Preferred on a real operator host:
+
+```bash
+gh auth login
+gh auth status
+```
+
+If this validation is exercising the chat-native onboarding path, it is also
+valid to let OpenClaw/OpenClaw Code drive the host-side device flow first and
+then verify the resulting host auth with `gh auth status`.
+
+Fallback only when interactive `gh` auth is unavailable:
 
 ```bash
 export GH_TOKEN=your_token_here
@@ -125,6 +136,9 @@ or:
 ```bash
 export GITHUB_TOKEN=your_token_here
 ```
+
+Treat `GH_TOKEN` / `GITHUB_TOKEN` as compatibility fallback, not the preferred
+operator path.
 
 Minimum practical capability for the first end-to-end proof:
 
@@ -267,7 +281,7 @@ If the machine fails later, this is the minimum evidence set you will want.
 - wrong repository cloned
 - Node version too old for the repo-local CLI
 - `pnpm build` failed, so `dist/entry.js` or `dist/index.js` is missing
-- GitHub token lacks repo, issue, PR, or webhook permissions
+- GitHub auth lacks repo, issue, PR, or webhook permissions
 - bootstrap could not obtain a public webhook URL
 - ChatOps was connected, but `/occode-bind` never ran against the repo
 - stale operator state from an older install polluted the test
@@ -285,7 +299,7 @@ node --version
 pnpm --version
 pnpm install
 pnpm build
-export GH_TOKEN=your_token_here
+gh auth login
 pnpm exec openclaw code bootstrap --repo <owner>/<repo> --json
 ./scripts/openclawcode-setup-check.sh --strict --json
 ```

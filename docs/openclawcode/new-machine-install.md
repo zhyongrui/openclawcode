@@ -20,7 +20,7 @@ Before you start, make sure the machine has:
 - `git`
 - `Node >= 22.16.0`
 - `pnpm`
-- one GitHub token exposed as `GH_TOKEN` or `GITHUB_TOKEN`
+- host GitHub auth, preferably through `gh auth login`
 
 Optional, depending on how you want to operate:
 
@@ -57,9 +57,16 @@ The current operator path assumes the built CLI exists at:
 dist/index.js
 ```
 
-## 3. Export Your GitHub Token
+## 3. Establish GitHub Auth
 
-Use either variable name:
+Preferred:
+
+```bash
+gh auth login
+gh auth status
+```
+
+Fallback only when interactive `gh` auth is unavailable:
 
 ```bash
 export GH_TOKEN=your_token_here
@@ -70,6 +77,9 @@ or:
 ```bash
 export GITHUB_TOKEN=your_token_here
 ```
+
+Treat `GH_TOKEN` / `GITHUB_TOKEN` as compatibility fallback, not the preferred
+operator path.
 
 Minimum practical capability for the first full repo flow:
 
@@ -215,7 +225,7 @@ git clone https://github.com/zhyongrui/openclawcode.git ~/pros/openclawcode
 cd ~/pros/openclawcode
 pnpm install
 pnpm build
-export GH_TOKEN=your_token_here
+gh auth login
 openclaw code bootstrap --repo <owner>/<repo> --json
 ./scripts/openclawcode-setup-check.sh --strict --json
 ```

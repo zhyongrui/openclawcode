@@ -2,12 +2,17 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type {
   WorkflowFailureDiagnostics,
+  WorkflowQualityGateStatus,
   SuitabilityDecision,
   WorkflowHandoffEntry,
   WorkflowRun,
   WorkflowStage,
 } from "../../openclawcode/contracts/index.js";
-import { resolveAutoMergeDisposition, resolveAutoMergePolicy } from "../../openclawcode/index.js";
+import {
+  deriveWorkflowQualityGate,
+  resolveAutoMergeDisposition,
+  resolveAutoMergePolicy,
+} from "../../openclawcode/index.js";
 import type { OpenClawCodeScopedIssueDraft } from "./chatops.js";
 import type { OpenClawCodeChatopsRunRequest } from "./chatops.js";
 
@@ -215,6 +220,13 @@ export interface OpenClawCodeIssueStatusSnapshot {
   autoMergePolicyReason?: string;
   autoMergeDisposition?: "merged" | "skipped" | "failed";
   autoMergeDispositionReason?: string;
+  qualityGateStatus?: WorkflowQualityGateStatus;
+  qualityGateSummary?: string;
+  qualityGateBlockingReasons?: string[];
+  qualityGateWarningReasons?: string[];
+  qualityGateFindingCount?: number;
+  qualityGateMissingCoverageCount?: number;
+  qualityGateFollowUpCount?: number;
   failureDiagnostics?: WorkflowFailureDiagnostics;
   providerFailureCount?: number;
   lastProviderFailureAt?: string;
@@ -964,6 +976,37 @@ function normalizeStatusSnapshot(raw: unknown): OpenClawCodeIssueStatusSnapshot 
       typeof candidate.autoMergeDispositionReason === "string"
         ? candidate.autoMergeDispositionReason
         : undefined,
+    qualityGateStatus:
+      candidate.qualityGateStatus === "pass" ||
+      candidate.qualityGateStatus === "warn" ||
+      candidate.qualityGateStatus === "fail" ||
+      candidate.qualityGateStatus === "pending"
+        ? candidate.qualityGateStatus
+        : undefined,
+    qualityGateSummary:
+      typeof candidate.qualityGateSummary === "string" ? candidate.qualityGateSummary : undefined,
+    qualityGateBlockingReasons: Array.isArray(candidate.qualityGateBlockingReasons)
+      ? candidate.qualityGateBlockingReasons.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : undefined,
+    qualityGateWarningReasons: Array.isArray(candidate.qualityGateWarningReasons)
+      ? candidate.qualityGateWarningReasons.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : undefined,
+    qualityGateFindingCount:
+      typeof candidate.qualityGateFindingCount === "number"
+        ? candidate.qualityGateFindingCount
+        : undefined,
+    qualityGateMissingCoverageCount:
+      typeof candidate.qualityGateMissingCoverageCount === "number"
+        ? candidate.qualityGateMissingCoverageCount
+        : undefined,
+    qualityGateFollowUpCount:
+      typeof candidate.qualityGateFollowUpCount === "number"
+        ? candidate.qualityGateFollowUpCount
+        : undefined,
     failureDiagnostics: normalizeWorkflowFailureDiagnostics(candidate.failureDiagnostics),
     providerFailureCount:
       typeof candidate.providerFailureCount === "number"
@@ -1228,6 +1271,7 @@ function buildStatusSnapshot(params: {
 }): OpenClawCodeIssueStatusSnapshot {
   const autoMergePolicy = resolveAutoMergePolicy(params.run);
   const autoMergeDisposition = resolveAutoMergeDisposition(params.run);
+  const qualityGate = deriveWorkflowQualityGate(params.run);
   return {
     issueKey: `${params.run.issue.owner}/${params.run.issue.repo}#${params.run.issue.number}`,
     status: params.status,
@@ -1273,6 +1317,13 @@ function buildStatusSnapshot(params: {
     autoMergePolicyReason: autoMergePolicy.autoMergePolicyReason,
     autoMergeDisposition: autoMergeDisposition.autoMergeDisposition ?? undefined,
     autoMergeDispositionReason: autoMergeDisposition.autoMergeDispositionReason ?? undefined,
+    qualityGateStatus: qualityGate.status,
+    qualityGateSummary: qualityGate.summary,
+    qualityGateBlockingReasons: qualityGate.blockingReasons,
+    qualityGateWarningReasons: qualityGate.warningReasons,
+    qualityGateFindingCount: qualityGate.findingCount,
+    qualityGateMissingCoverageCount: qualityGate.missingCoverageCount,
+    qualityGateFollowUpCount: qualityGate.followUpCount,
     failureDiagnostics: params.run.failureDiagnostics,
     lastNotificationChannel: params.notifyChannel,
     lastNotificationTarget: params.notifyTarget,

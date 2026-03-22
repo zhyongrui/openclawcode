@@ -50,6 +50,7 @@ Recommended reading order:
 44. `sync-promotion-runbook.md`
 45. `mvp-runbook.md`
 46. `webhook-operations.md`
+47. `third-party-skill-evaluation.md`
 
 Development logs live in `dev-log/`.
 

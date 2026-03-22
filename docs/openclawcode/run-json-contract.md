@@ -94,6 +94,15 @@ those nested objects.
 - `buildGeneratedFilesPresent`
 - `buildGeneratedFiles`
 - `buildGeneratedFileCount`
+- `qualityGate`
+- `qualityGateStatus`
+- `qualityGateSummary`
+- `qualityGateBlockingReasons`
+- `qualityGateBlockingReasonCount`
+- `qualityGateWarnings`
+- `qualityGateWarningCount`
+- `qualityGateHasWarnings`
+- `qualityGateHasFailures`
 - `changeDisposition`
 - `changeDispositionReason`
 - `issueClassification`
@@ -290,6 +299,15 @@ those nested objects.
 - `verificationFindingCount`
 - `verificationMissingCoverageCount`
 - `verificationFollowUpCount`
+
+`qualityGate*` fields are the compact top-level rollup intended for automation
+and chat/status rendering. They summarize the current workflow checkpoint from:
+
+- workflow failure state
+- scope-check state
+- verifier decision
+- residual findings, missing coverage, and follow-ups
+- diff guardrail warnings such as generated files, large diffs, or broad fan-out
 
 ### Workflow History And Records
 

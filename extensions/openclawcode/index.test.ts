@@ -5096,6 +5096,7 @@ describe("openclawcode extension", () => {
           "Summary: Build failed: HTTP 400: Internal server error",
           "Provider failure context: last transient failure at 2026-03-12T12:06:00.000Z | failures: 1",
           "Failure diagnostics: model=crs/gpt-5.4, prompt=8629, skillsPrompt=1245, schema=3030, tools=4, skills=1, files=0, usage=0, bootstrap=clean",
+          "Quality gate: fail | HTTP 400: Internal server error",
           `Operator repo root: ${fixture.repoRoot}`,
           "Operator baseline: main",
         ].join("\n"),
