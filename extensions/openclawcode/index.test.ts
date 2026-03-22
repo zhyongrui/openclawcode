@@ -490,34 +490,35 @@ async function registerPluginFixture(params?: {
         ) => Promise<boolean>;
       }
     | undefined;
+  const pluginConfig = {
+    repos: [
+      {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        repoRoot,
+        baseBranch: "main",
+        triggerMode: params?.triggerMode ?? "approve",
+        notifyChannel: "telegram",
+        notifyTarget: "chat:primary",
+        builderAgent: "main",
+        verifierAgent: "main",
+        testCommands: [
+          "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+        ],
+        mergeOnApprove: params?.mergeOnApprove,
+        pollIntervalMs: params?.pollIntervalMs,
+      },
+    ],
+    pollIntervalMs: params?.pollIntervalMs,
+    ...(params?.pluginConfigOverride ?? {}),
+  };
 
   plugin.register?.(
     createApi({
       stateDir,
       config: params?.config,
       runtime,
-      pluginConfig: {
-        repos: [
-          {
-            owner: "zhyongrui",
-            repo: "openclawcode",
-            repoRoot,
-            baseBranch: "main",
-            triggerMode: params?.triggerMode ?? "approve",
-            notifyChannel: "telegram",
-            notifyTarget: "chat:primary",
-            builderAgent: "main",
-            verifierAgent: "main",
-            testCommands: [
-              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
-            ],
-            mergeOnApprove: params?.mergeOnApprove,
-            pollIntervalMs: params?.pollIntervalMs,
-          },
-        ],
-        pollIntervalMs: params?.pollIntervalMs,
-        ...(params?.pluginConfigOverride ?? {}),
-      },
+      pluginConfig,
       runCommandWithTimeout,
       registerCommand(command) {
         commands.set(command.name, command);
@@ -535,6 +536,7 @@ async function registerPluginFixture(params?: {
     repoRoot,
     stateDir,
     runtime,
+    pluginConfig,
     store: OpenClawCodeChatopsStore.fromStateDir(stateDir),
     commands,
     route,
@@ -4354,6 +4356,67 @@ describe("openclawcode extension", () => {
           notifyTarget: "chat:primary",
         }),
       ).toBeUndefined();
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("discovers newly configured setup targets while the runner is already active", async () => {
+    const fixture = await registerPluginFixture({
+      pollIntervalMs: 10,
+      pluginConfigOverride: {
+        repos: [],
+      },
+    });
+    mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+      pid: 654,
+      logPath: "/tmp/proactive-gh-auth.log",
+      userCode: "WXYZ-1234",
+      verificationUri: "https://github.com/login/device",
+      startedAt: "2026-03-21T09:00:00.000Z",
+    });
+
+    try {
+      await fixture.service?.start({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      expect(mocked.startOnboardingGitHubCliDeviceLogin).not.toHaveBeenCalled();
+      fixture.pluginConfig.repos.push({
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        repoRoot: fixture.repoRoot,
+        baseBranch: "main",
+        triggerMode: "approve",
+        notifyChannel: "telegram",
+        notifyTarget: "chat:new-target",
+        builderAgent: "main",
+        verifierAgent: "main",
+        testCommands: [
+          "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+        ],
+      });
+
+      await waitForAssertion(async () => {
+        expect(mocked.startOnboardingGitHubCliDeviceLogin).toHaveBeenCalledWith({
+          stateDir: fixture.stateDir,
+        });
+        expect(
+          await fixture.store.getSetupSession({
+            notifyChannel: "telegram",
+            notifyTarget: "chat:new-target",
+          }),
+        ).toMatchObject({
+          stage: "awaiting-github-device-auth",
+          repoKey: "zhyongrui/openclawcode",
+          githubDeviceAuth: {
+            pid: 654,
+            userCode: "WXYZ-1234",
+          },
+        });
+      });
     } finally {
       await cleanupPluginFixture(fixture);
     }

@@ -366,6 +366,9 @@ control-plane steps.
 - this hardening is now landed
 - when the plugin service starts without GitHub auth, it now inspects the
   configured repo notification targets
+- the same runner loop now keeps re-checking configured targets after startup,
+  so newly written operator config does not require a gateway restart before
+  proactive setup can begin
 - if a target chat is still gated by DM pairing, the service now creates a
   setup session in `awaiting-chat-pairing`, pushes the pairing code into that
   chat, and waits for approval instead of silently assuming setup can run

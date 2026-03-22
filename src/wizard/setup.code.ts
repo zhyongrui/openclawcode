@@ -772,7 +772,8 @@ export async function runOnboardingOpenClawCode(params: {
     await prompter.note(
       [
         "This build includes OpenClaw Code, but GitHub auth is not configured yet.",
-        "If you already configured an OpenClaw chat surface, ask OpenClaw there to start setup with:",
+        "If you already configured an OpenClaw chat surface and a concrete OpenClaw Code chat target, OpenClaw can now start setup there proactively.",
+        "If that automatic kickoff does not arrive yet, ask OpenClaw there to start setup with:",
         `  ${formatCliCommand("/occode-setup")}`,
         "OpenClaw will launch GitHub device auth for you and continue setup in chat.",
         `CLI fallback: ${formatCliCommand("gh auth login")}`,

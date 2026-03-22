@@ -9010,7 +9010,11 @@ export default {
         workerActive = false;
         runnerReady = true;
         pollTimer = setInterval(() => {
+          const currentPluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
           void processPendingSetupSessions(api, store).catch(() => undefined);
+          void proactivelyStartChatSetupSessions(api, store, currentPluginConfig.repos).catch(
+            () => undefined,
+          );
           void processNextQueuedRun(api, store).catch(() => undefined);
         }, intervalMs);
         pollTimer.unref?.();

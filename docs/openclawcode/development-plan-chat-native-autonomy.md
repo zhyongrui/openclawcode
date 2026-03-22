@@ -229,6 +229,9 @@ Tasks:
   proactively instead of waiting for `/occode-setup`
 - after pairing approval, launch one host-side `gh auth login --web` flow and
   push the verification URL plus device code into the configured chat target
+- keep checking configured targets after startup so config written while the
+  runner is already active can still trigger proactive setup without waiting
+  for a restart
 - when exactly one repo maps to that target, pre-pin the repo so setup can
   continue through repo validation and bootstrap after auth completes
 
