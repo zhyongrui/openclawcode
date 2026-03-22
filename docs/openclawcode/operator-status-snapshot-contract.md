@@ -45,7 +45,8 @@ Semantics:
   `statusSnapshotsByIssue` map and is ordered by newest `updatedAt` first.
 - `repos` summarizes the per-repo operator state visible in chat:
   tracked issues, pending approvals, intake drafts, takeovers, deferred runtime
-  reroutes, queued/current work, and final issue stages.
+  reroutes, queued/current work, final issue stages, and per-repo quality-gate
+  counts.
 - `currentRun` mirrors the queued run request currently being executed, when
   one exists.
 - `providerPause` mirrors the active provider-pause record when the queue is

@@ -4883,6 +4883,8 @@ describe("openclawCodeRunCommand", () => {
       notifyChannel: "telegram",
       notifyTarget: "chat:primary",
       latestReviewDecision: "approved",
+      qualityGateStatus: "warn",
+      qualityGateSummary: "verifier approved with warnings | 1 missing coverage item",
       autoMergePolicyEligible: false,
       autoMergePolicyReason: "Blocked pending merge-promotion gate approval.",
       autoMergeDisposition: "skipped",
@@ -4942,6 +4944,10 @@ describe("openclawCodeRunCommand", () => {
         queuedRunCount: 0,
         currentRunCount: 1,
         readyForHumanReviewCount: 1,
+        qualityGatePassCount: 0,
+        qualityGateWarnCount: 1,
+        qualityGateFailCount: 0,
+        qualityGatePendingCount: 0,
       }),
     );
   });

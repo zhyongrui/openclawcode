@@ -31,6 +31,10 @@ export interface OpenClawCodeOperatorRepoSummary {
   readyForHumanReviewCount: number;
   mergedCount: number;
   failedCount: number;
+  qualityGatePassCount: number;
+  qualityGateWarnCount: number;
+  qualityGateFailCount: number;
+  qualityGatePendingCount: number;
 }
 
 export interface OpenClawCodeOperatorStatusSnapshot {
@@ -177,6 +181,10 @@ function buildRepoSummary(params: {
     ).length,
     mergedCount: snapshotEntries.filter((entry) => entry.stage === "merged").length,
     failedCount: snapshotEntries.filter((entry) => entry.stage === "failed").length,
+    qualityGatePassCount: snapshotEntries.filter((entry) => entry.qualityGateStatus === "pass").length,
+    qualityGateWarnCount: snapshotEntries.filter((entry) => entry.qualityGateStatus === "warn").length,
+    qualityGateFailCount: snapshotEntries.filter((entry) => entry.qualityGateStatus === "fail").length,
+    qualityGatePendingCount: snapshotEntries.filter((entry) => entry.qualityGateStatus === "pending").length,
   };
 }
 

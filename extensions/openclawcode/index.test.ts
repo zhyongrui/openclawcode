@@ -5651,6 +5651,8 @@ describe("openclawcode extension", () => {
         suitabilityDecision: "auto-run",
         suitabilitySummary:
           "Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
+        qualityGateStatus: "pass",
+        qualityGateSummary: "merged with no outstanding warnings",
         lastNotificationChannel: "telegram",
         lastNotificationTarget: "chat:merge-target",
         lastNotificationAt: "2026-03-11T03:01:00.000Z",
@@ -5673,6 +5675,10 @@ describe("openclawcode extension", () => {
         suitabilityDecision: "needs-human-review",
         suitabilitySummary:
           "Suitability recommends human review before autonomous execution. Issue is classified as mixed scope instead of command-layer.",
+        qualityGateStatus: "warn",
+        qualityGateSummary: "verifier approved with warnings | 1 missing coverage item",
+        qualityGateWarningReasons: ["1 missing coverage item"],
+        qualityGateMissingCoverageCount: 1,
         lastNotificationChannel: "feishu",
         lastNotificationTarget: "user:review-chat",
         lastNotificationAt: "2026-03-11T02:59:00.000Z",
@@ -5709,6 +5715,7 @@ describe("openclawcode extension", () => {
       expect(result).toEqual({
         text: [
           "openclawcode inbox for zhyongrui/openclawcode",
+          "Quality gates: pass=1 | warn=1 | fail=0 | pending=0",
           "Pending approvals: 1",
           "- zhyongrui/openclawcode#301 | Awaiting chat approval.",
           "  action: /occode-start zhyongrui/openclawcode#301",
@@ -5726,10 +5733,12 @@ describe("openclawcode extension", () => {
           "- zhyongrui/openclawcode#304 | Merged | final: merged | PR #404 | 2026-03-11T03:00:00.000Z",
           "  events: pull request merged @ 2026-03-11T03:00:30.000Z",
           "  suitability: auto-run | Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
+          "  quality: pass | merged with no outstanding warnings",
           "  notify: sent | telegram:chat:merge-target | 2026-03-11T03:01:00.000Z",
           "- zhyongrui/openclawcode#305 | Ready For Human Review | final: awaiting human review | 2026-03-11T02:58:00.000Z",
           "  events: review approved @ 2026-03-11T02:58:30.000Z",
           "  suitability: needs-human-review | Suitability recommends human review before autonomous execution. Issue is classified as mixed scope instead of command-layer.",
+          "  quality: warn | verifier approved with warnings | 1 missing coverage item",
           "  policy: /occode-policy zhyongrui/openclawcode#305",
           "  rerun: run-300 | from Changes Requested | 2026-03-11T02:40:00.000Z",
           "  reason: Address GitHub review feedback",

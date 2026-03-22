@@ -2418,6 +2418,35 @@ function buildTopLevelQualityGateLines(snapshot: OpenClawCodeIssueStatusSnapshot
   return [`Quality gate: ${snapshot.qualityGateStatus} | ${snapshot.qualityGateSummary}`];
 }
 
+function summarizeRepoQualityGates(params: {
+  state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
+  repo: { owner: string; repo: string };
+}): string | undefined {
+  const counts = {
+    pass: 0,
+    warn: 0,
+    fail: 0,
+    pending: 0,
+  };
+  for (const snapshot of Object.values(params.state.statusSnapshotsByIssue)) {
+    if (!issueKeyMatchesRepo(snapshot.issueKey, params.repo) || !snapshot.qualityGateStatus) {
+      continue;
+    }
+    counts[snapshot.qualityGateStatus] += 1;
+  }
+  if (counts.pass + counts.warn + counts.fail + counts.pending === 0) {
+    return undefined;
+  }
+  return `Quality gates: pass=${counts.pass} | warn=${counts.warn} | fail=${counts.fail} | pending=${counts.pending}`;
+}
+
+function buildInboxQualityGateLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
+  if (!snapshot.qualityGateStatus || !snapshot.qualityGateSummary) {
+    return [];
+  }
+  return [`  quality: ${snapshot.qualityGateStatus} | ${trimToSingleLine(snapshot.qualityGateSummary)}`];
+}
+
 function buildTopLevelHandoffSummaryLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
   if (
     !snapshot.handoffEntries ||
@@ -4661,6 +4690,13 @@ function buildInboxMessage(params: {
 
   const lines = [`openclawcode inbox for ${repoKey}`];
   lines.push(...buildProviderPauseLines({ pause: params.state.providerPause }));
+  const qualityGateSummary = summarizeRepoQualityGates({
+    state: params.state,
+    repo: params.repo,
+  });
+  if (qualityGateSummary) {
+    lines.push(qualityGateSummary);
+  }
 
   if (pending.length > 0) {
     lines.push(`Pending approvals: ${pending.length}`);
@@ -4773,6 +4809,7 @@ function buildInboxMessage(params: {
         );
       }
       lines.push(...buildSuitabilityLedgerLines(entry));
+      lines.push(...buildInboxQualityGateLines(entry));
       lines.push(...buildPolicyShortcutLines({ issueKey: entry.issueKey, snapshot: entry }));
       lines.push(
         ...buildRerunLedgerLines({

@@ -138,6 +138,22 @@ diagnostic, execution-spec, and rerun presence mirrors, so the next slices
 should bias back toward live proof, operator policy, and fresh-host
 repeatability instead of more convenience-field drift.
 
+The next post-checklist productization queue is now:
+
+1. harden the compact quality-gate surface across CLI JSON, chat status, inbox,
+   and operator snapshots
+2. add continuous learning / pattern extraction from repeated operator
+   incidents and manual repairs
+3. publish a stable command/capability map tying together:
+   - chat commands
+   - CLI commands
+   - workflow artifacts
+   - runtime roles
+4. tighten pre-code execution discipline so plan and test intent remain
+   explicit before implementation starts
+5. keep loop-health and context-budget diagnostics visible in operator-facing
+   status surfaces
+
 Every completed slice should either:
 
 - remove one blocker from that path

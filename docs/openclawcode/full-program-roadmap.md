@@ -137,6 +137,20 @@ The remaining work should be consumed in this order:
    - finish support matrix, policy docs, rollout notes, and rollback notes for
      other teams
 
+## Post-Checklist Productization Queue
+
+After the checklist-driven baseline is complete, the next queue is:
+
+1. deepen the compact quality-gate surface so the same gate summary is visible
+   through run JSON, chat status, inbox, and operator snapshots
+2. add continuous learning / pattern extraction from repeated operator
+   incidents and manual repairs
+3. publish a stable command/capability map for operators and future refactors
+4. tighten mandatory pre-code stage discipline on top of blueprint, stage-gate,
+   and plan-approval behavior
+5. keep loop-stall and context-budget diagnostics visible in normal operator
+   status paths
+
 ## Ordered Endgame Backlog
 
 This is the ordered queue from the current state to the intended finished
