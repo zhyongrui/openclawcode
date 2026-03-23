@@ -173,6 +173,216 @@ So the design must explicitly support two modes:
 1. `qr-public-callback`
 2. `quick-actions-fallback`
 
+## Option A: Temporary Public Tunnel For Mobile QR Bind
+
+This is the recommended implementation for server-hosted installs where the
+operator wants a Weixin-like "scan on phone and continue automatically"
+experience.
+
+### Product goal
+
+After the operator enters Feishu `App ID` and `App Secret`, onboarding should
+be able to say:
+
+- "Scan this QR in Feishu"
+- "Approve the login"
+- "OpenClaw will bind your operator DM and continue setup automatically"
+
+without requiring:
+
+- a local browser on the server
+- a manual Quick actions tap
+- a second `/occode-setup` retry after pairing
+
+### Why a tunnel is needed
+
+In a server environment, the gateway often only exposes:
+
+- `http://127.0.0.1:18789`
+
+That is reachable only from the host itself. A phone scanning a QR code cannot
+call back into that address.
+
+So Option A adds one missing ingredient:
+
+- a temporary public HTTPS callback base URL
+
+For example, onboarding could obtain a temporary externally reachable base URL
+through the same tunnel infrastructure that OpenClaw Code bootstrap already
+uses for webhook setup, then generate the Feishu bind link from that base URL
+instead of `127.0.0.1`.
+
+### Operator experience
+
+Recommended UX:
+
+1. operator configures Feishu app credentials
+2. onboarding detects that the current gateway bind is loopback-only
+3. onboarding offers:
+   - `Use temporary public link for phone QR bind` (recommended)
+   - `Use Quick actions in Feishu instead`
+   - `Skip for now`
+4. if the operator chooses the public-link path:
+   - OpenClaw starts or reuses a temporary tunnel
+   - OpenClaw generates a signed public bind URL
+   - OpenClaw renders a full QR plus copyable URL
+   - operator scans on phone and approves in Feishu
+   - OpenClaw completes the callback, binds `user:<open_id>`, and proactively
+     sends the first setup message into that DM
+
+### Architecture slice
+
+Option A should be implemented as a thin public-callback layer on top of the
+existing Feishu QR binding flow, not as a separate binding system.
+
+The flow should be:
+
+1. create a Feishu QR binding session
+2. ask the gateway / bootstrap layer for a public callback base URL
+3. build:
+   - public claim URL:
+     `https://public-base/openclaw/bind/feishu/:bindingId?sig=...`
+   - public OAuth callback URL pointing back into the same plugin route family
+4. render QR + URL
+5. receive callback through the public URL
+6. continue through the existing bind-session completion path
+
+That means the current session store, signed URL verification, `open_id`
+resolution, preferred operator target write, and proactive setup continuation
+should all stay shared.
+
+### New runtime capability needed
+
+Add a small helper that answers:
+
+- "Can this onboarding session produce a public callback URL right now?"
+
+Possible shape:
+
+- `src/gateway/public-callback.ts`
+- `src/tunnel/public-url.ts`
+
+Suggested return contract:
+
+```ts
+type PublicCallbackAvailability =
+  | {
+      available: true;
+      baseUrl: string;
+      source: "managed-tunnel" | "configured-public-base-url";
+      expiresAt?: string;
+    }
+  | {
+      available: false;
+      reason:
+        | "loopback-only-no-tunnel"
+        | "tunnel-start-failed"
+        | "public-base-url-misconfigured";
+      detail?: string;
+    };
+```
+
+This keeps the setup UI honest:
+
+- if public callback is available, show QR-for-phone flow
+- if not, show Quick actions fallback with a precise reason
+
+### Tunnel source options
+
+Option A should support two public URL sources:
+
+1. **Managed tunnel**
+   - reuse the tunnel startup logic already used in bootstrap / webhook flows
+   - best for zero-config fresh-machine installs
+2. **Configured public base URL**
+   - allow advanced operators to provide a stable public HTTPS base URL
+   - best for long-lived self-hosted gateways behind reverse proxies
+
+Onboarding should prefer:
+
+1. configured public base URL
+2. otherwise managed tunnel
+3. otherwise Quick actions fallback
+
+### Setup-surface behavior
+
+`extensions/feishu/src/setup-surface.ts` should be updated to branch like this
+after the Feishu connection test succeeds:
+
+1. check callback reachability
+2. if `available: true`
+   - default to `Use temporary public link for phone QR bind`
+   - render QR and full plain URL
+   - print expiry / retry information
+3. if `available: false`
+   - say exactly why phone QR bind is unavailable
+   - keep Quick actions as the primary fallback
+
+### Security properties
+
+The public tunnel path must preserve the same trust boundaries as the existing
+signed Feishu bind flow:
+
+- bind URLs remain signed and short-lived
+- binding sessions remain nonce/state protected
+- OAuth callback must still validate `state`
+- the callback should only be able to claim the exact pending bind session
+- successful claim should only write the resolved `user:<open_id>` for the
+  current Feishu account
+
+The tunnel does not change who is trusted; it only makes the callback reachable
+from the scanning device.
+
+### Operational guardrails
+
+Option A should also make the public-link lifecycle explicit:
+
+- surface the public base URL source
+- show whether the tunnel is temporary
+- show expiry if known
+- offer a one-step retry that refreshes the link
+- close or release temporary tunnel state after binding succeeds or expires
+
+### Success behavior
+
+On successful mobile bind, OpenClaw should immediately:
+
+1. persist `user:<open_id>` as the preferred operator target
+2. auto-write pairing allow-from if the setup policy permits it
+3. send a proactive DM such as:
+   - "OpenClaw is now bound to this Feishu account"
+   - "GitHub login is next"
+4. if GitHub auth is not ready, start device auth in that same DM
+5. if GitHub auth is already ready, continue directly into repo / blueprint
+   setup
+
+### Failure behavior
+
+If the tunnel path cannot be established or later fails, onboarding should not
+silently fall back.
+
+It should clearly say one of:
+
+- "Temporary public link could not be created; use Quick actions instead"
+- "This QR link expired; generate a new one"
+- "The callback succeeded but the DM target could not be saved; retry or use
+  Quick actions"
+
+### Why this is the best fit for your server scenario
+
+This option is the closest match to the Weixin-like experience you want:
+
+- phone can really scan the QR
+- callback can really reach OpenClaw
+- operator identity can be bound without a local desktop browser
+- setup can continue automatically in Feishu DM
+
+Without this public-callback layer, a server-hosted OpenClaw instance can only
+offer:
+
+- local-browser bind on the host
+- or Quick actions fallback
+
 ## Proposed Architecture
 
 ### New Feishu operator-binding session store
