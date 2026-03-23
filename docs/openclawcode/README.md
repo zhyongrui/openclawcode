@@ -113,8 +113,15 @@ loop with:
     - post-login setup messages now stay status-first and point operators at
       `/occode-github-switch` and `/occode-github-status` instead of printing
       host-side `gh auth logout` / `gh auth login` commands into chat
-    - `/occode-setup-status` remains the explicit manual recovery / status
-      command
+    - after GitHub auth becomes ready, `/occode-setup` now classifies the
+      project path before bootstrap:
+      - existing repo + existing OpenClaw Code blueprint
+      - existing repo + missing OpenClaw Code blueprint
+      - new project + repo not created yet
+    - bootstrap no longer starts just because GitHub auth is ready; blueprint
+      agreement remains the gate before repo preparation and development
+    - `/occode-setup-status` now stays report-only for the saved setup state,
+      while `/occode-setup-retry` is the explicit continue / retry command
 - a local builder/verifier runtime adapter built on top of OpenClaw's embedded
   agent entrypoint
 - an `openclaw code run ...` CLI path for issue-driven execution

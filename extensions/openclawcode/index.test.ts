@@ -3672,6 +3672,11 @@ describe("openclawcode extension", () => {
           Scope: "- Start with repo bootstrap and blueprint alignment only.",
           "Non-Goals": "- No mobile app or public sharing in the first MVP.",
           Constraints: "- Stay inside chat until repo creation is necessary.",
+          Risks: "- Repo bootstrap could drift from the agreed first-slice scope.",
+          Assumptions: "- The operator will keep using GitHub auth from this chat.",
+          "Human Gates": "- Confirm the first work item before broad implementation begins.",
+          "Provider Strategy":
+            "- Use the default provider routing for bootstrap and clarification work.",
           "Open Questions": "- None.",
           Workstreams: "- Bootstrap the repo and return the first proof path.",
         },
@@ -3731,12 +3736,25 @@ describe("openclawcode extension", () => {
     }
   });
 
-  it("reports authenticated setup status and preserves the selected repo", async () => {
+  it("classifies an existing repo with OpenClaw Code artifacts before bootstrap", async () => {
     const fixture = await registerPluginFixture();
     mocked.resolveOnboardingGitHubToken.mockReturnValue({
       token: "gho_test",
       source: "gh-auth-token",
     });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/contents/PROJECT-BLUEPRINT.md")) {
+          return new Response(JSON.stringify({ type: "file" }), { status: 200 });
+        }
+        if (url.includes("/contents/.openclawcode")) {
+          return new Response(JSON.stringify({ type: "dir" }), { status: 200 });
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
 
     try {
       const result = await fixture.commands.get("occode-setup")?.handler({
@@ -3748,23 +3766,11 @@ describe("openclawcode extension", () => {
         config: {},
       });
 
-      expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
-      expect(result?.text).toContain("GitHub username: zhyongrui");
-      expect(result?.text).toContain("Name: Zhongrui Ye");
-      expect(result?.text).toContain("Email: zyr@example.com");
-      expect(result?.text).toContain("Source: gh auth");
-      expect(result?.text).toContain(
-        "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
-      );
-      expect(result?.text).toContain("/occode-setup-cancel");
+      expect(result?.text).toContain("State: repo-existing-blueprint-detected");
       expect(result?.text).toContain("Repo: zhyongrui/iGallery");
-      expect(result?.text).toContain("Local path: /home/zyr/pros/openclawcode-target");
-      expect(result?.text).toContain("Blueprint: /home/zyr/pros/openclawcode-target/PROJECT-BLUEPRINT.md");
-      expect(result?.text).toContain("Status: clarify-project-blueprint");
-      expect(result?.text).toContain("/occode-blueprint zhyongrui/openclawcode");
-      expect(mocked.runOnboardingOpenClawCodeBootstrap).toHaveBeenCalledWith({
-        repo: "zhyongrui/iGallery",
-      });
+      expect(result?.text).toContain("Detected OpenClaw Code artifacts: PROJECT-BLUEPRINT.md, .openclawcode");
+      expect(result?.text).toContain("/occode-setup-retry");
+      expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
       expect(
         await fixture.store.getSetupSession({
           notifyChannel: "feishu",
@@ -3773,14 +3779,59 @@ describe("openclawcode extension", () => {
       ).toMatchObject({
         projectMode: "existing-repo",
         repoKey: "zhyongrui/iGallery",
-        stage: "bootstrap-complete",
+        stage: "repo-existing-blueprint-detected",
         githubAuthSource: "gh-auth-token",
         githubAuthLogin: "zhyongrui",
         githubAuthName: "Zhongrui Ye",
         githubAuthEmail: "zyr@example.com",
-        bootstrap: {
-          repoRoot: "/home/zyr/pros/openclawcode-target",
-          nextAction: "clarify-project-blueprint",
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("drafts blueprint-first onboarding for an existing repo without an OpenClaw Code blueprint", async () => {
+    const fixture = await registerPluginFixture();
+    mocked.resolveOnboardingGitHubToken.mockReturnValue({
+      token: "gho_test",
+      source: "gh-auth-token",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/contents/README.md")) {
+          return new Response(JSON.stringify({ type: "file" }), { status: 200 });
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    try {
+      const result = await fixture.commands.get("occode-setup")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-setup existing zhyongrui/iGallery",
+        args: "existing zhyongrui/iGallery",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("State: repo-nonstandard-context-detected");
+      expect(result?.text).toContain("Useful repo context found: README.md");
+      expect(result?.text).toContain("/occode-goal");
+      expect(result?.text).toContain("/occode-blueprint-agree");
+      expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
+      expect(
+        await fixture.store.getSetupSession({
+          notifyChannel: "feishu",
+          notifyTarget: "user:setup-chat",
+        }),
+      ).toMatchObject({
+        repoKey: "zhyongrui/iGallery",
+        stage: "repo-nonstandard-context-detected",
+        blueprintDraft: {
+          status: "draft",
         },
       });
     } finally {
@@ -3788,62 +3839,90 @@ describe("openclawcode extension", () => {
     }
   });
 
-  it("auto-binds the current chat after bootstrap when no repo binding exists yet", async () => {
+  it("keeps new-project repo creation blocked until the blueprint is agreed", async () => {
     const fixture = await registerPluginFixture();
     mocked.resolveOnboardingGitHubToken.mockReturnValue({
       token: "gho_test",
       source: "gh-auth-token",
+    });
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      projectMode: "new-project",
+      stage: "drafting-blueprint",
+      pendingRepoName: "iGallery",
+      blueprintDraft: {
+        status: "draft",
+        sections: {
+          Goal: "Ship a gallery",
+        },
+      },
+      createdAt: "2026-03-19T03:00:00.000Z",
+      updatedAt: "2026-03-19T03:00:00.000Z",
     });
 
     try {
       const result = await fixture.commands.get("occode-setup")?.handler({
         channel: "feishu",
         isAuthorizedSender: true,
-        commandBody: "/occode-setup existing zhyongrui/iGallery",
-        args: "existing zhyongrui/iGallery",
+        commandBody: "/occode-setup new iGallery",
+        args: "new iGallery",
         to: "user:setup-chat",
         config: {},
       });
 
-      expect(result?.text).toContain("Auto-bind: bound (feishu:user:setup-chat)");
-      expect(await fixture.store.getRepoBinding("zhyongrui/iGallery")).toMatchObject({
-        repoKey: "zhyongrui/iGallery",
-        notifyChannel: "feishu",
-        notifyTarget: "user:setup-chat",
+      expect(result?.text).toContain("State: repo-creation-pending");
+      expect(result?.text).toContain("First agree on the project blueprint in chat.");
+      expect(mocked.createOnboardingRepositoryViaGh).not.toHaveBeenCalled();
+      expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
+      expect(
+        await fixture.store.getSetupSession({
+          notifyChannel: "feishu",
+          notifyTarget: "user:setup-chat",
+        }),
+      ).toMatchObject({
+        pendingRepoName: "iGallery",
+        stage: "repo-creation-pending",
       });
     } finally {
       await cleanupPluginFixture(fixture);
     }
   });
 
-  it("keeps an existing repo binding when bootstrap runs from a different chat", async () => {
+  it("continues an existing OpenClaw Code repo into bootstrap through /occode-setup-retry", async () => {
     const fixture = await registerPluginFixture();
     mocked.resolveOnboardingGitHubToken.mockReturnValue({
       token: "gho_test",
       source: "gh-auth-token",
     });
-    await fixture.store.setRepoBinding({
-      repoKey: "zhyongrui/iGallery",
+    await fixture.store.upsertSetupSession({
       notifyChannel: "feishu",
-      notifyTarget: "user:existing-chat",
+      notifyTarget: "user:setup-chat",
+      projectMode: "existing-repo",
+      repoKey: "zhyongrui/iGallery",
+      stage: "repo-existing-blueprint-detected",
+      githubAuthSource: "gh-auth-token",
+      githubAuthLogin: "zhyongrui",
+      githubAuthName: "Zhongrui Ye",
+      githubAuthEmail: "zyr@example.com",
+      createdAt: "2026-03-19T02:35:00.000Z",
+      updatedAt: "2026-03-19T02:35:00.000Z",
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup")?.handler({
+      const result = await fixture.commands.get("occode-setup-retry")?.handler({
         channel: "feishu",
         isAuthorizedSender: true,
-        commandBody: "/occode-setup existing zhyongrui/iGallery",
-        args: "existing zhyongrui/iGallery",
+        commandBody: "/occode-setup-retry",
+        args: "",
         to: "user:setup-chat",
         config: {},
       });
 
-      expect(result?.text).toContain("Auto-bind: existing-binding-kept (feishu:user:existing-chat)");
-      expect(await fixture.store.getRepoBinding("zhyongrui/iGallery")).toMatchObject({
-        repoKey: "zhyongrui/iGallery",
-        notifyChannel: "feishu",
-        notifyTarget: "user:existing-chat",
+      expect(mocked.runOnboardingOpenClawCodeBootstrap).toHaveBeenCalledWith({
+        repo: "zhyongrui/iGallery",
       });
+      expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
     } finally {
       await cleanupPluginFixture(fixture);
     }
@@ -4058,7 +4137,9 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("Source: gh auth");
       expect(result?.text).toContain("/occode-github-switch");
       expect(result?.text).toContain("/occode-github-status");
-      expect(result?.text).toContain("Next: send /occode-setup owner/repo to pin the repo for this chat.");
+      expect(result?.text).toContain(
+        "Next: choose the project path with /occode-setup existing owner/repo, /occode-setup new-project, or /occode-setup new <repo-name>.",
+      );
       expect(result?.text).not.toContain(
         "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
       );
@@ -4196,7 +4277,7 @@ describe("openclawcode extension", () => {
         config: {},
       });
 
-      expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
+      expect(result?.text).toContain("OpenClaw Code setup has GitHub auth ready.");
       expect(result?.text).toContain("GitHub username: zhyongrui");
       expect(result?.text).toContain("Name: Zhongrui Ye");
       expect(result?.text).toContain("/occode-github-switch");
@@ -4205,17 +4286,15 @@ describe("openclawcode extension", () => {
         "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
       );
       expect(result?.text).toContain("/occode-setup-cancel");
-      expect(result?.text).toContain("Repo: zhyongrui/openclawcode");
-      expect(mocked.runOnboardingOpenClawCodeBootstrap).toHaveBeenCalledWith({
-        repo: "zhyongrui/openclawcode",
-      });
+      expect(result?.text).toContain("Selected repo: zhyongrui/openclawcode");
+      expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
       expect(
         await fixture.store.getSetupSession({
           notifyChannel: "feishu",
           notifyTarget: "user:setup-chat",
         }),
       ).toMatchObject({
-        stage: "bootstrap-complete",
+        stage: "github-authenticated",
         githubAuthSource: "gh-auth-token",
         githubAuthLogin: "zhyongrui",
         githubAuthName: "Zhongrui Ye",
@@ -4276,7 +4355,8 @@ describe("openclawcode extension", () => {
 
       expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
       expect(result?.text).toContain("GitHub username: zhyongrui");
-      expect(result?.text).toContain("gh auth logout --hostname github.com --user zhyongrui");
+      expect(result?.text).toContain("/occode-github-switch");
+      expect(result?.text).toContain("/occode-github-status");
       expect(result?.text).toContain(
         "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
       );
@@ -4897,10 +4977,6 @@ describe("openclawcode extension", () => {
 
   it("captures blueprint alignment details after bootstrap completes", async () => {
     const fixture = await registerPluginFixture();
-    mocked.resolveOnboardingGitHubToken.mockReturnValue({
-      token: "gho_test",
-      source: "gh-auth-token",
-    });
     await createProjectBlueprint({
       repoRoot: fixture.repoRoot,
       title: "OpenClawCode target blueprint",
@@ -4924,13 +5000,26 @@ describe("openclawcode extension", () => {
       },
       nextAction: "clarify-project-blueprint",
     });
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      projectMode: "existing-repo",
+      repoKey: "zhyongrui/openclawcode",
+      stage: "repo-existing-blueprint-detected",
+      githubAuthSource: "gh-auth-token",
+      githubAuthLogin: "zhyongrui",
+      githubAuthName: "Zhongrui Ye",
+      githubAuthEmail: "zyr@example.com",
+      createdAt: "2026-03-19T02:35:00.000Z",
+      updatedAt: "2026-03-19T02:35:00.000Z",
+    });
 
     try {
-      const result = await fixture.commands.get("occode-setup")?.handler({
+      const result = await fixture.commands.get("occode-setup-retry")?.handler({
         channel: "feishu",
         isAuthorizedSender: true,
-        commandBody: "/occode-setup existing zhyongrui/openclawcode",
-        args: "existing zhyongrui/openclawcode",
+        commandBody: "/occode-setup-retry",
+        args: "",
         to: "user:setup-chat",
         config: {},
       });

@@ -64,6 +64,11 @@ export type OpenClawCodeSetupSessionStage =
   | "awaiting-chat-pairing"
   | "awaiting-github-device-auth"
   | "github-authenticated"
+  | "repo-missing-blueprint-required"
+  | "repo-existing-blueprint-detected"
+  | "repo-nonstandard-context-detected"
+  | "repo-creation-pending"
+  | "bootstrap-ready"
   | "bootstrap-complete";
 
 export interface OpenClawCodeSetupSession {
@@ -447,6 +452,11 @@ function normalizeSetupSession(raw: unknown): OpenClawCodeSetupSession | undefin
     candidate.stage !== "awaiting-chat-pairing" &&
     candidate.stage !== "awaiting-github-device-auth" &&
     candidate.stage !== "github-authenticated" &&
+    candidate.stage !== "repo-missing-blueprint-required" &&
+    candidate.stage !== "repo-existing-blueprint-detected" &&
+    candidate.stage !== "repo-nonstandard-context-detected" &&
+    candidate.stage !== "repo-creation-pending" &&
+    candidate.stage !== "bootstrap-ready" &&
     candidate.stage !== "bootstrap-complete"
   ) {
     return undefined;

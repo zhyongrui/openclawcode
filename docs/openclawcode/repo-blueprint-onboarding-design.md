@@ -18,6 +18,30 @@ Today, these cases are easy to blur together. That creates the risk of starting
 bootstrap or development too early, before the operator and OpenClaw Code have a
 shared blueprint.
 
+## What "Bootstrap" Means Here
+
+In OpenClaw Code, `bootstrap` is the repo-preparation phase that happens after
+GitHub auth and after blueprint-level agreement.
+
+It is not the same thing as login, repo selection, or project alignment.
+
+In practice, bootstrap means preparing the chosen repository for OpenClaw Code
+to operate on it, for example by:
+
+- cloning or attaching the repo locally
+- materializing repo-local OpenClaw Code state under `.openclawcode/`
+- ensuring the canonical `PROJECT-BLUEPRINT.md` exists in the managed repo
+- wiring chat setup / plugin activation / webhook handoff metadata
+- writing the first operator-facing receipts and next-step commands
+
+So bootstrap should be treated as:
+
+- after login
+- after repo classification
+- after blueprint agreement
+
+not as the first thing that happens immediately after GitHub auth succeeds.
+
 ## Product Rule
 
 OpenClaw Code should not move into active development until project intent is
@@ -223,6 +247,23 @@ If no:
 - begin blueprint drafting mostly from chat conversation
 
 ## Chat UX Design
+
+## Command Semantics
+
+To keep the setup flow legible in chat, the commands should separate
+"report current state" from "continue execution":
+
+- `/occode-setup-status`
+  - reports the current setup stage
+  - reports the current blocker or next required agreement
+  - should not silently create repos, run bootstrap, or advance classification
+- `/occode-setup-retry`
+  - is the explicit operator signal to continue
+  - may retry repo classification, repo creation, or bootstrap depending on the
+    saved stage
+
+This distinction matters because the operator should be able to inspect the
+current state without accidentally causing setup to move forward.
 
 ### Existing repo path
 
