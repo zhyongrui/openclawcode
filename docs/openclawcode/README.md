@@ -145,10 +145,14 @@ loop with:
       - when the claim route receives a Feishu `open_id`, OpenClaw persists
         that DM target, auto-writes pairing allow-from, and proactively starts
         GitHub device auth in that chat
-      - if that signed QR hit arrives before the runner is fully ready, the
-        binding session now remembers the pending Feishu identity and the
-        background loop completes the first proactive DM automatically once
-        startup finishes
+      - when the signed QR hit does not yet carry Feishu identity, OpenClaw now
+        redirects into the official Feishu `authen` OAuth flow, exchanges the
+        returned code for `open_id`, and then continues the same proactive DM
+        path automatically
+      - if that signed QR hit or OAuth callback arrives before the runner is
+        fully ready, the binding session now remembers the pending Feishu
+        identity and the background loop completes the first proactive DM
+        automatically once startup finishes
 - a local builder/verifier runtime adapter built on top of OpenClaw's embedded
   agent entrypoint
 - an `openclaw code run ...` CLI path for issue-driven execution

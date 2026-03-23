@@ -381,7 +381,9 @@ export async function createFeishuQrBindingSession(params: {
   };
   const sessions = store.sessions
     .map((entry) =>
-      isSessionExpired(entry) && entry.state !== "claimed" ? { ...entry, state: "expired" } : entry,
+      isSessionExpired(entry) && entry.state !== "claimed"
+        ? { ...entry, state: "expired" as const }
+        : entry,
     )
     .concat(session);
   await saveStore(

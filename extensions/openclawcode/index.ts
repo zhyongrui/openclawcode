@@ -125,6 +125,13 @@ import {
   validateFeishuQrBindingClaim,
 } from "../../src/operator-chat-targets/feishu-qr-binding.js";
 import { setPreferredOperatorChatTarget } from "../../src/operator-chat-targets/store.js";
+import {
+  buildFeishuQrOAuthAuthorizeUrl,
+  decodeFeishuQrOAuthState,
+  encodeFeishuQrOAuthState,
+  exchangeFeishuQrOAuthCode,
+} from "../../src/operator-chat-targets/feishu-qr-oauth.js";
+import { resolveFeishuCredentials } from "../feishu/src/accounts.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
 const DEFAULT_RUN_TIMEOUT_MS = 30 * 60_000;
@@ -6325,6 +6332,153 @@ function normalizeFeishuIdentity(value: string | null): string | undefined {
   return trimmed || undefined;
 }
 
+function writeRedirectResponse(res: ServerResponse, location: string): boolean {
+  res.statusCode = 302;
+  res.setHeader("location", location);
+  res.end();
+  return true;
+}
+
+function resolveRequestHttpOrigin(req: IncomingMessage): string {
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const protocol =
+    typeof forwardedProto === "string" && forwardedProto.trim()
+      ? forwardedProto.split(",")[0]?.trim() || "http"
+      : "http";
+  const host =
+    typeof req.headers.host === "string" && req.headers.host.trim() ? req.headers.host.trim() : "localhost";
+  return `${protocol}://${host}`;
+}
+
+function resolveFeishuQrOAuthCredentials(api: OpenClawPluginApi):
+  | { appId: string; appSecret: string; domain?: string }
+  | undefined {
+  const channels = api.config?.channels;
+  if (!channels || typeof channels !== "object") {
+    return undefined;
+  }
+  const resolved = resolveFeishuCredentials((channels as Record<string, unknown>).feishu as never, {
+    allowUnresolvedSecretRef: true,
+  });
+  if (!resolved) {
+    return undefined;
+  }
+  return {
+    appId: resolved.appId,
+    appSecret: resolved.appSecret,
+    domain: resolved.domain,
+  };
+}
+
+function buildFeishuQrOAuthStartPath(params: { bindingId: string; sig: string }): string {
+  const url = new URL(`http://localhost/openclaw/bind/feishu/${encodeURIComponent(params.bindingId)}/oauth/start`);
+  url.searchParams.set("sig", params.sig);
+  return `${url.pathname}${url.search}`;
+}
+
+async function handleFeishuQrBindingOAuthStart(params: {
+  api: OpenClawPluginApi;
+  req: IncomingMessage;
+  bindingId: string;
+  sig: string;
+  res: ServerResponse;
+}): Promise<boolean> {
+  const credentials = resolveFeishuQrOAuthCredentials(params.api);
+  if (!credentials) {
+    return writeHtmlResponse(params.res, 503, "绑定暂不可用", ["当前飞书授权未配置完成，请稍后重试。"]);
+  }
+  const redirectUri = new URL(
+    "/openclaw/bind/feishu/oauth/callback",
+    resolveRequestHttpOrigin(params.req),
+  ).toString();
+  const authorizeUrl = buildFeishuQrOAuthAuthorizeUrl({
+    credentials,
+    redirectUri,
+    state: encodeFeishuQrOAuthState({
+      bindingId: params.bindingId,
+      sig: params.sig,
+    }),
+  });
+  return writeRedirectResponse(params.res, authorizeUrl);
+}
+
+async function handleFeishuQrBindingOAuthCallback(params: {
+  api: OpenClawPluginApi;
+  store: OpenClawCodeChatopsStore;
+  requestUrl: URL;
+  res: ServerResponse;
+}): Promise<boolean> {
+  const code = normalizeFeishuIdentity(params.requestUrl.searchParams.get("code"));
+  const state = normalizeFeishuIdentity(params.requestUrl.searchParams.get("state"));
+  if (!code || !state) {
+    return writeHtmlResponse(params.res, 400, "绑定链接无效", ["请返回 OpenClaw 重新扫码。"]);
+  }
+  const statePayload = decodeFeishuQrOAuthState(state);
+  if (!statePayload) {
+    return writeHtmlResponse(params.res, 400, "绑定链接无效", ["请返回 OpenClaw 重新扫码。"]);
+  }
+  const stateDir = params.api.runtime.state.resolveStateDir();
+  const session = await getFeishuQrBindingSessionById({
+    stateDir,
+    bindingId: statePayload.bindingId,
+  });
+  if (!session) {
+    return writeHtmlResponse(params.res, 404, "绑定已失效", ["请返回 OpenClaw 重新生成二维码。"]);
+  }
+  const validation = validateFeishuQrBindingClaim({
+    session,
+    signature: statePayload.sig,
+  });
+  if (!validation.ok) {
+    return writeHtmlResponse(
+      params.res,
+      validation.reason === "expired" ? 410 : 403,
+      validation.reason === "expired" ? "绑定已过期" : "绑定链接无效",
+      ["请返回 OpenClaw 重新生成二维码。"],
+    );
+  }
+  const credentials = resolveFeishuQrOAuthCredentials(params.api);
+  if (!credentials) {
+    return writeHtmlResponse(params.res, 503, "绑定暂不可用", ["当前飞书授权未配置完成，请稍后重试。"]);
+  }
+  let identity;
+  try {
+    identity = await exchangeFeishuQrOAuthCode({
+      credentials,
+      code,
+    });
+  } catch (error) {
+    return writeHtmlResponse(params.res, 502, "飞书授权失败", [String(error)]);
+  }
+  if (!runnerReady) {
+    await markFeishuQrBindingSessionReadyToClaim({
+      stateDir,
+      bindingId: statePayload.bindingId,
+      pendingClaimOpenId: identity.openId,
+      pendingClaimUserId: identity.userId,
+    });
+    return writeHtmlResponse(
+      params.res,
+      202,
+      "OpenClaw 正在完成启动",
+      ["授权已收到，准备好后会自动继续。", "你可以关闭当前页面。"],
+      { refreshSeconds: 2 },
+    );
+  }
+  try {
+    await continueFeishuQrBindingClaim({
+      api: params.api,
+      store: params.store,
+      bindingId: statePayload.bindingId,
+      openId: identity.openId,
+      userId: identity.userId,
+    });
+  } catch (error) {
+    params.api.logger.warn(`openclawcode failed to continue feishu oauth callback: ${String(error)}`);
+  }
+  return writeHtmlResponse(params.res, 200, "绑定完成", ["OpenClaw 已完成飞书绑定。", "后续步骤会继续在飞书里发送给你。"]);
+}
+
 async function continueFeishuQrBindingClaim(params: {
   api: OpenClawPluginApi;
   store: OpenClawCodeChatopsStore;
@@ -6417,6 +6571,48 @@ async function handleFeishuQrBindingRoute(
   }
 
   const requestUrl = new URL(req.url ?? "/", "http://localhost");
+  if (requestUrl.pathname === "/openclaw/bind/feishu/oauth/callback") {
+    return await handleFeishuQrBindingOAuthCallback({
+      api,
+      store,
+      requestUrl,
+      res,
+    });
+  }
+  const oauthStartMatch = requestUrl.pathname.match(/^\/openclaw\/bind\/feishu\/([^/]+)\/oauth\/start$/);
+  if (oauthStartMatch) {
+    const bindingId = decodeURIComponent(oauthStartMatch[1] ?? "").trim();
+    const sig = normalizeFeishuIdentity(requestUrl.searchParams.get("sig"));
+    if (!bindingId || !sig) {
+      return writeHtmlResponse(res, 400, "绑定链接无效", ["请返回 OpenClaw 重新扫码。"]);
+    }
+    const session = await getFeishuQrBindingSessionById({
+      stateDir: api.runtime.state.resolveStateDir(),
+      bindingId,
+    });
+    if (!session) {
+      return writeHtmlResponse(res, 404, "绑定已失效", ["请返回 OpenClaw 重新生成二维码。"]);
+    }
+    const validation = validateFeishuQrBindingClaim({
+      session,
+      signature: sig,
+    });
+    if (!validation.ok) {
+      return writeHtmlResponse(
+        res,
+        validation.reason === "expired" ? 410 : 403,
+        validation.reason === "expired" ? "绑定已过期" : "绑定链接无效",
+        ["请返回 OpenClaw 重新生成二维码。"],
+      );
+    }
+    return await handleFeishuQrBindingOAuthStart({
+      api,
+      req,
+      bindingId,
+      sig,
+      res,
+    });
+  }
   const match = requestUrl.pathname.match(/^\/openclaw\/bind\/feishu\/([^/]+)$/);
   if (!match) {
     return false;
@@ -6474,6 +6670,16 @@ async function handleFeishuQrBindingRoute(
   }
 
   if (!openId) {
+    const sig = normalizeFeishuIdentity(requestUrl.searchParams.get("sig"));
+    if (sig && resolveFeishuQrOAuthCredentials(api)) {
+      return writeRedirectResponse(
+        res,
+        buildFeishuQrOAuthStartPath({
+          bindingId,
+          sig,
+        }),
+      );
+    }
     await markFeishuQrBindingSessionReadyToClaim({
       stateDir,
       bindingId,

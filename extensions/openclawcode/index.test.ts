@@ -14,6 +14,7 @@ import {
   createFeishuQrBindingSession,
   getFeishuQrBindingSessionById,
 } from "../../src/operator-chat-targets/feishu-qr-binding.js";
+import { encodeFeishuQrOAuthState } from "../../src/operator-chat-targets/feishu-qr-oauth.js";
 import { readChannelAllowFromStore } from "../../src/pairing/pairing-store.js";
 import {
   readProjectAutonomousLoopArtifact,
@@ -54,6 +55,7 @@ const mocked = vi.hoisted(() => ({
   inspectOnboardingGitHubCliDeviceLogin: vi.fn(),
   createOnboardingRepositoryViaGh: vi.fn(),
   runOnboardingOpenClawCodeBootstrap: vi.fn(),
+  exchangeFeishuQrOAuthCode: vi.fn(),
 }));
 
 vi.mock("../../src/infra/http-body.js", () => ({
@@ -73,6 +75,16 @@ vi.mock("../../src/wizard/setup.code.js", async (importOriginal) => {
     inspectOnboardingGitHubCliDeviceLogin: mocked.inspectOnboardingGitHubCliDeviceLogin,
     createOnboardingRepositoryViaGh: mocked.createOnboardingRepositoryViaGh,
     runOnboardingOpenClawCodeBootstrap: mocked.runOnboardingOpenClawCodeBootstrap,
+  };
+});
+
+vi.mock("../../src/operator-chat-targets/feishu-qr-oauth.js", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("../../src/operator-chat-targets/feishu-qr-oauth.js")
+  >();
+  return {
+    ...actual,
+    exchangeFeishuQrOAuthCode: mocked.exchangeFeishuQrOAuthCode,
   };
 });
 
@@ -605,6 +617,7 @@ describe("openclawcode extension", () => {
     mocked.inspectOnboardingGitHubCliDeviceLogin.mockReset();
     mocked.createOnboardingRepositoryViaGh.mockReset();
     mocked.runOnboardingOpenClawCodeBootstrap.mockReset();
+    mocked.exchangeFeishuQrOAuthCode.mockReset();
     mocked.runOnboardingOpenClawCodeBootstrap.mockResolvedValue({
       repo: {
         owner: "zhyongrui",
@@ -722,6 +735,12 @@ describe("openclawcode extension", () => {
         logger: { info() {}, warn() {}, error() {} },
       });
 
+      await fixture.service?.start?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
       const bindingRoute = fixture.routes.find((entry) => entry.path === "/openclaw/bind/feishu");
       const res = createMockServerResponse();
       const handled = await bindingRoute?.handler(
@@ -773,6 +792,240 @@ describe("openclawcode extension", () => {
       ).resolves.toMatchObject({
         state: "claimed",
         claimedByOpenId: "ou_qr_bound_user",
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+      await fs.rm(qrRepoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("redirects a Feishu QR claim without open_id into Feishu OAuth", async () => {
+    const qrRepoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-bind-oauth-repo-"));
+    const fixture = await registerPluginFixture({
+      config: {
+        channels: {
+          feishu: {
+            appId: "cli_app",
+            appSecret: "cli_secret",
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot: qrRepoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "bind-pending:zhyongrui/openclawcode",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [],
+          },
+        ],
+      },
+    });
+    try {
+      const { session } = await createFeishuQrBindingSession({
+        stateDir: fixture.stateDir,
+      });
+      const claimUrl = new URL(
+        buildFeishuQrBindingClaimUrl({
+          baseHttpUrl: "http://127.0.0.1:18789",
+          session,
+        }),
+      );
+
+      await fixture.service?.start?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      const bindingRoute = fixture.routes.find((entry) => entry.path === "/openclaw/bind/feishu");
+      const res = createMockServerResponse();
+      const handled = await bindingRoute?.handler(
+        localReq({
+          method: "GET",
+          url: claimUrl.pathname + claimUrl.search,
+          headers: {
+            host: "127.0.0.1:18789",
+            "x-forwarded-proto": "https",
+          },
+        }),
+        res,
+      );
+
+      expect(handled).toBe(true);
+      expect(res.statusCode).toBe(302);
+      const location = String(res.getHeader("location"));
+      const internalRedirect = new URL(location, "http://localhost");
+      expect(internalRedirect.pathname).toBe(
+        `/openclaw/bind/feishu/${encodeURIComponent(session.bindingId)}/oauth/start`,
+      );
+      expect(internalRedirect.searchParams.get("sig")).toBeTruthy();
+
+      const oauthStartRes = createMockServerResponse();
+      const oauthStartHandled = await bindingRoute?.handler(
+        localReq({
+          method: "GET",
+          url: internalRedirect.pathname + internalRedirect.search,
+          headers: {
+            host: "127.0.0.1:18789",
+            "x-forwarded-proto": "https",
+          },
+        }),
+        oauthStartRes,
+      );
+
+      expect(oauthStartHandled).toBe(true);
+      expect(oauthStartRes.statusCode).toBe(302);
+      const redirectUrl = new URL(String(oauthStartRes.getHeader("location")));
+      expect(redirectUrl.origin).toBe("https://open.feishu.cn");
+      expect(redirectUrl.pathname).toBe("/open-apis/authen/v1/index");
+      expect(redirectUrl.searchParams.get("app_id")).toBe("cli_app");
+      expect(redirectUrl.searchParams.get("redirect_uri")).toBe(
+        "https://127.0.0.1:18789/openclaw/bind/feishu/oauth/callback",
+      );
+      expect(redirectUrl.searchParams.get("state")).toBeTruthy();
+    } finally {
+      await cleanupPluginFixture(fixture);
+      await fs.rm(qrRepoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("completes a Feishu OAuth callback and continues setup automatically", async () => {
+    const qrRepoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-bind-oauth-callback-repo-"));
+    const fixture = await registerPluginFixture({
+      config: {
+        channels: {
+          feishu: {
+            appId: "cli_app",
+            appSecret: "cli_secret",
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot: qrRepoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "bind-pending:zhyongrui/openclawcode",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [],
+          },
+        ],
+      },
+    });
+    try {
+      mocked.exchangeFeishuQrOAuthCode.mockResolvedValue({
+        openId: "ou_qr_oauth_user",
+        userId: "u_qr_oauth_user",
+      });
+      mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+        pid: 888,
+        logPath: "/tmp/openclawcode-feishu-qr-oauth-github.log",
+        verificationUri: "https://github.com/login/device",
+        userCode: "OAUTH-123",
+        startedAt: "2026-03-23T00:00:00.000Z",
+      });
+
+      const { session } = await createFeishuQrBindingSession({
+        stateDir: fixture.stateDir,
+      });
+      const claimUrl = new URL(
+        buildFeishuQrBindingClaimUrl({
+          baseHttpUrl: "http://127.0.0.1:18789",
+          session,
+        }),
+      );
+      const sig = claimUrl.searchParams.get("sig");
+      expect(sig).toBeTruthy();
+
+      await fixture.service?.start?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      const callbackPath = new URL("http://localhost/openclaw/bind/feishu/oauth/callback");
+      callbackPath.searchParams.set("code", "oauth_code_123");
+      callbackPath.searchParams.set(
+        "state",
+        encodeFeishuQrOAuthState({
+          bindingId: session.bindingId,
+          sig: String(sig),
+        }),
+      );
+
+      const bindingRoute = fixture.routes.find((entry) => entry.path === "/openclaw/bind/feishu");
+      const res = createMockServerResponse();
+      const handled = await bindingRoute?.handler(
+        localReq({
+          method: "GET",
+          url: callbackPath.pathname + callbackPath.search,
+        }),
+        res,
+      );
+
+      expect(handled).toBe(true);
+      expect(res.statusCode).toBe(200);
+      expect(String(res.body)).toContain("绑定完成");
+      expect(mocked.exchangeFeishuQrOAuthCode).toHaveBeenCalledWith({
+        credentials: {
+          appId: "cli_app",
+          appSecret: "cli_secret",
+          domain: "feishu",
+        },
+        code: "oauth_code_123",
+      });
+      await waitForAssertion(() => {
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_qr_oauth_user",
+              message: expect.stringContaining("GitHub approval"),
+            }),
+          }),
+        );
+      });
+      await expect(
+        getPreferredOperatorChatTarget({
+          stateDir: fixture.stateDir,
+          channel: "feishu",
+        }),
+      ).resolves.toMatchObject({
+        target: "user:ou_qr_oauth_user",
+      });
+      await expect(
+        readChannelAllowFromStore(
+          "feishu",
+          {
+            ...process.env,
+            OPENCLAW_STATE_DIR: fixture.stateDir,
+          },
+          "default",
+        ),
+      ).resolves.toContain("ou_qr_oauth_user");
+      await expect(
+        getFeishuQrBindingSessionById({
+          stateDir: fixture.stateDir,
+          bindingId: session.bindingId,
+        }),
+      ).resolves.toMatchObject({
+        state: "claimed",
+        claimedByOpenId: "ou_qr_oauth_user",
       });
     } finally {
       await cleanupPluginFixture(fixture);
