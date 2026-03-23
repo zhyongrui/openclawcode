@@ -9,10 +9,9 @@ surface such as Feishu.
 The first user-visible milestone is:
 
 1. OpenClaw identifies a concrete setup chat target
-2. if that chat is still behind DM pairing, OpenClaw pushes a pairing code to
-   the same chat first
-3. after pairing is approved, OpenClaw checks whether GitHub auth is already
-   ready on the host
+2. if that target is a configured concrete DM such as `user:<open_id>`, setup
+   is trusted for that chat and does not stop on DM pairing first
+3. OpenClaw checks whether GitHub auth is already ready on the host
 4. if auth is missing, OpenClaw starts the host-side GitHub device flow
 5. OpenClaw sends the verification URL and one-time code back into chat
 6. the operator completes approval in the browser
@@ -112,6 +111,9 @@ Behavior:
 - when the plugin already knows one configured repo target for the chat, the
   same session can now start proactively on service start before the operator
   sends this command
+- when that configured target is a Feishu pairing-gated DM, `/occode-setup`
+  and the other setup recovery commands are still allowed through for that
+  same configured operator DM instead of getting bounced back to pairing
 
 ### `/occode-setup-status`
 

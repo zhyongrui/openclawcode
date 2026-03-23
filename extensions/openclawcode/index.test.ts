@@ -6,6 +6,7 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawCodeChatopsStore } from "../../src/integrations/openclaw-plugin/index.js";
 import { setPreferredOperatorChatTarget } from "../../src/operator-chat-targets/store.js";
+import { readChannelAllowFromStore } from "../../src/pairing/pairing-store.js";
 import {
   readProjectAutonomousLoopArtifact,
 } from "../../src/openclawcode/autonomous-loop.js";
@@ -32,6 +33,7 @@ import type {
   OpenClawPluginService,
 } from "../../src/plugins/types.js";
 import { createMockServerResponse } from "../../src/test-utils/mock-http-response.js";
+import { withEnvAsync } from "../../test/helpers/extensions/env.js";
 import { createPluginRuntimeMock } from "../../test/helpers/extensions/plugin-runtime-mock.js";
 import { onboardingOpenClawCodeDeps } from "../../src/wizard/setup.code.js";
 import plugin from "./index.js";
@@ -4365,41 +4367,46 @@ describe("openclawcode extension", () => {
       startedAt: "2026-03-21T09:00:00.000Z",
     });
     try {
-      await fixture.service?.start({
-        config: fixture.runtime.config.loadConfig(),
-        stateDir: fixture.stateDir,
-        logger: { info() {}, warn() {}, error() {} },
-      });
+      await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
+        await fixture.service?.start({
+          config: fixture.runtime.config.loadConfig(),
+          stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
 
-      expect(mocked.startOnboardingGitHubCliDeviceLogin).toHaveBeenCalledWith({
-        stateDir: fixture.stateDir,
-      });
-      expect(mocked.runMessageAction).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: "send",
-          params: expect.objectContaining({
-            channel: "feishu",
-            to: "user:setup-chat",
-            message: expect.stringContaining(
-              "OpenClaw Code setup is waiting for GitHub approval.",
-            ),
+        expect(mocked.startOnboardingGitHubCliDeviceLogin).toHaveBeenCalledWith({
+          stateDir: fixture.stateDir,
+        });
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:setup-chat",
+              message: expect.stringContaining(
+                "OpenClaw Code setup is waiting for GitHub approval.",
+              ),
+            }),
           }),
-        }),
-      );
-      expect(
-        await fixture.store.getSetupSession({
-          notifyChannel: "feishu",
-          notifyTarget: "user:setup-chat",
-        }),
-      ).toMatchObject({
-        projectMode: "existing-repo",
-        repoKey: "zhyongrui/openclawcode",
-        stage: "awaiting-github-device-auth",
-        githubDeviceAuth: {
-          pid: 654,
-          userCode: "WXYZ-1234",
-          verificationUri: "https://github.com/login/device",
-        },
+        );
+        expect(
+          await fixture.store.getSetupSession({
+            notifyChannel: "feishu",
+            notifyTarget: "user:setup-chat",
+          }),
+        ).toMatchObject({
+          projectMode: "existing-repo",
+          repoKey: "zhyongrui/openclawcode",
+          stage: "awaiting-github-device-auth",
+          githubDeviceAuth: {
+            pid: 654,
+            userCode: "WXYZ-1234",
+            verificationUri: "https://github.com/login/device",
+          },
+        });
+        await expect(
+          readChannelAllowFromStore("feishu", process.env, "default"),
+        ).resolves.toContain("setup-chat");
       });
     } finally {
       await cleanupPluginFixture(fixture);

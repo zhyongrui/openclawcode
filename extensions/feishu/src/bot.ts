@@ -25,6 +25,7 @@ import {
   matchPluginCommand,
   normalizePluginCommandBody,
 } from "../../../src/plugins/commands.js";
+import { resolveOpenClawCodePluginConfig } from "../../../src/integrations/openclaw-plugin/index.js";
 import {
   buildPairingCommandRetryReply,
   buildPairingReply,
@@ -133,6 +134,74 @@ export function resolveBroadcastAgents(cfg: ClawdbotConfig, peerId: string): str
   const agents = (broadcast as Record<string, unknown>)[peerId];
   if (!Array.isArray(agents) || agents.length === 0) return null;
   return agents as string[];
+}
+
+const OPENCLAWCODE_SETUP_COMMAND_NAMES = new Set([
+  "occode-setup",
+  "occ-setup",
+  "occode-setup-status",
+  "occ-setup-status",
+  "occode-setup-retry",
+  "occ-setup-retry",
+  "occode-setup-cancel",
+  "occ-setup-cancel",
+]);
+
+function resolveOpenClawCodeSetupCommandName(commandBody: string): string | undefined {
+  const token = commandBody.trim().split(/\s+/, 1)[0]?.trim();
+  if (!token?.startsWith("/")) {
+    return undefined;
+  }
+  const commandName = token.slice(1).toLowerCase();
+  return OPENCLAWCODE_SETUP_COMMAND_NAMES.has(commandName) ? commandName : undefined;
+}
+
+function shouldBypassPairingForConfiguredOpenClawCodeSetup(params: {
+  cfg: ClawdbotConfig;
+  isDirect: boolean;
+  senderOpenId: string;
+  commandBody: string;
+  pluginMatch: ReturnType<typeof matchPluginCommand>;
+}): boolean {
+  if (!params.isDirect) {
+    return false;
+  }
+  const commandName = resolveOpenClawCodeSetupCommandName(params.commandBody);
+  if (!commandName) {
+    return false;
+  }
+  if (
+    params.pluginMatch &&
+    (params.pluginMatch.command.pluginId !== "openclawcode" ||
+      !OPENCLAWCODE_SETUP_COMMAND_NAMES.has(params.pluginMatch.command.name))
+  ) {
+    return false;
+  }
+  const plugins =
+    params.cfg && typeof params.cfg === "object" && params.cfg.plugins && typeof params.cfg.plugins === "object"
+      ? (params.cfg.plugins as Record<string, unknown>)
+      : undefined;
+  const entries =
+    plugins?.entries && typeof plugins.entries === "object"
+      ? (plugins.entries as Record<string, unknown>)
+      : undefined;
+  const openclawcodeEntry =
+    entries?.openclawcode && typeof entries.openclawcode === "object"
+      ? (entries.openclawcode as Record<string, unknown>)
+      : undefined;
+  const openclawcodeConfig =
+    openclawcodeEntry?.config && typeof openclawcodeEntry.config === "object"
+      ? (openclawcodeEntry.config as Record<string, unknown>)
+      : undefined;
+  if (!openclawcodeConfig) {
+    return false;
+  }
+  const pluginConfig = resolveOpenClawCodePluginConfig(openclawcodeConfig);
+  return pluginConfig.repos.some(
+    (repo) =>
+      repo.notifyChannel === "feishu" &&
+      repo.notifyTarget.trim() === `user:${params.senderOpenId}`,
+  );
 }
 
 // Build a session key for a broadcast target agent by replacing the agent ID prefix.
@@ -496,8 +565,15 @@ export async function handleFeishuMessage(params: {
       senderIds: [senderUserId],
       senderName: ctx.senderName,
     }).allowed;
+    const bypassPairingForConfiguredSetup = shouldBypassPairingForConfiguredOpenClawCodeSetup({
+      cfg,
+      isDirect,
+      senderOpenId: ctx.senderOpenId,
+      commandBody: commandProbeBody,
+      pluginMatch,
+    });
 
-    if (isDirect && dmPolicy !== "open" && !dmAllowed) {
+    if (isDirect && dmPolicy !== "open" && !dmAllowed && !bypassPairingForConfiguredSetup) {
       if (dmPolicy === "pairing") {
         const senderIdLine = `Your Feishu user id: ${ctx.senderOpenId}`;
         const pairingResult = await pairing.upsertPairingRequest({
@@ -546,19 +622,23 @@ export async function handleFeishuMessage(params: {
     const commandAllowFrom = isGroup
       ? (groupConfig?.allowFrom ?? configAllowFrom)
       : effectiveDmAllowFrom;
-    const senderAllowedForCommands = resolveFeishuAllowlistMatch({
-      allowFrom: commandAllowFrom,
-      senderId: ctx.senderOpenId,
-      senderIds: [senderUserId],
-      senderName: ctx.senderName,
-    }).allowed;
+    const senderAllowedForCommands = bypassPairingForConfiguredSetup
+      ? true
+      : resolveFeishuAllowlistMatch({
+          allowFrom: commandAllowFrom,
+          senderId: ctx.senderOpenId,
+          senderIds: [senderUserId],
+          senderName: ctx.senderName,
+        }).allowed;
     const commandAuthorized = shouldComputeCommandAuthorized
-      ? core.channel.commands.resolveCommandAuthorizedFromAuthorizers({
-          useAccessGroups,
-          authorizers: [
-            { configured: commandAllowFrom.length > 0, allowed: senderAllowedForCommands },
-          ],
-        })
+      ? bypassPairingForConfiguredSetup
+        ? true
+        : core.channel.commands.resolveCommandAuthorizedFromAuthorizers({
+            useAccessGroups,
+            authorizers: [
+              { configured: commandAllowFrom.length > 0, allowed: senderAllowedForCommands },
+            ],
+          })
       : undefined;
 
     // In group chats, the session is scoped to the group, but the *speaker* is the sender.

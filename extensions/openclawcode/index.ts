@@ -77,6 +77,7 @@ import {
   runProjectAutonomousLoop,
   setProjectAutonomousLoopDisabled,
 } from "../../src/openclawcode/autonomous-loop.js";
+import { addChannelAllowFromStoreEntry } from "../../src/pairing/pairing-store.js";
 import {
   readProjectIssueMaterializationArtifact,
   writeProjectIssueMaterializationArtifact,
@@ -1451,6 +1452,35 @@ async function proactivelyRequestChatPairing(params: {
   }
 }
 
+async function autoAllowProactiveSetupTarget(params: {
+  api: OpenClawPluginApi;
+  target: ProactiveChatSetupTarget;
+}): Promise<void> {
+  const pairingIdentity = resolveProactivePairingIdentity({
+    api: params.api,
+    channel: params.target.notifyChannel,
+    target: params.target.notifyTarget,
+  });
+  if (!pairingIdentity) {
+    return;
+  }
+  try {
+    await addChannelAllowFromStoreEntry({
+      channel: params.target.notifyChannel,
+      accountId: pairingIdentity.accountId,
+      entry: pairingIdentity.senderId,
+      env: {
+        ...process.env,
+        OPENCLAW_STATE_DIR: params.api.runtime.state.resolveStateDir(),
+      },
+    });
+  } catch (error) {
+    params.api.logger.warn(
+      `openclawcode failed to auto-allow configured setup target ${params.target.notifyChannel}:${params.target.notifyTarget}: ${String(error)}`,
+    );
+  }
+}
+
 async function proactivelyStartGitHubAuthForTargets(
   api: OpenClawPluginApi,
   store: OpenClawCodeChatopsStore,
@@ -1458,6 +1488,13 @@ async function proactivelyStartGitHubAuthForTargets(
 ): Promise<void> {
   if (targets.length === 0) {
     return;
+  }
+
+  for (const target of targets) {
+    await autoAllowProactiveSetupTarget({
+      api,
+      target,
+    });
   }
 
   const existingSessions = await store.listSetupSessions();

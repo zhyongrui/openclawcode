@@ -104,6 +104,10 @@ loop with:
     - once a concrete setup chat target is configured, OpenClaw Code now
       proactively pushes GitHub setup there immediately instead of waiting for
       DM pairing approval first
+    - the same configured Feishu DM is also auto-trusted for setup lifecycle
+      commands, so `/occode-setup`, `/occode-setup-status`,
+      `/occode-setup-retry`, and `/occode-setup-cancel` are no longer blocked
+      behind the pairing gate for that configured operator target
     - `/occode-setup-status` remains the explicit manual recovery / status
       command
 - a local builder/verifier runtime adapter built on top of OpenClaw's embedded
