@@ -9,6 +9,11 @@ import {
   getPreferredOperatorChatTarget,
   setPreferredOperatorChatTarget,
 } from "../../src/operator-chat-targets/store.js";
+import {
+  buildFeishuQrBindingClaimUrl,
+  createFeishuQrBindingSession,
+  getFeishuQrBindingSessionById,
+} from "../../src/operator-chat-targets/feishu-qr-binding.js";
 import { readChannelAllowFromStore } from "../../src/pairing/pairing-store.js";
 import {
   readProjectAutonomousLoopArtifact,
@@ -81,6 +86,7 @@ function createApi(params: {
   registerHttpRoute: (params: {
     path: string;
     auth: "plugin" | "gateway";
+    match?: "exact" | "prefix";
     handler: (
       req: IncomingMessage,
       res: ReturnType<typeof createMockServerResponse>,
@@ -491,12 +497,22 @@ async function registerPluginFixture(params?: {
     | {
         path: string;
         auth: "plugin" | "gateway";
+        match?: "exact" | "prefix";
         handler: (
           req: IncomingMessage,
           res: ReturnType<typeof createMockServerResponse>,
         ) => Promise<boolean>;
       }
     | undefined;
+  const routes: Array<{
+    path: string;
+    auth: "plugin" | "gateway";
+    match?: "exact" | "prefix";
+    handler: (
+      req: IncomingMessage,
+      res: ReturnType<typeof createMockServerResponse>,
+    ) => Promise<boolean>;
+  }> = [];
   const pluginConfig = {
     repos: [
       {
@@ -531,7 +547,10 @@ async function registerPluginFixture(params?: {
         commands.set(command.name, command);
       },
       registerHttpRoute(params) {
-        route = params;
+        routes.push(params);
+        if (params.path === "/plugins/openclawcode/github") {
+          route = params;
+        }
       },
       registerService(registered) {
         service = registered;
@@ -547,6 +566,7 @@ async function registerPluginFixture(params?: {
     store: OpenClawCodeChatopsStore.fromStateDir(stateDir),
     commands,
     route,
+    routes,
     service,
     runCommandWithTimeout,
   };
@@ -632,6 +652,132 @@ describe("openclawcode extension", () => {
     }));
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
+  });
+
+  it("registers the Feishu QR binding route alongside the GitHub webhook route", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      expect(fixture.route?.path).toBe("/plugins/openclawcode/github");
+      expect(fixture.routes.map((entry) => entry.path)).toEqual(
+        expect.arrayContaining(["/plugins/openclawcode/github", "/openclaw/bind/feishu"]),
+      );
+      expect(
+        fixture.routes.find((entry) => entry.path === "/openclaw/bind/feishu")?.match,
+      ).toBe("prefix");
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("claims a Feishu QR binding route hit when the request carries an open_id", async () => {
+    const qrRepoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-bind-repo-"));
+    const fixture = await registerPluginFixture({
+      config: {
+        channels: {
+          feishu: {
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot: qrRepoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "bind-pending:zhyongrui/openclawcode",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [],
+          },
+        ],
+      },
+    });
+    try {
+      mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+        pid: 321,
+        logPath: "/tmp/openclawcode-feishu-qr-github.log",
+        verificationUri: "https://github.com/login/device",
+        userCode: "ABCD-EFGH",
+        startedAt: "2026-03-23T00:00:00.000Z",
+      });
+      const { session } = await createFeishuQrBindingSession({
+        stateDir: fixture.stateDir,
+      });
+      const claimUrl = new URL(
+        buildFeishuQrBindingClaimUrl({
+          baseHttpUrl: "http://127.0.0.1:18789",
+          session,
+        }),
+      );
+      claimUrl.searchParams.set("open_id", "ou_qr_bound_user");
+      claimUrl.searchParams.set("user_id", "u_qr_bound_user");
+
+      await fixture.service?.start?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      const bindingRoute = fixture.routes.find((entry) => entry.path === "/openclaw/bind/feishu");
+      const res = createMockServerResponse();
+      const handled = await bindingRoute?.handler(
+        localReq({
+          method: "GET",
+          url: claimUrl.pathname + claimUrl.search,
+        }),
+        res,
+      );
+
+      expect(handled).toBe(true);
+      expect(res.statusCode).toBe(200);
+      expect(String(res.body)).toContain("绑定完成");
+      await waitForAssertion(() => {
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_qr_bound_user",
+              message: expect.stringContaining("GitHub approval"),
+            }),
+          }),
+        );
+      });
+      await expect(
+        getPreferredOperatorChatTarget({
+          stateDir: fixture.stateDir,
+          channel: "feishu",
+        }),
+      ).resolves.toMatchObject({
+        target: "user:ou_qr_bound_user",
+      });
+      await expect(
+        readChannelAllowFromStore(
+          "feishu",
+          {
+            ...process.env,
+            OPENCLAW_STATE_DIR: fixture.stateDir,
+          },
+          "default",
+        ),
+      ).resolves.toContain("ou_qr_bound_user");
+      await expect(
+        getFeishuQrBindingSessionById({
+          stateDir: fixture.stateDir,
+          bindingId: session.bindingId,
+        }),
+      ).resolves.toMatchObject({
+        state: "claimed",
+        claimedByOpenId: "ou_qr_bound_user",
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+      await fs.rm(qrRepoRoot, { recursive: true, force: true });
+    }
   });
 
   it("records pending approvals and sends a chat prompt in approve mode", async () => {

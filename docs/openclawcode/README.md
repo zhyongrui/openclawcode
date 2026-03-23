@@ -131,6 +131,20 @@ loop with:
       while `/occode-setup-retry` is the explicit continue / retry command
     - setup-state replies now also spell out the exact next chat commands for
       the current blocker instead of only describing the blocker abstractly
+  - Feishu fresh-install binding design:
+    - `docs/openclawcode/feishu-qr-binding-design.md`
+    - preferred first-run path is now defined as:
+      - show QR immediately after `app id` / `app secret` are saved
+      - use simple copy: `用飞书扫码绑定`
+      - after scan and gateway readiness, proactively continue setup in DM
+    - the first implementation slice is now live:
+      - signed `/openclaw/bind/feishu/:bindingId` claim route is registered in
+        the bundled `openclawcode` plugin
+      - QR binding sessions now support validation plus
+        `pending-gateway-ready` -> `ready-to-claim` -> `claimed`
+      - when the claim route receives a Feishu `open_id`, OpenClaw persists
+        that DM target, auto-writes pairing allow-from, and proactively starts
+        GitHub device auth in that chat
 - a local builder/verifier runtime adapter built on top of OpenClaw's embedded
   agent entrypoint
 - an `openclaw code run ...` CLI path for issue-driven execution

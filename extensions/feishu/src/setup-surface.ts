@@ -16,6 +16,14 @@ import {
   type OpenClawConfig,
   type SecretInput,
 } from "openclaw/plugin-sdk/setup";
+import qrcode from "qrcode-terminal";
+import { resolveGatewayPort } from "../../../src/config/config.js";
+import { resolveControlUiLinks } from "../../../src/commands/onboard-helpers.js";
+import {
+  buildFeishuQrBindingClaimUrl,
+  createFeishuQrBindingSession,
+} from "../../../src/operator-chat-targets/feishu-qr-binding.js";
+import { getPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 import { listFeishuAccountIds, resolveFeishuCredentials } from "./accounts.js";
 import { probeFeishu } from "./probe.js";
 import { feishuSetupAdapter } from "./setup-core.js";
@@ -49,6 +57,63 @@ function setFeishuGroupAllowFrom(cfg: OpenClawConfig, groupAllowFrom: string[]):
       },
     },
   };
+}
+
+function renderQrAscii(data: string): Promise<string> {
+  return new Promise((resolve) => {
+    qrcode.generate(data, { small: true }, (output: string) => {
+      resolve(output);
+    });
+  });
+}
+
+function resolveFeishuQrBindingBaseHttpUrl(cfg: OpenClawConfig): string {
+  const remoteUrl = cfg.gateway?.remote?.url?.trim();
+  if (cfg.gateway?.mode === "remote" && remoteUrl) {
+    if (remoteUrl.startsWith("wss://")) {
+      return remoteUrl.replace(/^wss:/, "https:");
+    }
+    if (remoteUrl.startsWith("ws://")) {
+      return remoteUrl.replace(/^ws:/, "http:");
+    }
+  }
+  return resolveControlUiLinks({
+    bind: cfg.gateway?.bind ?? "loopback",
+    port: resolveGatewayPort(cfg),
+    customBindHost: cfg.gateway?.customBindHost,
+  }).httpUrl.replace(/\/+$/, "");
+}
+
+async function noteFeishuQrBinding(params: {
+  cfg: OpenClawConfig;
+  accountId: string;
+  prompter: Parameters<NonNullable<ChannelSetupWizard["finalize"]>>[0]["prompter"];
+}): Promise<void> {
+  const existingTarget = await getPreferredOperatorChatTarget({
+    channel: "feishu",
+    accountId: params.accountId,
+  });
+  if (existingTarget) {
+    return;
+  }
+  const baseHttpUrl = resolveFeishuQrBindingBaseHttpUrl(params.cfg);
+  const { session } = await createFeishuQrBindingSession({
+    accountId: params.accountId,
+    setupIntent: "feishu-initial-bind",
+  });
+  const claimUrl = buildFeishuQrBindingClaimUrl({
+    baseHttpUrl,
+    session,
+  });
+  const asciiQr = await renderQrAscii(claimUrl);
+  await params.prompter.note(
+    [
+      asciiQr.trimEnd(),
+      `绑定链接: ${claimUrl}`,
+      "OpenClaw 正在完成启动，绑定会在可用后自动继续",
+    ].join("\n"),
+    "用飞书扫码绑定",
+  );
 }
 
 function isFeishuConfigured(cfg: OpenClawConfig): boolean {
@@ -398,13 +463,11 @@ export const feishuSetupWizard: ChannelSetupWizard = {
       }
     }
 
-    await prompter.note(
-      [
-        "After the gateway is running, open your Feishu bot and tap the Quick actions menu once.",
-        "OpenClaw will save that DM as the preferred operator chat target so OpenClaw Code can continue setup proactively later.",
-      ].join("\n"),
-      "Operator chat binding",
-    );
+    await noteFeishuQrBinding({
+      cfg: next,
+      accountId: DEFAULT_ACCOUNT_ID,
+      prompter,
+    });
 
     return { cfg: next };
   },

@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createNonExitingTypedRuntimeEnv } from "../../../test/helpers/extensions/runtime-env.js";
 import {
   createPluginSetupWizardConfigure,
@@ -6,9 +9,18 @@ import {
   createTestWizardPrompter,
   runSetupWizardConfigure,
 } from "../../../test/helpers/extensions/setup-wizard.js";
+import { setPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 
 vi.mock("./probe.js", () => ({
   probeFeishu: vi.fn(async () => ({ ok: false, error: "mocked" })),
+}));
+
+const qrGenerateMock = vi.hoisted(() => vi.fn((_value, _opts, cb) => cb("QR ASCII")));
+
+vi.mock("qrcode-terminal", () => ({
+  default: {
+    generate: qrGenerateMock,
+  },
 }));
 
 import { feishuPlugin } from "./channel.js";
@@ -60,6 +72,10 @@ const feishuGetStatus = createPluginSetupWizardStatus(feishuPlugin);
 type FeishuConfigureRuntime = Parameters<typeof feishuConfigure>[0]["runtime"];
 
 describe("feishu setup wizard", () => {
+  beforeEach(() => {
+    qrGenerateMock.mockClear();
+  });
+
   it("does not throw when config appId/appSecret are SecretRef objects", async () => {
     const text = vi
       .fn()
@@ -89,6 +105,124 @@ describe("feishu setup wizard", () => {
         runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
       }),
     ).resolves.toBeTruthy();
+  });
+
+  it("shows a qr binding note after feishu credentials are configured", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-note-"));
+    const previousStateDir = process.env.OPENCLAW_STATE_DIR;
+    process.env.OPENCLAW_STATE_DIR = stateDir;
+
+    const note = vi.fn(async () => {});
+    const text = vi
+      .fn()
+      .mockResolvedValueOnce("secret_from_prompt")
+      .mockResolvedValueOnce("cli_from_prompt")
+      .mockResolvedValueOnce("oc_group_1");
+    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+      if (message === "Feishu connection mode") {
+        return "websocket";
+      }
+      if (message === "Which Feishu domain?") {
+        return initialValue ?? "feishu";
+      }
+      if (message === "Group chat policy") {
+        return "allowlist";
+      }
+      return initialValue ?? "allowlist";
+    });
+    const prompter = createTestWizardPrompter({
+      note,
+      text,
+      confirm: vi.fn(async () => true),
+      select: select as never,
+    });
+
+    try {
+      await runSetupWizardConfigure({
+        configure: feishuConfigure,
+        cfg: {
+          gateway: {
+            bind: "loopback",
+            port: 18789,
+          },
+        } as never,
+        prompter,
+        runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
+      });
+
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("绑定链接: http://127.0.0.1:18789/openclaw/bind/feishu/"),
+        "用飞书扫码绑定",
+      );
+      expect(note).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"), "用飞书扫码绑定");
+      expect(qrGenerateMock).toHaveBeenCalled();
+    } finally {
+      if (previousStateDir === undefined) {
+        delete process.env.OPENCLAW_STATE_DIR;
+      } else {
+        process.env.OPENCLAW_STATE_DIR = previousStateDir;
+      }
+    }
+  });
+
+  it("does not show the qr binding note when a feishu target is already bound", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-skip-"));
+    const previousStateDir = process.env.OPENCLAW_STATE_DIR;
+    process.env.OPENCLAW_STATE_DIR = stateDir;
+    await setPreferredOperatorChatTarget({
+      stateDir,
+      channel: "feishu",
+      target: "user:ou_bound",
+      source: "test",
+    });
+
+    const note = vi.fn(async () => {});
+    const text = vi
+      .fn()
+      .mockResolvedValueOnce("secret_from_prompt")
+      .mockResolvedValueOnce("cli_from_prompt")
+      .mockResolvedValueOnce("oc_group_1");
+    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+      if (message === "Feishu connection mode") {
+        return "websocket";
+      }
+      if (message === "Which Feishu domain?") {
+        return initialValue ?? "feishu";
+      }
+      if (message === "Group chat policy") {
+        return "allowlist";
+      }
+      return initialValue ?? "allowlist";
+    });
+    const prompter = createTestWizardPrompter({
+      note,
+      text,
+      confirm: vi.fn(async () => true),
+      select: select as never,
+    });
+
+    try {
+      await runSetupWizardConfigure({
+        configure: feishuConfigure,
+        cfg: {
+          gateway: {
+            bind: "loopback",
+            port: 18789,
+          },
+        } as never,
+        prompter,
+        runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
+      });
+
+      expect(note).not.toHaveBeenCalledWith(expect.any(String), "用飞书扫码绑定");
+      expect(qrGenerateMock).not.toHaveBeenCalled();
+    } finally {
+      if (previousStateDir === undefined) {
+        delete process.env.OPENCLAW_STATE_DIR;
+      } else {
+        process.env.OPENCLAW_STATE_DIR = previousStateDir;
+      }
+    }
   });
 });
 

@@ -117,6 +117,12 @@ import {
 } from "../../src/openclawcode/work-items.js";
 import { buildOpenClawCodePolicySnapshot } from "../../src/openclawcode/policy.js";
 import { resolveConcreteChatNotifyTarget } from "../../src/openclawcode/operator-chat-targets.js";
+import {
+  claimFeishuQrBindingSession,
+  getFeishuQrBindingSessionById,
+  markFeishuQrBindingSessionReadyToClaim,
+  validateFeishuQrBindingClaim,
+} from "../../src/operator-chat-targets/feishu-qr-binding.js";
 import { setPreferredOperatorChatTarget } from "../../src/operator-chat-targets/store.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
@@ -6283,6 +6289,165 @@ function scheduleNotification(params: {
   });
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function writeHtmlResponse(
+  res: ServerResponse,
+  statusCode: number,
+  title: string,
+  lines: string[],
+  options?: { refreshSeconds?: number },
+): boolean {
+  const heading = escapeHtml(title);
+  const paragraphs = lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+  const refreshTag =
+    options?.refreshSeconds && options.refreshSeconds > 0
+      ? `<meta http-equiv="refresh" content="${Math.floor(options.refreshSeconds)}">`
+      : "";
+  res.statusCode = statusCode;
+  res.setHeader("content-type", "text/html; charset=utf-8");
+  res.end(
+    `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${refreshTag}<title>${heading}</title><style>body{font-family:system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 20px;line-height:1.6;color:#111827}h1{font-size:28px;margin-bottom:16px}p{margin:0 0 12px}code{background:#f3f4f6;padding:2px 6px;border-radius:6px}</style></head><body><h1>${heading}</h1>${paragraphs}</body></html>`,
+  );
+  return true;
+}
+
+function normalizeFeishuIdentity(value: string | null): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed || undefined;
+}
+
+async function handleFeishuQrBindingRoute(
+  api: OpenClawPluginApi,
+  store: OpenClawCodeChatopsStore,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<boolean> {
+  if ((req.method ?? "GET").toUpperCase() !== "GET") {
+    res.statusCode = 405;
+    res.setHeader("allow", "GET");
+    res.end("Method Not Allowed");
+    return true;
+  }
+
+  const requestUrl = new URL(req.url ?? "/", "http://localhost");
+  const match = requestUrl.pathname.match(/^\/openclaw\/bind\/feishu\/([^/]+)$/);
+  if (!match) {
+    return false;
+  }
+  const bindingId = decodeURIComponent(match[1] ?? "").trim();
+  if (!bindingId) {
+    return writeHtmlResponse(res, 400, "绑定链接无效", ["请返回 OpenClaw 重新扫码。"]);
+  }
+
+  const stateDir = api.runtime.state.resolveStateDir();
+  const session = await getFeishuQrBindingSessionById({
+    stateDir,
+    bindingId,
+  });
+  if (!session) {
+    return writeHtmlResponse(res, 404, "绑定已失效", ["请返回 OpenClaw 重新生成二维码。"]);
+  }
+
+  const validation = validateFeishuQrBindingClaim({
+    session,
+    signature: requestUrl.searchParams.get("sig"),
+  });
+  if (!validation.ok) {
+    if (validation.reason === "expired") {
+      return writeHtmlResponse(res, 410, "绑定已过期", ["请返回 OpenClaw 重新生成二维码。"]);
+    }
+    return writeHtmlResponse(res, 403, "绑定链接无效", ["请返回 OpenClaw 重新扫码。"]);
+  }
+
+  if (session.state === "claimed") {
+    return writeHtmlResponse(res, 200, "已完成绑定", ["OpenClaw 会继续在飞书里和你同步后续步骤。"]);
+  }
+
+  const openId =
+    normalizeFeishuIdentity(requestUrl.searchParams.get("open_id")) ??
+    normalizeFeishuIdentity(requestUrl.searchParams.get("openId"));
+  const userId =
+    normalizeFeishuIdentity(requestUrl.searchParams.get("user_id")) ??
+    normalizeFeishuIdentity(requestUrl.searchParams.get("userId"));
+
+  if (!runnerReady) {
+    await markFeishuQrBindingSessionReadyToClaim({
+      stateDir,
+      bindingId,
+    });
+    return writeHtmlResponse(
+      res,
+      202,
+      "OpenClaw 正在完成启动",
+      ["扫码已收到，准备好后会自动继续。", "当前页面会自动刷新。"],
+      { refreshSeconds: 2 },
+    );
+  }
+
+  if (!openId) {
+    await markFeishuQrBindingSessionReadyToClaim({
+      stateDir,
+      bindingId,
+    });
+    return writeHtmlResponse(res, 200, "继续绑定", [
+      "OpenClaw 已收到扫码请求。",
+      "当前版本还需要飞书身份回传后才能把后续消息主动发到对应账号。",
+      "绑定页后续会继续接上这一段身份确认。",
+    ]);
+  }
+
+  await claimFeishuQrBindingSession({
+    stateDir,
+    bindingId,
+    claimedByOpenId: openId,
+    claimedByUserId: userId,
+  });
+  await setPreferredOperatorChatTarget({
+    stateDir,
+    channel: "feishu",
+    accountId: DEFAULT_ACCOUNT_ID,
+    target: `user:${openId}`,
+    source: "feishu-qr-binding",
+    replace: true,
+  });
+  await addChannelAllowFromStoreEntry({
+    channel: "feishu",
+    accountId: DEFAULT_ACCOUNT_ID,
+    entry: openId,
+    env: {
+      ...process.env,
+      OPENCLAW_STATE_DIR: stateDir,
+    },
+  });
+
+  const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
+  try {
+    await processPendingSetupSessions(api, store);
+    const directTarget = {
+      notifyChannel: "feishu",
+      notifyTarget: `user:${openId}`,
+      projectMode: pluginConfig.repos.length === 1 ? ("existing-repo" as const) : undefined,
+      repoKey: pluginConfig.repos.length === 1 ? formatRepoKey(pluginConfig.repos[0]!) : undefined,
+    };
+    await proactivelyStartGitHubAuthForTargets(api, store, [directTarget]);
+  } catch (error) {
+    api.logger.warn(`openclawcode failed to continue feishu qr binding setup: ${String(error)}`);
+  }
+
+  return writeHtmlResponse(res, 200, "绑定完成", [
+    "OpenClaw 已完成飞书绑定。",
+    "后续步骤会继续在飞书里发送给你。",
+  ]);
+}
+
 async function sendIssueNotification(params: {
   api: OpenClawPluginApi;
   store: OpenClawCodeChatopsStore;
@@ -7290,6 +7455,13 @@ export default {
           }),
       });
     };
+
+    api.registerHttpRoute({
+      path: "/openclaw/bind/feishu",
+      auth: "plugin",
+      match: "prefix",
+      handler: async (req, res) => await handleFeishuQrBindingRoute(api, store, req, res),
+    });
 
     api.registerHttpRoute({
       path: "/plugins/openclawcode/github",
