@@ -82,8 +82,18 @@ function isLoopbackLikeHostname(hostname: string): boolean {
 }
 
 function resolveFeishuQrBindingBaseHttpUrl(cfg: OpenClawConfig): string {
+  const publicUrl = cfg.plugins?.entries?.["device-pair"]?.config?.["publicUrl"];
+  if (typeof publicUrl === "string" && publicUrl.trim()) {
+    if (publicUrl.startsWith("wss://")) {
+      return publicUrl.replace(/^wss:/, "https:");
+    }
+    if (publicUrl.startsWith("ws://")) {
+      return publicUrl.replace(/^ws:/, "http:");
+    }
+    return publicUrl.trim().replace(/\/+$/, "");
+  }
   const remoteUrl = cfg.gateway?.remote?.url?.trim();
-  if (cfg.gateway?.mode === "remote" && remoteUrl) {
+  if (remoteUrl) {
     if (remoteUrl.startsWith("wss://")) {
       return remoteUrl.replace(/^wss:/, "https:");
     }
