@@ -5,6 +5,7 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/routing";
 import { formatCliCommand } from "../../src/cli/command-format.js";
 import { readRequestBodyWithLimit } from "../../src/infra/http-body.js";
+import { deriveRepoPreCodeDisciplineSummary } from "../../src/openclawcode/operator-status.js";
 import {
   OpenClawCodeChatopsStore,
   applyPullRequestReviewWebhookToSnapshot,
@@ -2703,108 +2704,39 @@ function summarizeRepoPreCodeGaps(params: {
   state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
   repo: { owner: string; repo: string };
 }): string | undefined {
-  const counts = {
-    isolatedWorktree: 0,
-    modeSpecificContexts: 0,
-    freshRoleExecution: 0,
-  };
-  for (const snapshot of Object.values(params.state.statusSnapshotsByIssue)) {
-    if (!issueKeyMatchesRepo(snapshot.issueKey, params.repo)) {
-      continue;
-    }
-    if (snapshot.preCodeDisciplineIsolatedWorktreePrepared === false) {
-      counts.isolatedWorktree += 1;
-    }
-    if (snapshot.preCodeDisciplineModeSpecificContextsPresent === false) {
-      counts.modeSpecificContexts += 1;
-    }
-    if (snapshot.preCodeDisciplineFreshRoleExecutionPresent === false) {
-      counts.freshRoleExecution += 1;
-    }
-  }
-  const parts = [
-    counts.isolatedWorktree > 0 ? `isolated-worktree=${counts.isolatedWorktree}` : undefined,
-    counts.modeSpecificContexts > 0
-      ? `mode-specific-contexts=${counts.modeSpecificContexts}`
-      : undefined,
-    counts.freshRoleExecution > 0
-      ? `fresh-role-execution=${counts.freshRoleExecution}`
-      : undefined,
-  ].filter((value): value is string => Boolean(value));
-  return parts.length > 0 ? `Pre-code gaps: ${parts.join(" | ")}` : undefined;
+  const summary = deriveRepoPreCodeDisciplineSummary({
+    repoKey: formatRepoKey(params.repo),
+    snapshotEntries: Object.values(params.state.statusSnapshotsByIssue).filter((snapshot) =>
+      issueKeyMatchesRepo(snapshot.issueKey, params.repo),
+    ),
+  });
+  return summary.gapSummary ? `Pre-code gaps: ${summary.gapSummary}` : undefined;
 }
 
 function summarizeRepoPreCodeNextAction(params: {
   state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
   repo: { owner: string; repo: string };
 }): string | undefined {
-  const counts = {
-    isolatedWorktree: 0,
-    modeSpecificContexts: 0,
-    freshRoleExecution: 0,
-  };
-  for (const snapshot of Object.values(params.state.statusSnapshotsByIssue)) {
-    if (!issueKeyMatchesRepo(snapshot.issueKey, params.repo)) {
-      continue;
-    }
-    if (snapshot.preCodeDisciplineIsolatedWorktreePrepared === false) {
-      counts.isolatedWorktree += 1;
-    }
-    if (snapshot.preCodeDisciplineModeSpecificContextsPresent === false) {
-      counts.modeSpecificContexts += 1;
-    }
-    if (snapshot.preCodeDisciplineFreshRoleExecutionPresent === false) {
-      counts.freshRoleExecution += 1;
-    }
-  }
-  if (counts.isolatedWorktree > 0) {
-    return "Pre-code next: prepare isolated issue worktrees before code execution";
-  }
-  if (counts.modeSpecificContexts > 0) {
-    return "Pre-code next: make planner/coder/verifier contexts mode-specific";
-  }
-  if (counts.freshRoleExecution > 0) {
-    return "Pre-code next: split coder and verifier into fresh execution units";
-  }
-  return undefined;
+  const summary = deriveRepoPreCodeDisciplineSummary({
+    repoKey: formatRepoKey(params.repo),
+    snapshotEntries: Object.values(params.state.statusSnapshotsByIssue).filter((snapshot) =>
+      issueKeyMatchesRepo(snapshot.issueKey, params.repo),
+    ),
+  });
+  return summary.nextActionSummary ? `Pre-code next: ${summary.nextActionSummary}` : undefined;
 }
 
 function summarizeRepoPreCodeRepair(params: {
   state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
   repo: { owner: string; repo: string };
 }): string | undefined {
-  const counts = {
-    isolatedWorktree: 0,
-    modeSpecificContexts: 0,
-    freshRoleExecution: 0,
-  };
-  for (const snapshot of Object.values(params.state.statusSnapshotsByIssue)) {
-    if (!issueKeyMatchesRepo(snapshot.issueKey, params.repo)) {
-      continue;
-    }
-    if (snapshot.preCodeDisciplineIsolatedWorktreePrepared === false) {
-      counts.isolatedWorktree += 1;
-    }
-    if (snapshot.preCodeDisciplineModeSpecificContextsPresent === false) {
-      counts.modeSpecificContexts += 1;
-    }
-    if (snapshot.preCodeDisciplineFreshRoleExecutionPresent === false) {
-      counts.freshRoleExecution += 1;
-    }
-  }
-  const repoKey = formatRepoKey(params.repo);
-  const actions = [
-    counts.isolatedWorktree > 0
-      ? `rerun affected issues through /occode-start ${repoKey}#<issue-number> so .openclawcode/worktrees/* is prepared`
-      : undefined,
-    counts.modeSpecificContexts > 0
-      ? `review /occode-routing ${repoKey} and set missing role bindings with /occode-route-set ${repoKey} <role> <provider>`
-      : undefined,
-    counts.freshRoleExecution > 0
-      ? `review /occode-runtime-steering ${repoKey} and split building/verifying with /occode-runtime-steering-set ${repoKey} <building|verifying> <agent-id> [adapter=<id>]`
-      : undefined,
-  ].filter((value): value is string => Boolean(value));
-  return actions.length > 0 ? `Pre-code repair: ${actions.join("; then ")}` : undefined;
+  const summary = deriveRepoPreCodeDisciplineSummary({
+    repoKey: formatRepoKey(params.repo),
+    snapshotEntries: Object.values(params.state.statusSnapshotsByIssue).filter((snapshot) =>
+      issueKeyMatchesRepo(snapshot.issueKey, params.repo),
+    ),
+  });
+  return summary.repairSummary ? `Pre-code repair: ${summary.repairSummary}` : undefined;
 }
 
 function summarizeRepoLoopHealth(params: {

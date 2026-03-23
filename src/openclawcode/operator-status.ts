@@ -55,6 +55,16 @@ export interface OpenClawCodeOperatorRepoSummary {
   runtimeRerouteLearningCount: number;
 }
 
+export interface OpenClawCodeRepoPreCodeDisciplineSummary {
+  isolatedWorktreeCount: number;
+  modeSpecificContextsCount: number;
+  freshRoleExecutionCount: number;
+  gapSummary?: string;
+  nextActionSummary?: string;
+  repairActions: string[];
+  repairSummary?: string;
+}
+
 export interface OpenClawCodeOperatorStatusSnapshot {
   contractVersion: 1;
   generatedAt: string;
@@ -136,6 +146,64 @@ function buildRepoPreCodeDisciplineRepairSummary(params: {
   return actions.length > 0 ? actions.join("; then ") : undefined;
 }
 
+export function deriveRepoPreCodeDisciplineSummary(params: {
+  repoKey: string;
+  snapshotEntries: OpenClawCodeIssueStatusSnapshot[];
+}): OpenClawCodeRepoPreCodeDisciplineSummary {
+  const preCodeGapCounts = {
+    isolatedWorktree: params.snapshotEntries.filter(
+      (entry) => entry.preCodeDisciplineIsolatedWorktreePrepared === false,
+    ).length,
+    modeSpecificContexts: params.snapshotEntries.filter(
+      (entry) => entry.preCodeDisciplineModeSpecificContextsPresent === false,
+    ).length,
+    freshRoleExecution: params.snapshotEntries.filter(
+      (entry) => entry.preCodeDisciplineFreshRoleExecutionPresent === false,
+    ).length,
+  };
+  const gapSummary = [
+    preCodeGapCounts.isolatedWorktree > 0
+      ? `isolated-worktree=${preCodeGapCounts.isolatedWorktree}`
+      : undefined,
+    preCodeGapCounts.modeSpecificContexts > 0
+      ? `mode-specific-contexts=${preCodeGapCounts.modeSpecificContexts}`
+      : undefined,
+    preCodeGapCounts.freshRoleExecution > 0
+      ? `fresh-role-execution=${preCodeGapCounts.freshRoleExecution}`
+      : undefined,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" | ");
+  const nextActionSummary =
+    preCodeGapCounts.isolatedWorktree > 0
+      ? "prepare isolated issue worktrees before code execution"
+      : preCodeGapCounts.modeSpecificContexts > 0
+        ? "make planner/coder/verifier contexts mode-specific"
+        : preCodeGapCounts.freshRoleExecution > 0
+          ? "split coder and verifier into fresh execution units"
+          : undefined;
+  const repairActions = buildRepoPreCodeDisciplineRepairActions({
+    repoKey: params.repoKey,
+    isolatedWorktreeCount: preCodeGapCounts.isolatedWorktree,
+    modeSpecificContextsCount: preCodeGapCounts.modeSpecificContexts,
+    freshRoleExecutionCount: preCodeGapCounts.freshRoleExecution,
+  });
+  return {
+    isolatedWorktreeCount: preCodeGapCounts.isolatedWorktree,
+    modeSpecificContextsCount: preCodeGapCounts.modeSpecificContexts,
+    freshRoleExecutionCount: preCodeGapCounts.freshRoleExecution,
+    gapSummary: gapSummary || undefined,
+    nextActionSummary,
+    repairActions,
+    repairSummary: buildRepoPreCodeDisciplineRepairSummary({
+      repoKey: params.repoKey,
+      isolatedWorktreeCount: preCodeGapCounts.isolatedWorktree,
+      modeSpecificContextsCount: preCodeGapCounts.modeSpecificContexts,
+      freshRoleExecutionCount: preCodeGapCounts.freshRoleExecution,
+    }),
+  };
+}
+
 function collectRepoKeySet(state: OpenClawCodeQueueState): Set<string> {
   const repoKeys = new Set<string>();
   for (const repoKey of Object.keys(state.repoBindingsByRepo)) {
@@ -214,49 +282,9 @@ function buildRepoSummary(params: {
       ? 1
       : 0;
   const incidentLearning = deriveRepoIncidentLearningSummary(snapshotEntries);
-  const preCodeGapCounts = {
-    isolatedWorktree: snapshotEntries.filter(
-      (entry) => entry.preCodeDisciplineIsolatedWorktreePrepared === false,
-    ).length,
-    modeSpecificContexts: snapshotEntries.filter(
-      (entry) => entry.preCodeDisciplineModeSpecificContextsPresent === false,
-    ).length,
-    freshRoleExecution: snapshotEntries.filter(
-      (entry) => entry.preCodeDisciplineFreshRoleExecutionPresent === false,
-    ).length,
-  };
-  const preCodeDisciplineGapSummary = [
-    preCodeGapCounts.isolatedWorktree > 0
-      ? `isolated-worktree=${preCodeGapCounts.isolatedWorktree}`
-      : undefined,
-    preCodeGapCounts.modeSpecificContexts > 0
-      ? `mode-specific-contexts=${preCodeGapCounts.modeSpecificContexts}`
-      : undefined,
-    preCodeGapCounts.freshRoleExecution > 0
-      ? `fresh-role-execution=${preCodeGapCounts.freshRoleExecution}`
-      : undefined,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .join(" | ");
-  const preCodeDisciplineNextActionSummary =
-    preCodeGapCounts.isolatedWorktree > 0
-      ? "prepare isolated issue worktrees before code execution"
-      : preCodeGapCounts.modeSpecificContexts > 0
-        ? "make planner/coder/verifier contexts mode-specific"
-        : preCodeGapCounts.freshRoleExecution > 0
-          ? "split coder and verifier into fresh execution units"
-          : undefined;
-  const preCodeDisciplineRepairSummary = buildRepoPreCodeDisciplineRepairSummary({
+  const preCodeDiscipline = deriveRepoPreCodeDisciplineSummary({
     repoKey,
-    isolatedWorktreeCount: preCodeGapCounts.isolatedWorktree,
-    modeSpecificContextsCount: preCodeGapCounts.modeSpecificContexts,
-    freshRoleExecutionCount: preCodeGapCounts.freshRoleExecution,
-  });
-  const preCodeDisciplineRepairActions = buildRepoPreCodeDisciplineRepairActions({
-    repoKey,
-    isolatedWorktreeCount: preCodeGapCounts.isolatedWorktree,
-    modeSpecificContextsCount: preCodeGapCounts.modeSpecificContexts,
-    freshRoleExecutionCount: preCodeGapCounts.freshRoleExecution,
+    snapshotEntries,
   });
   return {
     repoKey,
@@ -289,11 +317,11 @@ function buildRepoSummary(params: {
     preCodeDisciplinePendingCount: snapshotEntries.filter(
       (entry) => entry.preCodeDisciplineStatus === "pending",
     ).length,
-    preCodeDisciplineGapSummary: preCodeDisciplineGapSummary || undefined,
-    preCodeDisciplineNextActionSummary,
+    preCodeDisciplineGapSummary: preCodeDiscipline.gapSummary,
+    preCodeDisciplineNextActionSummary: preCodeDiscipline.nextActionSummary,
     preCodeDisciplineRepairActions:
-      preCodeDisciplineRepairActions.length > 0 ? preCodeDisciplineRepairActions : undefined,
-    preCodeDisciplineRepairSummary,
+      preCodeDiscipline.repairActions.length > 0 ? preCodeDiscipline.repairActions : undefined,
+    preCodeDisciplineRepairSummary: preCodeDiscipline.repairSummary,
     loopHealthHealthyCount: snapshotEntries.filter((entry) => entry.loopHealthStatus === "healthy")
       .length,
     loopHealthWarnCount: snapshotEntries.filter((entry) => entry.loopHealthStatus === "warn").length,
