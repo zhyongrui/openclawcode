@@ -586,11 +586,88 @@ The highest-value remaining imports from these two repos are now:
      signals surfaced through normal operator status instead of only failure
      notes
 
+## What `autoresearch` Gets Right
+
+`karpathy/autoresearch` is useful as a minimal autonomous-loop reference, not
+as a product template.
+
+Strongest ideas:
+
+- keep the mutable execution surface deliberately tiny
+- keep the evaluation harness fixed
+- keep the human-editable agent program explicit and versionable
+- make each loop iteration run under a fixed budget and fixed metric
+- log every attempt into a durable experiment ledger
+- define keep/discard/advance behavior as part of the program, not as an
+  implicit habit
+
+Why this matters for `openclawcode`:
+
+- `openclawcode` already has stronger workflow machinery than `autoresearch`
+  does, but it still spreads some of its operator intent across:
+  - chat commands
+  - policy docs
+  - run contracts
+  - repo-local artifacts
+- the next product gain is not more autonomy primitives; it is making the loop
+  smaller, clearer, and more explicit about:
+  - what may be changed
+  - what is fixed
+  - how a run is evaluated
+  - when a change advances or is discarded
+
+Recommended absorption:
+
+- add a repo-local operator-program layer that plays the role of
+  `program.md`, but for software delivery instead of model research
+- let that operator program define:
+  - allowed mutation scope
+  - preferred validation budget
+  - keep/discard rules
+  - takeover and resume policy
+  - simplification bias for low-signal diffs
+- make attempt ledgers more explicit so operators can see what was tried,
+  rejected, retried, or kept without reconstructing the history from raw logs
+- keep shrinking broad execution requests into narrower mutable surfaces when a
+  safe file or directory allowlist is possible
+
+Not worth copying directly:
+
+- the single-metric worldview
+- the assumption that one file can be the only mutable surface forever
+- the intentionally tiny research-only environment and permission model
+
+Best import from this repo:
+
+- treat the autonomous loop itself as a versioned programmable artifact
+- treat experiment/result ledgers as first-class operator state
+- prefer smaller fixed evaluation contracts over vague "improve the code"
+  execution goals
+
+Recommended integration order:
+
+1. define a repo-local operator-program artifact and schema
+2. add an explicit attempt ledger for keep/discard/retry outcomes
+3. connect pre-code discipline and validation policy to that program layer
+4. expose the active program/ledger summaries in normal operator status
+5. only then add more autonomous loop complexity on top
+
+Current fit for `openclawcode`:
+
+- this repo is not a replacement for the existing blueprint-first track
+- it is a discipline reference for the lower half of the loop:
+  - pre-code constraints
+  - validation budgets
+  - advancement rules
+  - durable run histories
+
 ## Short Conclusion
 
 - `superpowers` is most worth absorbing as a development-method discipline
 - `everything-claude-code` is most worth absorbing as an operator and harness
   hardening reference
+- `autoresearch` is most worth absorbing as a minimal autonomous-loop design
+  reference
 - `openclawcode` should not copy either repo wholesale
 - the right move is to absorb the smallest set of ideas that directly improve:
   - operator visibility

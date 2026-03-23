@@ -31,6 +31,14 @@ import {
 const INSTALL_DAEMON_HEALTH_DEADLINE_MS = 45_000;
 const ATTACH_EXISTING_GATEWAY_HEALTH_DEADLINE_MS = 15_000;
 
+function formatChatCommandWithAlias(command: string): string {
+  if (!command.startsWith("/occode-")) {
+    return formatCliCommand(command);
+  }
+  const alias = command.replace(/^\/occode-/, "/occ-");
+  return `${formatCliCommand(command)} (alias ${formatCliCommand(alias)})`;
+}
+
 async function collectGatewayHealthFailureDiagnostics(): Promise<
   GatewayHealthFailureDiagnostics | undefined
 > {
@@ -247,7 +255,7 @@ export async function runNonInteractiveLocalSetup(params: {
   const openClawCodeBootstrapCommand = formatCliCommand(
     "openclaw code bootstrap --repo owner/repo --json",
   );
-  const openClawCodeChatSetupCommand = formatCliCommand("/occode-setup");
+  const openClawCodeChatSetupCommand = "/occode-setup";
   const resolvedGitHubToken = resolveOnboardingGitHubToken();
   const githubViewer = resolvedGitHubToken
     ? await onboardingOpenClawCodeDeps.fetchAuthenticatedViewer(resolvedGitHubToken.token).catch(() => undefined)
@@ -311,7 +319,7 @@ export async function runNonInteractiveLocalSetup(params: {
           githubViewer?.email ? `Email: ${githubViewer.email}` : undefined,
           `Source: ${formatOnboardingGitHubAuthSourceLabel(resolvedGitHubToken.source)}`,
           `Next: ${openClawCodeBootstrapCommand}`,
-          `Chat path: ${openClawCodeChatSetupCommand}`,
+          `Chat path: ${formatChatCommandWithAlias(openClawCodeChatSetupCommand)}`,
           openClawCodeSummary.switchAccountCommand
             ? `Wrong account? Run ${openClawCodeSummary.switchAccountCommand}.`
             : undefined,
@@ -325,7 +333,7 @@ export async function runNonInteractiveLocalSetup(params: {
         [
           "OpenClaw Code GitHub auth is not configured on this host yet.",
           `Fix: ${formatCliCommand("gh auth login")}`,
-          `Then use ${openClawCodeBootstrapCommand} or ${openClawCodeChatSetupCommand}.`,
+          `Then use ${openClawCodeBootstrapCommand} or ${formatChatCommandWithAlias(openClawCodeChatSetupCommand)}.`,
         ].join("\n"),
       );
     }

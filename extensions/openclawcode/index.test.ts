@@ -17,6 +17,7 @@ import { readProjectBlueprintDiscussionArtifact } from "../../src/openclawcode/b
 import type { WorkflowRun } from "../../src/openclawcode/contracts/index.js";
 import { writeProjectDiscoveryInventory } from "../../src/openclawcode/discovery.js";
 import { readProjectIssueMaterializationArtifact } from "../../src/openclawcode/issue-materialization.js";
+import { createProjectOperatorProgram } from "../../src/openclawcode/operator-program.js";
 import { readProjectProgressArtifact } from "../../src/openclawcode/project-progress.js";
 import {
   readProjectStageGateArtifact,
@@ -3425,6 +3426,66 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("accepts /occ-* aliases for setup and multiline blueprint drafting commands", async () => {
+    const fixture = await registerPluginFixture();
+
+    try {
+      expect(fixture.commands.has("occ-setup")).toBe(true);
+      expect(fixture.commands.has("occ-goal")).toBe(true);
+      expect(fixture.commands.has("occ-blueprint-edit")).toBe(true);
+      expect(fixture.commands.has("occ-status")).toBe(true);
+
+      const setupResult = await fixture.commands.get("occ-setup")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occ-setup new-project",
+        args: "new-project",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(setupResult?.text).toContain(
+        "OpenClaw Code is drafting a blueprint-first new-project setup for this chat.",
+      );
+
+      const goalResult = await fixture.commands.get("occ-goal")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occ-goal Shared image gallery for family albums",
+        args: "Shared image gallery for family albums",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(goalResult?.text).toContain("Updated setup draft section `Goal`.");
+
+      const editResult = await fixture.commands.get("occ-blueprint-edit")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody:
+          "/occ-blueprint-edit constraints\n- Stay inside chat until repo creation is necessary.",
+        args: "constraints",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(editResult?.text).toContain("Updated setup draft section `Constraints`.");
+      expect(
+        (
+          await fixture.store.getSetupSession({
+            notifyChannel: "feishu",
+            notifyTarget: "user:setup-chat",
+          })
+        )?.blueprintDraft?.sections,
+      ).toMatchObject({
+        Goal: "Shared image gallery for family albums",
+        Constraints: "- Stay inside chat until repo creation is necessary.",
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("routes /occode-goal into the active new-project setup draft", async () => {
     const fixture = await registerPluginFixture();
     await fixture.store.upsertSetupSession({
@@ -5180,6 +5241,7 @@ describe("openclawcode extension", () => {
   it("shows pre-code discipline context through /occode-status", async () => {
     const fixture = await registerPluginFixture();
     try {
+      await createProjectOperatorProgram({ repoRoot: fixture.repoRoot });
       await fixture.store.setStatusSnapshot({
         issueKey: "zhyongrui/openclawcode#6623",
         status: [
@@ -5217,6 +5279,12 @@ describe("openclawcode extension", () => {
       );
       expect(result?.text).toContain(
         `Pre-code repair: approve the current plan digest from the host with openclaw code run --issue 6623 --repo-root ${fixture.repoRoot} --require-plan-approval --approve-plan-digest <current-plan-digest>`,
+      );
+      expect(result?.text).toContain(
+        "Operator program: available=yes | mutableSurface=scoped-by-work-item | proof=required | attemptLedger=required | nextAction=narrow-mutation-scope",
+      );
+      expect(result?.text).toContain(
+        "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
       );
     } finally {
       await cleanupPluginFixture(fixture);
@@ -5788,6 +5856,7 @@ describe("openclawcode extension", () => {
   it("shows pending, running, queued, and recent activity through /occode-inbox", async () => {
     const fixture = await registerPluginFixture();
     try {
+      await createProjectOperatorProgram({ repoRoot: fixture.repoRoot });
       await fixture.store.addPendingApproval({
         issueKey: "zhyongrui/openclawcode#301",
         notifyChannel: "telegram",
@@ -5939,6 +6008,9 @@ describe("openclawcode extension", () => {
           "Pre-code gaps: mode-specific-contexts=1 | fresh-role-execution=1",
           "Pre-code next: make planner/coder/verifier contexts mode-specific",
           "Pre-code repair: review /occode-routing zhyongrui/openclawcode and set missing role bindings with /occode-route-set zhyongrui/openclawcode <role> <provider>; then review /occode-runtime-steering zhyongrui/openclawcode and split building/verifying with /occode-runtime-steering-set zhyongrui/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
+          "Operator program: available=yes | mutableSurface=scoped-by-work-item | proof=required | attemptLedger=required | nextAction=narrow-mutation-scope",
+          "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+          "Operator program next: Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
           "Loop health: healthy=1 | warn=1 | blocked=0 | pending=0",
           "Recent learnings: review-reruns=1",
           "Pending approvals: 1",
@@ -7916,6 +7988,7 @@ describe("openclawcode extension", () => {
         "utf8",
       );
       await writeProjectWorkItemInventory(fixture.repoRoot);
+      await createProjectOperatorProgram({ repoRoot: fixture.repoRoot });
 
       const progressResult = await fixture.commands.get("occode-progress")?.handler({
         channel: "telegram",
@@ -7930,6 +8003,12 @@ describe("openclawcode extension", () => {
         "Active workstream: Workstream 1/1 | Show project progress in chat.",
       );
       expect(progressResult?.text).toContain("Execution mode: feature");
+      expect(progressResult?.text).toContain(
+        "Operator program: available=yes | mutableSurface=scoped-by-work-item | proof=required | attemptLedger=required | nextAction=narrow-mutation-scope",
+      );
+      expect(progressResult?.text).toContain(
+        "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+      );
       expect(progressResult?.text).toContain("Next: /occode-materialize zhyongrui/openclawcode");
 
       const offResult = await fixture.commands.get("occode-autopilot")?.handler({
@@ -7949,6 +8028,14 @@ describe("openclawcode extension", () => {
       expect(progressArtifact.activeWorkstreamSummary).toBe(
         "Workstream 1/1 | Show project progress in chat.",
       );
+      expect(progressArtifact.operatorProgram).toMatchObject({
+        available: true,
+        mutableSurfaceMode: "scoped-by-work-item",
+        validationBudgetMaxPrimaryCommands: 2,
+        requireOneExecutableProof: true,
+        attemptLedgerRequired: true,
+        nextActionCode: "narrow-mutation-scope",
+      });
       expect(progressArtifact.nextSuggestedChatCommand).toBe(
         "/occode-materialize zhyongrui/openclawcode",
       );

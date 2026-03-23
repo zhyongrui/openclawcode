@@ -329,8 +329,11 @@ control-plane steps.
 ### 3. plugin activation visibility and readiness
 
 - this hardening is now landed
-- bootstrap remains the only writer for the default `openclawcode` plugin
-  activation state
+- local onboarding now also writes the default `openclawcode` plugin
+  activation state so chat slash-command routing is available immediately after
+  install/setup, not only after bootstrap
+- remote-mode onboarding remains a handoff path and does not pretend to enable
+  `openclawcode` on the remote host from the local client config
 - bootstrap summaries, chat setup summaries, and setup-check now all surface:
   - whether `plugins.enabled` is on
   - whether `plugins.allow` includes `openclawcode`

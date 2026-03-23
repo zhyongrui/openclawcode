@@ -87,6 +87,7 @@ describe("runOnboardingOpenClawCode", () => {
     const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
     expect(noteCalls.some((call) => call[1] === "OpenClaw Code")).toBe(true);
     expect(noteCalls.at(-1)?.[0]).toContain("/occode-setup");
+    expect(noteCalls.at(-1)?.[0]).toContain("/occ-setup");
     expect(noteCalls.at(-1)?.[0]).toContain("gh auth login");
     expect(noteCalls.at(-1)?.[0]).toContain("OpenClaw will launch GitHub device auth for you");
   });
@@ -316,7 +317,9 @@ describe("runOnboardingOpenClawCode", () => {
     const finalOpenClawCodeNote = noteCalls.filter((call) => call[1] === "OpenClaw Code").at(-1);
     expect(finalOpenClawCodeNote?.[0]).toContain("You can come back to OpenClaw Code later from either surface:");
     expect(finalOpenClawCodeNote?.[0]).toContain("/occode-setup");
+    expect(finalOpenClawCodeNote?.[0]).toContain("/occ-setup");
     expect(finalOpenClawCodeNote?.[0]).toContain("/occode-setup existing owner/repo");
+    expect(finalOpenClawCodeNote?.[0]).toContain("/occ-setup existing owner/repo");
     expect(finalOpenClawCodeNote?.[0]).toContain(
       "openclaw code bootstrap --repo owner/repo --json",
     );

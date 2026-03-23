@@ -1,5 +1,6 @@
 node_modules
 **/node_modules/
+node_modules.bad.*/
 .env
 docker-compose.override.yml
 docker-compose.extra.yml

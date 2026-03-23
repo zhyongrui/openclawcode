@@ -56,8 +56,10 @@ import {
   parseValidationIssue,
   AgentBackedBuilder,
   AgentBackedVerifier,
+  createProjectOperatorProgram,
   readProjectDiscoveryInventory,
   readProjectIssueMaterializationArtifact,
+  readProjectOperatorProgram,
   readProjectRuntimeSteeringArtifact,
   readProjectRoleRoutingPlan,
   readProjectPromotionGateArtifact,
@@ -331,6 +333,19 @@ export interface OpenClawCodeProjectProgressShowOpts {
   repo?: string;
   repoRoot?: string;
   stateDir?: string;
+  json?: boolean;
+}
+
+export interface OpenClawCodeOperatorProgramInitOpts {
+  repoRoot?: string;
+  title?: string;
+  summary?: string;
+  force?: boolean;
+  json?: boolean;
+}
+
+export interface OpenClawCodeOperatorProgramShowOpts {
+  repoRoot?: string;
   json?: boolean;
 }
 
@@ -1806,6 +1821,17 @@ export const openclawCodeBootstrapInternals = {
   ensureWebhook: ensureBootstrapWebhook,
 };
 
+function formatChatCommandWithAlias(command: string | null): string | null {
+  if (!command) {
+    return null;
+  }
+  if (!command.startsWith("/occode-")) {
+    return command;
+  }
+  const alias = command.replace(/^\/occode-/, "/occ-");
+  return `${command} (alias ${alias})`;
+}
+
 function parseRepoVisibility(value: string | undefined): "public" | "private" {
   const normalized = value?.trim().toLowerCase();
   if (!normalized || normalized === "private") {
@@ -2319,6 +2345,15 @@ function logProjectProgressArtifact(params: {
   runtime.log(
     `Operator: available=${artifact.operator.available ? "yes" : "no"} | binding=${artifact.operator.bindingPresent ? "yes" : "no"} | pending=${artifact.operator.pendingApprovalCount} | queued=${artifact.operator.queuedRunCount} | current=${artifact.operator.currentRunCount} | pause=${artifact.operator.providerPauseActive ? "yes" : "no"}`,
   );
+  runtime.log(
+    `Operator program: available=${artifact.operatorProgram.available ? "yes" : "no"} | mutableSurface=${artifact.operatorProgram.mutableSurfaceMode ?? "unset"} | proof=${artifact.operatorProgram.requireOneExecutableProof ? "required" : "optional"} | attemptLedger=${artifact.operatorProgram.attemptLedgerRequired ? "required" : "optional"} | nextAction=${artifact.operatorProgram.nextActionCode ?? "none"}`,
+  );
+  if (artifact.operatorProgram.validationBudgetSummary) {
+    runtime.log(`Operator program budget: ${artifact.operatorProgram.validationBudgetSummary}`);
+  }
+  if (artifact.operatorProgram.nextActionSummary) {
+    runtime.log(`Operator program next: ${artifact.operatorProgram.nextActionSummary}`);
+  }
   if (artifact.operator.currentRunIssueKey) {
     runtime.log(`Current run: ${artifact.operator.currentRunIssueKey}`);
   }
@@ -2336,6 +2371,34 @@ function logProjectProgressArtifact(params: {
   }
   if (artifact.nextSuggestedChatCommand) {
     runtime.log(`Next suggested chat command: ${artifact.nextSuggestedChatCommand}`);
+  }
+}
+
+function logProjectOperatorProgramArtifact(params: {
+  artifact: Awaited<ReturnType<typeof readProjectOperatorProgram>>;
+  runtime: RuntimeEnv;
+  json?: boolean;
+}): void {
+  const { artifact, runtime } = params;
+  if (params.json) {
+    runtime.log(JSON.stringify(artifact, null, 2));
+    return;
+  }
+
+  runtime.log(`Repo root: ${artifact.repoRoot}`);
+  runtime.log(`Operator-program path: ${artifact.artifactPath}`);
+  runtime.log(`Exists: ${artifact.exists ? "yes" : "no"}`);
+  runtime.log(`Updated at: ${artifact.updatedAt ?? "not yet generated"}`);
+  runtime.log(`Title: ${artifact.title ?? "unknown"}`);
+  runtime.log(`Mutable surface mode: ${artifact.mutableSurfaceMode ?? "unset"}`);
+  runtime.log(
+    `Validation budget: ${artifact.validationBudgetSummary ?? "not set"}${typeof artifact.validationBudgetMaxPrimaryCommands === "number" ? ` | max primary commands=${artifact.validationBudgetMaxPrimaryCommands}` : ""}`,
+  );
+  runtime.log(`Require executable proof: ${artifact.requireOneExecutableProof ? "yes" : "no"}`);
+  runtime.log(`Attempt ledger required: ${artifact.attemptLedgerRequired ? "yes" : "no"}`);
+  runtime.log(`Next action code: ${artifact.nextActionCode ?? "none"}`);
+  if (artifact.nextActionSummary) {
+    runtime.log(`Next action summary: ${artifact.nextActionSummary}`);
   }
 }
 
@@ -2601,7 +2664,7 @@ function logOpenClawCodeOperatorStatusSnapshot(params: {
   }
   for (const repo of snapshot.repos) {
     runtime.log(
-      `- ${repo.repoKey}: tracked=${repo.trackedIssueCount} pending=${repo.pendingApprovalCount} queued=${repo.queuedRunCount} current=${repo.currentRunCount} ready=${repo.readyForHumanReviewCount} merged=${repo.mergedCount} failed=${repo.failedCount} pre-code=ready:${repo.preCodeDisciplineReadyCount},warn:${repo.preCodeDisciplineWarnCount},blocked:${repo.preCodeDisciplineBlockedCount},pending:${repo.preCodeDisciplinePendingCount}${repo.preCodeDisciplineGapSummary ? `,gaps:${repo.preCodeDisciplineGapSummary}` : ""}${repo.preCodeDisciplineNextActionSummary ? `,next:${repo.preCodeDisciplineNextActionSummary}` : ""}${repo.preCodeDisciplineRepairSummary ? `,repair:${repo.preCodeDisciplineRepairSummary}` : ""} loop=healthy:${repo.loopHealthHealthyCount},warn:${repo.loopHealthWarnCount},blocked:${repo.loopHealthBlockedCount},pending:${repo.loopHealthPendingCount}`,
+      `- ${repo.repoKey}: tracked=${repo.trackedIssueCount} pending=${repo.pendingApprovalCount} queued=${repo.queuedRunCount} current=${repo.currentRunCount} ready=${repo.readyForHumanReviewCount} merged=${repo.mergedCount} failed=${repo.failedCount} pre-code=ready:${repo.preCodeDisciplineReadyCount},warn:${repo.preCodeDisciplineWarnCount},blocked:${repo.preCodeDisciplineBlockedCount},pending:${repo.preCodeDisciplinePendingCount}${repo.preCodeDisciplineGapSummary ? `,gaps:${repo.preCodeDisciplineGapSummary}` : ""}${repo.preCodeDisciplineNextActionSummary ? `,next:${repo.preCodeDisciplineNextActionSummary}` : ""}${repo.preCodeDisciplineRepairSummary ? `,repair:${repo.preCodeDisciplineRepairSummary}` : ""}${repo.operatorProgramAvailable ? ` operator-program=mutable:${repo.operatorProgramMutableSurfaceMode ?? "unset"},proof:${repo.operatorProgramRequireOneExecutableProof ? "required" : "optional"},ledger:${repo.operatorProgramAttemptLedgerRequired ? "required" : "optional"}${repo.operatorProgramNextActionSummary ? `,next:${repo.operatorProgramNextActionSummary}` : ""}` : ""} loop=healthy:${repo.loopHealthHealthyCount},warn:${repo.loopHealthWarnCount},blocked:${repo.loopHealthBlockedCount},pending:${repo.loopHealthPendingCount}`,
     );
   }
 }
@@ -4473,20 +4536,22 @@ export async function openclawCodeBootstrapCommand(
     runtime.log(`Blueprint decompose: ${handoff.blueprintDecomposeCommand}`);
   }
   runtime.log(`CLI proof: ${handoff.cliRunCommand}`);
-  runtime.log(`Blueprint inspect: ${handoff.blueprintCommand}`);
-  runtime.log(`Stage gates inspect: ${handoff.gatesCommand}`);
+  runtime.log(`Blueprint inspect: ${formatChatCommandWithAlias(handoff.blueprintCommand)}`);
+  runtime.log(`Stage gates inspect: ${formatChatCommandWithAlias(handoff.gatesCommand)}`);
   runtime.log(`Gateway restart: ${handoff.gatewayRestartCommand}`);
   if (payload.pluginActivation.ready === false || proofReadiness.chatSetupRoutingReady === false) {
     runtime.log(`Plugin activation repair: ${handoff.pluginActivationRepairCommand}`);
     if (handoff.chatSetupStatusCommand) {
-      runtime.log(`Chat setup retry: ${handoff.chatSetupStatusCommand}`);
+      runtime.log(
+        `Chat setup retry: ${formatChatCommandWithAlias(handoff.chatSetupStatusCommand)}`,
+      );
     }
   }
   if (handoff.chatBindCommand) {
-    runtime.log(`Chat bind: ${handoff.chatBindCommand}`);
+    runtime.log(`Chat bind: ${formatChatCommandWithAlias(handoff.chatBindCommand)}`);
   }
   if (handoff.chatStartCommand) {
-    runtime.log(`Chat proof: ${handoff.chatStartCommand}`);
+    runtime.log(`Chat proof: ${formatChatCommandWithAlias(handoff.chatStartCommand)}`);
   }
   if (handoff.webhookRetryCommand) {
     runtime.log(`Webhook retry: ${handoff.webhookRetryCommand}`);
@@ -4883,6 +4948,37 @@ export async function openclawCodeProjectProgressShowCommand(
     operatorSnapshot,
   });
   logProjectProgressArtifact({
+    artifact,
+    runtime,
+    json: Boolean(opts.json),
+  });
+}
+
+export async function openclawCodeOperatorProgramInitCommand(
+  opts: OpenClawCodeOperatorProgramInitOpts,
+  runtime: RuntimeEnv,
+): Promise<void> {
+  const repoRoot = path.resolve(opts.repoRoot ?? process.cwd());
+  const artifact = await createProjectOperatorProgram({
+    repoRoot,
+    title: opts.title,
+    summary: opts.summary,
+    force: Boolean(opts.force),
+  });
+  logProjectOperatorProgramArtifact({
+    artifact,
+    runtime,
+    json: Boolean(opts.json),
+  });
+}
+
+export async function openclawCodeOperatorProgramShowCommand(
+  opts: OpenClawCodeOperatorProgramShowOpts,
+  runtime: RuntimeEnv,
+): Promise<void> {
+  const repoRoot = path.resolve(opts.repoRoot ?? process.cwd());
+  const artifact = await readProjectOperatorProgram(repoRoot);
+  logProjectOperatorProgramArtifact({
     artifact,
     runtime,
     json: Boolean(opts.json),

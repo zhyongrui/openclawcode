@@ -196,12 +196,24 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
         gateway?: { auth?: { mode?: string; token?: string } };
         agents?: { defaults?: { workspace?: string } };
         tools?: { profile?: string };
+        plugins?: {
+          enabled?: boolean;
+          allow?: string[];
+          entries?: {
+            openclawcode?: {
+              enabled?: boolean;
+            };
+          };
+        };
       }>(configPath);
 
       expect(cfg?.agents?.defaults?.workspace).toBe(workspace);
       expect(cfg?.tools?.profile).toBe("coding");
       expect(cfg?.gateway?.auth?.mode).toBe("token");
       expect(cfg?.gateway?.auth?.token).toBe(token);
+      expect(cfg?.plugins?.enabled).toBe(true);
+      expect(cfg?.plugins?.allow).toContain("openclawcode");
+      expect(cfg?.plugins?.entries?.openclawcode?.enabled).toBe(true);
     });
   }, 60_000);
 
@@ -290,6 +302,7 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
       expect(output).toContain("Source: GH_TOKEN env var");
       expect(output).toContain("openclaw code bootstrap --repo owner/repo --json");
       expect(output).toContain("/occode-setup");
+      expect(output).toContain("/occ-setup");
       expect(output).toContain("Replace or unset GH_TOKEN for the host before running OpenClaw Code.");
     });
   }, 60_000);
@@ -385,6 +398,7 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
       );
       expect(output).toContain("Remote host CLI: openclaw code bootstrap --repo owner/repo --json");
       expect(output).toContain("Chat path: /occode-setup");
+      expect(output).toContain("/occ-setup");
       expect(output).toContain("gh auth login");
     });
   }, 60_000);

@@ -157,12 +157,71 @@ The next post-checklist productization queue is now:
 5. keep loop-health and context-budget diagnostics visible in operator-facing
    status surfaces, borrowing from session lifecycle hooks and compact
    evaluation patterns instead of raw traces alone
+6. absorb the best minimal-loop ideas from `karpathy/autoresearch`, especially:
+   - a repo-local operator-program artifact that makes execution policy
+     explicit
+   - narrower mutable execution surfaces when safe allowlists are possible
+   - explicit keep/discard/retry ledgers for autonomous attempts
+   - fixed validation budgets and advancement rules as durable repo-local state
 
 Every completed slice should either:
 
 - remove one blocker from that path
 - harden a proof already on that path
 - or improve the docs or machine-readable surfaces needed to repeat that path
+
+## Additional External Reference
+
+`karpathy/autoresearch` is worth treating as a design reference for the
+autonomous loop itself.
+
+The key import is not "autonomous research on one GPU". The key import is the
+discipline of keeping three layers explicit:
+
+- a fixed evaluation harness
+- a deliberately narrow mutable execution surface
+- a human-authored program artifact that defines loop behavior
+
+For `openclawcode`, the equivalent direction is:
+
+- keep `PROJECT-BLUEPRINT.md` as the canonical planning artifact
+- add a narrower repo-local operator-program layer for execution policy
+- make validation budgets, advancement rules, and keep/discard criteria durable
+- keep improving attempt ledgers so operator review does not depend on reading
+  raw logs and chat history
+
+This should be treated as a complement to the blueprint-first track, not a
+replacement for it:
+
+- blueprint-first remains the upstream control plane
+- the `autoresearch` import is for the downstream execution loop discipline
+
+That `operator-program` import now has a first concrete landing:
+
+- repo-local artifact path:
+  - `.openclawcode/operator-program.json`
+- initial CLI surfaces:
+  - `openclaw code operator-program-init`
+  - `openclaw code operator-program-show`
+- the first artifact schema now records:
+  - mutable-surface mode and optional path allowlist
+  - validation budget guidance
+  - keep/discard/retry criteria
+  - simplification bias
+  - whether an explicit attempt ledger is required
+
+That follow-up slice has now landed in the first shared consumer:
+
+- `.openclawcode/project-progress.json` now carries an `operatorProgram`
+  summary alongside blueprint, stage-gate, role-routing, and operator queue
+  state
+- `openclaw code project-progress-show` and `/occode-progress` both reuse that
+  shared summary instead of each surface re-reading the repo-local
+  `operator-program` artifact separately
+
+The next slice on this track should push the same shared operator-program
+summary further into run/operator status surfaces so execution policy is visible
+where active issue routing and repair guidance already live.
 
 ## Product Target
 
@@ -629,6 +688,9 @@ turning the working loop into a cleanly operable product:
   - `plugins.slots.memory = "none"`
   - `plugins.entries.openclawcode.enabled = true`
   - listener reached `ws://127.0.0.1:18890`
+- local onboarding now also auto-enables the bundled `openclawcode` plugin in
+  generated config so `/occode-*` and `/occ-*` chat routing is available right
+  after install/setup instead of waiting for a later bootstrap step
 - the allowlist note matters:
   - a naive "openclawcode-only" config still leaves bundled defaults like
     `device-pair`, `ollama`, `phone-control`, `sglang`, `talk-voice`, `vllm`,

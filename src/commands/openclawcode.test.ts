@@ -16,6 +16,8 @@ import {
   openclawCodeBlueprintInitCommand,
   openclawCodeBootstrapInternals,
   openclawCodeCapabilityMapShowCommand,
+  openclawCodeOperatorProgramInitCommand,
+  openclawCodeOperatorProgramShowCommand,
   openclawCodePolicyShowCommand,
   openclawCodeRepoPlanCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
@@ -2811,6 +2813,13 @@ describe("openclawCodeRunCommand", () => {
       },
       runtime,
     );
+    await openclawCodeOperatorProgramInitCommand(
+      {
+        repoRoot,
+        json: true,
+      },
+      runtime,
+    );
 
     const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
     expect(payload).toMatchObject({
@@ -3839,6 +3848,13 @@ describe("openclawCodeRunCommand", () => {
       },
       runtime,
     );
+    await openclawCodeOperatorProgramInitCommand(
+      {
+        repoRoot,
+        json: true,
+      },
+      runtime,
+    );
 
     runtime.log.mockClear();
     await openclawCodeIssueMaterializeCommand(
@@ -4147,6 +4163,13 @@ describe("openclawCodeRunCommand", () => {
       },
       runtime,
     );
+    await openclawCodeOperatorProgramInitCommand(
+      {
+        repoRoot,
+        json: true,
+      },
+      runtime,
+    );
 
     runtime.log.mockClear();
     await openclawCodeProjectProgressShowCommand(
@@ -4176,7 +4199,37 @@ describe("openclawCodeRunCommand", () => {
       selectedWorkItemId: "planned-01-show-blueprint-aware-progress-in-one-artifact",
       selectedWorkItemExecutionMode: "feature",
       selectedIssueNumber: null,
+      operatorProgram: {
+        available: true,
+        mutableSurfaceMode: "scoped-by-work-item",
+        validationBudgetMaxPrimaryCommands: 2,
+        requireOneExecutableProof: true,
+        attemptLedgerRequired: true,
+        nextActionCode: "narrow-mutation-scope",
+      },
     });
+
+    runtime.log.mockClear();
+    await openclawCodeProjectProgressShowCommand(
+      {
+        owner: "openclaw",
+        repo: "openclaw",
+        repoRoot,
+        json: false,
+      },
+      runtime,
+    );
+
+    const progressLines = runtime.log.mock.calls.map((call) => String(call[0]));
+    expect(progressLines).toContain(
+      "Operator program: available=yes | mutableSurface=scoped-by-work-item | proof=required | attemptLedger=required | nextAction=narrow-mutation-scope",
+    );
+    expect(progressLines).toContain(
+      "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+    );
+    expect(progressLines).toContain(
+      "Operator program next: Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
+    );
 
     runtime.log.mockClear();
     await openclawCodeAutonomousLoopRunCommand(
@@ -4996,10 +5049,17 @@ describe("openclawCodeRunCommand", () => {
           command: "openclaw code capability-map-show",
           capabilities: expect.arrayContaining(["capability-map.inspect"]),
         }),
+        expect.objectContaining({
+          command: "openclaw code operator-program-show",
+          capabilities: expect.arrayContaining(["operator-program.inspect"]),
+        }),
       ]),
       workflowArtifacts: expect.arrayContaining([
         expect.objectContaining({
           path: ".openclawcode/role-routing.json",
+        }),
+        expect.objectContaining({
+          path: ".openclawcode/operator-program.json",
         }),
         expect.objectContaining({
           path: "openclaw code operator-status-snapshot-show --json",
@@ -5020,7 +5080,17 @@ describe("openclawCodeRunCommand", () => {
 
   it("reports a stable operator status snapshot for tracked queue and status state", async () => {
     const stateDir = await mkdtemp(path.join(os.tmpdir(), "openclawcode-operator-state-"));
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-operator-repo-"));
     const store = OpenClawCodeChatopsStore.fromStateDir(stateDir);
+
+    await openclawCodeOperatorProgramInitCommand(
+      {
+        repoRoot,
+        json: true,
+      },
+      runtime,
+    );
+    runtime.log.mockClear();
 
     await store.setRepoBinding({
       repoKey: "openclaw/openclawcode",
@@ -5086,7 +5156,7 @@ describe("openclawCodeRunCommand", () => {
           owner: "openclaw",
           repo: "openclawcode",
           issueNumber: 104,
-          repoRoot: "/tmp/openclawcode",
+          repoRoot,
           baseBranch: "main",
           branchName: "openclawcode/issue-104",
           builderAgent: "codex",
@@ -5217,8 +5287,15 @@ describe("openclawCodeRunCommand", () => {
       preCodeDisciplineWarnCount: 1,
       preCodeDisciplineBlockedCount: 0,
       preCodeDisciplinePendingCount: 0,
+      preCodeDisciplineGapCounts: {
+        isolatedWorktree: 0,
+        modeSpecificContexts: 1,
+        freshRoleExecution: 1,
+      },
       preCodeDisciplineGapSummary:
         "mode-specific-contexts=1 | fresh-role-execution=1",
+      preCodeDisciplineNextActionCode:
+        "enforce-mode-specific-contexts",
       preCodeDisciplineNextActionSummary:
         "make planner/coder/verifier contexts mode-specific",
       preCodeDisciplineRepairActions: [
@@ -5227,6 +5304,17 @@ describe("openclawCodeRunCommand", () => {
       ],
       preCodeDisciplineRepairSummary:
         "review /occode-routing openclaw/openclawcode and set missing role bindings with /occode-route-set openclaw/openclawcode <role> <provider>; then review /occode-runtime-steering openclaw/openclawcode and split building/verifying with /occode-runtime-steering-set openclaw/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
+      operatorProgramAvailable: true,
+      operatorProgramArtifactPath: `${repoRoot}/.openclawcode/operator-program.json`,
+      operatorProgramMutableSurfaceMode: "scoped-by-work-item",
+      operatorProgramValidationBudgetSummary:
+        "Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+      operatorProgramValidationBudgetMaxPrimaryCommands: 2,
+      operatorProgramRequireOneExecutableProof: true,
+      operatorProgramAttemptLedgerRequired: true,
+      operatorProgramNextActionCode: "narrow-mutation-scope",
+      operatorProgramNextActionSummary:
+        "Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
       loopHealthHealthyCount: 0,
       loopHealthWarnCount: 1,
       loopHealthBlockedCount: 0,
@@ -5255,6 +5343,56 @@ describe("openclawCodeRunCommand", () => {
         ),
       ),
     ).toBe(true);
+    expect(
+      lines.some((line) =>
+        line.includes(
+          "operator-program=mutable:scoped-by-work-item,proof:required,ledger:required,next:Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("creates and shows a repo-local operator program artifact", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-operator-program-"));
+
+    await openclawCodeOperatorProgramInitCommand(
+      {
+        repoRoot,
+        json: true,
+      },
+      runtime,
+    );
+
+    const created = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(created).toMatchObject({
+      repoRoot,
+      exists: true,
+      schemaVersion: 1,
+      title: "Repo-local operator program",
+      mutableSurfaceMode: "scoped-by-work-item",
+      validationBudgetMaxPrimaryCommands: 2,
+      requireOneExecutableProof: true,
+      simplificationBias: true,
+      attemptLedgerRequired: true,
+      nextActionCode: "narrow-mutation-scope",
+    });
+
+    runtime.log.mockClear();
+    await openclawCodeOperatorProgramShowCommand(
+      {
+        repoRoot,
+      },
+      runtime,
+    );
+
+    const lines = runtime.log.mock.calls.map((call) => String(call[0]));
+    expect(lines).toContain(`Repo root: ${repoRoot}`);
+    expect(
+      lines.some((line) => line.includes("Operator-program path:") && line.includes(".openclawcode/operator-program.json")),
+    ).toBe(true);
+    expect(lines).toContain("Mutable surface mode: scoped-by-work-item");
+    expect(lines).toContain("Require executable proof: yes");
+    expect(lines).toContain("Next action code: narrow-mutation-scope");
   });
 
   it("discovers a missing work-item artifact from an agreed blueprint", async () => {

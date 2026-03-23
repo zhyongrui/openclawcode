@@ -2586,6 +2586,33 @@ function buildTopLevelPreCodeRepairLines(params: {
   }).map((message) => `Pre-code repair: ${message}`);
 }
 
+function buildOperatorProgramSummaryLines(params: {
+  summary?: Awaited<ReturnType<typeof readProjectProgressArtifact>>["operatorProgram"];
+  suppressIfStatusIncludes?: string;
+  topLevel?: boolean;
+}): string[] {
+  if (!params.summary?.available) {
+    return [];
+  }
+  if (
+    params.suppressIfStatusIncludes &&
+    params.suppressIfStatusIncludes.includes("\nOperator program:")
+  ) {
+    return [];
+  }
+  const prefix = params.topLevel ? "" : "  ";
+  const lines = [
+    `${prefix}Operator program: available=yes | mutableSurface=${params.summary.mutableSurfaceMode ?? "unset"} | proof=${params.summary.requireOneExecutableProof ? "required" : "optional"} | attemptLedger=${params.summary.attemptLedgerRequired ? "required" : "optional"} | nextAction=${params.summary.nextActionCode ?? "none"}`,
+  ];
+  if (params.summary.validationBudgetSummary) {
+    lines.push(`${prefix}Operator program budget: ${params.summary.validationBudgetSummary}`);
+  }
+  if (params.summary.nextActionSummary) {
+    lines.push(`${prefix}Operator program next: ${params.summary.nextActionSummary}`);
+  }
+  return lines;
+}
+
 function buildPreCodeRepairMessages(params: {
   snapshot: OpenClawCodeIssueStatusSnapshot;
   repoRoot?: string;
@@ -2790,6 +2817,15 @@ function buildInboxPreCodeDisciplineLines(params: {
     }).map((message) => `  pre-code repair: ${message}`),
   );
   return lines;
+}
+
+function buildInboxOperatorProgramLines(
+  progressArtifact?: Awaited<ReturnType<typeof readProjectProgressArtifact>>,
+): string[] {
+  return buildOperatorProgramSummaryLines({
+    summary: progressArtifact?.operatorProgram,
+    topLevel: true,
+  });
 }
 
 function buildInboxLoopHealthLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
@@ -4551,6 +4587,15 @@ function buildProjectProgressSummaryMessage(params: {
   lines.push(
     `Operator: binding=${params.artifact.operator.bindingPresent ? "yes" : "no"} | pending=${params.artifact.operator.pendingApprovalCount} | queued=${params.artifact.operator.queuedRunCount} | current=${params.artifact.operator.currentRunCount} | pause=${params.artifact.operator.providerPauseActive ? "yes" : "no"}`,
   );
+  lines.push(
+    `Operator program: available=${params.artifact.operatorProgram.available ? "yes" : "no"} | mutableSurface=${params.artifact.operatorProgram.mutableSurfaceMode ?? "unset"} | proof=${params.artifact.operatorProgram.requireOneExecutableProof ? "required" : "optional"} | attemptLedger=${params.artifact.operatorProgram.attemptLedgerRequired ? "required" : "optional"} | nextAction=${params.artifact.operatorProgram.nextActionCode ?? "none"}`,
+  );
+  if (params.artifact.operatorProgram.validationBudgetSummary) {
+    lines.push(`Operator program budget: ${params.artifact.operatorProgram.validationBudgetSummary}`);
+  }
+  if (params.artifact.operatorProgram.nextActionSummary) {
+    lines.push(`Operator program next: ${params.artifact.operatorProgram.nextActionSummary}`);
+  }
   if (params.artifact.operator.currentRunIssueKey) {
     lines.push(`Current run: ${params.artifact.operator.currentRunIssueKey}`);
   }
@@ -5013,6 +5058,7 @@ function buildInboxMessage(params: {
   state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
   validationPool?: ValidationPoolSummary;
   workItems?: Awaited<ReturnType<typeof readProjectWorkItemInventory>>;
+  progressArtifact?: Awaited<ReturnType<typeof readProjectProgressArtifact>>;
   repoConfig?: OpenClawCodeChatopsRepoConfig;
   setupCheck?: SetupCheckProbePayload;
   promotionReceipt?: Awaited<ReturnType<typeof readProjectPromotionReceiptArtifact>>;
@@ -5077,6 +5123,7 @@ function buildInboxMessage(params: {
   if (preCodeRepairSummary) {
     lines.push(preCodeRepairSummary);
   }
+  lines.push(...buildInboxOperatorProgramLines(params.progressArtifact));
   const loopHealthSummary = summarizeRepoLoopHealth({
     state: params.state,
     repo: params.repo,
@@ -6325,6 +6372,27 @@ export default {
   description: "GitHub issue chatops adapter for the openclawcode workflow.",
   register(api: OpenClawPluginApi) {
     const store = OpenClawCodeChatopsStore.fromStateDir(api.runtime.state.resolveStateDir());
+    const registerOpenClawCodeCommand = (command: OpenClawPluginCommandDefinition): void => {
+      api.registerCommand(command);
+      if (!command.name.startsWith("occode-")) {
+        return;
+      }
+      const aliasName = `occ-${command.name.slice("occode-".length)}`;
+      api.registerCommand({
+        ...command,
+        name: aliasName,
+        handler: async (ctx) =>
+          await command.handler({
+            ...ctx,
+            commandBody: typeof ctx.commandBody === "string"
+              ? ctx.commandBody.replace(
+                  new RegExp(`^/${aliasName}\\b`, "i"),
+                  `/${command.name}`,
+                )
+              : ctx.commandBody,
+          }),
+      });
+    };
 
     api.registerHttpRoute({
       path: "/plugins/openclawcode/github",
@@ -6332,7 +6400,7 @@ export default {
       handler: async (req, res) => await handleGithubWebhook(api, store, req, res),
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-intake",
       description: "Create a GitHub issue from chat and queue it for openclawcode execution.",
       acceptsArgs: true,
@@ -6430,7 +6498,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-intake-edit",
       description: "Edit the pending chat-native intake draft before creating the GitHub issue.",
       acceptsArgs: true,
@@ -6518,7 +6586,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-intake-answer",
       description: "Answer one pending chat-native intake clarification and refresh the draft.",
       acceptsArgs: true,
@@ -6625,7 +6693,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-intake-preview",
       description: "Show the current pending chat-native intake draft before creating the GitHub issue.",
       acceptsArgs: true,
@@ -6694,7 +6762,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-intake-choose",
       description: "Replace the pending chat-native intake draft with one scoped variant.",
       acceptsArgs: true,
@@ -6801,7 +6869,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-intake-confirm",
       description: "Create and queue the pending chat-native intake draft for the current repo.",
       acceptsArgs: true,
@@ -6872,7 +6940,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-intake-reject",
       description: "Discard the pending chat-native intake draft for the current repo.",
       acceptsArgs: true,
@@ -6940,7 +7008,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-start",
       description: "Queue an openclawcode issue run.",
       acceptsArgs: true,
@@ -7032,7 +7100,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-start-override",
       description: "Queue an openclawcode issue run with an explicit suitability override.",
       acceptsArgs: true,
@@ -7130,7 +7198,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-rerun",
       description: "Queue an explicit rerun for a tracked openclawcode issue.",
       acceptsArgs: true,
@@ -7233,7 +7301,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-reroute-run",
       description:
         "Queue a rerun for a tracked openclawcode issue with a coder/verifier agent override.",
@@ -7419,7 +7487,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-takeover",
       description:
         "Record that a human is taking over the current issue worktree before resuming autonomous execution later.",
@@ -7508,7 +7576,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-resume-after-edit",
       description:
         "Queue a structured rerun after a human finished editing a manually taken-over worktree.",
@@ -7627,7 +7695,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-bind",
       description: "Bind the current chat as the notification target for an openclawcode repo.",
       acceptsArgs: true,
@@ -7675,7 +7743,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-unbind",
       description: "Remove the saved notification target binding for an openclawcode repo.",
       acceptsArgs: true,
@@ -7701,7 +7769,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-setup",
       description: "Start or resume chat-native openclawcode setup for this chat.",
       acceptsArgs: true,
@@ -7985,7 +8053,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-setup-status",
       description: "Show the current chat-native openclawcode setup state for this chat.",
       acceptsArgs: false,
@@ -8029,7 +8097,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-setup-cancel",
       description: "Discard the active openclawcode setup session for this chat.",
       acceptsArgs: false,
@@ -8053,7 +8121,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-setup-retry",
       description: "Retry or resume the active openclawcode setup session for this chat.",
       acceptsArgs: false,
@@ -8083,7 +8151,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-policy",
       description: "Show openclawcode safety and override policy for a repo or tracked issue.",
       acceptsArgs: true,
@@ -8126,7 +8194,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-status",
       description: "Show the latest known openclawcode issue status.",
       acceptsArgs: true,
@@ -8195,6 +8263,9 @@ export default {
           statusText ?? `No openclawcode status recorded yet for ${issueKey}.`;
         const manualTakeover = await store.getManualTakeover(issueKey);
         const deferredRuntimeReroute = await store.getDeferredRuntimeReroute(issueKey);
+        const progressArtifact = await readProjectProgressArtifact(repoConfig.repoRoot).catch(
+          () => undefined,
+        );
         const providerPause = await store.getActiveProviderPause();
         const providerLines = providerPause
           ? buildProviderPauseLines({ pause: providerPause })
@@ -8249,6 +8320,11 @@ export default {
                 repoConfig,
               })
             : []),
+          ...buildOperatorProgramSummaryLines({
+            summary: progressArtifact?.operatorProgram,
+            suppressIfStatusIncludes: resolvedStatusText,
+            topLevel: true,
+          }),
           ...(currentSnapshot ? buildTopLevelLoopHealthLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelQualityGateLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelRuntimeRoutingLines(currentSnapshot) : []),
@@ -8267,7 +8343,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-inbox",
       description:
         "Show pending approvals, queue state, and recent activity for an openclawcode repo.",
@@ -8304,6 +8380,9 @@ export default {
         const workItems = await readProjectWorkItemInventory(repoConfig.repoRoot).catch(
           () => undefined,
         );
+        const progressArtifact = await readProjectProgressArtifact(repoConfig.repoRoot).catch(
+          () => undefined,
+        );
         const setupCheck = await probeSetupCheckReadiness({
           api,
           repoConfig,
@@ -8323,6 +8402,7 @@ export default {
             state,
             validationPool,
             workItems,
+            progressArtifact,
             repoConfig,
             setupCheck,
             promotionReceipt,
@@ -8332,7 +8412,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-promotion-checklist",
       description:
         "Show a compact promotion and rollback readiness checklist for an openclawcode repo.",
@@ -8380,7 +8460,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-goal",
       description:
         "Capture or update the repo-level project goal in PROJECT-BLUEPRINT.md from chat.",
@@ -8469,7 +8549,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-blueprint-edit",
       description:
         "Update one blueprint section from chat without opening PROJECT-BLUEPRINT.md manually.",
@@ -8583,7 +8663,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-blueprint-agree",
       description: "Mark the current repo blueprint as agreed directly from chat.",
       acceptsArgs: true,
@@ -8670,7 +8750,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-blueprint-answer",
       description: "Answer one blueprint clarification question from chat and write it back.",
       acceptsArgs: true,
@@ -8762,7 +8842,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-blueprint",
       description:
         "Show the current project blueprint summary and clarification prompts for an openclawcode repo.",
@@ -8823,7 +8903,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-routing",
       description: "Show the current provider-role routing plan for an openclawcode repo.",
       acceptsArgs: true,
@@ -8862,7 +8942,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-route-set",
       description: "Update one provider-role assignment for an openclawcode repo from chat.",
       acceptsArgs: true,
@@ -8944,7 +9024,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-runtime-steering",
       description: "Show the current per-stage runtime steering overrides for an openclawcode repo.",
       acceptsArgs: true,
@@ -8983,7 +9063,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-runtime-steering-set",
       description: "Update one per-stage runtime steering override for an openclawcode repo.",
       acceptsArgs: true,
@@ -9057,7 +9137,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-gates",
       description: "Show the current blueprint stage-gate state for an openclawcode repo.",
       acceptsArgs: true,
@@ -9096,7 +9176,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-next",
       description:
         "Show the next blueprint-backed work item to execute, or explain why autonomous progress is blocked.",
@@ -9136,7 +9216,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-materialize",
       description: "Create or reuse the GitHub issue for the selected blueprint-backed work item.",
       acceptsArgs: true,
@@ -9185,7 +9265,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-progress",
       description: "Show the current blueprint-aware project progress summary for an openclawcode repo.",
       acceptsArgs: true,
@@ -9233,7 +9313,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-autopilot",
       description: "Run, inspect, or disable one autonomous blueprint-backed progress loop for an openclawcode repo.",
       acceptsArgs: true,
@@ -9348,7 +9428,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-gate-decide",
       description: "Record a blueprint stage-gate decision from chat for an openclawcode repo.",
       acceptsArgs: true,
@@ -9449,7 +9529,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-skip",
       description: "Remove a queued openclawcode issue run before execution starts.",
       acceptsArgs: true,
@@ -9482,7 +9562,7 @@ export default {
       },
     });
 
-    api.registerCommand({
+    registerOpenClawCodeCommand({
       name: "occode-sync",
       description: "Reconcile local run records and GitHub status for tracked issues.",
       acceptsArgs: false,

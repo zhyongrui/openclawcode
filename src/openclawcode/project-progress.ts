@@ -10,6 +10,7 @@ import {
   parseRepoRefFromRepoKey,
   resolveChatNextSuggestedCommand,
 } from "./next-suggested-command.js";
+import { readProjectOperatorProgram } from "./operator-program.js";
 import type { OpenClawCodeOperatorStatusSnapshot } from "./operator-status.js";
 import { readProjectNextWorkSelection, writeProjectNextWorkSelection } from "./next-work.js";
 import {
@@ -36,6 +37,18 @@ export interface ProjectProgressOperatorSummary {
   currentRunPullRequestUrl: string | null;
   currentRunStatusUpdatedAt: string | null;
   providerPauseActive: boolean;
+}
+
+export interface ProjectProgressOperatorProgramSummary {
+  available: boolean;
+  artifactPath: string;
+  mutableSurfaceMode: string | null;
+  validationBudgetSummary: string | null;
+  validationBudgetMaxPrimaryCommands: number | null;
+  requireOneExecutableProof: boolean;
+  attemptLedgerRequired: boolean;
+  nextActionCode: string | null;
+  nextActionSummary: string | null;
 }
 
 export interface ProjectProgressArtifact {
@@ -73,6 +86,7 @@ export interface ProjectProgressArtifact {
   nextSuggestedCommand: string | null;
   nextSuggestedChatCommand: string | null;
   operator: ProjectProgressOperatorSummary;
+  operatorProgram: ProjectProgressOperatorProgramSummary;
 }
 
 function resolveProjectProgressArtifactPath(repoRootInput: string): string {
@@ -165,6 +179,22 @@ function buildOperatorSummary(params: {
   };
 }
 
+function buildOperatorProgramSummary(
+  artifact: Awaited<ReturnType<typeof readProjectOperatorProgram>>,
+): ProjectProgressOperatorProgramSummary {
+  return {
+    available: artifact.exists,
+    artifactPath: artifact.artifactPath,
+    mutableSurfaceMode: artifact.mutableSurfaceMode,
+    validationBudgetSummary: artifact.validationBudgetSummary,
+    validationBudgetMaxPrimaryCommands: artifact.validationBudgetMaxPrimaryCommands,
+    requireOneExecutableProof: artifact.requireOneExecutableProof,
+    attemptLedgerRequired: artifact.attemptLedgerRequired,
+    nextActionCode: artifact.nextActionCode,
+    nextActionSummary: artifact.nextActionSummary,
+  };
+}
+
 export async function writeProjectProgressArtifact(params: {
   repoRoot: string;
   repo?: RepoRef;
@@ -178,6 +208,7 @@ export async function writeProjectProgressArtifact(params: {
   const nextWork = await writeProjectNextWorkSelection(repoRoot);
   const roleRouting = await writeProjectRoleRoutingPlan(repoRoot);
   const stageGates = await writeProjectStageGateArtifact(repoRoot);
+  const operatorProgram = await readProjectOperatorProgram(repoRoot);
   const issueMaterialization =
     params.materializeIssues && params.repo
       ? await writeProjectIssueMaterializationArtifact({
@@ -245,6 +276,7 @@ export async function writeProjectProgressArtifact(params: {
       repo: params.repo,
       snapshot: params.operatorSnapshot,
     }),
+    operatorProgram: buildOperatorProgramSummary(operatorProgram),
   };
 
   await mkdir(path.dirname(artifactPath), { recursive: true });
@@ -300,6 +332,7 @@ export async function readProjectProgressArtifact(
       nextSuggestedCommand: null,
       nextSuggestedChatCommand: null,
       operator: buildOperatorSummary({}),
+      operatorProgram: buildOperatorProgramSummary(await readProjectOperatorProgram(repoRoot)),
     };
   }
   const parsed = JSON.parse(raw) as Partial<ProjectProgressArtifact>;
@@ -356,6 +389,20 @@ export async function readProjectProgressArtifact(
       currentRunPullRequestUrl: parsed.operator?.currentRunPullRequestUrl ?? null,
       currentRunStatusUpdatedAt: parsed.operator?.currentRunStatusUpdatedAt ?? null,
       providerPauseActive: parsed.operator?.providerPauseActive ?? false,
+    },
+    operatorProgram: {
+      available: parsed.operatorProgram?.available ?? false,
+      artifactPath:
+        parsed.operatorProgram?.artifactPath ??
+        path.join(repoRoot, ".openclawcode", "operator-program.json"),
+      mutableSurfaceMode: parsed.operatorProgram?.mutableSurfaceMode ?? null,
+      validationBudgetSummary: parsed.operatorProgram?.validationBudgetSummary ?? null,
+      validationBudgetMaxPrimaryCommands:
+        parsed.operatorProgram?.validationBudgetMaxPrimaryCommands ?? null,
+      requireOneExecutableProof: parsed.operatorProgram?.requireOneExecutableProof ?? false,
+      attemptLedgerRequired: parsed.operatorProgram?.attemptLedgerRequired ?? false,
+      nextActionCode: parsed.operatorProgram?.nextActionCode ?? null,
+      nextActionSummary: parsed.operatorProgram?.nextActionSummary ?? null,
     },
   };
 }

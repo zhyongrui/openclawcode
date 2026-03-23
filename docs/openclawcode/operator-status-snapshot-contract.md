@@ -93,10 +93,21 @@ Semantics:
   - `preCodeDisciplineWarnCount`
   - `preCodeDisciplineBlockedCount`
   - `preCodeDisciplinePendingCount`
+  - `preCodeDisciplineGapCounts`
   - `preCodeDisciplineGapSummary`
+  - `preCodeDisciplineNextActionCode`
   - `preCodeDisciplineNextActionSummary`
   - `preCodeDisciplineRepairActions`
   - `preCodeDisciplineRepairSummary`
+  - `operatorProgramAvailable`
+  - `operatorProgramArtifactPath`
+  - `operatorProgramMutableSurfaceMode`
+  - `operatorProgramValidationBudgetSummary`
+  - `operatorProgramValidationBudgetMaxPrimaryCommands`
+  - `operatorProgramRequireOneExecutableProof`
+  - `operatorProgramAttemptLedgerRequired`
+  - `operatorProgramNextActionCode`
+  - `operatorProgramNextActionSummary`
   - `loopHealthHealthyCount`
   - `loopHealthWarnCount`
   - `loopHealthBlockedCount`
@@ -119,6 +130,22 @@ Stability boundary:
   `; then ` in priority order.
 - `repos[*].preCodeDisciplineRepairActions`, when present, is the structured
   ordered list form of the same repo-level repair guidance.
+- `repos[*].preCodeDisciplineGapCounts`, when present, provides the structured
+  per-gap counts behind `preCodeDisciplineGapSummary`.
+- `repos[*].preCodeDisciplineNextActionCode`, when present, is the stable enum
+  form of the top-priority next action:
+  - `prepare-isolated-worktrees`
+  - `enforce-mode-specific-contexts`
+  - `split-fresh-role-execution`
+- `repos[*].operatorProgram*` fields, when present, mirror the repo-local
+  `.openclawcode/operator-program.json` artifact for repos whose operator state
+  can still resolve a stable `repoRoot` from current/queued work or persisted
+  setup bootstrap state.
+- `repos[*].operatorProgramNextActionCode`, when present, is the stable enum
+  form of the repo-level execution-policy follow-up:
+  - `narrow-mutation-scope`
+  - `define-validation-budget`
+  - `record-advancement-rules`
 
 Usage:
 

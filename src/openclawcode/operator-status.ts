@@ -5,6 +5,7 @@ import type {
   OpenClawCodeChatopsRunRequest,
 } from "../integrations/openclaw-plugin/chatops.js";
 import { deriveRepoIncidentLearningSummary } from "../integrations/openclaw-plugin/incident-learning.js";
+import { readProjectOperatorProgram } from "./operator-program.js";
 import {
   OpenClawCodeChatopsStore,
   type OpenClawCodeDeferredRuntimeReroute,
@@ -40,10 +41,31 @@ export interface OpenClawCodeOperatorRepoSummary {
   preCodeDisciplineWarnCount: number;
   preCodeDisciplineBlockedCount: number;
   preCodeDisciplinePendingCount: number;
+  preCodeDisciplineGapCounts?: {
+    isolatedWorktree: number;
+    modeSpecificContexts: number;
+    freshRoleExecution: number;
+  };
   preCodeDisciplineGapSummary?: string;
+  preCodeDisciplineNextActionCode?:
+    | "prepare-isolated-worktrees"
+    | "enforce-mode-specific-contexts"
+    | "split-fresh-role-execution";
   preCodeDisciplineNextActionSummary?: string;
   preCodeDisciplineRepairActions?: string[];
   preCodeDisciplineRepairSummary?: string;
+  operatorProgramAvailable?: boolean;
+  operatorProgramArtifactPath?: string;
+  operatorProgramMutableSurfaceMode?: "scoped-by-work-item" | "allowlist" | "single-file";
+  operatorProgramValidationBudgetSummary?: string;
+  operatorProgramValidationBudgetMaxPrimaryCommands?: number;
+  operatorProgramRequireOneExecutableProof?: boolean;
+  operatorProgramAttemptLedgerRequired?: boolean;
+  operatorProgramNextActionCode?:
+    | "narrow-mutation-scope"
+    | "define-validation-budget"
+    | "record-advancement-rules";
+  operatorProgramNextActionSummary?: string;
   loopHealthHealthyCount: number;
   loopHealthWarnCount: number;
   loopHealthBlockedCount: number;
@@ -59,7 +81,16 @@ export interface OpenClawCodeRepoPreCodeDisciplineSummary {
   isolatedWorktreeCount: number;
   modeSpecificContextsCount: number;
   freshRoleExecutionCount: number;
+  gapCounts: {
+    isolatedWorktree: number;
+    modeSpecificContexts: number;
+    freshRoleExecution: number;
+  };
   gapSummary?: string;
+  nextActionCode?:
+    | "prepare-isolated-worktrees"
+    | "enforce-mode-specific-contexts"
+    | "split-fresh-role-execution";
   nextActionSummary?: string;
   repairActions: string[];
   repairSummary?: string;
@@ -182,6 +213,14 @@ export function deriveRepoPreCodeDisciplineSummary(params: {
         : preCodeGapCounts.freshRoleExecution > 0
           ? "split coder and verifier into fresh execution units"
           : undefined;
+  const nextActionCode =
+    preCodeGapCounts.isolatedWorktree > 0
+      ? "prepare-isolated-worktrees"
+      : preCodeGapCounts.modeSpecificContexts > 0
+        ? "enforce-mode-specific-contexts"
+        : preCodeGapCounts.freshRoleExecution > 0
+          ? "split-fresh-role-execution"
+          : undefined;
   const repairActions = buildRepoPreCodeDisciplineRepairActions({
     repoKey: params.repoKey,
     isolatedWorktreeCount: preCodeGapCounts.isolatedWorktree,
@@ -192,7 +231,13 @@ export function deriveRepoPreCodeDisciplineSummary(params: {
     isolatedWorktreeCount: preCodeGapCounts.isolatedWorktree,
     modeSpecificContextsCount: preCodeGapCounts.modeSpecificContexts,
     freshRoleExecutionCount: preCodeGapCounts.freshRoleExecution,
+    gapCounts: {
+      isolatedWorktree: preCodeGapCounts.isolatedWorktree,
+      modeSpecificContexts: preCodeGapCounts.modeSpecificContexts,
+      freshRoleExecution: preCodeGapCounts.freshRoleExecution,
+    },
     gapSummary: gapSummary || undefined,
+    nextActionCode,
     nextActionSummary,
     repairActions,
     repairSummary: buildRepoPreCodeDisciplineRepairSummary({
@@ -247,10 +292,36 @@ function collectRepoKeySet(state: OpenClawCodeQueueState): Set<string> {
   return repoKeys;
 }
 
-function buildRepoSummary(params: {
+function resolveRepoRootForRepo(params: {
   repoKey: string;
   state: OpenClawCodeQueueState;
-}): OpenClawCodeOperatorRepoSummary {
+}): string | undefined {
+  const currentRunRepoRoot =
+    params.state.currentRun &&
+    formatRepoKey({
+      owner: params.state.currentRun.request.owner,
+      repo: params.state.currentRun.request.repo,
+    }) === params.repoKey
+      ? params.state.currentRun.request.repoRoot
+      : undefined;
+  if (currentRunRepoRoot) {
+    return currentRunRepoRoot;
+  }
+  const queuedRunRepoRoot = params.state.queue.find(
+    (entry) => formatRepoKey({ owner: entry.request.owner, repo: entry.request.repo }) === params.repoKey,
+  )?.request.repoRoot;
+  if (queuedRunRepoRoot) {
+    return queuedRunRepoRoot;
+  }
+  return params.state.setupSessions.find(
+    (entry) => entry.repoKey === params.repoKey && typeof entry.bootstrap?.repoRoot === "string",
+  )?.bootstrap?.repoRoot;
+}
+
+async function buildRepoSummary(params: {
+  repoKey: string;
+  state: OpenClawCodeQueueState;
+}): Promise<OpenClawCodeOperatorRepoSummary> {
   const { repoKey, state } = params;
   const snapshotEntries = Object.values(state.statusSnapshotsByIssue).filter(
     (snapshot) => formatRepoKey({ owner: snapshot.owner, repo: snapshot.repo }) === repoKey,
@@ -286,6 +357,10 @@ function buildRepoSummary(params: {
     repoKey,
     snapshotEntries,
   });
+  const repoRoot = resolveRepoRootForRepo({ repoKey, state });
+  const operatorProgram = repoRoot
+    ? await readProjectOperatorProgram(repoRoot).catch(() => undefined)
+    : undefined;
   return {
     repoKey,
     bindingPresent: Boolean(state.repoBindingsByRepo[repoKey]),
@@ -317,11 +392,45 @@ function buildRepoSummary(params: {
     preCodeDisciplinePendingCount: snapshotEntries.filter(
       (entry) => entry.preCodeDisciplineStatus === "pending",
     ).length,
+    preCodeDisciplineGapCounts:
+      preCodeDiscipline.gapCounts.isolatedWorktree > 0 ||
+      preCodeDiscipline.gapCounts.modeSpecificContexts > 0 ||
+      preCodeDiscipline.gapCounts.freshRoleExecution > 0
+        ? preCodeDiscipline.gapCounts
+        : undefined,
     preCodeDisciplineGapSummary: preCodeDiscipline.gapSummary,
+    preCodeDisciplineNextActionCode: preCodeDiscipline.nextActionCode,
     preCodeDisciplineNextActionSummary: preCodeDiscipline.nextActionSummary,
     preCodeDisciplineRepairActions:
       preCodeDiscipline.repairActions.length > 0 ? preCodeDiscipline.repairActions : undefined,
     preCodeDisciplineRepairSummary: preCodeDiscipline.repairSummary,
+    operatorProgramAvailable: operatorProgram?.exists ? true : undefined,
+    operatorProgramArtifactPath: operatorProgram?.exists ? operatorProgram.artifactPath : undefined,
+    operatorProgramMutableSurfaceMode:
+      operatorProgram?.exists && operatorProgram.mutableSurfaceMode
+        ? operatorProgram.mutableSurfaceMode
+        : undefined,
+    operatorProgramValidationBudgetSummary:
+      operatorProgram?.exists && operatorProgram.validationBudgetSummary
+        ? operatorProgram.validationBudgetSummary
+        : undefined,
+    operatorProgramValidationBudgetMaxPrimaryCommands:
+      operatorProgram?.exists &&
+      typeof operatorProgram.validationBudgetMaxPrimaryCommands === "number"
+        ? operatorProgram.validationBudgetMaxPrimaryCommands
+        : undefined,
+    operatorProgramRequireOneExecutableProof:
+      operatorProgram?.exists ? operatorProgram.requireOneExecutableProof : undefined,
+    operatorProgramAttemptLedgerRequired:
+      operatorProgram?.exists ? operatorProgram.attemptLedgerRequired : undefined,
+    operatorProgramNextActionCode:
+      operatorProgram?.exists && operatorProgram.nextActionCode
+        ? operatorProgram.nextActionCode
+        : undefined,
+    operatorProgramNextActionSummary:
+      operatorProgram?.exists && operatorProgram.nextActionSummary
+        ? operatorProgram.nextActionSummary
+        : undefined,
     loopHealthHealthyCount: snapshotEntries.filter((entry) => entry.loopHealthStatus === "healthy")
       .length,
     loopHealthWarnCount: snapshotEntries.filter((entry) => entry.loopHealthStatus === "warn").length,
@@ -337,13 +446,13 @@ function buildRepoSummary(params: {
   };
 }
 
-export function buildOpenClawCodeOperatorStatusSnapshot(params: {
+export async function buildOpenClawCodeOperatorStatusSnapshot(params: {
   stateDir: string;
   statePath: string;
   exists: boolean;
   state: OpenClawCodeQueueState;
   generatedAt?: string;
-}): OpenClawCodeOperatorStatusSnapshot {
+}): Promise<OpenClawCodeOperatorStatusSnapshot> {
   const generatedAt = params.generatedAt ?? new Date().toISOString();
   const pendingApprovals = [...params.state.pendingApprovals].toSorted((left, right) =>
     compareByString(left.issueKey, right.issueKey),
@@ -397,12 +506,12 @@ export function buildOpenClawCodeOperatorStatusSnapshot(params: {
     deferredRuntimeReroutes,
     repoBindings,
     issueSnapshots,
-    repos: repoKeys.map((repoKey) =>
+    repos: await Promise.all(repoKeys.map((repoKey) =>
       buildRepoSummary({
         repoKey,
         state: params.state,
       }),
-    ),
+    )),
   };
 }
 
@@ -416,7 +525,7 @@ export async function readOpenClawCodeOperatorStatusSnapshot(
     .catch(() => false);
   const store = OpenClawCodeChatopsStore.fromStateDir(stateDir);
   const state = await store.snapshot();
-  return buildOpenClawCodeOperatorStatusSnapshot({
+  return await buildOpenClawCodeOperatorStatusSnapshot({
     stateDir,
     statePath,
     exists,

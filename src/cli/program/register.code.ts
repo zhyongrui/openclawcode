@@ -19,6 +19,8 @@ import {
   openclawCodeAutonomousLoopRunCommand,
   openclawCodeAutonomousLoopShowCommand,
   openclawCodeCapabilityMapShowCommand,
+  openclawCodeOperatorProgramInitCommand,
+  openclawCodeOperatorProgramShowCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
   openclawCodePolicyShowCommand,
   openclawCodePromotionGateRefreshCommand,
@@ -545,6 +547,46 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
     .action(async (opts) => {
       await runCommandWithRuntime(defaultRuntime, async () => {
         await openclawCodeIssueMaterializationShowCommand(
+          {
+            repoRoot: opts.repoRoot as string | undefined,
+            json: Boolean(opts.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  code
+    .command("operator-program-init")
+    .description("Create the repo-local operator program artifact")
+    .option("--repo-root <dir>", "Local repository root")
+    .option("--title <text>", "Operator program title")
+    .option("--summary <text>", "Operator program summary")
+    .option("--force", "Overwrite an existing operator program artifact", false)
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        await openclawCodeOperatorProgramInitCommand(
+          {
+            repoRoot: opts.repoRoot as string | undefined,
+            title: opts.title as string | undefined,
+            summary: opts.summary as string | undefined,
+            force: Boolean(opts.force),
+            json: Boolean(opts.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  code
+    .command("operator-program-show")
+    .description("Show the current repo-local operator program artifact")
+    .option("--repo-root <dir>", "Local repository root")
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        await openclawCodeOperatorProgramShowCommand(
           {
             repoRoot: opts.repoRoot as string | undefined,
             json: Boolean(opts.json),

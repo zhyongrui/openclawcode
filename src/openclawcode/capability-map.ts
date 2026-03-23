@@ -149,6 +149,20 @@ const CLI_COMMANDS: OpenClawCodeCapabilityMapCommand[] = [
     capabilities: ["capability-map.inspect"],
   },
   {
+    id: "cli.operator-program-init",
+    surface: "cli",
+    command: "openclaw code operator-program-init",
+    summary: "Create the repo-local operator program artifact for execution policy.",
+    capabilities: ["operator-program.init", "operator-program.policy"],
+  },
+  {
+    id: "cli.operator-program-show",
+    surface: "cli",
+    command: "openclaw code operator-program-show",
+    summary: "Inspect the repo-local operator program artifact.",
+    capabilities: ["operator-program.inspect", "operator-program.policy"],
+  },
+  {
     id: "cli.blueprint-clarify",
     surface: "cli",
     command: "openclaw code blueprint-clarify",
@@ -206,6 +220,13 @@ const WORKFLOW_ARTIFACTS: OpenClawCodeCapabilityMapArtifact[] = [
     summary: "Canonical fixed project blueprint document.",
     producers: ["openclaw code blueprint-init", "chat blueprint workflow"],
     consumers: ["openclaw code blueprint-clarify", "openclaw code blueprint-decompose"],
+  },
+  {
+    id: "artifact.operator-program",
+    path: ".openclawcode/operator-program.json",
+    summary: "Repo-local execution policy artifact for mutable scope, validation budget, and advancement rules.",
+    producers: ["openclaw code operator-program-init"],
+    consumers: ["openclaw code operator-program-show", "future execution-policy surfaces"],
   },
   {
     id: "artifact.work-items",

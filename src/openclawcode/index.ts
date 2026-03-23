@@ -7,6 +7,7 @@ export * from "./github/index.js";
 export * from "./issue-materialization.js";
 export * from "./loop-health.js";
 export * from "./next-work.js";
+export * from "./operator-program.js";
 export * from "./orchestrator/index.js";
 export * from "./operator-status.js";
 export * from "./policy.js";

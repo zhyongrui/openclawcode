@@ -196,10 +196,18 @@ function buildGitHubIdentityLines(params: {
   ].filter((entry): entry is string => Boolean(entry));
 }
 
+function formatChatCommandWithAlias(command: string): string {
+  if (!command.startsWith("/occode-")) {
+    return formatCliCommand(command);
+  }
+  const alias = command.replace(/^\/occode-/, "/occ-");
+  return `${formatCliCommand(command)} (alias ${formatCliCommand(alias)})`;
+}
+
 function buildOpenClawCodeLaterActionLines(): string[] {
   return [
     "You can come back to OpenClaw Code later from either surface:",
-    `- Chat: ${formatCliCommand("/occode-setup")} (or ${formatCliCommand("/occode-setup existing owner/repo")})`,
+    `- Chat: ${formatChatCommandWithAlias("/occode-setup")} (or ${formatChatCommandWithAlias("/occode-setup existing owner/repo")})`,
     `- CLI: ${formatCliCommand("openclaw code bootstrap --repo owner/repo --json")}`,
     "Docs: https://docs.openclaw.ai/cli/code",
   ];
@@ -1029,7 +1037,7 @@ export async function runOnboardingOpenClawCode(params: {
         "This build includes OpenClaw Code, but GitHub auth is not configured yet.",
         "If you already configured an OpenClaw chat surface and a concrete OpenClaw Code chat target, OpenClaw can now start setup there proactively.",
         "If that automatic kickoff does not arrive yet, ask OpenClaw there to start setup with:",
-        `  ${formatCliCommand("/occode-setup")}`,
+        `  ${formatChatCommandWithAlias("/occode-setup")}`,
         "OpenClaw will launch GitHub device auth for you and continue setup in chat.",
         `CLI fallback: ${formatCliCommand("gh auth login")}`,
         "Then rerun onboarding or use OpenClaw Code later with:",

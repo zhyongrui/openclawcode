@@ -6,6 +6,14 @@ import type { RuntimeEnv } from "../../runtime.js";
 import { applyWizardMetadata } from "../onboard-helpers.js";
 import type { OnboardOptions } from "../onboard-types.js";
 
+function formatChatCommandWithAlias(command: string): string {
+  if (!command.startsWith("/occode-")) {
+    return formatCliCommand(command);
+  }
+  const alias = command.replace(/^\/occode-/, "/occ-");
+  return `${formatCliCommand(command)} (alias ${formatCliCommand(alias)})`;
+}
+
 export async function runNonInteractiveRemoteSetup(params: {
   opts: OnboardOptions;
   runtime: RuntimeEnv;
@@ -57,7 +65,7 @@ export async function runNonInteractiveRemoteSetup(params: {
       [
         "OpenClaw Code for this remote gateway must continue from the remote host or a bound chat.",
         `Remote host CLI: ${formatCliCommand(payload.openClawCode.bootstrapCommand)}`,
-        `Chat path: ${formatCliCommand(payload.openClawCode.chatSetupCommand)}`,
+        `Chat path: ${formatChatCommandWithAlias(payload.openClawCode.chatSetupCommand)}`,
         `If GitHub auth is missing on the remote host, run ${formatCliCommand(payload.openClawCode.remoteHostAuthCommand)} there first.`,
       ].join("\n"),
     );
