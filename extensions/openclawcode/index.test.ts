@@ -4388,6 +4388,7 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("Updated setup draft section `Success Criteria`.");
       expect(result?.text).toContain("State: repo-existing-blueprint-detected");
       expect(result?.text).toContain("Pending setup revisions: 1 section(s)");
+      expect(result?.text).toContain("Pending revision sections: Success Criteria");
       expect(result?.text).toContain("/occode-blueprint-agree");
       expect(
         await fixture.store.getSetupSession({
@@ -4439,6 +4440,7 @@ describe("openclawcode extension", () => {
 
       expect(result?.text).toContain("Updated setup draft section `Goal`.");
       expect(result?.text).toContain("Pending setup revisions: 1 section(s)");
+      expect(result?.text).toContain("Pending revision sections: Goal");
       expect(
         await fixture.store.getSetupSession({
           notifyChannel: "feishu",

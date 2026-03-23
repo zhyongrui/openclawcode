@@ -468,6 +468,12 @@ function collectChatSetupDraftFilledSectionCount(session: ChatSetupSession): num
   ).length;
 }
 
+function collectChatSetupDraftFilledSectionNames(session: ChatSetupSession): string[] {
+  return Object.entries(session.blueprintDraft?.sections ?? {})
+    .filter((entry) => entry[1].trim().length > 0)
+    .map((entry) => entry[0]);
+}
+
 function buildChatSetupDraftingBlueprintMessage(params: {
   session: ChatSetupSession;
 }): string {
@@ -1282,6 +1288,7 @@ function buildChatSetupExistingBlueprintDetectedMessage(params: {
   detectedPaths: string[];
 }): string {
   const draftRevisionCount = collectChatSetupDraftFilledSectionCount(params.session);
+  const draftRevisionSections = collectChatSetupDraftFilledSectionNames(params.session);
   return [
     "OpenClaw Code found an existing repo that already looks like an OpenClaw Code project.",
     ...buildChatSetupStateLayerLines(params.session),
@@ -1304,6 +1311,9 @@ function buildChatSetupExistingBlueprintDetectedMessage(params: {
       ? `Blueprint counts: workstreams=${params.session.detectedBlueprint.workstreamCandidateCount} | openQuestions=${params.session.detectedBlueprint.openQuestionCount} | humanGates=${params.session.detectedBlueprint.humanGateCount}`
       : undefined,
     draftRevisionCount > 0 ? `Pending setup revisions: ${draftRevisionCount} section(s)` : undefined,
+    draftRevisionSections.length > 0
+      ? `Pending revision sections: ${draftRevisionSections.slice(0, 5).join(", ")}`
+      : undefined,
     "This path should resume the existing project instead of treating it like a fresh setup.",
     "Next actions:",
     "- /occode-blueprint to re-check the detected baseline in this setup chat.",
