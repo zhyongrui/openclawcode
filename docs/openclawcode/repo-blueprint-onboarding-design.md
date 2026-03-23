@@ -106,8 +106,9 @@ Desired system behavior:
 1. bind the repo to the current chat
 2. detect that no OpenClaw Code blueprint exists yet
 3. scan the repo for existing intent and context materials
-4. tell the operator that development should not begin yet
-5. offer to generate a blueprint draft from the existing repository materials
+4. auto-seed a first blueprint draft from stable repo materials such as repo
+   description, `README.md`, and package metadata
+5. tell the operator that development should not begin yet
 6. let the operator edit, clarify, and explicitly agree to the blueprint
 7. only then continue into bootstrap / execution readiness
 
@@ -150,7 +151,7 @@ Instead, it should say:
 
 - useful project material was found
 - no standard OpenClaw Code blueprint was found
-- OpenClaw Code can draft a blueprint from the existing materials
+- OpenClaw Code can auto-seed a blueprint draft from the existing materials
 - the operator still needs to agree before execution begins
 
 ## Proposed State Machine
@@ -290,17 +291,20 @@ Possible system replies:
 - no OpenClaw Code blueprint detected
 - this looks like an existing repo that has not been onboarded into OpenClaw
   Code yet
+- OpenClaw Code seeds a first draft from repo summary and any stable repo
+  metadata it can read
 - next:
-  - generate a blueprint draft from the repo
-  - or draft the blueprint directly in chat
+  - review and revise the seeded blueprint draft in chat
+  - agree to it if the baseline already looks correct
 
 #### Reply variant 3: repo exists and non-standard context is present
 
 - repo found: `owner/repo`
 - no standard OpenClaw Code blueprint detected
 - useful project context was found in the repo
+- OpenClaw Code seeds a first draft from those materials
 - next:
-  - generate a blueprint draft from existing materials
+  - review and revise the seeded draft
   - then ask the operator to agree before development starts
 
 ### New project path

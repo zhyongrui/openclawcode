@@ -3796,12 +3796,30 @@ describe("openclawcode extension", () => {
       token: "gho_test",
       source: "gh-auth-token",
     });
+    onboardingOpenClawCodeDeps.fetchRepositorySummary = vi.fn(async (_token, repoRef) => ({
+      owner: repoRef.owner,
+      repo: repoRef.repo,
+      private: true,
+      url: `https://github.com/${repoRef.owner}/${repoRef.repo}`,
+      description: "Photo gallery for family albums",
+      defaultBranch: "main",
+    }));
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         if (url.includes("/contents/README.md")) {
-          return new Response(JSON.stringify({ type: "file" }), { status: 200 });
+          return new Response(
+            JSON.stringify({
+              type: "file",
+              encoding: "base64",
+              content: Buffer.from(
+                "# iGallery\nShared family albums with lightweight review flows.\n",
+                "utf8",
+              ).toString("base64"),
+            }),
+            { status: 200 },
+          );
         }
         return new Response("not found", { status: 404 });
       }),
@@ -3819,7 +3837,9 @@ describe("openclawcode extension", () => {
 
       expect(result?.text).toContain("State: repo-nonstandard-context-detected");
       expect(result?.text).toContain("Useful repo context found: README.md");
-      expect(result?.text).toContain("/occode-goal");
+      expect(result?.text).toContain("Draft goal: Photo gallery for family albums");
+      expect(result?.text).toContain("Draft seeded from: repo:summary, README.md");
+      expect(result?.text).toContain("Draft sections captured:");
       expect(result?.text).toContain("/occode-blueprint-agree");
       expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
       expect(
@@ -3832,6 +3852,10 @@ describe("openclawcode extension", () => {
         stage: "repo-nonstandard-context-detected",
         blueprintDraft: {
           status: "draft",
+          sourcePaths: ["repo:summary", "README.md"],
+          sections: {
+            Goal: "Photo gallery for family albums",
+          },
         },
       });
     } finally {

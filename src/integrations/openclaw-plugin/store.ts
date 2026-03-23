@@ -86,6 +86,7 @@ export interface OpenClawCodeSetupSession {
     status?: "draft" | "agreed";
     agreedAt?: string;
     repoNameSuggestions?: string[];
+    sourcePaths?: string[];
     sections?: Record<string, string>;
   };
   lastFailure?: {
@@ -490,6 +491,11 @@ function normalizeSetupSession(raw: unknown): OpenClawCodeSetupSession | undefin
                 : undefined,
             repoNameSuggestions: Array.isArray(candidate.blueprintDraft.repoNameSuggestions)
               ? candidate.blueprintDraft.repoNameSuggestions.filter(
+                  (value): value is string => typeof value === "string",
+                )
+              : undefined,
+            sourcePaths: Array.isArray(candidate.blueprintDraft.sourcePaths)
+              ? candidate.blueprintDraft.sourcePaths.filter(
                   (value): value is string => typeof value === "string",
                 )
               : undefined,

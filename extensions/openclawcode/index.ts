@@ -462,6 +462,12 @@ function buildChatSetupDraftGoalSummary(session: ChatSetupSession): string | und
   return trimToSingleLine(session.blueprintDraft?.sections?.Goal);
 }
 
+function collectChatSetupDraftFilledSectionCount(session: ChatSetupSession): number {
+  return Object.values(session.blueprintDraft?.sections ?? {}).filter(
+    (value) => value.trim().length > 0,
+  ).length;
+}
+
 function buildChatSetupDraftingBlueprintMessage(params: {
   session: ChatSetupSession;
 }): string {
@@ -476,9 +482,7 @@ function buildChatSetupDraftingBlueprintMessage(params: {
     });
   }
   const missing = collectChatSetupDraftMissingSections(params.session);
-  const filledCount = Object.values(params.session.blueprintDraft?.sections ?? {}).filter(
-    (value) => value.trim().length > 0,
-  ).length;
+  const filledCount = collectChatSetupDraftFilledSectionCount(params.session);
   const goalSummary = buildChatSetupDraftGoalSummary(params.session);
   return [
     "OpenClaw Code is drafting a blueprint-first new-project setup for this chat.",
@@ -905,6 +909,10 @@ type ChatSetupRepoClassification =
       detectedPaths: string[];
     };
 
+type GitHubRepositorySummary = NonNullable<
+  Awaited<ReturnType<typeof onboardingOpenClawCodeDeps.fetchRepositorySummary>>
+>;
+
 async function checkGitHubRepoPathExists(params: {
   token: string;
   repo: { owner: string; repo: string };
@@ -979,6 +987,154 @@ async function classifyChatSetupRepository(params: {
   };
 }
 
+async function fetchGitHubRepoTextFileContent(params: {
+  token: string;
+  repo: { owner: string; repo: string };
+  contentPath: string;
+}): Promise<string | undefined> {
+  const encodedPath = params.contentPath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  const response = await fetch(
+    `https://api.github.com/repos/${encodeURIComponent(params.repo.owner)}/${encodeURIComponent(params.repo.repo)}/contents/${encodedPath}`,
+    {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        Authorization: `Bearer ${params.token}`,
+      },
+    },
+  );
+  if (response.status === 404) {
+    return undefined;
+  }
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(
+      `GitHub repo content fetch failed: ${response.status} ${response.statusText} ${body}`,
+    );
+  }
+  const payload = (await response.json()) as {
+    type?: string;
+    content?: string;
+    encoding?: string;
+  };
+  if (payload.type !== "file" || !payload.content || payload.encoding !== "base64") {
+    return undefined;
+  }
+  return Buffer.from(payload.content, "base64").toString("utf8");
+}
+
+function trimBlueprintSeedText(value: string | undefined, maxLength: number): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const normalized = value.replace(/\r\n/g, "\n").replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return undefined;
+  }
+  return normalized.length <= maxLength
+    ? normalized
+    : `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+function extractReadmeLead(readmeText: string | undefined): string | undefined {
+  if (!readmeText) {
+    return undefined;
+  }
+  const lines = readmeText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !/^#/.test(line))
+    .filter((line) => !/^!\[/.test(line))
+    .filter((line) => !/^\[!\[/.test(line));
+  return trimBlueprintSeedText(lines.slice(0, 3).join(" "), 220);
+}
+
+function extractPackageJsonDescription(packageJsonText: string | undefined): string | undefined {
+  if (!packageJsonText) {
+    return undefined;
+  }
+  try {
+    const payload = JSON.parse(packageJsonText) as { description?: unknown };
+    return typeof payload.description === "string"
+      ? trimBlueprintSeedText(payload.description, 160)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function buildExistingRepoBlueprintDraft(params: {
+  repoKey: string;
+  summary: GitHubRepositorySummary;
+  detectedPaths: string[];
+  readmeLead?: string;
+  packageDescription?: string;
+  currentDraft?: ChatSetupSession["blueprintDraft"];
+}): NonNullable<ChatSetupSession["blueprintDraft"]> {
+  const goalSource =
+    trimBlueprintSeedText(params.summary.description, 160) ??
+    params.packageDescription ??
+    params.readmeLead ??
+    `Align the existing ${params.repoKey} repository under an agreed OpenClaw Code blueprint.`;
+  const scopeHints = [
+    params.summary.defaultBranch
+      ? `Keep the current default branch ${params.summary.defaultBranch} as the baseline.`
+      : undefined,
+    params.readmeLead
+      ? `Treat the existing repo narrative as baseline context: ${params.readmeLead}`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const seededSections: Record<string, string> = {
+    Goal: goalSource,
+    "Success Criteria": [
+      `- Capture the current intent of ${params.repoKey} in PROJECT-BLUEPRINT.md before new implementation starts.`,
+      "- Confirm the first operator-approved milestone and the immediate proof path.",
+    ].join("\n"),
+    Scope: [
+      `- Adopt the existing ${params.repoKey} repository into OpenClaw Code rather than starting a greenfield project.`,
+      scopeHints ? `- ${scopeHints}` : undefined,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    "Non-Goals": [
+      "- Do not invent a new roadmap that is not already supported by the repo and operator guidance.",
+      "- Do not start implementation until the operator agrees that this draft reflects the intended baseline.",
+    ].join("\n"),
+    Constraints: [
+      "- Use the repository's existing docs and metadata as hints, not as automatic final truth.",
+      "- Preserve the current repo identity, ownership, and existing history during onboarding.",
+    ].join("\n"),
+    "Open Questions": [
+      `- Does the current repo description still match the intended product goal for ${params.repoKey}?`,
+      "- What is the first milestone that should be treated as in-scope after onboarding?",
+    ].join("\n"),
+  };
+  return {
+    status: params.currentDraft?.status ?? "draft",
+    agreedAt: params.currentDraft?.agreedAt,
+    repoNameSuggestions: params.currentDraft?.repoNameSuggestions,
+    sourcePaths: Array.from(
+      new Set([
+        "repo:summary",
+        ...params.detectedPaths,
+        params.packageDescription ? "package.json" : undefined,
+        params.readmeLead ? "README.md" : undefined,
+        ...(params.currentDraft?.sourcePaths ?? []),
+      ].filter((entry): entry is string => Boolean(entry))),
+    ),
+    sections: {
+      ...seededSections,
+      ...(params.currentDraft?.sections ?? {}),
+    },
+  };
+}
+
 function buildChatSetupExistingBlueprintDetectedMessage(params: {
   session: ChatSetupSession;
   detectedPaths: string[];
@@ -1004,6 +1160,10 @@ function buildChatSetupRepoBlueprintRequiredMessage(params: {
   detectedPaths: string[];
   state: "repo-missing-blueprint-required" | "repo-nonstandard-context-detected";
 }): string {
+  const goalSummary = buildChatSetupDraftGoalSummary(params.session);
+  const filledCount = collectChatSetupDraftFilledSectionCount(params.session);
+  const missing = collectChatSetupDraftMissingSections(params.session);
+  const sourcePaths = params.session.blueprintDraft?.sourcePaths ?? [];
   return [
     "OpenClaw Code found an existing repo, but development should stay in blueprint-first setup.",
     params.session.repoKey ? `Repo: ${params.session.repoKey}` : undefined,
@@ -1011,9 +1171,15 @@ function buildChatSetupRepoBlueprintRequiredMessage(params: {
     params.detectedPaths.length > 0
       ? `Useful repo context found: ${params.detectedPaths.join(", ")}`
       : "No standard OpenClaw Code blueprint was found yet.",
+    goalSummary ? `Draft goal: ${goalSummary}` : undefined,
+    sourcePaths.length > 0 ? `Draft seeded from: ${sourcePaths.join(", ")}` : undefined,
+    filledCount > 0 ? `Draft sections captured: ${filledCount}` : undefined,
+    missing.length > 0 ? `Missing before agreement: ${missing.length}` : undefined,
     "Next: capture or revise the blueprint in chat and agree on it before bootstrap starts.",
-    "Use /occode-goal and /occode-blueprint-edit to draft the blueprint here.",
-    "When the blueprint is agreed, send /occode-blueprint-agree and then /occode-setup-retry to continue.",
+    "Use /occode-goal and /occode-blueprint-edit to refine the draft here.",
+    missing.length > 0
+      ? "When the blueprint is agreed, send /occode-blueprint-agree and then /occode-setup-retry to continue."
+      : "If the seeded draft already matches the intended baseline, send /occode-blueprint-agree and then /occode-setup-retry to continue.",
     `Bootstrap stays blocked until blueprint agreement exists. ${describeChatSetupBootstrap()}`,
   ]
     .filter(Boolean)
@@ -1235,13 +1401,35 @@ async function completeChatSetupProjectSelection(params: {
       };
     }
     if (classification.kind === "existing-repo-nonstandard-context") {
+      const readmeLead = extractReadmeLead(
+        classification.detectedPaths.includes("README.md")
+          ? await fetchGitHubRepoTextFileContent({
+              token: token.token,
+              repo,
+              contentPath: "README.md",
+            })
+          : undefined,
+      );
+      const packageDescription = extractPackageJsonDescription(
+        classification.detectedPaths.includes("package.json")
+          ? await fetchGitHubRepoTextFileContent({
+              token: token.token,
+              repo,
+              contentPath: "package.json",
+            })
+          : undefined,
+      );
       const classified = {
         ...updated,
         stage: "repo-nonstandard-context-detected" as const,
-        blueprintDraft: updated.blueprintDraft ?? {
-          status: "draft" as const,
-          sections: {},
-        },
+        blueprintDraft: buildExistingRepoBlueprintDraft({
+          repoKey: updated.repoKey ?? params.session.repoKey ?? `${repo.owner}/${repo.repo}`,
+          summary,
+          detectedPaths: classification.detectedPaths,
+          readmeLead,
+          packageDescription,
+          currentDraft: updated.blueprintDraft,
+        }),
       };
       await params.store.upsertSetupSession(classified);
       return {
@@ -1256,10 +1444,12 @@ async function completeChatSetupProjectSelection(params: {
     const classified = {
       ...updated,
       stage: "repo-missing-blueprint-required" as const,
-      blueprintDraft: updated.blueprintDraft ?? {
-        status: "draft" as const,
-        sections: {},
-      },
+      blueprintDraft: buildExistingRepoBlueprintDraft({
+        repoKey: updated.repoKey ?? params.session.repoKey ?? `${repo.owner}/${repo.repo}`,
+        summary,
+        detectedPaths: [],
+        currentDraft: updated.blueprintDraft,
+      }),
     };
     await params.store.upsertSetupSession(classified);
     return {
