@@ -1,7 +1,32 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { resolvePublicCallbackAvailability } from "./public-callback.js";
+import {
+  resolveCloudflaredBinary,
+  resolvePublicCallbackAvailability,
+} from "./public-callback.js";
 
 describe("resolvePublicCallbackAvailability", () => {
+  it("finds cloudflared in ~/.local/bin even when PATH is stripped", async () => {
+    const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cloudflared-home-"));
+    const localBinDir = path.join(fakeHome, ".local", "bin");
+    const fakeBinary = path.join(localBinDir, "cloudflared");
+    await fs.mkdir(localBinDir, { recursive: true });
+    await fs.writeFile(
+      fakeBinary,
+      "#!/usr/bin/env bash\nif [ \"$1\" = \"--version\" ]; then echo 'cloudflared version test'; exit 0; fi\nexit 1\n",
+      { mode: 0o755 },
+    );
+
+    const resolved = resolveCloudflaredBinary({
+      HOME: fakeHome,
+      PATH: "/usr/bin:/bin",
+    });
+
+    expect(resolved).toBe(fakeBinary);
+  });
+
   it("prefers configured device-pair public url", async () => {
     const result = await resolvePublicCallbackAvailability({
       cfg: {

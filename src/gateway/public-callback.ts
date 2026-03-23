@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import os from "node:os";
 import path from "node:path";
 import { resolveGatewayPort, resolveStateDir } from "../config/paths.js";
 import type { OpenClawConfig } from "../config/types.js";
@@ -37,6 +39,82 @@ type ManagedTunnelStarter = (params: {
   targetUrl: string;
   env: NodeJS.ProcessEnv;
 }) => Promise<ManagedTunnelStartResult>;
+
+async function verifyPublicBaseUrlReachable(baseUrl: string): Promise<void> {
+  const probeUrl = `${baseUrl.replace(/\/+$/, "")}/`;
+  let lastError: string | null = null;
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    try {
+      const response = await fetch(probeUrl, {
+        method: "GET",
+        redirect: "manual",
+      });
+      if (response.status < 500 || response.status === 401 || response.status === 403) {
+        return;
+      }
+      lastError = `public tunnel returned HTTP ${response.status}`;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error(
+    `Managed tunnel created a public URL, but it never became reachable (${lastError ?? "unknown error"}).`,
+  );
+}
+
+function resolveCandidateHomeDir(env: NodeJS.ProcessEnv): string | null {
+  const fromEnv = env.HOME?.trim();
+  if (fromEnv) {
+    return fromEnv;
+  }
+  try {
+    return os.homedir();
+  } catch {
+    return null;
+  }
+}
+
+function resolveCloudflaredCandidatePaths(env: NodeJS.ProcessEnv): string[] {
+  const candidates = new Set<string>();
+  const pathEntries = (env.PATH ?? "")
+    .split(path.delimiter)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  for (const entry of pathEntries) {
+    candidates.add(path.join(entry, "cloudflared"));
+  }
+  const homeDir = resolveCandidateHomeDir(env);
+  if (homeDir) {
+    candidates.add(path.join(homeDir, ".local", "bin", "cloudflared"));
+    candidates.add(path.join(homeDir, "bin", "cloudflared"));
+  }
+  candidates.add("/usr/local/bin/cloudflared");
+  candidates.add("/opt/homebrew/bin/cloudflared");
+  candidates.add("/usr/bin/cloudflared");
+  return [...candidates];
+}
+
+export function resolveCloudflaredBinary(env: NodeJS.ProcessEnv): string | null {
+  const explicit = env.OPENCLAWCODE_CLOUDFLARED_BIN?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  for (const candidate of resolveCloudflaredCandidatePaths(env)) {
+    if (!candidate || !existsSync(candidate)) {
+      continue;
+    }
+    const probe = spawnSync(candidate, ["--version"], {
+      encoding: "utf8",
+      timeout: 10_000,
+      env,
+    });
+    if (probe.status === 0) {
+      return candidate;
+    }
+  }
+  return null;
+}
 
 function isLoopbackLikeHostname(hostname: string): boolean {
   const normalized = hostname.trim().replace(/^\[(.*)\]$/, "$1").toLowerCase();
@@ -196,6 +274,12 @@ async function defaultStartManagedTunnel(params: {
   targetUrl: string;
   env: NodeJS.ProcessEnv;
 }): Promise<ManagedTunnelStartResult> {
+  const cloudflaredBin = resolveCloudflaredBinary(params.env);
+  if (!cloudflaredBin) {
+    throw new Error(
+      "cloudflared was not found. Install it or set OPENCLAWCODE_CLOUDFLARED_BIN to the binary path.",
+    );
+  }
   const scriptPath = fileURLToPath(
     new URL("../../scripts/openclawcode-webhook-tunnel.sh", import.meta.url),
   );
@@ -207,6 +291,7 @@ async function defaultStartManagedTunnel(params: {
       OPENCLAW_STATE_DIR: params.stateDir,
       OPENCLAWCODE_TUNNEL_OPERATOR_ROOT: params.stateDir,
       OPENCLAWCODE_TUNNEL_TARGET_URL: params.targetUrl,
+      OPENCLAWCODE_CLOUDFLARED_BIN: cloudflaredBin,
     },
   });
   if (result.status !== 0) {
@@ -224,6 +309,7 @@ async function defaultStartManagedTunnel(params: {
       "Managed tunnel command exited successfully, but no public URL was discovered.",
     );
   }
+  await verifyPublicBaseUrlReachable(baseUrl);
   return { baseUrl };
 }
 

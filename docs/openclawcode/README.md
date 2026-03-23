@@ -164,6 +164,10 @@ loop with:
         - prefer `plugins.entries.device-pair.config.publicUrl`
         - otherwise prefer `gateway.remote.url` or Tailscale callback reachability
         - otherwise try the existing managed `cloudflared` tunnel path
+        - managed tunnel discovery now also checks common non-PATH install
+          locations such as `~/.local/bin/cloudflared`
+        - managed tunnel URLs are now probed before setup surfaces them, so
+          OpenClaw does not advertise a QR link that never became reachable
         - if none of those work, report the precise failure reason before the
           same-machine browser / Quick actions fallback
       - if that signed QR hit or OAuth callback arrives before the runner is

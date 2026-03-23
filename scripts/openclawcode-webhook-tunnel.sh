@@ -11,6 +11,7 @@ readonly DEFAULT_GITHUB_REPO="zhyongrui/openclawcode"
 readonly DEFAULT_GITHUB_HOOK_ID="600049842"
 readonly DEFAULT_GITHUB_HOOK_EVENTS="issues,pull_request,pull_request_review"
 readonly DEFAULT_CLOUDFLARED_BIN="cloudflared"
+readonly DEFAULT_CLOUDFLARED_PROTOCOL="http2"
 readonly DEFAULT_OPERATOR_ROOT="${OPENCLAW_STATE_DIR:-${HOME}/.openclaw}"
 
 OPERATOR_ROOT="${OPENCLAWCODE_TUNNEL_OPERATOR_ROOT:-${OPENCLAWCODE_OPERATOR_ROOT:-$DEFAULT_OPERATOR_ROOT}}"
@@ -26,6 +27,7 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 CLOUDFLARED_BIN="${OPENCLAWCODE_CLOUDFLARED_BIN:-$DEFAULT_CLOUDFLARED_BIN}"
+CLOUDFLARED_PROTOCOL="${OPENCLAWCODE_CLOUDFLARED_PROTOCOL:-$DEFAULT_CLOUDFLARED_PROTOCOL}"
 TARGET_URL="${OPENCLAWCODE_TUNNEL_TARGET_URL:-$DEFAULT_TARGET_URL}"
 WEBHOOK_ROUTE="${OPENCLAWCODE_TUNNEL_ROUTE:-$DEFAULT_ROUTE}"
 LOG_FILE="${OPENCLAWCODE_TUNNEL_LOG_FILE:-$DEFAULT_LOG_FILE}"
@@ -51,6 +53,7 @@ Commands:
 Environment:
   GH_TOKEN                          GitHub token with repo webhook access.
   OPENCLAWCODE_CLOUDFLARED_BIN      cloudflared binary path.
+  OPENCLAWCODE_CLOUDFLARED_PROTOCOL cloudflared tunnel protocol. Default: ${DEFAULT_CLOUDFLARED_PROTOCOL}
   OPENCLAWCODE_TUNNEL_TARGET_URL    Local gateway target. Default: ${DEFAULT_TARGET_URL}
   OPENCLAWCODE_TUNNEL_ROUTE         Webhook route. Default: ${DEFAULT_ROUTE}
   OPENCLAWCODE_TUNNEL_LOG_FILE      Tunnel log path. Default: ${DEFAULT_LOG_FILE}
@@ -69,6 +72,43 @@ ensure_command() {
     echo "Missing required command: $1" >&2
     exit 1
   fi
+}
+
+resolve_cloudflared_bin() {
+  if [[ "$CLOUDFLARED_BIN" == */* ]]; then
+    if [[ -x "$CLOUDFLARED_BIN" ]]; then
+      printf '%s\n' "$CLOUDFLARED_BIN"
+      return 0
+    fi
+    echo "Missing required command: $CLOUDFLARED_BIN" >&2
+    return 1
+  fi
+
+  if command -v "$CLOUDFLARED_BIN" >/dev/null 2>&1; then
+    command -v "$CLOUDFLARED_BIN"
+    return 0
+  fi
+
+  local home_dir="${HOME:-}"
+  local candidates=()
+  if [[ -n "$home_dir" ]]; then
+    candidates+=("${home_dir}/.local/bin/cloudflared")
+    candidates+=("${home_dir}/bin/cloudflared")
+  fi
+  candidates+=("/usr/local/bin/cloudflared")
+  candidates+=("/opt/homebrew/bin/cloudflared")
+  candidates+=("/usr/bin/cloudflared")
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  echo "Missing required command: $CLOUDFLARED_BIN" >&2
+  return 1
 }
 
 is_running_pid() {
@@ -166,6 +206,7 @@ start_tunnel() {
   : >"$LOG_FILE"
   nohup "$CLOUDFLARED_BIN" tunnel \
     --no-autoupdate \
+    --protocol "$CLOUDFLARED_PROTOCOL" \
     --url "$TARGET_URL" \
     --pidfile "$PID_FILE" \
     --logfile "$LOG_FILE" \
@@ -191,10 +232,10 @@ start_tunnel() {
 }
 
 run_tunnel_foreground() {
-  ensure_command "$CLOUDFLARED_BIN"
   : >"$LOG_FILE"
   exec "$CLOUDFLARED_BIN" tunnel \
     --no-autoupdate \
+    --protocol "$CLOUDFLARED_PROTOCOL" \
     --url "$TARGET_URL" \
     --pidfile "$PID_FILE" \
     --logfile "$LOG_FILE" \
@@ -337,16 +378,17 @@ status() {
 }
 
 command="${1:-}"
+if [[ "$command" == "start" || "$command" == "start-tunnel" || "$command" == "run" || "$command" == "restart" || "$command" == "status" || "$command" == "print-url" ]]; then
+  CLOUDFLARED_BIN="$(resolve_cloudflared_bin)"
+fi
 case "$command" in
   start)
-    ensure_command "$CLOUDFLARED_BIN"
     start_tunnel
     wait_for_public_url >/dev/null
     sync_github_hook
     status
     ;;
   start-tunnel)
-    ensure_command "$CLOUDFLARED_BIN"
     start_tunnel
     wait_for_public_url
     ;;
@@ -357,7 +399,6 @@ case "$command" in
     stop_tunnel
     ;;
   restart)
-    ensure_command "$CLOUDFLARED_BIN"
     stop_tunnel || true
     start_tunnel
     wait_for_public_url >/dev/null
