@@ -404,7 +404,7 @@ export async function inspectOnboardingGitHubCliDeviceLogin(
     running,
     reason:
       session.failureReason ??
-      "GitHub device approval did not complete. Start a fresh session with /occode-setup.",
+      `GitHub device approval did not complete. Start a fresh session with ${formatChatCommandWithAlias("/occode-setup")}.`,
     userCode,
     verificationUri: userCode ? verificationUri : undefined,
     startedAt: session.startedAt,

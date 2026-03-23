@@ -388,6 +388,13 @@ export function buildIssueApprovalMessage(params: {
       : config.mergeOnApprove
         ? "Open PR, verify, and auto-merge when policy allows"
         : "Open PR and stop for review";
+  const formatChatCommandWithAlias = (command: string) => {
+    if (!command.startsWith("/occode-")) {
+      return command;
+    }
+    const alias = command.replace(/^\/occode-/, "/occ-");
+    return `${command} (alias ${alias})`;
+  };
 
   return [
     "openclawcode has a new GitHub issue ready for a decision.",
@@ -396,9 +403,9 @@ export function buildIssueApprovalMessage(params: {
     `Labels: ${labels}`,
     `Planned flow: ${publicationMode}`,
     "Reply with one command:",
-    `/occode-start ${issueKey}`,
-    `/occode-skip ${issueKey}`,
-    `/occode-status ${issueKey}`,
+    formatChatCommandWithAlias(`/occode-start ${issueKey}`),
+    formatChatCommandWithAlias(`/occode-skip ${issueKey}`),
+    formatChatCommandWithAlias(`/occode-status ${issueKey}`),
   ].join("\n");
 }
 
@@ -410,6 +417,7 @@ export function buildIssueEscalationMessage(params: {
   const { issue, summary, reasons } = params;
   const issueKey = formatIssueKey(issue);
   const reasonLines = reasons.map((entry) => `- ${entry}`);
+  const statusCommand = `/occode-status ${issueKey}`;
   return [
     "openclawcode escalated a new GitHub issue before chat approval.",
     `Issue: ${issueKey}`,
@@ -417,13 +425,13 @@ export function buildIssueEscalationMessage(params: {
     `Summary: ${summary}`,
     "Reasons:",
     ...reasonLines,
-    "Use /occode-status to inspect the tracked status if you later decide to handle it manually.",
-    `/occode-status ${issueKey}`,
+    "Use /occode-status (alias /occ-status) to inspect the tracked status if you later decide to handle it manually.",
+    `${statusCommand} (alias ${statusCommand.replace(/^\/occode-/, "/occ-")})`,
   ].join("\n");
 }
 
 function parseCommandAction(input: string): OpenClawCodeChatopsCommand["action"] | null {
-  const match = /^\/occode-(start|rerun|skip|status)\b/i.exec(input.trim());
+  const match = /^\/oc(?:code|c)-(start|rerun|skip|status)\b/i.exec(input.trim());
   if (!match) {
     return null;
   }
@@ -500,7 +508,7 @@ export function parseChatopsCommand(
     return null;
   }
 
-  const args = input.trim().replace(/^\/occode-(start|rerun|skip|status)\s*/i, "");
+  const args = input.trim().replace(/^\/oc(?:code|c)-(start|rerun|skip|status)\s*/i, "");
   const issue = parseIssueReference(args, defaults);
   if (!issue) {
     return null;
@@ -517,13 +525,13 @@ export function parseChatopsIssueDraftCommand(
   defaults?: { owner?: string; repo?: string },
 ): OpenClawCodeChatopsIssueDraftCommand | null {
   const normalized = input.replace(/\r\n/g, "\n").trim();
-  const match = /^\/occode-intake\b/i.exec(normalized);
+  const match = /^\/oc(?:code|c)-intake\b/i.exec(normalized);
   if (!match) {
     return null;
   }
 
   const [firstLine = "", ...remainingLines] = normalized.split("\n");
-  const firstLineArgs = firstLine.replace(/^\/occode-intake\b\s*/i, "").trim();
+  const firstLineArgs = firstLine.replace(/^\/oc(?:code|c)-intake\b\s*/i, "").trim();
 
   let repo = firstLineArgs ? parseChatopsRepoReference(firstLineArgs) : null;
   let draftLines = remainingLines;

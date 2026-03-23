@@ -346,7 +346,10 @@ describe("openclaw plugin integration helpers", () => {
     });
 
     expect(message).toContain("/occode-start zhyongrui/openclawcode#43");
+    expect(message).toContain("/occ-start zhyongrui/openclawcode#43");
     expect(message).toContain("/occode-skip zhyongrui/openclawcode#43");
+    expect(message).toContain("/occ-skip zhyongrui/openclawcode#43");
+    expect(message).toContain("/occ-status zhyongrui/openclawcode#43");
     expect(message).toContain("auto-merge");
   });
 
@@ -364,6 +367,7 @@ describe("openclaw plugin integration helpers", () => {
 
     expect(message).toContain("escalated a new GitHub issue before chat approval");
     expect(message).toContain("/occode-status zhyongrui/openclawcode#53");
+    expect(message).toContain("/occ-status zhyongrui/openclawcode#53");
     expect(message).toContain("auth, secrets, security, permissions");
   });
 
@@ -388,6 +392,14 @@ describe("openclaw plugin integration helpers", () => {
         owner: "zhyongrui",
         repo: "openclawcode",
         number: 45,
+      },
+    });
+    expect(parseChatopsCommand("/occ-rerun zhyongrui/openclawcode#46")).toEqual({
+      action: "rerun",
+      issue: {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        number: 46,
       },
     });
   });

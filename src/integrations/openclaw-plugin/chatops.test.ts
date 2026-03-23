@@ -3,6 +3,7 @@ import {
   buildWorkflowFailureDiagnosticLines,
   buildOpenClawCodeRunArgv,
   buildRunRequestFromCommand,
+  parseChatopsIssueDraftCommand,
   type OpenClawCodeChatopsRepoConfig,
 } from "./chatops.js";
 
@@ -139,5 +140,24 @@ describe("openclawcode chatops run request plumbing", () => {
     expect(argv).toContain("codex-reroute");
     expect(argv).toContain("--rerun-verifier-agent");
     expect(argv).toContain("claude-reroute");
+  });
+
+  it("accepts /occ-intake as an alias for chat issue drafting", () => {
+    expect(
+      parseChatopsIssueDraftCommand(
+        ["/occ-intake zhyongrui/openclawcode", "Tighten onboarding alias guidance"].join("\n"),
+      ),
+    ).toMatchObject({
+      action: "intake",
+      repo: {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+      },
+      draft: {
+        title: "Tighten onboarding alias guidance",
+        bodySynthesized: true,
+        sourceRequest: "Tighten onboarding alias guidance",
+      },
+    });
   });
 });
