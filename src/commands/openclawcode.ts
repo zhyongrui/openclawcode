@@ -71,6 +71,7 @@ import {
   readProjectAutonomousLoopArtifact,
   deriveWorkflowQualityGate,
   deriveWorkflowPreCodeDiscipline,
+  deriveWorkflowLoopHealth,
   readProjectWorkItemInventory,
   recordProjectStageGateDecision,
   resolveGitHubRepoFromGit,
@@ -2600,7 +2601,7 @@ function logOpenClawCodeOperatorStatusSnapshot(params: {
   }
   for (const repo of snapshot.repos) {
     runtime.log(
-      `- ${repo.repoKey}: tracked=${repo.trackedIssueCount} pending=${repo.pendingApprovalCount} queued=${repo.queuedRunCount} current=${repo.currentRunCount} ready=${repo.readyForHumanReviewCount} merged=${repo.mergedCount} failed=${repo.failedCount}`,
+      `- ${repo.repoKey}: tracked=${repo.trackedIssueCount} pending=${repo.pendingApprovalCount} queued=${repo.queuedRunCount} current=${repo.currentRunCount} ready=${repo.readyForHumanReviewCount} merged=${repo.mergedCount} failed=${repo.failedCount} pre-code=ready:${repo.preCodeDisciplineReadyCount},warn:${repo.preCodeDisciplineWarnCount},blocked:${repo.preCodeDisciplineBlockedCount},pending:${repo.preCodeDisciplinePendingCount}${repo.preCodeDisciplineGapSummary ? `,gaps:${repo.preCodeDisciplineGapSummary}` : ""}${repo.preCodeDisciplineNextActionSummary ? `,next:${repo.preCodeDisciplineNextActionSummary}` : ""}${repo.preCodeDisciplineRepairSummary ? `,repair:${repo.preCodeDisciplineRepairSummary}` : ""} loop=healthy:${repo.loopHealthHealthyCount},warn:${repo.loopHealthWarnCount},blocked:${repo.loopHealthBlockedCount},pending:${repo.loopHealthPendingCount}`,
     );
   }
 }
@@ -3372,6 +3373,7 @@ function toWorkflowRunJson(run: WorkflowRun) {
   const latestPlanEdit = run.planEdits?.at(-1) ?? null;
   const qualityGate = deriveWorkflowQualityGate(run);
   const preCodeDiscipline = deriveWorkflowPreCodeDiscipline(run);
+  const loopHealth = deriveWorkflowLoopHealth(run);
   return {
     ...run,
     contractVersion: OPENCLAWCODE_RUN_JSON_CONTRACT_VERSION,
@@ -3440,6 +3442,21 @@ function toWorkflowRunJson(run: WorkflowRun) {
     preCodeDisciplineTestIntentCount: preCodeDiscipline.testIntentCount,
     preCodeDisciplinePlanApprovalRequired: preCodeDiscipline.planApprovalRequired,
     preCodeDisciplinePlanEdited: preCodeDiscipline.planEdited,
+    preCodeDisciplineIsolatedWorktreePrepared: preCodeDiscipline.isolatedWorktreePrepared,
+    preCodeDisciplineModeSpecificContextsPresent: preCodeDiscipline.modeSpecificContextsPresent,
+    preCodeDisciplineFreshRoleExecutionPresent: preCodeDiscipline.freshRoleExecutionPresent,
+    loopHealth,
+    loopHealthStatus: loopHealth.status,
+    loopHealthSummary: loopHealth.summary,
+    loopHealthBlockingReasons: loopHealth.blockingReasons,
+    loopHealthBlockingReasonCount: loopHealth.blockingReasons.length,
+    loopHealthWarnings: loopHealth.warningReasons,
+    loopHealthWarningCount: loopHealth.warningReasons.length,
+    loopHealthFailureSummary: loopHealth.failureSummary,
+    loopHealthPromptFootprintChars: loopHealth.promptFootprintChars,
+    loopHealthBootstrapWarningShown: loopHealth.bootstrapWarningShown,
+    loopHealthInjectedWorkspaceFileCount: loopHealth.injectedWorkspaceFileCount,
+    loopHealthLastCallUsageTotal: loopHealth.lastCallUsageTotal,
     changeDisposition: changeDisposition.changeDisposition,
     changeDispositionReason: changeDisposition.changeDispositionReason,
     issueClassification: run.buildResult?.issueClassification ?? null,

@@ -612,7 +612,11 @@ describe("openclawcode extension", () => {
       },
     });
     onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(
-      async () => ({ login: "zhyongrui" }),
+      async () => ({
+        login: "zhyongrui",
+        name: "Zhongrui Ye",
+        email: "zyr@example.com",
+      }),
     );
     onboardingOpenClawCodeDeps.fetchRepositorySummary = vi.fn(async (_token, repoRef) => ({
       owner: repoRef.owner,
@@ -3682,7 +3686,14 @@ describe("openclawcode extension", () => {
       });
 
       expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
-      expect(result?.text).toContain("Source: gh-auth-token");
+      expect(result?.text).toContain("GitHub username: zhyongrui");
+      expect(result?.text).toContain("Name: Zhongrui Ye");
+      expect(result?.text).toContain("Email: zyr@example.com");
+      expect(result?.text).toContain("Source: gh auth");
+      expect(result?.text).toContain(
+        "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
+      );
+      expect(result?.text).toContain("/occode-setup-cancel");
       expect(result?.text).toContain("Repo: zhyongrui/iGallery");
       expect(result?.text).toContain("Local path: /home/zyr/pros/openclawcode-target");
       expect(result?.text).toContain("Blueprint: /home/zyr/pros/openclawcode-target/PROJECT-BLUEPRINT.md");
@@ -3701,6 +3712,9 @@ describe("openclawcode extension", () => {
         repoKey: "zhyongrui/iGallery",
         stage: "bootstrap-complete",
         githubAuthSource: "gh-auth-token",
+        githubAuthLogin: "zhyongrui",
+        githubAuthName: "Zhongrui Ye",
+        githubAuthEmail: "zyr@example.com",
         bootstrap: {
           repoRoot: "/home/zyr/pros/openclawcode-target",
           nextAction: "clarify-project-blueprint",
@@ -3957,8 +3971,46 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("shows the current GitHub identity through /occode-setup-status when auth is already ready", async () => {
+    const fixture = await registerPluginFixture();
+    mocked.resolveOnboardingGitHubToken.mockReturnValue({
+      token: "gho_test",
+      source: "gh-auth-token",
+    });
+
+    try {
+      const result = await fixture.commands.get("occode-setup-status")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-setup-status",
+        args: "",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("OpenClaw Code setup has GitHub auth ready.");
+      expect(result?.text).toContain("GitHub username: zhyongrui");
+      expect(result?.text).toContain("Name: Zhongrui Ye");
+      expect(result?.text).toContain("Email: zyr@example.com");
+      expect(result?.text).toContain("Source: gh auth");
+      expect(result?.text).toContain("gh auth logout --hostname github.com --user zhyongrui");
+      expect(result?.text).toContain("gh auth login --hostname github.com --web");
+      expect(result?.text).toContain("After re-login, send /occode-setup-status here");
+      expect(result?.text).toContain("Next: send /occode-setup owner/repo to pin the repo for this chat.");
+      expect(result?.text).not.toContain(
+        "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
+      );
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("promotes a pending setup session to authenticated through /occode-setup-status", async () => {
     const fixture = await registerPluginFixture();
+    mocked.resolveOnboardingGitHubToken.mockReturnValue({
+      token: "gho_test",
+      source: "gh-auth-token",
+    });
     await fixture.store.upsertSetupSession({
       notifyChannel: "feishu",
       notifyTarget: "user:setup-chat",
@@ -3995,6 +4047,14 @@ describe("openclawcode extension", () => {
       });
 
       expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
+      expect(result?.text).toContain("GitHub username: zhyongrui");
+      expect(result?.text).toContain("Name: Zhongrui Ye");
+      expect(result?.text).toContain("gh auth logout --hostname github.com --user zhyongrui");
+      expect(result?.text).toContain("gh auth login --hostname github.com --web");
+      expect(result?.text).toContain(
+        "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
+      );
+      expect(result?.text).toContain("/occode-setup-cancel");
       expect(result?.text).toContain("Repo: zhyongrui/openclawcode");
       expect(mocked.runOnboardingOpenClawCodeBootstrap).toHaveBeenCalledWith({
         repo: "zhyongrui/openclawcode",
@@ -4007,8 +4067,11 @@ describe("openclawcode extension", () => {
       ).toMatchObject({
         stage: "bootstrap-complete",
         githubAuthSource: "gh-auth-token",
+        githubAuthLogin: "zhyongrui",
+        githubAuthName: "Zhongrui Ye",
+        githubAuthEmail: "zyr@example.com",
         githubDeviceAuth: {
-          completedAt: "2026-03-19T02:36:00.000Z",
+          completedAt: expect.any(String),
         },
       });
     } finally {
@@ -4062,6 +4125,11 @@ describe("openclawcode extension", () => {
       });
 
       expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
+      expect(result?.text).toContain("GitHub username: zhyongrui");
+      expect(result?.text).toContain("gh auth logout --hostname github.com --user zhyongrui");
+      expect(result?.text).toContain(
+        "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
+      );
       expect(result?.text).toContain("Repo: zhyongrui/openclawcode");
       expect(result?.text).toContain("/occode-blueprint zhyongrui/openclawcode");
       expect(result?.text).toContain("Repair: openclaw gateway restart");
@@ -5096,6 +5164,8 @@ describe("openclawcode extension", () => {
           "Summary: Build failed: HTTP 400: Internal server error",
           "Provider failure context: last transient failure at 2026-03-12T12:06:00.000Z | failures: 1",
           "Failure diagnostics: model=crs/gpt-5.4, prompt=8629, skillsPrompt=1245, schema=3030, tools=4, skills=1, files=0, usage=0, bootstrap=clean",
+          "Pre-code discipline: blocked | execution plan missing before code execution | no explicit test intent recorded before execution",
+          "Loop health: blocked | HTTP 400: Internal server error | high prompt footprint (12904 chars) | provider reported zero usage on the last call",
           "Quality gate: fail | HTTP 400: Internal server error",
           `Operator repo root: ${fixture.repoRoot}`,
           "Operator baseline: main",
@@ -5123,8 +5193,12 @@ describe("openclawcode extension", () => {
         owner: "zhyongrui",
         repo: "openclawcode",
         issueNumber: 6623,
+        preCodeDisciplinePlanStatus: "awaiting-approval",
         preCodeDisciplineStatus: "blocked",
         preCodeDisciplineSummary: "awaiting explicit plan approval before code execution",
+        preCodeDisciplineIsolatedWorktreePrepared: false,
+        preCodeDisciplineModeSpecificContextsPresent: true,
+        preCodeDisciplineFreshRoleExecutionPresent: false,
       });
 
       const result = await fixture.commands.get("occode-status")?.handler({
@@ -5137,6 +5211,106 @@ describe("openclawcode extension", () => {
 
       expect(result?.text).toContain(
         "Pre-code discipline: blocked | awaiting explicit plan approval before code execution",
+      );
+      expect(result?.text).toContain(
+        "Pre-code checks: isolated-worktree=no | mode-specific-contexts=yes | fresh-role-execution=no",
+      );
+      expect(result?.text).toContain(
+        `Pre-code repair: approve the current plan digest from the host with openclaw code run --issue 6623 --repo-root ${fixture.repoRoot} --require-plan-approval --approve-plan-digest <current-plan-digest>`,
+      );
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("shows isolated-worktree repair guidance through /occode-status", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.setStatusSnapshot({
+        issueKey: "zhyongrui/openclawcode#6625",
+        status: [
+          "openclawcode status for zhyongrui/openclawcode#6625",
+          "Stage: Queued",
+          "Summary: Waiting for an isolated issue worktree.",
+        ].join("\n"),
+        stage: "queued",
+        runId: "run-6625-pre-code",
+        updatedAt: "2026-03-22T12:09:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 6625,
+        preCodeDisciplineStatus: "blocked",
+        preCodeDisciplineSummary: "isolated issue worktree was not prepared before code execution",
+        preCodeDisciplineIsolatedWorktreePrepared: false,
+        preCodeDisciplineModeSpecificContextsPresent: true,
+        preCodeDisciplineFreshRoleExecutionPresent: true,
+      });
+
+      const result = await fixture.commands.get("occode-status")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-status #6625",
+        args: "#6625",
+        config: {},
+      });
+
+      expect(result?.text).toContain(
+        "Pre-code discipline: blocked | isolated issue worktree was not prepared before code execution",
+      );
+      expect(result?.text).toContain(
+        "Pre-code checks: isolated-worktree=no | mode-specific-contexts=yes | fresh-role-execution=yes",
+      );
+      expect(result?.text).toContain(
+        "Pre-code repair: rerun through /occode-start zhyongrui/openclawcode#6625 so .openclawcode/worktrees/* is prepared before code execution",
+      );
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("shows routing and runtime repair guidance through /occode-status", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      await fixture.store.setStatusSnapshot({
+        issueKey: "zhyongrui/openclawcode#6626",
+        status: [
+          "openclawcode status for zhyongrui/openclawcode#6626",
+          "Stage: Running",
+          "Summary: Execution routing needs cleanup before the next build attempt.",
+        ].join("\n"),
+        stage: "running",
+        runId: "run-6626-pre-code",
+        updatedAt: "2026-03-22T12:12:00.000Z",
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        issueNumber: 6626,
+        preCodeDisciplineStatus: "warn",
+        preCodeDisciplineSummary:
+          "mode-specific contexts and fresh role execution are not explicit",
+        preCodeDisciplineIsolatedWorktreePrepared: true,
+        preCodeDisciplineModeSpecificContextsPresent: false,
+        preCodeDisciplineFreshRoleExecutionPresent: false,
+      });
+
+      const result = await fixture.commands.get("occode-status")?.handler({
+        channel: "telegram",
+        isAuthorizedSender: true,
+        commandBody: "/occode-status #6626",
+        args: "#6626",
+        config: {},
+      });
+
+      expect(result?.text).toContain(
+        "Pre-code discipline: warn | mode-specific contexts and fresh role execution are not explicit",
+      );
+      expect(result?.text).toContain(
+        "Pre-code checks: isolated-worktree=yes | mode-specific-contexts=no | fresh-role-execution=no",
+      );
+      expect(result?.text).toContain(
+        "Pre-code repair: review /occode-routing zhyongrui/openclawcode and set missing role bindings with /occode-route-set zhyongrui/openclawcode <role> <provider>",
+      );
+      expect(result?.text).toContain(
+        "Pre-code repair: review /occode-runtime-steering zhyongrui/openclawcode and split building/verifying with /occode-runtime-steering-set zhyongrui/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
       );
     } finally {
       await cleanupPluginFixture(fixture);
@@ -5689,6 +5863,8 @@ describe("openclawcode extension", () => {
           "Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
         qualityGateStatus: "pass",
         qualityGateSummary: "merged with no outstanding warnings",
+        loopHealthStatus: "healthy",
+        loopHealthSummary: "no loop-health warnings recorded",
         lastNotificationChannel: "telegram",
         lastNotificationTarget: "chat:merge-target",
         lastNotificationAt: "2026-03-11T03:01:00.000Z",
@@ -5717,6 +5893,11 @@ describe("openclawcode extension", () => {
         qualityGateMissingCoverageCount: 1,
         preCodeDisciplineStatus: "warn",
         preCodeDisciplineSummary: "plan edited before execution",
+        preCodeDisciplineIsolatedWorktreePrepared: true,
+        preCodeDisciplineModeSpecificContextsPresent: false,
+        preCodeDisciplineFreshRoleExecutionPresent: false,
+        loopHealthStatus: "warn",
+        loopHealthSummary: "high prompt footprint (12904 chars)",
         lastNotificationChannel: "feishu",
         lastNotificationTarget: "user:review-chat",
         lastNotificationAt: "2026-03-11T02:59:00.000Z",
@@ -5754,6 +5935,11 @@ describe("openclawcode extension", () => {
         text: [
           "openclawcode inbox for zhyongrui/openclawcode",
           "Quality gates: pass=1 | warn=1 | fail=0 | pending=0",
+          "Pre-code discipline: ready=0 | warn=1 | blocked=0 | pending=0",
+          "Pre-code gaps: mode-specific-contexts=1 | fresh-role-execution=1",
+          "Pre-code next: make planner/coder/verifier contexts mode-specific",
+          "Pre-code repair: review /occode-routing zhyongrui/openclawcode and set missing role bindings with /occode-route-set zhyongrui/openclawcode <role> <provider>; then review /occode-runtime-steering zhyongrui/openclawcode and split building/verifying with /occode-runtime-steering-set zhyongrui/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
+          "Loop health: healthy=1 | warn=1 | blocked=0 | pending=0",
           "Recent learnings: review-reruns=1",
           "Pending approvals: 1",
           "- zhyongrui/openclawcode#301 | Awaiting chat approval.",
@@ -5773,12 +5959,17 @@ describe("openclawcode extension", () => {
           "  events: pull request merged @ 2026-03-11T03:00:30.000Z",
           "  suitability: auto-run | Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
           "  quality: pass | merged with no outstanding warnings",
+          "  loop: healthy | no loop-health warnings recorded",
           "  notify: sent | telegram:chat:merge-target | 2026-03-11T03:01:00.000Z",
           "- zhyongrui/openclawcode#305 | Ready For Human Review | final: awaiting human review | 2026-03-11T02:58:00.000Z",
           "  events: review approved @ 2026-03-11T02:58:30.000Z",
           "  suitability: needs-human-review | Suitability recommends human review before autonomous execution. Issue is classified as mixed scope instead of command-layer.",
           "  quality: warn | verifier approved with warnings | 1 missing coverage item",
           "  pre-code: warn | plan edited before execution",
+          "  pre-code checks: isolated-worktree=yes | mode-specific-contexts=no | fresh-role-execution=no",
+          "  pre-code repair: review /occode-routing zhyongrui/openclawcode and set missing role bindings with /occode-route-set zhyongrui/openclawcode <role> <provider>",
+          "  pre-code repair: review /occode-runtime-steering zhyongrui/openclawcode and split building/verifying with /occode-runtime-steering-set zhyongrui/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
+          "  loop: warn | high prompt footprint (12904 chars)",
           "  policy: /occode-policy zhyongrui/openclawcode#305",
           "  rerun: run-300 | from Changes Requested | 2026-03-11T02:40:00.000Z",
           "  reason: Address GitHub review feedback",

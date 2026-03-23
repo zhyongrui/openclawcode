@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type {
   WorkflowFailureDiagnostics,
+  WorkflowLoopHealthStatus,
   WorkflowQualityGateStatus,
   SuitabilityDecision,
   WorkflowHandoffEntry,
@@ -9,6 +10,7 @@ import type {
   WorkflowStage,
 } from "../../openclawcode/contracts/index.js";
 import {
+  deriveWorkflowLoopHealth,
   deriveWorkflowPreCodeDiscipline,
   deriveWorkflowQualityGate,
   resolveAutoMergeDisposition,
@@ -72,6 +74,9 @@ export interface OpenClawCodeSetupSession {
   pendingRepoName?: string;
   stage: OpenClawCodeSetupSessionStage;
   githubAuthSource?: "GH_TOKEN" | "GITHUB_TOKEN" | "gh-auth-token";
+  githubAuthLogin?: string;
+  githubAuthName?: string;
+  githubAuthEmail?: string;
   blueprintDraft?: {
     status?: "draft" | "agreed";
     agreedAt?: string;
@@ -239,6 +244,18 @@ export interface OpenClawCodeIssueStatusSnapshot {
   preCodeDisciplineTestIntentCount?: number;
   preCodeDisciplinePlanApprovalRequired?: boolean;
   preCodeDisciplinePlanEdited?: boolean;
+  preCodeDisciplineIsolatedWorktreePrepared?: boolean;
+  preCodeDisciplineModeSpecificContextsPresent?: boolean;
+  preCodeDisciplineFreshRoleExecutionPresent?: boolean;
+  loopHealthStatus?: WorkflowLoopHealthStatus;
+  loopHealthSummary?: string;
+  loopHealthBlockingReasons?: string[];
+  loopHealthWarningReasons?: string[];
+  loopHealthFailureSummary?: string;
+  loopHealthPromptFootprintChars?: number;
+  loopHealthBootstrapWarningShown?: boolean;
+  loopHealthInjectedWorkspaceFileCount?: number;
+  loopHealthLastCallUsageTotal?: number;
   failureDiagnostics?: WorkflowFailureDiagnostics;
   providerFailureCount?: number;
   lastProviderFailureAt?: string;
@@ -750,6 +767,18 @@ function normalizeSetupSession(raw: unknown): OpenClawCodeSetupSession | undefin
       candidate.githubAuthSource === "gh-auth-token"
         ? candidate.githubAuthSource
         : undefined,
+    githubAuthLogin:
+      typeof candidate.githubAuthLogin === "string" && candidate.githubAuthLogin.trim().length > 0
+        ? candidate.githubAuthLogin.trim()
+        : undefined,
+    githubAuthName:
+      typeof candidate.githubAuthName === "string" && candidate.githubAuthName.trim().length > 0
+        ? candidate.githubAuthName.trim()
+        : undefined,
+    githubAuthEmail:
+      typeof candidate.githubAuthEmail === "string" && candidate.githubAuthEmail.trim().length > 0
+        ? candidate.githubAuthEmail.trim()
+        : undefined,
     githubDeviceAuth:
       githubDeviceAuth &&
       typeof githubDeviceAuth.logPath === "string" &&
@@ -1067,6 +1096,57 @@ function normalizeStatusSnapshot(raw: unknown): OpenClawCodeIssueStatusSnapshot 
       typeof candidate.preCodeDisciplinePlanEdited === "boolean"
         ? candidate.preCodeDisciplinePlanEdited
         : undefined,
+    preCodeDisciplineIsolatedWorktreePrepared:
+      typeof candidate.preCodeDisciplineIsolatedWorktreePrepared === "boolean"
+        ? candidate.preCodeDisciplineIsolatedWorktreePrepared
+        : undefined,
+    preCodeDisciplineModeSpecificContextsPresent:
+      typeof candidate.preCodeDisciplineModeSpecificContextsPresent === "boolean"
+        ? candidate.preCodeDisciplineModeSpecificContextsPresent
+        : undefined,
+    preCodeDisciplineFreshRoleExecutionPresent:
+      typeof candidate.preCodeDisciplineFreshRoleExecutionPresent === "boolean"
+        ? candidate.preCodeDisciplineFreshRoleExecutionPresent
+        : undefined,
+    loopHealthStatus:
+      candidate.loopHealthStatus === "healthy" ||
+      candidate.loopHealthStatus === "warn" ||
+      candidate.loopHealthStatus === "blocked" ||
+      candidate.loopHealthStatus === "pending"
+        ? candidate.loopHealthStatus
+        : undefined,
+    loopHealthSummary:
+      typeof candidate.loopHealthSummary === "string" ? candidate.loopHealthSummary : undefined,
+    loopHealthBlockingReasons: Array.isArray(candidate.loopHealthBlockingReasons)
+      ? candidate.loopHealthBlockingReasons.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : undefined,
+    loopHealthWarningReasons: Array.isArray(candidate.loopHealthWarningReasons)
+      ? candidate.loopHealthWarningReasons.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : undefined,
+    loopHealthFailureSummary:
+      typeof candidate.loopHealthFailureSummary === "string"
+        ? candidate.loopHealthFailureSummary
+        : undefined,
+    loopHealthPromptFootprintChars:
+      typeof candidate.loopHealthPromptFootprintChars === "number"
+        ? candidate.loopHealthPromptFootprintChars
+        : undefined,
+    loopHealthBootstrapWarningShown:
+      typeof candidate.loopHealthBootstrapWarningShown === "boolean"
+        ? candidate.loopHealthBootstrapWarningShown
+        : undefined,
+    loopHealthInjectedWorkspaceFileCount:
+      typeof candidate.loopHealthInjectedWorkspaceFileCount === "number"
+        ? candidate.loopHealthInjectedWorkspaceFileCount
+        : undefined,
+    loopHealthLastCallUsageTotal:
+      typeof candidate.loopHealthLastCallUsageTotal === "number"
+        ? candidate.loopHealthLastCallUsageTotal
+        : undefined,
     failureDiagnostics: normalizeWorkflowFailureDiagnostics(candidate.failureDiagnostics),
     providerFailureCount:
       typeof candidate.providerFailureCount === "number"
@@ -1333,6 +1413,7 @@ function buildStatusSnapshot(params: {
   const autoMergeDisposition = resolveAutoMergeDisposition(params.run);
   const qualityGate = deriveWorkflowQualityGate(params.run);
   const preCodeDiscipline = deriveWorkflowPreCodeDiscipline(params.run);
+  const loopHealth = deriveWorkflowLoopHealth(params.run);
   return {
     issueKey: `${params.run.issue.owner}/${params.run.issue.repo}#${params.run.issue.number}`,
     status: params.status,
@@ -1395,6 +1476,18 @@ function buildStatusSnapshot(params: {
     preCodeDisciplineTestIntentCount: preCodeDiscipline.testIntentCount,
     preCodeDisciplinePlanApprovalRequired: preCodeDiscipline.planApprovalRequired,
     preCodeDisciplinePlanEdited: preCodeDiscipline.planEdited,
+    preCodeDisciplineIsolatedWorktreePrepared: preCodeDiscipline.isolatedWorktreePrepared,
+    preCodeDisciplineModeSpecificContextsPresent: preCodeDiscipline.modeSpecificContextsPresent,
+    preCodeDisciplineFreshRoleExecutionPresent: preCodeDiscipline.freshRoleExecutionPresent,
+    loopHealthStatus: loopHealth.status,
+    loopHealthSummary: loopHealth.summary,
+    loopHealthBlockingReasons: loopHealth.blockingReasons,
+    loopHealthWarningReasons: loopHealth.warningReasons,
+    loopHealthFailureSummary: loopHealth.failureSummary ?? undefined,
+    loopHealthPromptFootprintChars: loopHealth.promptFootprintChars ?? undefined,
+    loopHealthBootstrapWarningShown: loopHealth.bootstrapWarningShown,
+    loopHealthInjectedWorkspaceFileCount: loopHealth.injectedWorkspaceFileCount,
+    loopHealthLastCallUsageTotal: loopHealth.lastCallUsageTotal ?? undefined,
     failureDiagnostics: params.run.failureDiagnostics,
     lastNotificationChannel: params.notifyChannel,
     lastNotificationTarget: params.notifyTarget,

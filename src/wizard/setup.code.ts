@@ -121,6 +121,7 @@ export type OnboardingBootstrapSummary = {
 };
 
 type OpenClawCodeOnboardingChoice = "new" | "existing" | "skip";
+type OpenClawCodeGitHubAccountChoice = "use-existing" | "switch-account" | "skip";
 
 const DEFAULT_GITHUB_DEVICE_VERIFICATION_URI = "https://github.com/login/device";
 const GITHUB_DEVICE_CODE_PATTERN = /one-time code:\s*([A-Z0-9-]+)/i;
@@ -168,6 +169,73 @@ function buildBootstrapRepairGuidanceLines(payload: OnboardingBootstrapSummary):
       ? `Chat retry: ${payload.handoff.chatSetupStatusCommand}`
       : undefined,
   ].filter((entry): entry is string => Boolean(entry));
+}
+
+export function formatOnboardingGitHubAuthSourceLabel(
+  source: ResolvedOnboardingGitHubToken["source"],
+): string {
+  switch (source) {
+    case "GH_TOKEN":
+      return "GH_TOKEN env var";
+    case "GITHUB_TOKEN":
+      return "GITHUB_TOKEN env var";
+    case "gh-auth-token":
+      return "gh auth";
+  }
+}
+
+function buildGitHubIdentityLines(params: {
+  token: ResolvedOnboardingGitHubToken;
+  viewer: GitHubAuthenticatedViewer;
+}): string[] {
+  return [
+    `GitHub username: ${params.viewer.login}`,
+    params.viewer.name ? `Name: ${params.viewer.name}` : undefined,
+    params.viewer.email ? `Email: ${params.viewer.email}` : undefined,
+    `Auth source: ${formatOnboardingGitHubAuthSourceLabel(params.token.source)}`,
+  ].filter((entry): entry is string => Boolean(entry));
+}
+
+function buildOpenClawCodeLaterActionLines(): string[] {
+  return [
+    "You can come back to OpenClaw Code later from either surface:",
+    `- Chat: ${formatCliCommand("/occode-setup")} (or ${formatCliCommand("/occode-setup existing owner/repo")})`,
+    `- CLI: ${formatCliCommand("openclaw code bootstrap --repo owner/repo --json")}`,
+    "Docs: https://docs.openclaw.ai/cli/code",
+  ];
+}
+
+async function confirmRepoSetupExecution(params: {
+  prompter: WizardPrompter;
+  token: ResolvedOnboardingGitHubToken;
+  viewer: GitHubAuthenticatedViewer;
+  mode: "new" | "existing";
+  repoRef: RepoRef;
+}): Promise<boolean> {
+  const { prompter, token, viewer, mode, repoRef } = params;
+  await prompter.note(
+    [
+      mode === "new"
+        ? "OpenClaw Code is about to create and bootstrap a new GitHub repo."
+        : "OpenClaw Code is about to bootstrap an existing GitHub repo.",
+      ...buildGitHubIdentityLines({
+        token,
+        viewer,
+      }),
+      `Target repo: ${repoRef.owner}/${repoRef.repo}`,
+      mode === "new"
+        ? "Effect: create the repo on GitHub, then run bootstrap locally."
+        : "Effect: validate access to the repo, then run bootstrap locally.",
+    ].join("\n"),
+    "OpenClaw Code execution",
+  );
+  return await prompter.confirm({
+    message:
+      mode === "new"
+        ? `Create and bootstrap ${repoRef.owner}/${repoRef.repo} now?`
+        : `Bootstrap ${repoRef.owner}/${repoRef.repo} now?`,
+    initialValue: false,
+  });
 }
 
 function isProcessRunning(pid: number | undefined): boolean {
@@ -572,6 +640,159 @@ export const onboardingOpenClawCodeDeps = {
   isGitHubCliProcessRunning: isProcessRunning,
 };
 
+async function confirmOnboardingGitHubAccount(params: {
+  token: ResolvedOnboardingGitHubToken;
+  viewer: GitHubAuthenticatedViewer;
+  prompter: WizardPrompter;
+}): Promise<{
+  token: ResolvedOnboardingGitHubToken;
+  viewer: GitHubAuthenticatedViewer;
+} | null> {
+  const { prompter } = params;
+  let currentToken = params.token;
+  let currentViewer = params.viewer;
+
+  while (true) {
+    await prompter.note(
+      [
+        "OpenClaw Code found an existing GitHub login.",
+        ...buildGitHubIdentityLines({
+          token: currentToken,
+          viewer: currentViewer,
+        }),
+        currentToken.source === "gh-auth-token"
+          ? "You can keep this account or let OpenClaw sign out and run gh auth login again before repo setup."
+          : "This auth source comes from an environment token. To use another account, replace or unset that env var first.",
+      ].join("\n"),
+      "GitHub account",
+    );
+
+    const choice = await prompter.select<OpenClawCodeGitHubAccountChoice>({
+      message: "GitHub account for OpenClaw Code",
+      options: [
+        {
+          value: "use-existing",
+          label: `Use ${currentViewer.login}`,
+        },
+        ...(currentToken.source === "gh-auth-token"
+          ? [
+              {
+                value: "switch-account" as const,
+                label: "Re-login with another account",
+              },
+            ]
+          : [
+              {
+                value: "switch-account" as const,
+                label: "Use a different token later",
+              },
+            ]),
+        {
+          value: "skip",
+          label: "Skip for now",
+        },
+      ],
+      initialValue: "use-existing",
+    });
+
+    if (choice === "use-existing") {
+      return {
+        token: currentToken,
+        viewer: currentViewer,
+      };
+    }
+
+    if (choice === "skip") {
+      await prompter.note(
+        [
+          ...buildGitHubIdentityLines({
+            token: currentToken,
+            viewer: currentViewer,
+          }),
+          ...buildOpenClawCodeLaterActionLines(),
+        ].join("\n"),
+        "OpenClaw Code",
+      );
+      return null;
+    }
+
+    if (currentToken.source !== "gh-auth-token") {
+      await prompter.note(
+        [
+          "This session is using an environment token, so OpenClaw cannot sign it out for you.",
+          "To switch accounts:",
+          currentToken.source === "GH_TOKEN"
+            ? "1. Unset GH_TOKEN in the shell or service that launched OpenClaw."
+            : "1. Unset GITHUB_TOKEN in the shell or service that launched OpenClaw.",
+          "2. Rerun onboarding, or run gh auth login with the intended account before starting repo setup.",
+        ].join("\n"),
+        "GitHub account",
+      );
+      return null;
+    }
+
+    const confirmed = await prompter.confirm({
+      message: `Sign out ${currentViewer.login} and run gh auth login again now?`,
+      initialValue: false,
+    });
+    if (!confirmed) {
+      continue;
+    }
+
+    const logoutResult = onboardingOpenClawCodeDeps.runGitHubCliCommand(
+      ["auth", "logout", "--hostname", "github.com", "--user", currentViewer.login],
+      {
+        stdio: "inherit",
+      },
+    );
+    if (logoutResult.status !== 0) {
+      const stderr = typeof logoutResult.stderr === "string" ? logoutResult.stderr.trim() : "";
+      const stdout = typeof logoutResult.stdout === "string" ? logoutResult.stdout.trim() : "";
+      await prompter.note(
+        [
+          `gh auth logout failed for ${currentViewer.login}.`,
+          stderr || stdout || "No error output was returned.",
+        ].join("\n"),
+        "GitHub account",
+      );
+      return null;
+    }
+
+    const loginResult = onboardingOpenClawCodeDeps.runGitHubCliCommand(
+      ["auth", "login", "--hostname", "github.com", "--web"],
+      {
+        stdio: "inherit",
+      },
+    );
+    if (loginResult.status !== 0) {
+      const stderr = typeof loginResult.stderr === "string" ? loginResult.stderr.trim() : "";
+      const stdout = typeof loginResult.stdout === "string" ? loginResult.stdout.trim() : "";
+      await prompter.note(
+        [
+          "gh auth login did not complete successfully.",
+          stderr || stdout || "No error output was returned.",
+        ].join("\n"),
+        "GitHub account",
+      );
+      return null;
+    }
+
+    const refreshedToken = onboardingOpenClawCodeDeps.resolveGitHubToken();
+    if (!refreshedToken) {
+      await prompter.note(
+        [
+          "GitHub login completed, but no token was available afterwards.",
+          "Rerun onboarding after gh auth status shows the intended account.",
+        ].join("\n"),
+        "GitHub account",
+      );
+      return null;
+    }
+    currentToken = refreshedToken;
+    currentViewer = await onboardingOpenClawCodeDeps.fetchAuthenticatedViewer(refreshedToken.token);
+  }
+}
+
 async function runBootstrapWithCapturedJson(params: {
   repo: string;
   bootstrapOpts?: Partial<OpenClawCodeBootstrapOpts>;
@@ -635,6 +856,23 @@ async function handleNewRepositorySetup(params: {
       owner: viewer.login,
       repo: repoName.trim(),
     };
+    const confirmed = await confirmRepoSetupExecution({
+      prompter,
+      token,
+      viewer,
+      mode: "new",
+      repoRef,
+    });
+    if (!confirmed) {
+      await prompter.note(
+        [
+          `Skipped creating ${repoRef.owner}/${repoRef.repo}.`,
+          ...buildOpenClawCodeLaterActionLines(),
+        ].join("\n"),
+        "OpenClaw Code",
+      );
+      return;
+    }
 
     const progress = prompter.progress("OpenClaw Code");
     let doneMessage = "OpenClaw Code step finished.";
@@ -714,6 +952,23 @@ async function handleExistingRepositorySetup(params: {
       },
     });
     const repoRef = parseExistingRepositoryInput(repoInput, viewer.login);
+    const confirmed = await confirmRepoSetupExecution({
+      prompter,
+      token,
+      viewer,
+      mode: "existing",
+      repoRef,
+    });
+    if (!confirmed) {
+      await prompter.note(
+        [
+          `Skipped bootstrapping ${repoRef.owner}/${repoRef.repo}.`,
+          ...buildOpenClawCodeLaterActionLines(),
+        ].join("\n"),
+        "OpenClaw Code",
+      );
+      return;
+    }
 
     const progress = prompter.progress("OpenClaw Code");
     let doneMessage = "OpenClaw Code step finished.";
@@ -787,12 +1042,33 @@ export async function runOnboardingOpenClawCode(params: {
   }
 
   const viewer = await onboardingOpenClawCodeDeps.fetchAuthenticatedViewer(resolvedToken.token);
+  const confirmedIdentity = await confirmOnboardingGitHubAccount({
+    token: resolvedToken,
+    viewer,
+    prompter,
+  });
+  if (!confirmedIdentity) {
+    return;
+  }
+
   const choice = await prompter.select<OpenClawCodeOnboardingChoice>({
     message: "OpenClaw Code repo setup",
     options: [
-      { value: "new", label: "New repo" },
-      { value: "existing", label: "Existing repo" },
-      { value: "skip", label: "Skip for now" },
+      {
+        value: "new",
+        label: "New repo",
+        hint: "Create a private GitHub repo, then bootstrap it",
+      },
+      {
+        value: "existing",
+        label: "Existing repo",
+        hint: "Use a repo you can already access, then bootstrap it",
+      },
+      {
+        value: "skip",
+        label: "Skip for now",
+        hint: "Leave repo setup for chat or CLI later",
+      },
     ],
     initialValue: "skip",
   });
@@ -800,9 +1076,8 @@ export async function runOnboardingOpenClawCode(params: {
   if (choice === "skip") {
     await prompter.note(
       [
-        `GitHub auth: ready via ${resolvedToken.source}.`,
-        `Later: ${formatCliCommand("openclaw code bootstrap --repo owner/repo --json")}`,
-        "Docs: https://docs.openclaw.ai/cli/code",
+        ...buildGitHubIdentityLines(confirmedIdentity),
+        ...buildOpenClawCodeLaterActionLines(),
       ].join("\n"),
       "OpenClaw Code",
     );
@@ -811,16 +1086,16 @@ export async function runOnboardingOpenClawCode(params: {
 
   if (choice === "new") {
     await handleNewRepositorySetup({
-      token: resolvedToken,
-      viewer,
+      token: confirmedIdentity.token,
+      viewer: confirmedIdentity.viewer,
       prompter,
     });
     return;
   }
 
   await handleExistingRepositorySetup({
-    token: resolvedToken,
-    viewer,
+    token: confirmedIdentity.token,
+    viewer: confirmedIdentity.viewer,
     prompter,
   });
 }

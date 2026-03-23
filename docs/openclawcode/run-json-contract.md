@@ -116,6 +116,21 @@ those nested objects.
 - `preCodeDisciplineTestIntentCount`
 - `preCodeDisciplinePlanApprovalRequired`
 - `preCodeDisciplinePlanEdited`
+- `preCodeDisciplineIsolatedWorktreePrepared`
+- `preCodeDisciplineModeSpecificContextsPresent`
+- `preCodeDisciplineFreshRoleExecutionPresent`
+- `loopHealth`
+- `loopHealthStatus`
+- `loopHealthSummary`
+- `loopHealthBlockingReasons`
+- `loopHealthBlockingReasonCount`
+- `loopHealthWarnings`
+- `loopHealthWarningCount`
+- `loopHealthFailureSummary`
+- `loopHealthPromptFootprintChars`
+- `loopHealthBootstrapWarningShown`
+- `loopHealthInjectedWorkspaceFileCount`
+- `loopHealthLastCallUsageTotal`
 - `changeDisposition`
 - `changeDispositionReason`
 - `issueClassification`
@@ -322,6 +337,15 @@ and chat/status rendering. They summarize the current workflow checkpoint from:
 - residual findings, missing coverage, and follow-ups
 - diff guardrail warnings such as generated files, large diffs, or broad fan-out
 
+`loopHealth*` fields are the compact top-level rollup for execution-loop and
+context-budget telemetry. They summarize the current run from:
+
+- terminal workflow state such as failed or escalated
+- persisted failure telemetry such as prompt/schema footprint
+- bootstrap truncation warnings
+- injected workspace context count
+- provider usage signals from the last failed call
+
 ### Workflow History And Records
 
 - `runLastStageEnteredAt`
@@ -358,9 +382,14 @@ and chat/status rendering. They summarize the current workflow checkpoint from:
 
 - count fields use `null` when the underlying metadata does not exist
 - derived numeric fields such as `failureDiagnosticSystemPromptChars`, `failureDiagnosticSkillsPromptChars`, `failureDiagnosticToolSchemaChars`, `failureDiagnosticSkillCount`, `failureDiagnosticInjectedWorkspaceFileCount`, and `failureDiagnosticToolCount` mirror documented nested metadata when present and otherwise use `null`
+- derived loop-health numeric fields such as `loopHealthPromptFootprintChars`,
+  `loopHealthInjectedWorkspaceFileCount`, and `loopHealthLastCallUsageTotal`
+  use `null` when the corresponding telemetry is absent
 - boolean summary fields such as `verificationHasFindings` default to `false`
   when the corresponding section is absent
 - derived boolean fields such as `failureDiagnosticBootstrapWarningShown`
+  default to `false` when the nested diagnostic signal is absent
+- derived loop-health booleans such as `loopHealthBootstrapWarningShown`
   default to `false` when the nested diagnostic signal is absent
 - string or timestamp fields use `null` when the underlying value is absent
 - `failureDiagnostics` uses `null` when no structured workflow failure metadata

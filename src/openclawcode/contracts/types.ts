@@ -318,6 +318,20 @@ export interface WorkflowQualityGateSummary {
   failureSummary: string | null;
 }
 
+export type WorkflowLoopHealthStatus = "healthy" | "warn" | "blocked" | "pending";
+
+export interface WorkflowLoopHealthSummary {
+  status: WorkflowLoopHealthStatus;
+  summary: string;
+  blockingReasons: string[];
+  warningReasons: string[];
+  failureSummary: string | null;
+  promptFootprintChars: number | null;
+  bootstrapWarningShown: boolean;
+  injectedWorkspaceFileCount: number;
+  lastCallUsageTotal: number | null;
+}
+
 export interface WorkflowRun {
   id: string;
   stage: WorkflowStage;

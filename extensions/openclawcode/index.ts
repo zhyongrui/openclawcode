@@ -41,6 +41,7 @@ import {
 import {
   buildOnboardingRepoNameSuggestions,
   createOnboardingRepositoryViaGh,
+  formatOnboardingGitHubAuthSourceLabel,
   inspectOnboardingGitHubCliDeviceLogin,
   onboardingOpenClawCodeDeps,
   parseOnboardingRepositoryCreationInput,
@@ -297,15 +298,28 @@ function buildChatSetupAwaitingGitHubAuthMessage(params: {
 
 function buildChatSetupReadyMessage(params: {
   source: "GH_TOKEN" | "GITHUB_TOKEN" | "gh-auth-token";
+  login?: string;
+  name?: string;
+  email?: string;
   repoKey?: string;
 }): string {
   return [
     "OpenClaw Code setup has GitHub auth ready.",
-    `Source: ${params.source}`,
+    params.login ? `GitHub username: ${params.login}` : undefined,
+    params.name ? `Name: ${params.name}` : undefined,
+    params.email ? `Email: ${params.email}` : undefined,
+    `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
     params.repoKey ? `Selected repo: ${params.repoKey}` : undefined,
     params.repoKey
       ? `Next: ${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`
       : "Next: send /occode-setup owner/repo to pin the repo for this chat.",
+    ...buildChatSetupRepoSwitchGuidanceLines({
+      repoKey: params.repoKey,
+    }),
+    ...buildChatSetupGitHubSwitchGuidanceLines({
+      source: params.source,
+      login: params.login,
+    }),
   ]
     .filter(Boolean)
     .join("\n");
@@ -556,6 +570,9 @@ function parseChatSetupProjectSelection(params: {
 
 function buildChatSetupRepoReadyMessage(params: {
   source: "GH_TOKEN" | "GITHUB_TOKEN" | "gh-auth-token";
+  login?: string;
+  name?: string;
+  email?: string;
   repoKey: string;
   projectMode: OnboardingProjectMode;
   created?: boolean;
@@ -566,10 +583,20 @@ function buildChatSetupRepoReadyMessage(params: {
         ? "OpenClaw Code created the new GitHub repo for this setup."
         : "OpenClaw Code has a new-project repo selected for this setup."
       : "OpenClaw Code has an existing repo selected for this setup.",
-    `Source: ${params.source}`,
+    params.login ? `GitHub username: ${params.login}` : undefined,
+    params.name ? `Name: ${params.name}` : undefined,
+    params.email ? `Email: ${params.email}` : undefined,
+    `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
     `Repo: ${params.repoKey}`,
     `Next: ${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`,
     "After bootstrap, use /occode-goal and /occode-blueprint to align the project blueprint in chat.",
+    ...buildChatSetupRepoSwitchGuidanceLines({
+      repoKey: params.repoKey,
+    }),
+    ...buildChatSetupGitHubSwitchGuidanceLines({
+      source: params.source,
+      login: params.login,
+    }),
   ].join("\n");
 }
 
@@ -598,6 +625,9 @@ function buildChatSetupBootstrapRepairLines(
 
 function buildChatSetupBootstrapCompleteMessage(params: {
   source: "GH_TOKEN" | "GITHUB_TOKEN" | "gh-auth-token";
+  login?: string;
+  name?: string;
+  email?: string;
   repoKey: string;
   bootstrap: NonNullable<
     NonNullable<Awaited<ReturnType<OpenClawCodeChatopsStore["getSetupSession"]>>>["bootstrap"]
@@ -605,7 +635,10 @@ function buildChatSetupBootstrapCompleteMessage(params: {
 }): string {
   return [
     "OpenClaw Code bootstrap finished for this setup session.",
-    `Source: ${params.source}`,
+    params.login ? `GitHub username: ${params.login}` : undefined,
+    params.name ? `Name: ${params.name}` : undefined,
+    params.email ? `Email: ${params.email}` : undefined,
+    `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
     `Repo: ${params.repoKey}`,
     params.bootstrap.repoRoot ? `Local path: ${params.bootstrap.repoRoot}` : undefined,
     params.bootstrap.checkoutAction ? `Checkout: ${params.bootstrap.checkoutAction}` : undefined,
@@ -675,9 +708,67 @@ function buildChatSetupBootstrapCompleteMessage(params: {
     params.bootstrap.webhookRetryCommand
       ? `Webhook retry: ${params.bootstrap.webhookRetryCommand}`
       : undefined,
+    ...buildChatSetupRepoSwitchGuidanceLines({
+      repoKey: params.repoKey,
+    }),
+    ...buildChatSetupGitHubSwitchGuidanceLines({
+      source: params.source,
+      login: params.login,
+    }),
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+async function resolveChatSetupGitHubIdentity(params: {
+  token: string;
+}): Promise<{
+  login?: string;
+  name?: string;
+  email?: string;
+}> {
+  try {
+    const viewer = await onboardingOpenClawCodeDeps.fetchAuthenticatedViewer(params.token);
+    return {
+      login: viewer.login,
+      name: viewer.name,
+      email: viewer.email,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function buildChatSetupGitHubSwitchGuidanceLines(params: {
+  source: "GH_TOKEN" | "GITHUB_TOKEN" | "gh-auth-token";
+  login?: string;
+}): string[] {
+  if (params.source === "gh-auth-token") {
+    return [
+      params.login
+        ? `Wrong account? Run ${formatCliCommand(`gh auth logout --hostname github.com --user ${params.login}`)} on the host, then ${formatCliCommand("gh auth login --hostname github.com --web")}.`
+        : `Wrong account? Run ${formatCliCommand("gh auth logout --hostname github.com")} on the host, then ${formatCliCommand("gh auth login --hostname github.com --web")}.`,
+      "After re-login, send /occode-setup-status here to refresh the setup state.",
+    ];
+  }
+  return [
+    params.source === "GH_TOKEN"
+      ? "Wrong account? Replace or unset GH_TOKEN for the OpenClaw host, then refresh setup status."
+      : "Wrong account? Replace or unset GITHUB_TOKEN for the OpenClaw host, then refresh setup status.",
+    "After updating the host environment, send /occode-setup-status here again.",
+  ];
+}
+
+function buildChatSetupRepoSwitchGuidanceLines(params: {
+  repoKey?: string;
+}): string[] {
+  if (!params.repoKey) {
+    return [];
+  }
+  return [
+    "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
+    "Discard this setup session with /occode-setup-cancel if you want to restart cleanly.",
+  ];
 }
 
 async function ensureChatSetupRepoBinding(params: {
@@ -851,6 +942,9 @@ async function completeChatSetupProjectSelection(params: {
       session: updated,
       message: buildChatSetupRepoReadyMessage({
         source: updated.githubAuthSource,
+        login: updated.githubAuthLogin,
+        name: updated.githubAuthName,
+        email: updated.githubAuthEmail,
         repoKey: updated.repoKey ?? params.session.repoKey,
         projectMode: "existing-repo",
       }),
@@ -862,6 +956,9 @@ async function completeChatSetupProjectSelection(params: {
         session: params.session,
         message: buildChatSetupRepoReadyMessage({
           source: params.session.githubAuthSource,
+          login: params.session.githubAuthLogin,
+          name: params.session.githubAuthName,
+          email: params.session.githubAuthEmail,
           repoKey: params.session.repoKey,
           projectMode: "new-project",
         }),
@@ -924,6 +1021,9 @@ async function completeChatSetupProjectSelection(params: {
       session: updated,
       message: buildChatSetupRepoReadyMessage({
         source: updated.githubAuthSource,
+        login: updated.githubAuthLogin,
+        name: updated.githubAuthName,
+        email: updated.githubAuthEmail,
         repoKey: updated.repoKey ?? formatRepoKey(created),
         projectMode: "new-project",
         created: true,
@@ -948,6 +1048,9 @@ async function completeChatSetupBootstrap(params: {
       session: params.session,
       message: buildChatSetupBootstrapCompleteMessage({
         source: params.session.githubAuthSource,
+        login: params.session.githubAuthLogin,
+        name: params.session.githubAuthName,
+        email: params.session.githubAuthEmail,
         repoKey: params.session.repoKey,
         bootstrap: params.session.bootstrap,
       }),
@@ -1094,6 +1197,9 @@ async function completeChatSetupBootstrap(params: {
     session: updated,
     message: buildChatSetupBootstrapCompleteMessage({
       source: updated.githubAuthSource,
+      login: updated.githubAuthLogin,
+      name: updated.githubAuthName,
+      email: updated.githubAuthEmail,
       repoKey: updated.repoKey,
       bootstrap: updated.bootstrap,
     }),
@@ -1147,6 +1253,9 @@ async function continueChatSetupSession(params: {
   if (synced.session.stage === "bootstrap-complete" && synced.session.githubAuthSource) {
     return buildChatSetupBootstrapCompleteMessage({
       source: synced.session.githubAuthSource,
+      login: synced.session.githubAuthLogin,
+      name: synced.session.githubAuthName,
+      email: synced.session.githubAuthEmail,
       repoKey: synced.session.repoKey ?? "unknown",
       bootstrap: synced.session.bootstrap ?? {
         completedAt: new Date().toISOString(),
@@ -1156,6 +1265,9 @@ async function continueChatSetupSession(params: {
   if (synced.session.stage === "github-authenticated" && synced.session.githubAuthSource) {
     return buildChatSetupReadyMessage({
       source: synced.session.githubAuthSource,
+      login: synced.session.githubAuthLogin,
+      name: synced.session.githubAuthName,
+      email: synced.session.githubAuthEmail,
       repoKey: synced.session.repoKey,
     });
   }
@@ -1310,6 +1422,9 @@ async function proactivelyRequestChatPairing(params: {
     pendingRepoName: params.existingSession?.pendingRepoName,
     stage: "awaiting-chat-pairing",
     githubAuthSource: undefined,
+    githubAuthLogin: undefined,
+    githubAuthName: undefined,
+    githubAuthEmail: undefined,
     githubDeviceAuth: undefined,
     lastFailure: undefined,
     createdAt: params.existingSession?.createdAt ?? now,
@@ -1584,10 +1699,16 @@ async function syncChatSetupSession(params: {
 }> {
   const resolvedToken = resolveOnboardingGitHubToken();
   if (resolvedToken) {
+    const identity = await resolveChatSetupGitHubIdentity({
+      token: resolvedToken.token,
+    });
     const updated = {
       ...params.session,
       stage: resolveChatSetupStageAfterAuth(params.session),
       githubAuthSource: resolvedToken.source,
+      githubAuthLogin: identity.login,
+      githubAuthName: identity.name,
+      githubAuthEmail: identity.email,
       githubDeviceAuth: params.session.githubDeviceAuth
         ? {
             ...params.session.githubDeviceAuth,
@@ -1611,10 +1732,19 @@ async function syncChatSetupSession(params: {
 
   const status = await inspectOnboardingGitHubCliDeviceLogin(params.session.githubDeviceAuth);
   if (status.state === "authorized") {
+    const refreshedToken = resolveOnboardingGitHubToken();
+    const identity = refreshedToken
+      ? await resolveChatSetupGitHubIdentity({
+          token: refreshedToken.token,
+        })
+      : {};
     const updated = {
       ...params.session,
       stage: resolveChatSetupStageAfterAuth(params.session),
       githubAuthSource: status.source,
+      githubAuthLogin: identity.login,
+      githubAuthName: identity.name,
+      githubAuthEmail: identity.email,
       githubDeviceAuth: {
         ...params.session.githubDeviceAuth,
         userCode: status.userCode ?? params.session.githubDeviceAuth.userCode,
@@ -2431,6 +2561,88 @@ function buildTopLevelPreCodeDisciplineLines(snapshot: OpenClawCodeIssueStatusSn
   ];
 }
 
+function buildTopLevelPreCodeDisciplineDetailLines(
+  snapshot: OpenClawCodeIssueStatusSnapshot,
+): string[] {
+  const checks = buildPreCodeCheckFragments(snapshot);
+  if (checks.length === 0 || snapshot.status.includes("\nPre-code checks:")) {
+    return [];
+  }
+  return [`Pre-code checks: ${checks.join(" | ")}`];
+}
+
+function buildTopLevelPreCodeRepairLines(params: {
+  snapshot: OpenClawCodeIssueStatusSnapshot;
+  repoConfig: OpenClawCodeChatopsRepoConfig;
+}): string[] {
+  const { snapshot, repoConfig } = params;
+  if (snapshot.status.includes("\nPre-code repair:")) {
+    return [];
+  }
+  return buildPreCodeRepairMessages({
+    snapshot,
+    repoRoot: repoConfig.repoRoot,
+  }).map((message) => `Pre-code repair: ${message}`);
+}
+
+function buildPreCodeRepairMessages(params: {
+  snapshot: OpenClawCodeIssueStatusSnapshot;
+  repoRoot?: string;
+}): string[] {
+  const { snapshot, repoRoot } = params;
+  if (snapshot.preCodeDisciplinePlanStatus === "awaiting-approval") {
+    if (!repoRoot) {
+      return [];
+    }
+    return [
+      `approve the current plan digest from the host with ${formatCliCommand(`openclaw code run --issue ${snapshot.issueNumber} --repo-root ${repoRoot} --require-plan-approval --approve-plan-digest <current-plan-digest>`)}`,
+    ];
+  }
+  const issueKey = snapshot.issueKey;
+  const repoKey = `${snapshot.owner}/${snapshot.repo}`;
+  const lines: string[] = [];
+  if (snapshot.preCodeDisciplineIsolatedWorktreePrepared === false) {
+    lines.push(
+      `rerun through /occode-start ${issueKey} so .openclawcode/worktrees/* is prepared before code execution`,
+    );
+  }
+  if (snapshot.preCodeDisciplineModeSpecificContextsPresent === false) {
+    lines.push(
+      `review /occode-routing ${repoKey} and set missing role bindings with /occode-route-set ${repoKey} <role> <provider>`,
+    );
+  }
+  if (snapshot.preCodeDisciplineFreshRoleExecutionPresent === false) {
+    lines.push(
+      `review /occode-runtime-steering ${repoKey} and split building/verifying with /occode-runtime-steering-set ${repoKey} <building|verifying> <agent-id> [adapter=<id>]`,
+    );
+  }
+  return lines;
+}
+
+function buildPreCodeCheckFragments(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
+  return [
+    typeof snapshot.preCodeDisciplineIsolatedWorktreePrepared === "boolean"
+      ? `isolated-worktree=${snapshot.preCodeDisciplineIsolatedWorktreePrepared ? "yes" : "no"}`
+      : undefined,
+    typeof snapshot.preCodeDisciplineModeSpecificContextsPresent === "boolean"
+      ? `mode-specific-contexts=${snapshot.preCodeDisciplineModeSpecificContextsPresent ? "yes" : "no"}`
+      : undefined,
+    typeof snapshot.preCodeDisciplineFreshRoleExecutionPresent === "boolean"
+      ? `fresh-role-execution=${snapshot.preCodeDisciplineFreshRoleExecutionPresent ? "yes" : "no"}`
+      : undefined,
+  ].filter((value): value is string => Boolean(value));
+}
+
+function buildTopLevelLoopHealthLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
+  if (!snapshot.loopHealthStatus || !snapshot.loopHealthSummary) {
+    return [];
+  }
+  if (snapshot.status.includes("\nLoop health:")) {
+    return [];
+  }
+  return [`Loop health: ${snapshot.loopHealthStatus} | ${snapshot.loopHealthSummary}`];
+}
+
 function summarizeRepoQualityGates(params: {
   state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
   repo: { owner: string; repo: string };
@@ -2465,6 +2677,158 @@ function summarizeRepoIncidentLearnings(params: {
   return summary ? `Recent learnings: ${summary.summary}` : undefined;
 }
 
+function summarizeRepoPreCodeDiscipline(params: {
+  state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
+  repo: { owner: string; repo: string };
+}): string | undefined {
+  const counts = {
+    ready: 0,
+    warn: 0,
+    blocked: 0,
+    pending: 0,
+  };
+  for (const snapshot of Object.values(params.state.statusSnapshotsByIssue)) {
+    if (!issueKeyMatchesRepo(snapshot.issueKey, params.repo) || !snapshot.preCodeDisciplineStatus) {
+      continue;
+    }
+    counts[snapshot.preCodeDisciplineStatus] += 1;
+  }
+  if (counts.ready + counts.warn + counts.blocked + counts.pending === 0) {
+    return undefined;
+  }
+  return `Pre-code discipline: ready=${counts.ready} | warn=${counts.warn} | blocked=${counts.blocked} | pending=${counts.pending}`;
+}
+
+function summarizeRepoPreCodeGaps(params: {
+  state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
+  repo: { owner: string; repo: string };
+}): string | undefined {
+  const counts = {
+    isolatedWorktree: 0,
+    modeSpecificContexts: 0,
+    freshRoleExecution: 0,
+  };
+  for (const snapshot of Object.values(params.state.statusSnapshotsByIssue)) {
+    if (!issueKeyMatchesRepo(snapshot.issueKey, params.repo)) {
+      continue;
+    }
+    if (snapshot.preCodeDisciplineIsolatedWorktreePrepared === false) {
+      counts.isolatedWorktree += 1;
+    }
+    if (snapshot.preCodeDisciplineModeSpecificContextsPresent === false) {
+      counts.modeSpecificContexts += 1;
+    }
+    if (snapshot.preCodeDisciplineFreshRoleExecutionPresent === false) {
+      counts.freshRoleExecution += 1;
+    }
+  }
+  const parts = [
+    counts.isolatedWorktree > 0 ? `isolated-worktree=${counts.isolatedWorktree}` : undefined,
+    counts.modeSpecificContexts > 0
+      ? `mode-specific-contexts=${counts.modeSpecificContexts}`
+      : undefined,
+    counts.freshRoleExecution > 0
+      ? `fresh-role-execution=${counts.freshRoleExecution}`
+      : undefined,
+  ].filter((value): value is string => Boolean(value));
+  return parts.length > 0 ? `Pre-code gaps: ${parts.join(" | ")}` : undefined;
+}
+
+function summarizeRepoPreCodeNextAction(params: {
+  state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
+  repo: { owner: string; repo: string };
+}): string | undefined {
+  const counts = {
+    isolatedWorktree: 0,
+    modeSpecificContexts: 0,
+    freshRoleExecution: 0,
+  };
+  for (const snapshot of Object.values(params.state.statusSnapshotsByIssue)) {
+    if (!issueKeyMatchesRepo(snapshot.issueKey, params.repo)) {
+      continue;
+    }
+    if (snapshot.preCodeDisciplineIsolatedWorktreePrepared === false) {
+      counts.isolatedWorktree += 1;
+    }
+    if (snapshot.preCodeDisciplineModeSpecificContextsPresent === false) {
+      counts.modeSpecificContexts += 1;
+    }
+    if (snapshot.preCodeDisciplineFreshRoleExecutionPresent === false) {
+      counts.freshRoleExecution += 1;
+    }
+  }
+  if (counts.isolatedWorktree > 0) {
+    return "Pre-code next: prepare isolated issue worktrees before code execution";
+  }
+  if (counts.modeSpecificContexts > 0) {
+    return "Pre-code next: make planner/coder/verifier contexts mode-specific";
+  }
+  if (counts.freshRoleExecution > 0) {
+    return "Pre-code next: split coder and verifier into fresh execution units";
+  }
+  return undefined;
+}
+
+function summarizeRepoPreCodeRepair(params: {
+  state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
+  repo: { owner: string; repo: string };
+}): string | undefined {
+  const counts = {
+    isolatedWorktree: 0,
+    modeSpecificContexts: 0,
+    freshRoleExecution: 0,
+  };
+  for (const snapshot of Object.values(params.state.statusSnapshotsByIssue)) {
+    if (!issueKeyMatchesRepo(snapshot.issueKey, params.repo)) {
+      continue;
+    }
+    if (snapshot.preCodeDisciplineIsolatedWorktreePrepared === false) {
+      counts.isolatedWorktree += 1;
+    }
+    if (snapshot.preCodeDisciplineModeSpecificContextsPresent === false) {
+      counts.modeSpecificContexts += 1;
+    }
+    if (snapshot.preCodeDisciplineFreshRoleExecutionPresent === false) {
+      counts.freshRoleExecution += 1;
+    }
+  }
+  const repoKey = formatRepoKey(params.repo);
+  const actions = [
+    counts.isolatedWorktree > 0
+      ? `rerun affected issues through /occode-start ${repoKey}#<issue-number> so .openclawcode/worktrees/* is prepared`
+      : undefined,
+    counts.modeSpecificContexts > 0
+      ? `review /occode-routing ${repoKey} and set missing role bindings with /occode-route-set ${repoKey} <role> <provider>`
+      : undefined,
+    counts.freshRoleExecution > 0
+      ? `review /occode-runtime-steering ${repoKey} and split building/verifying with /occode-runtime-steering-set ${repoKey} <building|verifying> <agent-id> [adapter=<id>]`
+      : undefined,
+  ].filter((value): value is string => Boolean(value));
+  return actions.length > 0 ? `Pre-code repair: ${actions.join("; then ")}` : undefined;
+}
+
+function summarizeRepoLoopHealth(params: {
+  state: Awaited<ReturnType<OpenClawCodeChatopsStore["snapshot"]>>;
+  repo: { owner: string; repo: string };
+}): string | undefined {
+  const counts = {
+    healthy: 0,
+    warn: 0,
+    blocked: 0,
+    pending: 0,
+  };
+  for (const snapshot of Object.values(params.state.statusSnapshotsByIssue)) {
+    if (!issueKeyMatchesRepo(snapshot.issueKey, params.repo) || !snapshot.loopHealthStatus) {
+      continue;
+    }
+    counts[snapshot.loopHealthStatus] += 1;
+  }
+  if (counts.healthy + counts.warn + counts.blocked + counts.pending === 0) {
+    return undefined;
+  }
+  return `Loop health: healthy=${counts.healthy} | warn=${counts.warn} | blocked=${counts.blocked} | pending=${counts.pending}`;
+}
+
 function buildInboxQualityGateLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
   if (!snapshot.qualityGateStatus || !snapshot.qualityGateSummary) {
     return [];
@@ -2472,13 +2836,35 @@ function buildInboxQualityGateLines(snapshot: OpenClawCodeIssueStatusSnapshot): 
   return [`  quality: ${snapshot.qualityGateStatus} | ${trimToSingleLine(snapshot.qualityGateSummary)}`];
 }
 
-function buildInboxPreCodeDisciplineLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
+function buildInboxPreCodeDisciplineLines(params: {
+  snapshot: OpenClawCodeIssueStatusSnapshot;
+  repoConfig: OpenClawCodeChatopsRepoConfig;
+}): string[] {
+  const { snapshot, repoConfig } = params;
   if (!snapshot.preCodeDisciplineStatus || !snapshot.preCodeDisciplineSummary) {
     return [];
   }
-  return [
+  const lines = [
     `  pre-code: ${snapshot.preCodeDisciplineStatus} | ${trimToSingleLine(snapshot.preCodeDisciplineSummary)}`,
   ];
+  const checks = buildPreCodeCheckFragments(snapshot);
+  if (checks.length > 0) {
+    lines.push(`  pre-code checks: ${checks.join(" | ")}`);
+  }
+  lines.push(
+    ...buildPreCodeRepairMessages({
+      snapshot,
+      repoRoot: repoConfig.repoRoot,
+    }).map((message) => `  pre-code repair: ${message}`),
+  );
+  return lines;
+}
+
+function buildInboxLoopHealthLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
+  if (!snapshot.loopHealthStatus || !snapshot.loopHealthSummary) {
+    return [];
+  }
+  return [`  loop: ${snapshot.loopHealthStatus} | ${trimToSingleLine(snapshot.loopHealthSummary)}`];
 }
 
 function buildTopLevelHandoffSummaryLines(snapshot: OpenClawCodeIssueStatusSnapshot): string[] {
@@ -4731,6 +5117,41 @@ function buildInboxMessage(params: {
   if (qualityGateSummary) {
     lines.push(qualityGateSummary);
   }
+  const preCodeDisciplineSummary = summarizeRepoPreCodeDiscipline({
+    state: params.state,
+    repo: params.repo,
+  });
+  if (preCodeDisciplineSummary) {
+    lines.push(preCodeDisciplineSummary);
+  }
+  const preCodeGapSummary = summarizeRepoPreCodeGaps({
+    state: params.state,
+    repo: params.repo,
+  });
+  if (preCodeGapSummary) {
+    lines.push(preCodeGapSummary);
+  }
+  const preCodeNextActionSummary = summarizeRepoPreCodeNextAction({
+    state: params.state,
+    repo: params.repo,
+  });
+  if (preCodeNextActionSummary) {
+    lines.push(preCodeNextActionSummary);
+  }
+  const preCodeRepairSummary = summarizeRepoPreCodeRepair({
+    state: params.state,
+    repo: params.repo,
+  });
+  if (preCodeRepairSummary) {
+    lines.push(preCodeRepairSummary);
+  }
+  const loopHealthSummary = summarizeRepoLoopHealth({
+    state: params.state,
+    repo: params.repo,
+  });
+  if (loopHealthSummary) {
+    lines.push(loopHealthSummary);
+  }
   const incidentLearningSummary = summarizeRepoIncidentLearnings({
     state: params.state,
     repo: params.repo,
@@ -4851,7 +5272,13 @@ function buildInboxMessage(params: {
       }
       lines.push(...buildSuitabilityLedgerLines(entry));
       lines.push(...buildInboxQualityGateLines(entry));
-      lines.push(...buildInboxPreCodeDisciplineLines(entry));
+      lines.push(
+        ...buildInboxPreCodeDisciplineLines({
+          snapshot: entry,
+          repoConfig: params.repoConfig,
+        }),
+      );
+      lines.push(...buildInboxLoopHealthLines(entry));
       lines.push(...buildPolicyShortcutLines({ issueKey: entry.issueKey, snapshot: entry }));
       lines.push(
         ...buildRerunLedgerLines({
@@ -7506,6 +7933,9 @@ export default {
 
         const readyToken = resolveOnboardingGitHubToken();
         if (readyToken) {
+          const identity = await resolveChatSetupGitHubIdentity({
+            token: readyToken.token,
+          });
           const now = new Date().toISOString();
           const nextSession = {
             notifyChannel: ctx.channel,
@@ -7516,6 +7946,9 @@ export default {
               selection?.kind === "new-repo" ? selection.pendingRepoName : undefined,
             stage: currentSession ? resolveChatSetupStageAfterAuth(currentSession) : "github-authenticated",
             githubAuthSource: readyToken.source,
+            githubAuthLogin: identity.login,
+            githubAuthName: identity.name,
+            githubAuthEmail: identity.email,
             blueprintDraft:
               selection?.kind === "existing-repo" ? undefined : currentSession?.blueprintDraft,
             githubDeviceAuth: currentSession?.githubDeviceAuth,
@@ -7638,9 +8071,15 @@ export default {
         });
         const readyToken = resolveOnboardingGitHubToken();
         if (!existing && readyToken) {
+          const identity = await resolveChatSetupGitHubIdentity({
+            token: readyToken.token,
+          });
           return {
             text: buildChatSetupReadyMessage({
               source: readyToken.source,
+              login: identity.login,
+              name: identity.name,
+              email: identity.email,
             }),
           };
         }
@@ -7871,6 +8310,14 @@ export default {
             topLevel: true,
           }),
           ...(currentSnapshot ? buildTopLevelPreCodeDisciplineLines(currentSnapshot) : []),
+          ...(currentSnapshot ? buildTopLevelPreCodeDisciplineDetailLines(currentSnapshot) : []),
+          ...(currentSnapshot
+            ? buildTopLevelPreCodeRepairLines({
+                snapshot: currentSnapshot,
+                repoConfig,
+              })
+            : []),
+          ...(currentSnapshot ? buildTopLevelLoopHealthLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelQualityGateLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelRuntimeRoutingLines(currentSnapshot) : []),
           ...(currentSnapshot ? buildTopLevelHandoffSummaryLines(currentSnapshot) : []),

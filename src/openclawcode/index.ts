@@ -5,6 +5,7 @@ export * from "./contracts/index.js";
 export * from "./discovery.js";
 export * from "./github/index.js";
 export * from "./issue-materialization.js";
+export * from "./loop-health.js";
 export * from "./next-work.js";
 export * from "./orchestrator/index.js";
 export * from "./operator-status.js";

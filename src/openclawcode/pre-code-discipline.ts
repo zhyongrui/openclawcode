@@ -13,6 +13,61 @@ export interface WorkflowPreCodeDisciplineSummary {
   testIntentCount: number;
   planApprovalRequired: boolean;
   planEdited: boolean;
+  isolatedWorktreePrepared: boolean;
+  modeSpecificContextsPresent: boolean;
+  freshRoleExecutionPresent: boolean;
+}
+
+const OPENCLAWCODE_WORKTREE_SEGMENT = "/.openclawcode/worktrees/";
+
+function resolveIsolatedWorktreePrepared(run: WorkflowRun): boolean {
+  const worktreePath = run.workspace?.worktreePath;
+  return typeof worktreePath === "string" && worktreePath.includes(OPENCLAWCODE_WORKTREE_SEGMENT);
+}
+
+function hasReachedCodeExecution(run: WorkflowRun): boolean {
+  return (
+    run.workspace != null ||
+    run.buildResult != null ||
+    run.draftPullRequest != null ||
+    run.verificationReport != null ||
+    run.stage === "opening-pull-request" ||
+    run.stage === "verifying" ||
+    run.stage === "ready-for-human-review" ||
+    run.stage === "changes-requested" ||
+    run.stage === "merged" ||
+    run.stage === "completed-without-changes"
+  );
+}
+
+function resolveModeSpecificContextsPresent(run: WorkflowRun): boolean {
+  if (run.roleRouting?.mixedMode === true) {
+    return true;
+  }
+  const roleAdapters = (run.roleRouting?.routes ?? [])
+    .filter((route) =>
+      route.roleId === "planner" ||
+      route.roleId === "coder" ||
+      route.roleId === "reviewer" ||
+      route.roleId === "verifier",
+    )
+    .map((route) => route.adapterId)
+    .filter((adapterId) => adapterId !== "openclaw-default");
+  return new Set(roleAdapters).size > 1;
+}
+
+function resolveFreshRoleExecutionPresent(run: WorkflowRun): boolean {
+  const coder = run.runtimeRouting?.selections.find((selection) => selection.roleId === "coder");
+  const verifier = run.runtimeRouting?.selections.find(
+    (selection) => selection.roleId === "verifier",
+  );
+  if (!coder || !verifier) {
+    return false;
+  }
+  if (coder.appliedAgentId && verifier.appliedAgentId) {
+    return coder.appliedAgentId !== verifier.appliedAgentId;
+  }
+  return coder.adapterId !== verifier.adapterId;
 }
 
 function resolvePlanStatus(run: WorkflowRun): WorkflowPreCodeDisciplineSummary["planStatus"] {
@@ -49,6 +104,9 @@ export function deriveWorkflowPreCodeDiscipline(
     testIntentCount,
     planApprovalRequired: run.planReview?.required ?? false,
     planEdited: (run.planEdits?.length ?? 0) > 0,
+    isolatedWorktreePrepared: resolveIsolatedWorktreePrepared(run),
+    modeSpecificContextsPresent: resolveModeSpecificContextsPresent(run),
+    freshRoleExecutionPresent: resolveFreshRoleExecutionPresent(run),
   };
 
   if (!summary.executionSpecPresent) {
@@ -64,12 +122,24 @@ export function deriveWorkflowPreCodeDiscipline(
     summary.blockingReasons.push("awaiting explicit plan approval before code execution");
   }
 
+  if (hasReachedCodeExecution(run) && !summary.isolatedWorktreePrepared) {
+    summary.blockingReasons.push("isolated issue worktree missing before code execution");
+  }
+
   if (!summary.testIntentPresent) {
     summary.warningReasons.push("no explicit test intent recorded before execution");
   }
 
   if (summary.planEdited) {
     summary.warningReasons.push("plan edited before execution");
+  }
+
+  if (run.executionSpec && !summary.modeSpecificContextsPresent) {
+    summary.warningReasons.push("mode-specific planner/coder/verifier contexts not explicit");
+  }
+
+  if (hasReachedCodeExecution(run) && !summary.freshRoleExecutionPresent) {
+    summary.warningReasons.push("fresh role execution units not explicit for coder/verifier");
   }
 
   if (summary.blockingReasons.length > 0) {

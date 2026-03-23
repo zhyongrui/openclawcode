@@ -91,6 +91,8 @@ export interface EnsureRepoWebhookResult extends GitHubRepoWebhook {
 
 export interface GitHubAuthenticatedViewer {
   login: string;
+  name?: string;
+  email?: string;
 }
 
 export interface GitHubRepositorySummary extends RepoRef {
@@ -174,6 +176,8 @@ type GitHubWebhookResponse = {
 
 type GitHubViewerResponse = {
   login: string;
+  name?: string | null;
+  email?: string | null;
 };
 
 type GitHubRepositoryResponse = {
@@ -563,6 +567,8 @@ export class GitHubRestClient implements GitHubIssueClient {
     }
     return {
       login: viewer.login.trim(),
+      name: viewer.name?.trim() || undefined,
+      email: viewer.email?.trim() || undefined,
     };
   }
 

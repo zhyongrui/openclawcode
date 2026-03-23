@@ -37,6 +37,18 @@ export function logNonInteractiveOnboardingJson(params: {
   daemonRuntime?: string;
   skipSkills?: boolean;
   skipHealth?: boolean;
+  openClawCode?: {
+    githubAuthAvailable: boolean;
+    githubAuthSource?: string;
+    githubAuthSourceLabel?: string;
+    githubAuthLogin?: string;
+    githubAuthName?: string;
+    githubAuthEmail?: string;
+    bootstrapCommand: string;
+    chatSetupCommand: string;
+    switchAccountCommand?: string;
+    switchAccountHint?: string;
+  };
 }) {
   if (!params.opts.json) {
     return;
@@ -54,6 +66,7 @@ export function logNonInteractiveOnboardingJson(params: {
         daemonRuntime: params.daemonRuntime,
         skipSkills: Boolean(params.skipSkills),
         skipHealth: Boolean(params.skipHealth),
+        openClawCode: params.openClawCode,
       },
       null,
       2,

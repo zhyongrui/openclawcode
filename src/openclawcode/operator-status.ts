@@ -36,6 +36,18 @@ export interface OpenClawCodeOperatorRepoSummary {
   qualityGateWarnCount: number;
   qualityGateFailCount: number;
   qualityGatePendingCount: number;
+  preCodeDisciplineReadyCount: number;
+  preCodeDisciplineWarnCount: number;
+  preCodeDisciplineBlockedCount: number;
+  preCodeDisciplinePendingCount: number;
+  preCodeDisciplineGapSummary?: string;
+  preCodeDisciplineNextActionSummary?: string;
+  preCodeDisciplineRepairActions?: string[];
+  preCodeDisciplineRepairSummary?: string;
+  loopHealthHealthyCount: number;
+  loopHealthWarnCount: number;
+  loopHealthBlockedCount: number;
+  loopHealthPendingCount: number;
   incidentLearningSummary?: string;
   providerFailureLearningCount: number;
   reviewRerunLearningCount: number;
@@ -93,6 +105,35 @@ function parseIssueKey(issueKey: string): OpenClawCodeChatopsRepoRef | null {
 
 function formatRepoKey(repo: OpenClawCodeChatopsRepoRef): string {
   return `${repo.owner}/${repo.repo}`;
+}
+
+function buildRepoPreCodeDisciplineRepairActions(params: {
+  repoKey: string;
+  isolatedWorktreeCount: number;
+  modeSpecificContextsCount: number;
+  freshRoleExecutionCount: number;
+}): string[] {
+  return [
+    params.isolatedWorktreeCount > 0
+      ? `rerun affected issues through /occode-start ${params.repoKey}#<issue-number> so .openclawcode/worktrees/* is prepared`
+      : undefined,
+    params.modeSpecificContextsCount > 0
+      ? `review /occode-routing ${params.repoKey} and set missing role bindings with /occode-route-set ${params.repoKey} <role> <provider>`
+      : undefined,
+    params.freshRoleExecutionCount > 0
+      ? `review /occode-runtime-steering ${params.repoKey} and split building/verifying with /occode-runtime-steering-set ${params.repoKey} <building|verifying> <agent-id> [adapter=<id>]`
+      : undefined,
+  ].filter((value): value is string => Boolean(value));
+}
+
+function buildRepoPreCodeDisciplineRepairSummary(params: {
+  repoKey: string;
+  isolatedWorktreeCount: number;
+  modeSpecificContextsCount: number;
+  freshRoleExecutionCount: number;
+}): string | undefined {
+  const actions = buildRepoPreCodeDisciplineRepairActions(params);
+  return actions.length > 0 ? actions.join("; then ") : undefined;
 }
 
 function collectRepoKeySet(state: OpenClawCodeQueueState): Set<string> {
@@ -173,6 +214,50 @@ function buildRepoSummary(params: {
       ? 1
       : 0;
   const incidentLearning = deriveRepoIncidentLearningSummary(snapshotEntries);
+  const preCodeGapCounts = {
+    isolatedWorktree: snapshotEntries.filter(
+      (entry) => entry.preCodeDisciplineIsolatedWorktreePrepared === false,
+    ).length,
+    modeSpecificContexts: snapshotEntries.filter(
+      (entry) => entry.preCodeDisciplineModeSpecificContextsPresent === false,
+    ).length,
+    freshRoleExecution: snapshotEntries.filter(
+      (entry) => entry.preCodeDisciplineFreshRoleExecutionPresent === false,
+    ).length,
+  };
+  const preCodeDisciplineGapSummary = [
+    preCodeGapCounts.isolatedWorktree > 0
+      ? `isolated-worktree=${preCodeGapCounts.isolatedWorktree}`
+      : undefined,
+    preCodeGapCounts.modeSpecificContexts > 0
+      ? `mode-specific-contexts=${preCodeGapCounts.modeSpecificContexts}`
+      : undefined,
+    preCodeGapCounts.freshRoleExecution > 0
+      ? `fresh-role-execution=${preCodeGapCounts.freshRoleExecution}`
+      : undefined,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" | ");
+  const preCodeDisciplineNextActionSummary =
+    preCodeGapCounts.isolatedWorktree > 0
+      ? "prepare isolated issue worktrees before code execution"
+      : preCodeGapCounts.modeSpecificContexts > 0
+        ? "make planner/coder/verifier contexts mode-specific"
+        : preCodeGapCounts.freshRoleExecution > 0
+          ? "split coder and verifier into fresh execution units"
+          : undefined;
+  const preCodeDisciplineRepairSummary = buildRepoPreCodeDisciplineRepairSummary({
+    repoKey,
+    isolatedWorktreeCount: preCodeGapCounts.isolatedWorktree,
+    modeSpecificContextsCount: preCodeGapCounts.modeSpecificContexts,
+    freshRoleExecutionCount: preCodeGapCounts.freshRoleExecution,
+  });
+  const preCodeDisciplineRepairActions = buildRepoPreCodeDisciplineRepairActions({
+    repoKey,
+    isolatedWorktreeCount: preCodeGapCounts.isolatedWorktree,
+    modeSpecificContextsCount: preCodeGapCounts.modeSpecificContexts,
+    freshRoleExecutionCount: preCodeGapCounts.freshRoleExecution,
+  });
   return {
     repoKey,
     bindingPresent: Boolean(state.repoBindingsByRepo[repoKey]),
@@ -192,6 +277,30 @@ function buildRepoSummary(params: {
     qualityGateWarnCount: snapshotEntries.filter((entry) => entry.qualityGateStatus === "warn").length,
     qualityGateFailCount: snapshotEntries.filter((entry) => entry.qualityGateStatus === "fail").length,
     qualityGatePendingCount: snapshotEntries.filter((entry) => entry.qualityGateStatus === "pending").length,
+    preCodeDisciplineReadyCount: snapshotEntries.filter(
+      (entry) => entry.preCodeDisciplineStatus === "ready",
+    ).length,
+    preCodeDisciplineWarnCount: snapshotEntries.filter(
+      (entry) => entry.preCodeDisciplineStatus === "warn",
+    ).length,
+    preCodeDisciplineBlockedCount: snapshotEntries.filter(
+      (entry) => entry.preCodeDisciplineStatus === "blocked",
+    ).length,
+    preCodeDisciplinePendingCount: snapshotEntries.filter(
+      (entry) => entry.preCodeDisciplineStatus === "pending",
+    ).length,
+    preCodeDisciplineGapSummary: preCodeDisciplineGapSummary || undefined,
+    preCodeDisciplineNextActionSummary,
+    preCodeDisciplineRepairActions:
+      preCodeDisciplineRepairActions.length > 0 ? preCodeDisciplineRepairActions : undefined,
+    preCodeDisciplineRepairSummary,
+    loopHealthHealthyCount: snapshotEntries.filter((entry) => entry.loopHealthStatus === "healthy")
+      .length,
+    loopHealthWarnCount: snapshotEntries.filter((entry) => entry.loopHealthStatus === "warn").length,
+    loopHealthBlockedCount: snapshotEntries.filter((entry) => entry.loopHealthStatus === "blocked")
+      .length,
+    loopHealthPendingCount: snapshotEntries.filter((entry) => entry.loopHealthStatus === "pending")
+      .length,
     incidentLearningSummary: incidentLearning?.summary,
     providerFailureLearningCount: incidentLearning?.providerFailureCount ?? 0,
     reviewRerunLearningCount: incidentLearning?.reviewRerunCount ?? 0,

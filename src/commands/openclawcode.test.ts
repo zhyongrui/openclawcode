@@ -1908,6 +1908,145 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.preCodeDisciplineExecutionSpecPresent).toBe(true);
   });
 
+  it("reports blocked pre-code discipline when isolated issue worktree was not prepared", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        executionSpec: {
+          summary: "Implement the issue safely.",
+          scope: ["Keep execution inside an isolated issue worktree."],
+          outOfScope: ["Unrelated refactors."],
+          acceptanceCriteria: [
+            {
+              id: "ac-1",
+              text: "Use an isolated issue worktree.",
+              required: true,
+            },
+          ],
+          testPlan: ["pnpm exec vitest run src/commands/openclawcode.test.ts --pool threads"],
+          risks: ["Running outside the intended worktree."],
+          assumptions: ["The workflow already has an execution plan."],
+          openQuestions: [],
+          riskLevel: "medium",
+        },
+        workspace: {
+          ...createRun().workspace!,
+          worktreePath: "/tmp/manual-worktree/run-2",
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.preCodeDisciplineStatus).toBe("blocked");
+    expect(payload.preCodeDisciplineIsolatedWorktreePrepared).toBe(false);
+    expect(payload.preCodeDisciplineBlockingReasons).toEqual([
+      "isolated issue worktree missing before code execution",
+    ]);
+  });
+
+  it("warns when mode-specific contexts and fresh role execution are not explicit", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        executionSpec: {
+          summary: "Implement the issue safely.",
+          scope: ["Keep role routing explicit before execution."],
+          outOfScope: ["Unrelated refactors."],
+          acceptanceCriteria: [
+            {
+              id: "ac-1",
+              text: "Make role execution discipline visible.",
+              required: true,
+            },
+          ],
+          testPlan: ["pnpm exec vitest run src/commands/openclawcode.test.ts --pool threads"],
+          risks: ["Role routing ambiguity."],
+          assumptions: ["Execution plan already exists."],
+          openQuestions: [],
+          riskLevel: "medium",
+        },
+        roleRouting: {
+          ...createRun().roleRouting!,
+          mixedMode: false,
+          routes: createRun()
+            .roleRouting!.routes.map((route) => ({
+              ...route,
+              adapterId: "codex",
+            })),
+        },
+        runtimeRouting: {
+          selections: [
+            {
+              roleId: "coder",
+              adapterId: "codex",
+              assignmentSource: "blueprint",
+              configured: true,
+              appliedAgentId: "codex-shared",
+              agentSource: "adapter-env",
+            },
+            {
+              roleId: "verifier",
+              adapterId: "codex",
+              assignmentSource: "blueprint",
+              configured: true,
+              appliedAgentId: "codex-shared",
+              agentSource: "adapter-env",
+            },
+          ],
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.preCodeDisciplineStatus).toBe("warn");
+    expect(payload.preCodeDisciplineModeSpecificContextsPresent).toBe(false);
+    expect(payload.preCodeDisciplineFreshRoleExecutionPresent).toBe(false);
+    expect(payload.preCodeDisciplineWarnings).toEqual([
+      "mode-specific planner/coder/verifier contexts not explicit",
+      "fresh role execution units not explicit for coder/verifier",
+    ]);
+  });
+
+  it("reports loop-health and context-budget diagnostics when failure telemetry is present", async () => {
+    mocks.runIssueWorkflow.mockResolvedValue(
+      createRun({
+        stage: "failed",
+        buildResult: undefined,
+        verificationReport: undefined,
+        failureDiagnostics: {
+          summary: "Build failed: HTTP 400: Internal server error",
+          provider: "crs",
+          model: "gpt-5.4",
+          systemPromptChars: 8629,
+          skillsPromptChars: 1245,
+          toolSchemaChars: 3030,
+          injectedWorkspaceFileCount: 0,
+          bootstrapWarningShown: false,
+          lastCallUsageTotal: 0,
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.loopHealthStatus).toBe("blocked");
+    expect(payload.loopHealthFailureSummary).toBe("Build failed: HTTP 400: Internal server error");
+    expect(payload.loopHealthPromptFootprintChars).toBe(12904);
+    expect(payload.loopHealthBootstrapWarningShown).toBe(false);
+    expect(payload.loopHealthInjectedWorkspaceFileCount).toBe(0);
+    expect(payload.loopHealthLastCallUsageTotal).toBe(0);
+    expect(payload.loopHealthBlockingReasons).toEqual([
+      "Build failed: HTTP 400: Internal server error",
+    ]);
+    expect(payload.loopHealthWarnings).toEqual([
+      "high prompt footprint (12904 chars)",
+      "provider reported zero usage on the last call",
+    ]);
+  });
+
   it("reports verificationDecisionIsEscalate when the verifier escalates", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
@@ -4986,6 +5125,17 @@ describe("openclawCodeRunCommand", () => {
         "Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
       qualityGateStatus: "warn",
       qualityGateSummary: "verifier approved with warnings | 1 missing coverage item",
+      preCodeDisciplineStatus: "warn",
+      preCodeDisciplineSummary: "plan edited before execution",
+      preCodeDisciplineIsolatedWorktreePrepared: true,
+      preCodeDisciplineModeSpecificContextsPresent: false,
+      preCodeDisciplineFreshRoleExecutionPresent: false,
+      loopHealthStatus: "warn",
+      loopHealthSummary: "high prompt footprint (12904 chars)",
+      loopHealthWarningReasons: ["high prompt footprint (12904 chars)"],
+      loopHealthPromptFootprintChars: 12904,
+      loopHealthBootstrapWarningShown: false,
+      loopHealthInjectedWorkspaceFileCount: 0,
       handoffEntries: [
         {
           kind: "manual-resume",
@@ -5059,10 +5209,28 @@ describe("openclawCodeRunCommand", () => {
         queuedRunCount: 0,
         currentRunCount: 1,
         readyForHumanReviewCount: 1,
-        qualityGatePassCount: 0,
-        qualityGateWarnCount: 1,
-        qualityGateFailCount: 0,
-        qualityGatePendingCount: 0,
+      qualityGatePassCount: 0,
+      qualityGateWarnCount: 1,
+      qualityGateFailCount: 0,
+      qualityGatePendingCount: 0,
+      preCodeDisciplineReadyCount: 0,
+      preCodeDisciplineWarnCount: 1,
+      preCodeDisciplineBlockedCount: 0,
+      preCodeDisciplinePendingCount: 0,
+      preCodeDisciplineGapSummary:
+        "mode-specific-contexts=1 | fresh-role-execution=1",
+      preCodeDisciplineNextActionSummary:
+        "make planner/coder/verifier contexts mode-specific",
+      preCodeDisciplineRepairActions: [
+        "review /occode-routing openclaw/openclawcode and set missing role bindings with /occode-route-set openclaw/openclawcode <role> <provider>",
+        "review /occode-runtime-steering openclaw/openclawcode and split building/verifying with /occode-runtime-steering-set openclaw/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
+      ],
+      preCodeDisciplineRepairSummary:
+        "review /occode-routing openclaw/openclawcode and set missing role bindings with /occode-route-set openclaw/openclawcode <role> <provider>; then review /occode-runtime-steering openclaw/openclawcode and split building/verifying with /occode-runtime-steering-set openclaw/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
+      loopHealthHealthyCount: 0,
+      loopHealthWarnCount: 1,
+      loopHealthBlockedCount: 0,
+        loopHealthPendingCount: 0,
         incidentLearningSummary:
           "provider-failures=1 | review-reruns=1 | manual-recoveries=1 | runtime-reroutes=1",
         providerFailureLearningCount: 1,
@@ -5071,6 +5239,22 @@ describe("openclawCodeRunCommand", () => {
         runtimeRerouteLearningCount: 1,
       }),
     );
+
+    runtime.log.mockClear();
+    await openclawCodeOperatorStatusSnapshotShowCommand(
+      {
+        stateDir,
+      },
+      runtime,
+    );
+    const lines = runtime.log.mock.calls.map((call) => String(call[0]));
+    expect(
+      lines.some((line) =>
+        line.includes(
+          "repair:review /occode-routing openclaw/openclawcode and set missing role bindings with /occode-route-set openclaw/openclawcode <role> <provider>; then review /occode-runtime-steering openclaw/openclawcode and split building/verifying with /occode-runtime-steering-set openclaw/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("discovers a missing work-item artifact from an agreed blueprint", async () => {

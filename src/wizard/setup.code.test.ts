@@ -20,7 +20,7 @@ describe("runOnboardingOpenClawCode", () => {
   beforeEach(() => {
     onboardingOpenClawCodeDeps.resolveGitHubToken = vi.fn(() => null);
     onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(
-      async () => ({ login: "zhyongrui" }),
+      async () => ({ login: "zhyongrui", name: "Zhongrui Ye", email: "zyr@example.com" }),
     );
     onboardingOpenClawCodeDeps.fetchRepositorySummary = vi.fn(async () => undefined);
     onboardingOpenClawCodeDeps.createRepository = vi.fn(
@@ -105,6 +105,9 @@ describe("runOnboardingOpenClawCode", () => {
     const prompter = buildWizardPrompter({
       note,
       select: vi.fn(async (params: { message: string }) => {
+        if (params.message === "GitHub account for OpenClaw Code") {
+          return "use-existing";
+        }
         if (params.message === "OpenClaw Code repo setup") {
           return "new";
         }
@@ -116,6 +119,12 @@ describe("runOnboardingOpenClawCode", () => {
         }
         return "";
       }),
+      confirm: vi.fn(async (params: { message: string }) => {
+        if (params.message === "Create and bootstrap zhyongrui/iGallery now?") {
+          return true;
+        }
+        return false;
+      }),
       progress: vi.fn(() => ({ update: progressUpdate, stop: progressStop })),
     });
 
@@ -123,6 +132,15 @@ describe("runOnboardingOpenClawCode", () => {
       prompter,
     });
 
+    const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
+    const accountNote = noteCalls.find((call) => call[1] === "GitHub account");
+    expect(accountNote?.[0]).toContain("GitHub username: zhyongrui");
+    expect(accountNote?.[0]).toContain("Name: Zhongrui Ye");
+    expect(accountNote?.[0]).toContain("Email: zyr@example.com");
+    expect(accountNote?.[0]).toContain("Auth source: GH_TOKEN env var");
+    const executionNote = noteCalls.find((call) => call[1] === "OpenClaw Code execution");
+    expect(executionNote?.[0]).toContain("Target repo: zhyongrui/iGallery");
+    expect(executionNote?.[0]).toContain("Effect: create the repo on GitHub, then run bootstrap locally.");
     expect(onboardingOpenClawCodeDeps.createRepository).toHaveBeenCalledWith("gho_test", {
       owner: "zhyongrui",
       name: "iGallery",
@@ -136,7 +154,6 @@ describe("runOnboardingOpenClawCode", () => {
       }),
       expect.any(Object),
     );
-    const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
     const readyNote = noteCalls.find((call) => call[1] === "OpenClaw Code repo ready");
     expect(readyNote?.[0]).toContain("Created repo: zhyongrui/iGallery");
     expect(readyNote?.[0]).toContain("PROJECT-BLUEPRINT.md");
@@ -163,12 +180,21 @@ describe("runOnboardingOpenClawCode", () => {
     const prompter = buildWizardPrompter({
       note,
       select: vi.fn(async (params: { message: string }) => {
+        if (params.message === "GitHub account for OpenClaw Code") {
+          return "use-existing";
+        }
         if (params.message === "OpenClaw Code repo setup") {
           return "existing";
         }
         return "later";
       }) as never,
       text: vi.fn(async () => "iGallery"),
+      confirm: vi.fn(async (params: { message: string }) => {
+        if (params.message === "Bootstrap zhyongrui/iGallery now?") {
+          return true;
+        }
+        return false;
+      }),
     });
 
     await runOnboardingOpenClawCode({
@@ -186,6 +212,195 @@ describe("runOnboardingOpenClawCode", () => {
         json: true,
       }),
       expect.any(Object),
+    );
+  });
+
+  it("stops before repo creation when the new-repo execution confirmation is declined", async () => {
+    onboardingOpenClawCodeDeps.resolveGitHubToken = vi.fn(
+      () =>
+        ({
+          token: "gho_test",
+          source: "GH_TOKEN",
+        }) satisfies ResolvedOnboardingGitHubToken,
+    );
+    const note = vi.fn(async () => {});
+    const prompter = buildWizardPrompter({
+      note,
+      select: vi.fn(async (params: { message: string }) => {
+        if (params.message === "GitHub account for OpenClaw Code") {
+          return "use-existing";
+        }
+        if (params.message === "OpenClaw Code repo setup") {
+          return "new";
+        }
+        return "later";
+      }) as never,
+      text: vi.fn(async () => "iGallery"),
+      confirm: vi.fn(async () => false),
+    });
+
+    await runOnboardingOpenClawCode({
+      prompter,
+    });
+
+    expect(onboardingOpenClawCodeDeps.createRepository).not.toHaveBeenCalled();
+    expect(onboardingOpenClawCodeDeps.bootstrapRepository).not.toHaveBeenCalled();
+    const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
+    const finalOpenClawCodeNote = noteCalls.filter((call) => call[1] === "OpenClaw Code").at(-1);
+    expect(finalOpenClawCodeNote?.[0]).toContain("Skipped creating zhyongrui/iGallery.");
+    expect(finalOpenClawCodeNote?.[0]).toContain("/occode-setup");
+  });
+
+  it("stops before bootstrapping an existing repo when execution confirmation is declined", async () => {
+    onboardingOpenClawCodeDeps.resolveGitHubToken = vi.fn(
+      () =>
+        ({
+          token: "gho_test",
+          source: "gh-auth-token",
+        }) satisfies ResolvedOnboardingGitHubToken,
+    );
+    const note = vi.fn(async () => {});
+    const prompter = buildWizardPrompter({
+      note,
+      select: vi.fn(async (params: { message: string }) => {
+        if (params.message === "GitHub account for OpenClaw Code") {
+          return "use-existing";
+        }
+        if (params.message === "OpenClaw Code repo setup") {
+          return "existing";
+        }
+        return "later";
+      }) as never,
+      text: vi.fn(async () => "iGallery"),
+      confirm: vi.fn(async () => false),
+    });
+
+    await runOnboardingOpenClawCode({
+      prompter,
+    });
+
+    expect(onboardingOpenClawCodeDeps.bootstrapRepository).not.toHaveBeenCalled();
+    const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
+    const finalOpenClawCodeNote = noteCalls.filter((call) => call[1] === "OpenClaw Code").at(-1);
+    expect(finalOpenClawCodeNote?.[0]).toContain("Skipped bootstrapping zhyongrui/iGallery.");
+    expect(finalOpenClawCodeNote?.[0]).toContain("openclaw code bootstrap --repo owner/repo --json");
+  });
+
+  it("shows explicit chat and cli handoff when repo setup is skipped", async () => {
+    onboardingOpenClawCodeDeps.resolveGitHubToken = vi.fn(
+      () =>
+        ({
+          token: "gho_test",
+          source: "gh-auth-token",
+        }) satisfies ResolvedOnboardingGitHubToken,
+    );
+    const note = vi.fn(async () => {});
+    const prompter = buildWizardPrompter({
+      note,
+      select: vi.fn(async (params: { message: string }) => {
+        if (params.message === "GitHub account for OpenClaw Code") {
+          return "use-existing";
+        }
+        if (params.message === "OpenClaw Code repo setup") {
+          return "skip";
+        }
+        return "later";
+      }) as never,
+    });
+
+    await runOnboardingOpenClawCode({
+      prompter,
+    });
+
+    const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
+    const finalOpenClawCodeNote = noteCalls.filter((call) => call[1] === "OpenClaw Code").at(-1);
+    expect(finalOpenClawCodeNote?.[0]).toContain("You can come back to OpenClaw Code later from either surface:");
+    expect(finalOpenClawCodeNote?.[0]).toContain("/occode-setup");
+    expect(finalOpenClawCodeNote?.[0]).toContain("/occode-setup existing owner/repo");
+    expect(finalOpenClawCodeNote?.[0]).toContain(
+      "openclaw code bootstrap --repo owner/repo --json",
+    );
+  });
+
+  it("can sign out and re-run gh auth login before repo setup", async () => {
+    onboardingOpenClawCodeDeps.resolveGitHubToken = vi
+      .fn<() => ResolvedOnboardingGitHubToken | null>()
+      .mockReturnValueOnce({
+        token: "gho_old",
+        source: "gh-auth-token",
+      })
+      .mockReturnValueOnce({
+        token: "gho_new",
+        source: "gh-auth-token",
+      });
+    onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi
+      .fn()
+      .mockResolvedValueOnce({
+        login: "wrong-account",
+        name: "Wrong User",
+        email: "wrong@example.com",
+      })
+      .mockResolvedValueOnce({
+        login: "right-account",
+        name: "Right User",
+        email: "right@example.com",
+      });
+    onboardingOpenClawCodeDeps.runGitHubCliCommand = vi
+      .fn()
+      .mockReturnValueOnce({
+        status: 0,
+        stdout: "",
+        stderr: "",
+      })
+      .mockReturnValueOnce({
+        status: 0,
+        stdout: "",
+        stderr: "",
+      }) as never;
+    const note = vi.fn(async () => {});
+    const prompter = buildWizardPrompter({
+      note,
+      select: vi
+        .fn(async (params: { message: string }) => {
+          if (params.message === "GitHub account for OpenClaw Code") {
+            const accountPromptCount = (
+              prompter.select as unknown as ReturnType<typeof vi.fn>
+            ).mock.calls.filter((call) => call[0]?.message === "GitHub account for OpenClaw Code")
+              .length;
+            return accountPromptCount === 1 ? "switch-account" : "use-existing";
+          }
+          if (params.message === "OpenClaw Code repo setup") {
+            return "skip";
+          }
+          return "later";
+        }) as never,
+      confirm: vi.fn(async () => true),
+    });
+
+    await runOnboardingOpenClawCode({
+      prompter,
+    });
+
+    expect(onboardingOpenClawCodeDeps.runGitHubCliCommand).toHaveBeenNthCalledWith(
+      1,
+      ["auth", "logout", "--hostname", "github.com", "--user", "wrong-account"],
+      expect.objectContaining({
+        stdio: "inherit",
+      }),
+    );
+    expect(onboardingOpenClawCodeDeps.runGitHubCliCommand).toHaveBeenNthCalledWith(
+      2,
+      ["auth", "login", "--hostname", "github.com", "--web"],
+      expect.objectContaining({
+        stdio: "inherit",
+      }),
+    );
+    const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
+    const finalOpenClawCodeNote = noteCalls.filter((call) => call[1] === "OpenClaw Code").at(-1);
+    expect(finalOpenClawCodeNote?.[0]).toContain("GitHub username: right-account");
+    expect(finalOpenClawCodeNote?.[0]).toContain("/occode-setup");
+    expect(finalOpenClawCodeNote?.[0]).toContain(
+      "openclaw code bootstrap --repo owner/repo --json",
     );
   });
 

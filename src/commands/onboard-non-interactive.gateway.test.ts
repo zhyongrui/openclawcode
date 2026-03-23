@@ -6,6 +6,7 @@ import { makeTempWorkspace } from "../test-helpers/workspace.js";
 import { captureEnv } from "../test-utils/env.js";
 import { createThrowingRuntime, readJsonFile } from "./onboard-non-interactive.test-helpers.js";
 import type { installGatewayDaemonNonInteractive } from "./onboard-non-interactive/local/daemon-install.js";
+import { onboardingOpenClawCodeDeps } from "../wizard/setup.code.js";
 
 const gatewayClientCalls: Array<{
   url?: string;
@@ -137,6 +138,8 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
       "OPENCLAW_SKIP_BROWSER_CONTROL_SERVER",
       "OPENCLAW_GATEWAY_TOKEN",
       "OPENCLAW_GATEWAY_PASSWORD",
+      "GH_TOKEN",
+      "GITHUB_TOKEN",
     ]);
     process.env.OPENCLAW_SKIP_CHANNELS = "1";
     process.env.OPENCLAW_SKIP_GMAIL_WATCHER = "1";
@@ -163,6 +166,8 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
     gatewayServiceMock.isLoaded.mockClear();
     gatewayServiceMock.readRuntime.mockClear();
     readLastGatewayErrorLineMock.mockClear();
+    delete process.env.GH_TOKEN;
+    delete process.env.GITHUB_TOKEN;
   });
 
   it("writes gateway token auth into config", async () => {
@@ -237,6 +242,191 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
           process.env.OPENCLAW_GATEWAY_TOKEN = prevToken;
         }
       }
+    });
+  }, 60_000);
+
+  it("prints the active OpenClaw Code GitHub identity in non-interactive local output", async () => {
+    await withStateDir("state-openclawcode-summary-", async (stateDir) => {
+      process.env.GH_TOKEN = "gho_test";
+      onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(
+        async () => ({
+          login: "zhyongrui",
+          name: "Zhongrui Ye",
+          email: "zyr@example.com",
+        }),
+      );
+      const runtimeWithLogs = {
+        log: vi.fn(),
+        error: (...args: unknown[]) => {
+          throw new Error(args.map(String).join(" "));
+        },
+        exit: (code: number) => {
+          throw new Error(`exit:${code}`);
+        },
+      };
+
+      await runNonInteractiveSetup(
+        {
+          nonInteractive: true,
+          mode: "local",
+          workspace: path.join(stateDir, "openclaw"),
+          authChoice: "skip",
+          skipSkills: true,
+          skipHealth: true,
+          installDaemon: false,
+          gatewayBind: "loopback",
+          json: false,
+        },
+        runtimeWithLogs,
+      );
+
+      const output = (runtimeWithLogs.log as ReturnType<typeof vi.fn>).mock.calls
+        .map((call) => String(call[0]))
+        .join("\n");
+      expect(output).toContain("OpenClaw Code GitHub auth is ready on this host.");
+      expect(output).toContain("GitHub username: zhyongrui");
+      expect(output).toContain("Name: Zhongrui Ye");
+      expect(output).toContain("Email: zyr@example.com");
+      expect(output).toContain("Source: GH_TOKEN env var");
+      expect(output).toContain("openclaw code bootstrap --repo owner/repo --json");
+      expect(output).toContain("/occode-setup");
+      expect(output).toContain("Replace or unset GH_TOKEN for the host before running OpenClaw Code.");
+    });
+  }, 60_000);
+
+  it("includes OpenClaw Code auth details in non-interactive local JSON output", async () => {
+    await withStateDir("state-openclawcode-json-", async (stateDir) => {
+      process.env.GITHUB_TOKEN = "gho_json_test";
+      onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(
+        async () => ({
+          login: "json-user",
+          name: "JSON User",
+          email: "json@example.com",
+        }),
+      );
+      const runtimeWithLogs = {
+        log: vi.fn(),
+        error: (...args: unknown[]) => {
+          throw new Error(args.map(String).join(" "));
+        },
+        exit: (code: number) => {
+          throw new Error(`exit:${code}`);
+        },
+      };
+
+      await runNonInteractiveSetup(
+        {
+          nonInteractive: true,
+          mode: "local",
+          workspace: path.join(stateDir, "openclaw"),
+          authChoice: "skip",
+          skipSkills: true,
+          skipHealth: true,
+          installDaemon: false,
+          gatewayBind: "loopback",
+          json: true,
+        },
+        runtimeWithLogs,
+      );
+
+      const payload = (runtimeWithLogs.log as ReturnType<typeof vi.fn>).mock.calls
+        .map((call) => String(call[0]))
+        .map((entry) => {
+          try {
+            return JSON.parse(entry) as Record<string, unknown>;
+          } catch {
+            return null;
+          }
+        })
+        .find((entry) => entry && entry.ok === true);
+      expect(payload).toBeTruthy();
+      expect(payload?.openClawCode).toMatchObject({
+        githubAuthAvailable: true,
+        githubAuthSource: "GITHUB_TOKEN",
+        githubAuthSourceLabel: "GITHUB_TOKEN env var",
+        githubAuthLogin: "json-user",
+        githubAuthName: "JSON User",
+        githubAuthEmail: "json@example.com",
+        bootstrapCommand: "openclaw code bootstrap --repo owner/repo --json",
+        chatSetupCommand: "/occode-setup",
+        switchAccountHint:
+          "Replace or unset GITHUB_TOKEN for the host before running OpenClaw Code.",
+      });
+    });
+  }, 60_000);
+
+  it("prints the remote OpenClaw Code handoff in non-interactive remote output", async () => {
+    await withStateDir("state-remote-openclawcode-", async (_stateDir) => {
+      const runtimeWithLogs = {
+        log: vi.fn(),
+        error: (...args: unknown[]) => {
+          throw new Error(args.map(String).join(" "));
+        },
+        exit: (code: number) => {
+          throw new Error(`exit:${code}`);
+        },
+      };
+
+      await runNonInteractiveSetup(
+        {
+          nonInteractive: true,
+          mode: "remote",
+          remoteUrl: "ws://127.0.0.1:8787/gateway",
+          json: false,
+        },
+        runtimeWithLogs,
+      );
+
+      const output = (runtimeWithLogs.log as ReturnType<typeof vi.fn>).mock.calls
+        .map((call) => String(call[0]))
+        .join("\n");
+      expect(output).toContain(
+        "OpenClaw Code for this remote gateway must continue from the remote host or a bound chat.",
+      );
+      expect(output).toContain("Remote host CLI: openclaw code bootstrap --repo owner/repo --json");
+      expect(output).toContain("Chat path: /occode-setup");
+      expect(output).toContain("gh auth login");
+    });
+  }, 60_000);
+
+  it("includes remote OpenClaw Code handoff in non-interactive remote JSON output", async () => {
+    await withStateDir("state-remote-openclawcode-json-", async (_stateDir) => {
+      const runtimeWithLogs = {
+        log: vi.fn(),
+        error: (...args: unknown[]) => {
+          throw new Error(args.map(String).join(" "));
+        },
+        exit: (code: number) => {
+          throw new Error(`exit:${code}`);
+        },
+      };
+
+      await runNonInteractiveSetup(
+        {
+          nonInteractive: true,
+          mode: "remote",
+          remoteUrl: "ws://127.0.0.1:8787/gateway",
+          json: true,
+        },
+        runtimeWithLogs,
+      );
+
+      const payload = (runtimeWithLogs.log as ReturnType<typeof vi.fn>).mock.calls
+        .map((call) => String(call[0]))
+        .map((entry) => {
+          try {
+            return JSON.parse(entry) as Record<string, unknown>;
+          } catch {
+            return null;
+          }
+        })
+        .find((entry) => entry && entry.mode === "remote");
+      expect(payload).toBeTruthy();
+      expect(payload?.openClawCode).toMatchObject({
+        bootstrapCommand: "openclaw code bootstrap --repo owner/repo --json",
+        chatSetupCommand: "/occode-setup",
+        remoteHostAuthCommand: "gh auth login",
+      });
     });
   }, 60_000);
 

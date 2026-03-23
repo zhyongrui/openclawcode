@@ -46,8 +46,8 @@ Semantics:
 - `repos` summarizes the per-repo operator state visible in chat:
   tracked issues, pending approvals, intake drafts, takeovers, deferred runtime
   reroutes, queued/current work, final issue stages, per-repo quality-gate
-  counts, and recent incident-learning summaries derived from persisted issue
-  snapshots.
+  counts, per-repo loop-health counts, and recent incident-learning summaries
+  derived from persisted issue snapshots.
 - `currentRun` mirrors the queued run request currently being executed, when
   one exists.
 - `providerPause` mirrors the active provider-pause record when the queue is
@@ -75,7 +75,32 @@ Semantics:
   - `preCodeDisciplineTestIntentCount`
   - `preCodeDisciplinePlanApprovalRequired`
   - `preCodeDisciplinePlanEdited`
+  - `preCodeDisciplineIsolatedWorktreePrepared`
+  - `preCodeDisciplineModeSpecificContextsPresent`
+  - `preCodeDisciplineFreshRoleExecutionPresent`
+- each `issueSnapshots[*]` entry may also carry stable loop-health fields:
+  - `loopHealthStatus`
+  - `loopHealthSummary`
+  - `loopHealthBlockingReasons`
+  - `loopHealthWarningReasons`
+  - `loopHealthFailureSummary`
+  - `loopHealthPromptFootprintChars`
+  - `loopHealthBootstrapWarningShown`
+  - `loopHealthInjectedWorkspaceFileCount`
+  - `loopHealthLastCallUsageTotal`
 - each `repos[*]` entry may also carry stable incident-learning summary fields:
+  - `preCodeDisciplineReadyCount`
+  - `preCodeDisciplineWarnCount`
+  - `preCodeDisciplineBlockedCount`
+  - `preCodeDisciplinePendingCount`
+  - `preCodeDisciplineGapSummary`
+  - `preCodeDisciplineNextActionSummary`
+  - `preCodeDisciplineRepairActions`
+  - `preCodeDisciplineRepairSummary`
+  - `loopHealthHealthyCount`
+  - `loopHealthWarnCount`
+  - `loopHealthBlockedCount`
+  - `loopHealthPendingCount`
   - `incidentLearningSummary`
   - `providerFailureLearningCount`
   - `reviewRerunLearningCount`
@@ -89,6 +114,11 @@ Stability boundary:
 - human-readable `status` strings inside `issueSnapshots` remain descriptive
   text and should not be parsed for automation when a structured field already
   exists
+- `repos[*].preCodeDisciplineRepairSummary`, when present, is an ordered
+  human-readable repair summary. It may include multiple actions joined with
+  `; then ` in priority order.
+- `repos[*].preCodeDisciplineRepairActions`, when present, is the structured
+  ordered list form of the same repo-level repair guidance.
 
 Usage:
 
