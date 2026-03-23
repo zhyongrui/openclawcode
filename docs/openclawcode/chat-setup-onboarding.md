@@ -402,6 +402,10 @@ control-plane steps.
 - if bootstrap still only has a `bind-pending:*` placeholder, but OpenClaw has
   already saved one preferred operator DM target for that channel, the plugin
   now resolves that placeholder through the saved target and starts setup there
+- if no preferred operator target has been saved yet, the first real Feishu DM
+  `/occode-setup` or `/occ-setup` can now claim that `bind-pending:*` setup
+  path directly, persist that DM as the preferred operator target, auto-allow
+  the chat for setup continuation, and start GitHub device auth immediately
 - when multiple repos share the same target, the auth step still starts
   proactively, but repo selection stays explicit after auth so the system does
   not guess the wrong repository

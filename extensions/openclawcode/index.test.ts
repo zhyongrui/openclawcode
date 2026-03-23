@@ -5,7 +5,10 @@ import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawCodeChatopsStore } from "../../src/integrations/openclaw-plugin/index.js";
-import { setPreferredOperatorChatTarget } from "../../src/operator-chat-targets/store.js";
+import {
+  getPreferredOperatorChatTarget,
+  setPreferredOperatorChatTarget,
+} from "../../src/operator-chat-targets/store.js";
 import { readChannelAllowFromStore } from "../../src/pairing/pairing-store.js";
 import {
   readProjectAutonomousLoopArtifact,
@@ -5010,6 +5013,83 @@ describe("openclawcode extension", () => {
             userCode: "WXYZ-1234",
             verificationUri: "https://github.com/login/device",
           },
+        });
+        await expect(
+          readChannelAllowFromStore("feishu", process.env, "default"),
+        ).resolves.toContain("setup-chat");
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("claims a bind-pending Feishu setup DM and starts GitHub auth without pairing", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-bind-pending-setup-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      config: {
+        channels: {
+          feishu: {
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "bind-pending:zhyongrui/openclawcode",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
+          },
+        ],
+      },
+    });
+    mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+      pid: 654,
+      logPath: "/tmp/proactive-gh-auth.log",
+      userCode: "WXYZ-1234",
+      verificationUri: "https://github.com/login/device",
+      startedAt: "2026-03-21T09:00:00.000Z",
+    });
+
+    try {
+      await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
+        const result = await fixture.commands.get("occode-setup")?.handler({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup",
+          args: "",
+          to: "user:setup-chat",
+          config: fixture.runtime.config.loadConfig(),
+        });
+
+        expect(result?.text).toContain("OpenClaw Code setup is waiting for GitHub approval.");
+        expect(result?.text).toContain("Code: WXYZ-1234");
+        expect(
+          await fixture.store.getSetupSession({
+            notifyChannel: "feishu",
+            notifyTarget: "user:setup-chat",
+          }),
+        ).toMatchObject({
+          stage: "awaiting-github-device-auth",
+        });
+        await expect(
+          getPreferredOperatorChatTarget({
+            stateDir: fixture.stateDir,
+            channel: "feishu",
+          }),
+        ).resolves.toMatchObject({
+          target: "user:setup-chat",
+          source: "openclawcode-setup-command",
         });
         await expect(
           readChannelAllowFromStore("feishu", process.env, "default"),

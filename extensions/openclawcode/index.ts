@@ -117,6 +117,7 @@ import {
 } from "../../src/openclawcode/work-items.js";
 import { buildOpenClawCodePolicySnapshot } from "../../src/openclawcode/policy.js";
 import { resolveConcreteChatNotifyTarget } from "../../src/openclawcode/operator-chat-targets.js";
+import { setPreferredOperatorChatTarget } from "../../src/operator-chat-targets/store.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
 const DEFAULT_RUN_TIMEOUT_MS = 30 * 60_000;
@@ -2268,6 +2269,25 @@ async function autoAllowProactiveSetupTarget(params: {
       `openclawcode failed to auto-allow configured setup target ${params.target.notifyChannel}:${params.target.notifyTarget}: ${String(error)}`,
     );
   }
+}
+
+async function persistManualSetupTarget(params: {
+  api: OpenClawPluginApi;
+  target: ProactiveChatSetupTarget;
+}): Promise<void> {
+  try {
+    await setPreferredOperatorChatTarget({
+      stateDir: params.api.runtime.state.resolveStateDir(),
+      channel: params.target.notifyChannel,
+      target: params.target.notifyTarget,
+      source: "openclawcode-setup-command",
+    });
+  } catch (error) {
+    params.api.logger.warn(
+      `openclawcode failed to persist setup target ${params.target.notifyChannel}:${params.target.notifyTarget}: ${String(error)}`,
+    );
+  }
+  await autoAllowProactiveSetupTarget(params);
 }
 
 async function proactivelyStartGitHubAuthForTargets(
@@ -8659,6 +8679,13 @@ export default {
             text: "This setup flow needs a concrete chat target. Start it from a direct or bound chat.",
           };
         }
+        await persistManualSetupTarget({
+          api,
+          target: {
+            notifyChannel: ctx.channel,
+            notifyTarget,
+          },
+        });
 
         const selection = parseChatSetupProjectSelection({
           args: ctx.args ?? "",

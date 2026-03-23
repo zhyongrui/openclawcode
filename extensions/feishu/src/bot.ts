@@ -26,6 +26,7 @@ import {
   normalizePluginCommandBody,
 } from "../../../src/plugins/commands.js";
 import { resolveOpenClawCodePluginConfig } from "../../../src/integrations/openclaw-plugin/index.js";
+import { isBindPendingNotifyTarget } from "../../../src/openclawcode/operator-chat-targets.js";
 import {
   buildPairingCommandRetryReply,
   buildPairingReply,
@@ -200,7 +201,8 @@ function shouldBypassPairingForConfiguredOpenClawCodeSetup(params: {
   return pluginConfig.repos.some(
     (repo) =>
       repo.notifyChannel === "feishu" &&
-      repo.notifyTarget.trim() === `user:${params.senderOpenId}`,
+      (repo.notifyTarget.trim() === `user:${params.senderOpenId}` ||
+        isBindPendingNotifyTarget(repo.notifyTarget)),
   );
 }
 

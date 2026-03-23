@@ -1115,6 +1115,86 @@ describe("handleFeishuMessage command authorization", () => {
     );
   });
 
+  it("allows bind-pending openclawcode setup commands through pairing-gated DMs", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(true);
+    mockReadAllowFromStore.mockResolvedValue([]);
+    mockResolveCommandAuthorizedFromAuthorizers.mockReturnValue(false);
+    mockMatchPluginCommand.mockReturnValue({
+      command: {
+        name: "occ-setup",
+        description: "Start setup",
+        pluginId: "openclawcode",
+        acceptsArgs: true,
+        handler: vi.fn(),
+      },
+      args: "",
+    });
+    mockExecutePluginCommand.mockResolvedValue({ text: "plugin output" });
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "pairing",
+          allowFrom: [],
+        },
+      },
+      plugins: {
+        entries: {
+          openclawcode: {
+            enabled: true,
+            config: {
+              repos: [
+                {
+                  owner: "zhyongrui",
+                  repo: "openclawcode",
+                  repoRoot: "/tmp/openclawcode",
+                  baseBranch: "main",
+                  triggerMode: "approve",
+                  notifyChannel: "feishu",
+                  notifyTarget: "bind-pending:zhyongrui/openclawcode",
+                  builderAgent: "main",
+                  verifierAgent: "main",
+                  testCommands: ["pnpm test"],
+                },
+              ],
+            },
+          },
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-unapproved",
+        },
+      },
+      message: {
+        message_id: "msg-bind-pending-setup-bypass",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "/occ-setup" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockUpsertPairingRequest).not.toHaveBeenCalled();
+    expect(mockSendMessageFeishu).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("Pairing code:"),
+      }),
+    );
+    expect(mockExecutePluginCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commandBody: "/occ-setup",
+        isAuthorizedSender: true,
+      }),
+    );
+  });
+
   it("computes group command authorization from group allowFrom", async () => {
     mockShouldComputeCommandAuthorized.mockReturnValue(true);
     mockResolveCommandAuthorizedFromAuthorizers.mockReturnValue(false);

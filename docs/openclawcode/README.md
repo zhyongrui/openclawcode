@@ -110,6 +110,10 @@ loop with:
       commands, so `/occode-setup`, `/occode-setup-status`,
       `/occode-setup-retry`, and `/occode-setup-cancel` are no longer blocked
       behind the pairing gate for that configured operator target
+    - the same pairing bypass now also covers the common fresh-install
+      `bind-pending:*` path, so the first `/occode-setup` or `/occ-setup` in a
+      real Feishu DM can claim that DM as the preferred operator target,
+      auto-allow the chat, and start GitHub device auth there immediately
     - post-login setup messages now stay status-first and point operators at
       `/occode-github-switch` and `/occode-github-status` instead of printing
       host-side `gh auth logout` / `gh auth login` commands into chat
