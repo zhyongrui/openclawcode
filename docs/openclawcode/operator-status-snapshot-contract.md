@@ -101,13 +101,26 @@ Semantics:
   - `preCodeDisciplineRepairSummary`
   - `operatorProgramAvailable`
   - `operatorProgramArtifactPath`
+  - `operatorProgramUpdatedAt`
+  - `operatorProgramTitle`
+  - `operatorProgramSummary`
   - `operatorProgramMutableSurfaceMode`
+  - `operatorProgramMutableSurfacePathCount`
+  - `operatorProgramMutableSurfacePathsPresent`
   - `operatorProgramValidationBudgetSummary`
   - `operatorProgramValidationBudgetMaxPrimaryCommands`
   - `operatorProgramRequireOneExecutableProof`
+  - `operatorProgramAdvancementRuleSummary`
+  - `operatorProgramKeepCriteriaCount`
+  - `operatorProgramDiscardCriteriaCount`
+  - `operatorProgramRetryCriteriaCount`
+  - `operatorProgramSimplificationBias`
   - `operatorProgramAttemptLedgerRequired`
   - `operatorProgramNextActionCode`
   - `operatorProgramNextActionSummary`
+  - `operatorProgramLinkedBlueprintPath`
+  - `operatorProgramLinkedWorkItemsPath`
+  - `operatorProgramLinkedStageGatesPath`
   - `loopHealthHealthyCount`
   - `loopHealthWarnCount`
   - `loopHealthBlockedCount`
@@ -141,6 +154,15 @@ Stability boundary:
   `.openclawcode/operator-program.json` artifact for repos whose operator state
   can still resolve a stable `repoRoot` from current/queued work or persisted
   setup bootstrap state.
+- `repos[*].operatorProgramMutableSurfacePathCount`, when present, is the
+  stable numeric count of currently declared narrower mutable-surface paths.
+- `repos[*].operatorProgramMutableSurfacePathsPresent`, when present, is the
+  stable boolean shorthand for whether the operator program currently narrows
+  mutation with an explicit allowlist.
+- `repos[*].operatorProgramKeepCriteriaCount`,
+  `repos[*].operatorProgramDiscardCriteriaCount`, and
+  `repos[*].operatorProgramRetryCriteriaCount`, when present, are stable
+  machine-readable counts for the current keep/discard/retry ledger policy.
 - `repos[*].operatorProgramNextActionCode`, when present, is the stable enum
   form of the repo-level execution-policy follow-up:
   - `narrow-mutation-scope`

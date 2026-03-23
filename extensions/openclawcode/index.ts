@@ -2604,12 +2604,32 @@ function buildOperatorProgramSummaryLines(params: {
   const lines = [
     `${prefix}Operator program: available=yes | mutableSurface=${params.summary.mutableSurfaceMode ?? "unset"} | proof=${params.summary.requireOneExecutableProof ? "required" : "optional"} | attemptLedger=${params.summary.attemptLedgerRequired ? "required" : "optional"} | nextAction=${params.summary.nextActionCode ?? "none"}`,
   ];
+  if (params.summary.title || params.summary.updatedAt) {
+    lines.push(
+      `${prefix}Operator program meta: ${params.summary.title ?? "untitled"}${params.summary.updatedAt ? ` | updated=${params.summary.updatedAt}` : ""}`,
+    );
+  }
+  if (params.summary.summary) {
+    lines.push(`${prefix}Operator program summary: ${params.summary.summary}`);
+  }
+  lines.push(
+    `${prefix}Operator program scope: paths=${params.summary.mutableSurfacePathCount} | allowlist=${params.summary.mutableSurfacePathsPresent ? "yes" : "no"} | simplify=${params.summary.simplificationBias ? "yes" : "no"}`,
+  );
   if (params.summary.validationBudgetSummary) {
     lines.push(`${prefix}Operator program budget: ${params.summary.validationBudgetSummary}`);
+  }
+  lines.push(
+    `${prefix}Operator program criteria: keep=${params.summary.keepCriteriaCount} | discard=${params.summary.discardCriteriaCount} | retry=${params.summary.retryCriteriaCount}`,
+  );
+  if (params.summary.advancementRuleSummary) {
+    lines.push(`${prefix}Operator program advancement: ${params.summary.advancementRuleSummary}`);
   }
   if (params.summary.nextActionSummary) {
     lines.push(`${prefix}Operator program next: ${params.summary.nextActionSummary}`);
   }
+  lines.push(
+    `${prefix}Operator program links: blueprint=${params.summary.linkedBlueprintPath} | workItems=${params.summary.linkedWorkItemsPath} | stageGates=${params.summary.linkedStageGatesPath}`,
+  );
   return lines;
 }
 
@@ -4590,12 +4610,32 @@ function buildProjectProgressSummaryMessage(params: {
   lines.push(
     `Operator program: available=${params.artifact.operatorProgram.available ? "yes" : "no"} | mutableSurface=${params.artifact.operatorProgram.mutableSurfaceMode ?? "unset"} | proof=${params.artifact.operatorProgram.requireOneExecutableProof ? "required" : "optional"} | attemptLedger=${params.artifact.operatorProgram.attemptLedgerRequired ? "required" : "optional"} | nextAction=${params.artifact.operatorProgram.nextActionCode ?? "none"}`,
   );
+  if (params.artifact.operatorProgram.title || params.artifact.operatorProgram.updatedAt) {
+    lines.push(
+      `Operator program meta: ${params.artifact.operatorProgram.title ?? "untitled"}${params.artifact.operatorProgram.updatedAt ? ` | updated=${params.artifact.operatorProgram.updatedAt}` : ""}`,
+    );
+  }
+  if (params.artifact.operatorProgram.summary) {
+    lines.push(`Operator program summary: ${params.artifact.operatorProgram.summary}`);
+  }
+  lines.push(
+    `Operator program scope: paths=${params.artifact.operatorProgram.mutableSurfacePathCount} | allowlist=${params.artifact.operatorProgram.mutableSurfacePathsPresent ? "yes" : "no"} | simplify=${params.artifact.operatorProgram.simplificationBias ? "yes" : "no"}`,
+  );
   if (params.artifact.operatorProgram.validationBudgetSummary) {
     lines.push(`Operator program budget: ${params.artifact.operatorProgram.validationBudgetSummary}`);
+  }
+  lines.push(
+    `Operator program criteria: keep=${params.artifact.operatorProgram.keepCriteriaCount} | discard=${params.artifact.operatorProgram.discardCriteriaCount} | retry=${params.artifact.operatorProgram.retryCriteriaCount}`,
+  );
+  if (params.artifact.operatorProgram.advancementRuleSummary) {
+    lines.push(`Operator program advancement: ${params.artifact.operatorProgram.advancementRuleSummary}`);
   }
   if (params.artifact.operatorProgram.nextActionSummary) {
     lines.push(`Operator program next: ${params.artifact.operatorProgram.nextActionSummary}`);
   }
+  lines.push(
+    `Operator program links: blueprint=${params.artifact.operatorProgram.linkedBlueprintPath} | workItems=${params.artifact.operatorProgram.linkedWorkItemsPath} | stageGates=${params.artifact.operatorProgram.linkedStageGatesPath}`,
+  );
   if (params.artifact.operator.currentRunIssueKey) {
     lines.push(`Current run: ${params.artifact.operator.currentRunIssueKey}`);
   }

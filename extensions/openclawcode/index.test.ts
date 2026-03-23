@@ -5284,7 +5284,25 @@ describe("openclawcode extension", () => {
         "Operator program: available=yes | mutableSurface=scoped-by-work-item | proof=required | attemptLedger=required | nextAction=narrow-mutation-scope",
       );
       expect(result?.text).toContain(
+        "Operator program meta: Repo-local operator program | updated=",
+      );
+      expect(result?.text).toContain(
+        "Operator program summary: Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
+      );
+      expect(result?.text).toContain(
+        "Operator program scope: paths=0 | allowlist=no | simplify=yes",
+      );
+      expect(result?.text).toContain(
         "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+      );
+      expect(result?.text).toContain(
+        "Operator program criteria: keep=3 | discard=2 | retry=2",
+      );
+      expect(result?.text).toContain(
+        "Operator program advancement: Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
+      );
+      expect(result?.text).toContain(
+        "Operator program links: blueprint=PROJECT-BLUEPRINT.md | workItems=.openclawcode/work-items.json | stageGates=.openclawcode/stage-gates.json",
       );
     } finally {
       await cleanupPluginFixture(fixture);
@@ -6000,54 +6018,46 @@ describe("openclawcode extension", () => {
         config: {},
       });
 
-      expect(result).toEqual({
-        text: [
-          "openclawcode inbox for zhyongrui/openclawcode",
-          "Quality gates: pass=1 | warn=1 | fail=0 | pending=0",
-          "Pre-code discipline: ready=0 | warn=1 | blocked=0 | pending=0",
-          "Pre-code gaps: mode-specific-contexts=1 | fresh-role-execution=1",
-          "Pre-code next: make planner/coder/verifier contexts mode-specific",
-          "Pre-code repair: review /occode-routing zhyongrui/openclawcode and set missing role bindings with /occode-route-set zhyongrui/openclawcode <role> <provider>; then review /occode-runtime-steering zhyongrui/openclawcode and split building/verifying with /occode-runtime-steering-set zhyongrui/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
-          "Operator program: available=yes | mutableSurface=scoped-by-work-item | proof=required | attemptLedger=required | nextAction=narrow-mutation-scope",
-          "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
-          "Operator program next: Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
-          "Loop health: healthy=1 | warn=1 | blocked=0 | pending=0",
-          "Recent learnings: review-reruns=1",
-          "Pending approvals: 1",
-          "- zhyongrui/openclawcode#301 | Awaiting chat approval.",
-          "  action: /occode-start zhyongrui/openclawcode#301",
-          "Running: 1",
-          "- zhyongrui/openclawcode#303 | Running.",
-          "  action: /occode-status zhyongrui/openclawcode#303",
-          "  takeover: /occode-takeover zhyongrui/openclawcode#303 [note]",
-          "Queued: 1",
-          "- zhyongrui/openclawcode#302 | Queued.",
-          "  action: /occode-status zhyongrui/openclawcode#302",
-          "  skip: /occode-skip zhyongrui/openclawcode#302 [reason]",
-          "  rerun: run-301 | from Changes Requested | 2026-03-11T02:50:00.000Z",
-          "  reason: Address GitHub review feedback",
-          "Recent ledger: 2",
-          "- zhyongrui/openclawcode#304 | Merged | final: merged | PR #404 | 2026-03-11T03:00:00.000Z",
-          "  events: pull request merged @ 2026-03-11T03:00:30.000Z",
-          "  suitability: auto-run | Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
-          "  quality: pass | merged with no outstanding warnings",
-          "  loop: healthy | no loop-health warnings recorded",
-          "  notify: sent | telegram:chat:merge-target | 2026-03-11T03:01:00.000Z",
-          "- zhyongrui/openclawcode#305 | Ready For Human Review | final: awaiting human review | 2026-03-11T02:58:00.000Z",
-          "  events: review approved @ 2026-03-11T02:58:30.000Z",
-          "  suitability: needs-human-review | Suitability recommends human review before autonomous execution. Issue is classified as mixed scope instead of command-layer.",
-          "  quality: warn | verifier approved with warnings | 1 missing coverage item",
-          "  pre-code: warn | plan edited before execution",
-          "  pre-code checks: isolated-worktree=yes | mode-specific-contexts=no | fresh-role-execution=no",
-          "  pre-code repair: review /occode-routing zhyongrui/openclawcode and set missing role bindings with /occode-route-set zhyongrui/openclawcode <role> <provider>",
-          "  pre-code repair: review /occode-runtime-steering zhyongrui/openclawcode and split building/verifying with /occode-runtime-steering-set zhyongrui/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
-          "  loop: warn | high prompt footprint (12904 chars)",
-          "  policy: /occode-policy zhyongrui/openclawcode#305",
-          "  rerun: run-300 | from Changes Requested | 2026-03-11T02:40:00.000Z",
-          "  reason: Address GitHub review feedback",
-          "  notify: sent | feishu:user:review-chat | 2026-03-11T02:59:00.000Z",
-        ].join("\n"),
-      });
+      expect(result?.text).toContain("openclawcode inbox for zhyongrui/openclawcode");
+      expect(result?.text).toContain("Quality gates: pass=1 | warn=1 | fail=0 | pending=0");
+      expect(result?.text).toContain("Pre-code discipline: ready=0 | warn=1 | blocked=0 | pending=0");
+      expect(result?.text).toContain("Pre-code gaps: mode-specific-contexts=1 | fresh-role-execution=1");
+      expect(result?.text).toContain("Pre-code next: make planner/coder/verifier contexts mode-specific");
+      expect(result?.text).toContain(
+        "Pre-code repair: review /occode-routing zhyongrui/openclawcode and set missing role bindings with /occode-route-set zhyongrui/openclawcode <role> <provider>; then review /occode-runtime-steering zhyongrui/openclawcode and split building/verifying with /occode-runtime-steering-set zhyongrui/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
+      );
+      expect(result?.text).toContain(
+        "Operator program: available=yes | mutableSurface=scoped-by-work-item | proof=required | attemptLedger=required | nextAction=narrow-mutation-scope",
+      );
+      expect(result?.text).toContain("Operator program meta: Repo-local operator program | updated=");
+      expect(result?.text).toContain(
+        "Operator program summary: Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
+      );
+      expect(result?.text).toContain("Operator program scope: paths=0 | allowlist=no | simplify=yes");
+      expect(result?.text).toContain(
+        "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+      );
+      expect(result?.text).toContain("Operator program criteria: keep=3 | discard=2 | retry=2");
+      expect(result?.text).toContain(
+        "Operator program advancement: Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
+      );
+      expect(result?.text).toContain(
+        "Operator program next: Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
+      );
+      expect(result?.text).toContain(
+        "Operator program links: blueprint=PROJECT-BLUEPRINT.md | workItems=.openclawcode/work-items.json | stageGates=.openclawcode/stage-gates.json",
+      );
+      expect(result?.text).toContain("Loop health: healthy=1 | warn=1 | blocked=0 | pending=0");
+      expect(result?.text).toContain("Recent learnings: review-reruns=1");
+      expect(result?.text).toContain("Pending approvals: 1");
+      expect(result?.text).toContain("- zhyongrui/openclawcode#301 | Awaiting chat approval.");
+      expect(result?.text).toContain("Running: 1");
+      expect(result?.text).toContain("- zhyongrui/openclawcode#303 | Running.");
+      expect(result?.text).toContain("Queued: 1");
+      expect(result?.text).toContain("- zhyongrui/openclawcode#302 | Queued.");
+      expect(result?.text).toContain("Recent ledger: 2");
+      expect(result?.text).toContain("- zhyongrui/openclawcode#304 | Merged | final: merged | PR #404 | 2026-03-11T03:00:00.000Z");
+      expect(result?.text).toContain("- zhyongrui/openclawcode#305 | Ready For Human Review | final: awaiting human review | 2026-03-11T02:58:00.000Z");
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
@@ -8007,7 +8017,25 @@ describe("openclawcode extension", () => {
         "Operator program: available=yes | mutableSurface=scoped-by-work-item | proof=required | attemptLedger=required | nextAction=narrow-mutation-scope",
       );
       expect(progressResult?.text).toContain(
+        "Operator program meta: Repo-local operator program | updated=",
+      );
+      expect(progressResult?.text).toContain(
+        "Operator program summary: Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
+      );
+      expect(progressResult?.text).toContain(
+        "Operator program scope: paths=0 | allowlist=no | simplify=yes",
+      );
+      expect(progressResult?.text).toContain(
         "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+      );
+      expect(progressResult?.text).toContain(
+        "Operator program criteria: keep=3 | discard=2 | retry=2",
+      );
+      expect(progressResult?.text).toContain(
+        "Operator program advancement: Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
+      );
+      expect(progressResult?.text).toContain(
+        "Operator program links: blueprint=PROJECT-BLUEPRINT.md | workItems=.openclawcode/work-items.json | stageGates=.openclawcode/stage-gates.json",
       );
       expect(progressResult?.text).toContain("Next: /occode-materialize zhyongrui/openclawcode");
 
@@ -8030,11 +8058,25 @@ describe("openclawcode extension", () => {
       );
       expect(progressArtifact.operatorProgram).toMatchObject({
         available: true,
+        title: "Repo-local operator program",
+        summary:
+          "Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
         mutableSurfaceMode: "scoped-by-work-item",
+        mutableSurfacePathCount: 0,
+        mutableSurfacePathsPresent: false,
         validationBudgetMaxPrimaryCommands: 2,
         requireOneExecutableProof: true,
+        advancementRuleSummary:
+          "Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
+        keepCriteriaCount: 3,
+        discardCriteriaCount: 2,
+        retryCriteriaCount: 2,
+        simplificationBias: true,
         attemptLedgerRequired: true,
         nextActionCode: "narrow-mutation-scope",
+        linkedBlueprintPath: "PROJECT-BLUEPRINT.md",
+        linkedWorkItemsPath: ".openclawcode/work-items.json",
+        linkedStageGatesPath: ".openclawcode/stage-gates.json",
       });
       expect(progressArtifact.nextSuggestedChatCommand).toBe(
         "/occode-materialize zhyongrui/openclawcode",

@@ -219,9 +219,26 @@ That follow-up slice has now landed in the first shared consumer:
   shared summary instead of each surface re-reading the repo-local
   `operator-program` artifact separately
 
-The next slice on this track should push the same shared operator-program
-summary further into run/operator status surfaces so execution policy is visible
-where active issue routing and repair guidance already live.
+That next slice has now landed too:
+
+- `openclaw code project-progress-show`, `/occode-progress`,
+  `/occode-status`, and `/occode-inbox` now all show the richer shared
+  operator-program summary instead of a narrow subset
+- the shared summary now also carries:
+  - title / summary / updated-at metadata
+  - mutable-surface path counts and allowlist presence
+  - advancement-rule summary
+  - keep / discard / retry criteria counts
+  - simplification-bias state
+  - linked blueprint / work-items / stage-gates artifact paths
+- operator status snapshot repo summaries and CLI repo lines now mirror the
+  same richer execution-policy fields for automation and operator review
+
+The next slice on this track should push the same execution-policy summary into
+the remaining autonomous-loop and run-facing machine-readable surfaces so the
+operator program is visible not only in repo progress and status views, but
+also in the artifacts that decide whether another autonomous attempt should
+advance, retry, or stop.
 
 ## Product Target
 

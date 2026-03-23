@@ -4201,11 +4201,25 @@ describe("openclawCodeRunCommand", () => {
       selectedIssueNumber: null,
       operatorProgram: {
         available: true,
+        title: "Repo-local operator program",
+        summary:
+          "Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
         mutableSurfaceMode: "scoped-by-work-item",
+        mutableSurfacePathCount: 0,
+        mutableSurfacePathsPresent: false,
         validationBudgetMaxPrimaryCommands: 2,
         requireOneExecutableProof: true,
+        advancementRuleSummary:
+          "Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
+        keepCriteriaCount: 3,
+        discardCriteriaCount: 2,
+        retryCriteriaCount: 2,
+        simplificationBias: true,
         attemptLedgerRequired: true,
         nextActionCode: "narrow-mutation-scope",
+        linkedBlueprintPath: "PROJECT-BLUEPRINT.md",
+        linkedWorkItemsPath: ".openclawcode/work-items.json",
+        linkedStageGatesPath: ".openclawcode/stage-gates.json",
       },
     });
 
@@ -4224,11 +4238,31 @@ describe("openclawCodeRunCommand", () => {
     expect(progressLines).toContain(
       "Operator program: available=yes | mutableSurface=scoped-by-work-item | proof=required | attemptLedger=required | nextAction=narrow-mutation-scope",
     );
+    expect(
+      progressLines.some((line) =>
+        line.startsWith("Operator program meta: Repo-local operator program | updated="),
+      ),
+    ).toBe(true);
+    expect(progressLines).toContain(
+      "Operator program summary: Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
+    );
+    expect(progressLines).toContain(
+      "Operator program scope: paths=0 | allowlist=no | simplify=yes",
+    );
     expect(progressLines).toContain(
       "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
     );
     expect(progressLines).toContain(
+      "Operator program criteria: keep=3 | discard=2 | retry=2",
+    );
+    expect(progressLines).toContain(
+      "Operator program advancement: Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
+    );
+    expect(progressLines).toContain(
       "Operator program next: Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
+    );
+    expect(progressLines).toContain(
+      "Operator program links: blueprint=PROJECT-BLUEPRINT.md | workItems=.openclawcode/work-items.json | stageGates=.openclawcode/stage-gates.json",
     );
 
     runtime.log.mockClear();
@@ -5306,15 +5340,29 @@ describe("openclawCodeRunCommand", () => {
         "review /occode-routing openclaw/openclawcode and set missing role bindings with /occode-route-set openclaw/openclawcode <role> <provider>; then review /occode-runtime-steering openclaw/openclawcode and split building/verifying with /occode-runtime-steering-set openclaw/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
       operatorProgramAvailable: true,
       operatorProgramArtifactPath: `${repoRoot}/.openclawcode/operator-program.json`,
+      operatorProgramTitle: "Repo-local operator program",
+      operatorProgramSummary:
+        "Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
       operatorProgramMutableSurfaceMode: "scoped-by-work-item",
+      operatorProgramMutableSurfacePathCount: 0,
+      operatorProgramMutableSurfacePathsPresent: false,
       operatorProgramValidationBudgetSummary:
         "Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
       operatorProgramValidationBudgetMaxPrimaryCommands: 2,
       operatorProgramRequireOneExecutableProof: true,
+      operatorProgramAdvancementRuleSummary:
+        "Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
+      operatorProgramKeepCriteriaCount: 3,
+      operatorProgramDiscardCriteriaCount: 2,
+      operatorProgramRetryCriteriaCount: 2,
+      operatorProgramSimplificationBias: true,
       operatorProgramAttemptLedgerRequired: true,
       operatorProgramNextActionCode: "narrow-mutation-scope",
       operatorProgramNextActionSummary:
         "Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
+      operatorProgramLinkedBlueprintPath: "PROJECT-BLUEPRINT.md",
+      operatorProgramLinkedWorkItemsPath: ".openclawcode/work-items.json",
+      operatorProgramLinkedStageGatesPath: ".openclawcode/stage-gates.json",
       loopHealthHealthyCount: 0,
       loopHealthWarnCount: 1,
       loopHealthBlockedCount: 0,
@@ -5346,7 +5394,7 @@ describe("openclawCodeRunCommand", () => {
     expect(
       lines.some((line) =>
         line.includes(
-          "operator-program=mutable:scoped-by-work-item,proof:required,ledger:required,next:Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
+          "operator-program=mutable:scoped-by-work-item,paths:0,simplify:yes,proof:required,ledger:required,keep:3,discard:2,retry:2,next:Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
         ),
       ),
     ).toBe(true);

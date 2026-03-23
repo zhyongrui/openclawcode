@@ -2348,12 +2348,32 @@ function logProjectProgressArtifact(params: {
   runtime.log(
     `Operator program: available=${artifact.operatorProgram.available ? "yes" : "no"} | mutableSurface=${artifact.operatorProgram.mutableSurfaceMode ?? "unset"} | proof=${artifact.operatorProgram.requireOneExecutableProof ? "required" : "optional"} | attemptLedger=${artifact.operatorProgram.attemptLedgerRequired ? "required" : "optional"} | nextAction=${artifact.operatorProgram.nextActionCode ?? "none"}`,
   );
+  if (artifact.operatorProgram.title || artifact.operatorProgram.updatedAt) {
+    runtime.log(
+      `Operator program meta: ${artifact.operatorProgram.title ?? "untitled"}${artifact.operatorProgram.updatedAt ? ` | updated=${artifact.operatorProgram.updatedAt}` : ""}`,
+    );
+  }
+  if (artifact.operatorProgram.summary) {
+    runtime.log(`Operator program summary: ${artifact.operatorProgram.summary}`);
+  }
+  runtime.log(
+    `Operator program scope: paths=${artifact.operatorProgram.mutableSurfacePathCount} | allowlist=${artifact.operatorProgram.mutableSurfacePathsPresent ? "yes" : "no"} | simplify=${artifact.operatorProgram.simplificationBias ? "yes" : "no"}`,
+  );
   if (artifact.operatorProgram.validationBudgetSummary) {
     runtime.log(`Operator program budget: ${artifact.operatorProgram.validationBudgetSummary}`);
+  }
+  runtime.log(
+    `Operator program criteria: keep=${artifact.operatorProgram.keepCriteriaCount} | discard=${artifact.operatorProgram.discardCriteriaCount} | retry=${artifact.operatorProgram.retryCriteriaCount}`,
+  );
+  if (artifact.operatorProgram.advancementRuleSummary) {
+    runtime.log(`Operator program advancement: ${artifact.operatorProgram.advancementRuleSummary}`);
   }
   if (artifact.operatorProgram.nextActionSummary) {
     runtime.log(`Operator program next: ${artifact.operatorProgram.nextActionSummary}`);
   }
+  runtime.log(
+    `Operator program links: blueprint=${artifact.operatorProgram.linkedBlueprintPath} | workItems=${artifact.operatorProgram.linkedWorkItemsPath} | stageGates=${artifact.operatorProgram.linkedStageGatesPath}`,
+  );
   if (artifact.operator.currentRunIssueKey) {
     runtime.log(`Current run: ${artifact.operator.currentRunIssueKey}`);
   }
@@ -2664,7 +2684,7 @@ function logOpenClawCodeOperatorStatusSnapshot(params: {
   }
   for (const repo of snapshot.repos) {
     runtime.log(
-      `- ${repo.repoKey}: tracked=${repo.trackedIssueCount} pending=${repo.pendingApprovalCount} queued=${repo.queuedRunCount} current=${repo.currentRunCount} ready=${repo.readyForHumanReviewCount} merged=${repo.mergedCount} failed=${repo.failedCount} pre-code=ready:${repo.preCodeDisciplineReadyCount},warn:${repo.preCodeDisciplineWarnCount},blocked:${repo.preCodeDisciplineBlockedCount},pending:${repo.preCodeDisciplinePendingCount}${repo.preCodeDisciplineGapSummary ? `,gaps:${repo.preCodeDisciplineGapSummary}` : ""}${repo.preCodeDisciplineNextActionSummary ? `,next:${repo.preCodeDisciplineNextActionSummary}` : ""}${repo.preCodeDisciplineRepairSummary ? `,repair:${repo.preCodeDisciplineRepairSummary}` : ""}${repo.operatorProgramAvailable ? ` operator-program=mutable:${repo.operatorProgramMutableSurfaceMode ?? "unset"},proof:${repo.operatorProgramRequireOneExecutableProof ? "required" : "optional"},ledger:${repo.operatorProgramAttemptLedgerRequired ? "required" : "optional"}${repo.operatorProgramNextActionSummary ? `,next:${repo.operatorProgramNextActionSummary}` : ""}` : ""} loop=healthy:${repo.loopHealthHealthyCount},warn:${repo.loopHealthWarnCount},blocked:${repo.loopHealthBlockedCount},pending:${repo.loopHealthPendingCount}`,
+      `- ${repo.repoKey}: tracked=${repo.trackedIssueCount} pending=${repo.pendingApprovalCount} queued=${repo.queuedRunCount} current=${repo.currentRunCount} ready=${repo.readyForHumanReviewCount} merged=${repo.mergedCount} failed=${repo.failedCount} pre-code=ready:${repo.preCodeDisciplineReadyCount},warn:${repo.preCodeDisciplineWarnCount},blocked:${repo.preCodeDisciplineBlockedCount},pending:${repo.preCodeDisciplinePendingCount}${repo.preCodeDisciplineGapSummary ? `,gaps:${repo.preCodeDisciplineGapSummary}` : ""}${repo.preCodeDisciplineNextActionSummary ? `,next:${repo.preCodeDisciplineNextActionSummary}` : ""}${repo.preCodeDisciplineRepairSummary ? `,repair:${repo.preCodeDisciplineRepairSummary}` : ""}${repo.operatorProgramAvailable ? ` operator-program=mutable:${repo.operatorProgramMutableSurfaceMode ?? "unset"},paths:${repo.operatorProgramMutableSurfacePathCount ?? 0},simplify:${repo.operatorProgramSimplificationBias ? "yes" : "no"},proof:${repo.operatorProgramRequireOneExecutableProof ? "required" : "optional"},ledger:${repo.operatorProgramAttemptLedgerRequired ? "required" : "optional"},keep:${repo.operatorProgramKeepCriteriaCount ?? 0},discard:${repo.operatorProgramDiscardCriteriaCount ?? 0},retry:${repo.operatorProgramRetryCriteriaCount ?? 0}${repo.operatorProgramNextActionSummary ? `,next:${repo.operatorProgramNextActionSummary}` : ""}` : ""} loop=healthy:${repo.loopHealthHealthyCount},warn:${repo.loopHealthWarnCount},blocked:${repo.loopHealthBlockedCount},pending:${repo.loopHealthPendingCount}`,
     );
   }
 }

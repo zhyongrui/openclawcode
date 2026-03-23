@@ -56,16 +56,29 @@ export interface OpenClawCodeOperatorRepoSummary {
   preCodeDisciplineRepairSummary?: string;
   operatorProgramAvailable?: boolean;
   operatorProgramArtifactPath?: string;
+  operatorProgramUpdatedAt?: string;
+  operatorProgramTitle?: string;
+  operatorProgramSummary?: string;
   operatorProgramMutableSurfaceMode?: "scoped-by-work-item" | "allowlist" | "single-file";
+  operatorProgramMutableSurfacePathCount?: number;
+  operatorProgramMutableSurfacePathsPresent?: boolean;
   operatorProgramValidationBudgetSummary?: string;
   operatorProgramValidationBudgetMaxPrimaryCommands?: number;
   operatorProgramRequireOneExecutableProof?: boolean;
+  operatorProgramAdvancementRuleSummary?: string;
+  operatorProgramKeepCriteriaCount?: number;
+  operatorProgramDiscardCriteriaCount?: number;
+  operatorProgramRetryCriteriaCount?: number;
+  operatorProgramSimplificationBias?: boolean;
   operatorProgramAttemptLedgerRequired?: boolean;
   operatorProgramNextActionCode?:
     | "narrow-mutation-scope"
     | "define-validation-budget"
     | "record-advancement-rules";
   operatorProgramNextActionSummary?: string;
+  operatorProgramLinkedBlueprintPath?: string;
+  operatorProgramLinkedWorkItemsPath?: string;
+  operatorProgramLinkedStageGatesPath?: string;
   loopHealthHealthyCount: number;
   loopHealthWarnCount: number;
   loopHealthBlockedCount: number;
@@ -406,10 +419,20 @@ async function buildRepoSummary(params: {
     preCodeDisciplineRepairSummary: preCodeDiscipline.repairSummary,
     operatorProgramAvailable: operatorProgram?.exists ? true : undefined,
     operatorProgramArtifactPath: operatorProgram?.exists ? operatorProgram.artifactPath : undefined,
+    operatorProgramUpdatedAt:
+      operatorProgram?.exists && operatorProgram.updatedAt ? operatorProgram.updatedAt : undefined,
+    operatorProgramTitle:
+      operatorProgram?.exists && operatorProgram.title ? operatorProgram.title : undefined,
+    operatorProgramSummary:
+      operatorProgram?.exists && operatorProgram.summary ? operatorProgram.summary : undefined,
     operatorProgramMutableSurfaceMode:
       operatorProgram?.exists && operatorProgram.mutableSurfaceMode
         ? operatorProgram.mutableSurfaceMode
         : undefined,
+    operatorProgramMutableSurfacePathCount:
+      operatorProgram?.exists ? operatorProgram.mutableSurfacePaths.length : undefined,
+    operatorProgramMutableSurfacePathsPresent:
+      operatorProgram?.exists ? operatorProgram.mutableSurfacePaths.length > 0 : undefined,
     operatorProgramValidationBudgetSummary:
       operatorProgram?.exists && operatorProgram.validationBudgetSummary
         ? operatorProgram.validationBudgetSummary
@@ -421,6 +444,18 @@ async function buildRepoSummary(params: {
         : undefined,
     operatorProgramRequireOneExecutableProof:
       operatorProgram?.exists ? operatorProgram.requireOneExecutableProof : undefined,
+    operatorProgramAdvancementRuleSummary:
+      operatorProgram?.exists && operatorProgram.advancementRuleSummary
+        ? operatorProgram.advancementRuleSummary
+        : undefined,
+    operatorProgramKeepCriteriaCount:
+      operatorProgram?.exists ? operatorProgram.keepCriteria.length : undefined,
+    operatorProgramDiscardCriteriaCount:
+      operatorProgram?.exists ? operatorProgram.discardCriteria.length : undefined,
+    operatorProgramRetryCriteriaCount:
+      operatorProgram?.exists ? operatorProgram.retryCriteria.length : undefined,
+    operatorProgramSimplificationBias:
+      operatorProgram?.exists ? operatorProgram.simplificationBias : undefined,
     operatorProgramAttemptLedgerRequired:
       operatorProgram?.exists ? operatorProgram.attemptLedgerRequired : undefined,
     operatorProgramNextActionCode:
@@ -431,6 +466,12 @@ async function buildRepoSummary(params: {
       operatorProgram?.exists && operatorProgram.nextActionSummary
         ? operatorProgram.nextActionSummary
         : undefined,
+    operatorProgramLinkedBlueprintPath:
+      operatorProgram?.exists ? operatorProgram.linkedArtifacts.blueprintPath : undefined,
+    operatorProgramLinkedWorkItemsPath:
+      operatorProgram?.exists ? operatorProgram.linkedArtifacts.workItemsPath : undefined,
+    operatorProgramLinkedStageGatesPath:
+      operatorProgram?.exists ? operatorProgram.linkedArtifacts.stageGatesPath : undefined,
     loopHealthHealthyCount: snapshotEntries.filter((entry) => entry.loopHealthStatus === "healthy")
       .length,
     loopHealthWarnCount: snapshotEntries.filter((entry) => entry.loopHealthStatus === "warn").length,

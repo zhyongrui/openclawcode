@@ -42,13 +42,26 @@ export interface ProjectProgressOperatorSummary {
 export interface ProjectProgressOperatorProgramSummary {
   available: boolean;
   artifactPath: string;
+  updatedAt: string | null;
+  title: string | null;
+  summary: string | null;
   mutableSurfaceMode: string | null;
+  mutableSurfacePathCount: number;
+  mutableSurfacePathsPresent: boolean;
   validationBudgetSummary: string | null;
   validationBudgetMaxPrimaryCommands: number | null;
   requireOneExecutableProof: boolean;
+  advancementRuleSummary: string | null;
+  keepCriteriaCount: number;
+  discardCriteriaCount: number;
+  retryCriteriaCount: number;
+  simplificationBias: boolean;
   attemptLedgerRequired: boolean;
   nextActionCode: string | null;
   nextActionSummary: string | null;
+  linkedBlueprintPath: string;
+  linkedWorkItemsPath: string;
+  linkedStageGatesPath: string;
 }
 
 export interface ProjectProgressArtifact {
@@ -185,13 +198,26 @@ function buildOperatorProgramSummary(
   return {
     available: artifact.exists,
     artifactPath: artifact.artifactPath,
+    updatedAt: artifact.updatedAt,
+    title: artifact.title,
+    summary: artifact.summary,
     mutableSurfaceMode: artifact.mutableSurfaceMode,
+    mutableSurfacePathCount: artifact.mutableSurfacePaths.length,
+    mutableSurfacePathsPresent: artifact.mutableSurfacePaths.length > 0,
     validationBudgetSummary: artifact.validationBudgetSummary,
     validationBudgetMaxPrimaryCommands: artifact.validationBudgetMaxPrimaryCommands,
     requireOneExecutableProof: artifact.requireOneExecutableProof,
+    advancementRuleSummary: artifact.advancementRuleSummary,
+    keepCriteriaCount: artifact.keepCriteria.length,
+    discardCriteriaCount: artifact.discardCriteria.length,
+    retryCriteriaCount: artifact.retryCriteria.length,
+    simplificationBias: artifact.simplificationBias,
     attemptLedgerRequired: artifact.attemptLedgerRequired,
     nextActionCode: artifact.nextActionCode,
     nextActionSummary: artifact.nextActionSummary,
+    linkedBlueprintPath: artifact.linkedArtifacts.blueprintPath,
+    linkedWorkItemsPath: artifact.linkedArtifacts.workItemsPath,
+    linkedStageGatesPath: artifact.linkedArtifacts.stageGatesPath,
   };
 }
 
@@ -395,14 +421,30 @@ export async function readProjectProgressArtifact(
       artifactPath:
         parsed.operatorProgram?.artifactPath ??
         path.join(repoRoot, ".openclawcode", "operator-program.json"),
+      updatedAt: parsed.operatorProgram?.updatedAt ?? null,
+      title: parsed.operatorProgram?.title ?? null,
+      summary: parsed.operatorProgram?.summary ?? null,
       mutableSurfaceMode: parsed.operatorProgram?.mutableSurfaceMode ?? null,
+      mutableSurfacePathCount: parsed.operatorProgram?.mutableSurfacePathCount ?? 0,
+      mutableSurfacePathsPresent: parsed.operatorProgram?.mutableSurfacePathsPresent ?? false,
       validationBudgetSummary: parsed.operatorProgram?.validationBudgetSummary ?? null,
       validationBudgetMaxPrimaryCommands:
         parsed.operatorProgram?.validationBudgetMaxPrimaryCommands ?? null,
       requireOneExecutableProof: parsed.operatorProgram?.requireOneExecutableProof ?? false,
+      advancementRuleSummary: parsed.operatorProgram?.advancementRuleSummary ?? null,
+      keepCriteriaCount: parsed.operatorProgram?.keepCriteriaCount ?? 0,
+      discardCriteriaCount: parsed.operatorProgram?.discardCriteriaCount ?? 0,
+      retryCriteriaCount: parsed.operatorProgram?.retryCriteriaCount ?? 0,
+      simplificationBias: parsed.operatorProgram?.simplificationBias ?? false,
       attemptLedgerRequired: parsed.operatorProgram?.attemptLedgerRequired ?? false,
       nextActionCode: parsed.operatorProgram?.nextActionCode ?? null,
       nextActionSummary: parsed.operatorProgram?.nextActionSummary ?? null,
+      linkedBlueprintPath:
+        parsed.operatorProgram?.linkedBlueprintPath ?? "PROJECT-BLUEPRINT.md",
+      linkedWorkItemsPath:
+        parsed.operatorProgram?.linkedWorkItemsPath ?? ".openclawcode/work-items.json",
+      linkedStageGatesPath:
+        parsed.operatorProgram?.linkedStageGatesPath ?? ".openclawcode/stage-gates.json",
     },
   };
 }
