@@ -24,6 +24,8 @@ export interface FeishuQrBindingSession {
   claimedAt?: string;
   claimedByOpenId?: string;
   claimedByUserId?: string;
+  pendingClaimOpenId?: string;
+  pendingClaimUserId?: string;
   repoKey?: string;
   setupIntent?: string;
 }
@@ -104,6 +106,14 @@ function normalizeSession(raw: unknown): FeishuQrBindingSession | undefined {
     claimedByUserId:
       typeof candidate.claimedByUserId === "string" && candidate.claimedByUserId.trim()
         ? candidate.claimedByUserId.trim()
+        : undefined,
+    pendingClaimOpenId:
+      typeof candidate.pendingClaimOpenId === "string" && candidate.pendingClaimOpenId.trim()
+        ? candidate.pendingClaimOpenId.trim()
+        : undefined,
+    pendingClaimUserId:
+      typeof candidate.pendingClaimUserId === "string" && candidate.pendingClaimUserId.trim()
+        ? candidate.pendingClaimUserId.trim()
         : undefined,
     repoKey:
       typeof candidate.repoKey === "string" && candidate.repoKey.trim()
@@ -192,6 +202,15 @@ export async function getActiveFeishuQrBindingSession(params?: {
   );
 }
 
+export async function listFeishuQrBindingSessions(params?: {
+  stateDir?: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<FeishuQrBindingSession[]> {
+  return (await loadStore(params)).sessions.map((session) =>
+    isSessionExpired(session) && session.state !== "claimed" ? { ...session, state: "expired" } : session,
+  );
+}
+
 export async function getFeishuQrBindingSessionById(params: {
   bindingId: string;
   stateDir?: string;
@@ -271,9 +290,13 @@ async function updateSession(
 
 export async function markFeishuQrBindingSessionReadyToClaim(params: {
   bindingId: string;
+  pendingClaimOpenId?: string;
+  pendingClaimUserId?: string;
   stateDir?: string;
   env?: NodeJS.ProcessEnv;
 }): Promise<FeishuQrBindingSession | undefined> {
+  const pendingClaimOpenId = params.pendingClaimOpenId?.trim() || undefined;
+  const pendingClaimUserId = params.pendingClaimUserId?.trim() || undefined;
   return await updateSession(params, (session) => {
     if (session.state === "claimed" || session.state === "expired" || isSessionExpired(session)) {
       return isSessionExpired(session) && session.state !== "claimed"
@@ -283,6 +306,8 @@ export async function markFeishuQrBindingSessionReadyToClaim(params: {
     return {
       ...session,
       state: "ready-to-claim",
+      pendingClaimOpenId: pendingClaimOpenId ?? session.pendingClaimOpenId,
+      pendingClaimUserId: pendingClaimUserId ?? session.pendingClaimUserId,
     };
   });
 }
@@ -312,6 +337,8 @@ export async function claimFeishuQrBindingSession(params: {
       claimedAt: session.claimedAt ?? now,
       claimedByOpenId,
       claimedByUserId: params.claimedByUserId?.trim() || session.claimedByUserId,
+      pendingClaimOpenId: undefined,
+      pendingClaimUserId: undefined,
     };
   });
 }

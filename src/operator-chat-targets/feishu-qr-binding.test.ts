@@ -8,6 +8,7 @@ import {
   createFeishuQrBindingSession,
   getActiveFeishuQrBindingSession,
   getFeishuQrBindingSessionById,
+  listFeishuQrBindingSessions,
   markFeishuQrBindingSessionReadyToClaim,
   validateFeishuQrBindingClaim,
 } from "./feishu-qr-binding.js";
@@ -91,9 +92,13 @@ describe("feishu qr binding store", () => {
       markFeishuQrBindingSessionReadyToClaim({
         stateDir,
         bindingId: session.bindingId,
+        pendingClaimOpenId: "ou_pending_claim",
+        pendingClaimUserId: "u_pending_claim",
       }),
     ).resolves.toMatchObject({
       state: "ready-to-claim",
+      pendingClaimOpenId: "ou_pending_claim",
+      pendingClaimUserId: "u_pending_claim",
     });
 
     await expect(
@@ -107,6 +112,7 @@ describe("feishu qr binding store", () => {
       state: "claimed",
       claimedByOpenId: "ou_test_claimed",
       claimedByUserId: "u_test_claimed",
+      pendingClaimOpenId: undefined,
     });
 
     await expect(
@@ -118,5 +124,27 @@ describe("feishu qr binding store", () => {
       state: "claimed",
       claimedByOpenId: "ou_test_claimed",
     });
+  });
+
+  it("lists ready-to-claim sessions with pending claim identity", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-list-"));
+    const { session } = await createFeishuQrBindingSession({
+      stateDir,
+    });
+    await markFeishuQrBindingSessionReadyToClaim({
+      stateDir,
+      bindingId: session.bindingId,
+      pendingClaimOpenId: "ou_ready_claim",
+    });
+
+    await expect(listFeishuQrBindingSessions({ stateDir })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          bindingId: session.bindingId,
+          state: "ready-to-claim",
+          pendingClaimOpenId: "ou_ready_claim",
+        }),
+      ]),
+    );
   });
 });

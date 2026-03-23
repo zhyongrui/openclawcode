@@ -256,6 +256,13 @@ Show:
 - `OpenClaw 正在完成启动`
 - `扫码已收到，准备好后会自动继续`
 
+Implementation note:
+
+- if the scan path already carries Feishu identity, OpenClaw should persist
+  that identity on the short-lived binding session immediately
+- once the gateway runner is ready, the background loop should finalize the
+  claim automatically without requiring the page to be reopened
+
 ### Binding succeeds but proactive DM fails
 
 Persist the binding anyway and show a local recovery state:

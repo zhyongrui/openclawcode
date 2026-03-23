@@ -120,6 +120,7 @@ import { resolveConcreteChatNotifyTarget } from "../../src/openclawcode/operator
 import {
   claimFeishuQrBindingSession,
   getFeishuQrBindingSessionById,
+  listFeishuQrBindingSessions,
   markFeishuQrBindingSessionReadyToClaim,
   validateFeishuQrBindingClaim,
 } from "../../src/operator-chat-targets/feishu-qr-binding.js";
@@ -6324,6 +6325,84 @@ function normalizeFeishuIdentity(value: string | null): string | undefined {
   return trimmed || undefined;
 }
 
+async function continueFeishuQrBindingClaim(params: {
+  api: OpenClawPluginApi;
+  store: OpenClawCodeChatopsStore;
+  bindingId: string;
+  openId: string;
+  userId?: string;
+}): Promise<void> {
+  const stateDir = params.api.runtime.state.resolveStateDir();
+  const openId = params.openId.trim();
+  if (!openId) {
+    return;
+  }
+  await claimFeishuQrBindingSession({
+    stateDir,
+    bindingId: params.bindingId,
+    claimedByOpenId: openId,
+    claimedByUserId: params.userId,
+  });
+  await setPreferredOperatorChatTarget({
+    stateDir,
+    channel: "feishu",
+    accountId: DEFAULT_ACCOUNT_ID,
+    target: `user:${openId}`,
+    source: "feishu-qr-binding",
+    replace: true,
+  });
+  await addChannelAllowFromStoreEntry({
+    channel: "feishu",
+    accountId: DEFAULT_ACCOUNT_ID,
+    entry: openId,
+    env: {
+      ...process.env,
+      OPENCLAW_STATE_DIR: stateDir,
+    },
+  });
+
+  const pluginConfig = resolveOpenClawCodePluginConfig(params.api.pluginConfig);
+  await processPendingSetupSessions(params.api, params.store);
+  await proactivelyStartGitHubAuthForTargets(params.api, params.store, [
+    {
+      notifyChannel: "feishu",
+      notifyTarget: `user:${openId}`,
+      projectMode: pluginConfig.repos.length === 1 ? "existing-repo" : undefined,
+      repoKey: pluginConfig.repos.length === 1 ? formatRepoKey(pluginConfig.repos[0]) : undefined,
+    },
+  ]);
+}
+
+async function processFeishuQrBindingSessions(
+  api: OpenClawPluginApi,
+  store: OpenClawCodeChatopsStore,
+): Promise<void> {
+  if (!runnerReady) {
+    return;
+  }
+  const sessions = await listFeishuQrBindingSessions({
+    stateDir: api.runtime.state.resolveStateDir(),
+  });
+  for (const session of sessions) {
+    if (session.state !== "ready-to-claim" || !session.pendingClaimOpenId) {
+      continue;
+    }
+    try {
+      await continueFeishuQrBindingClaim({
+        api,
+        store,
+        bindingId: session.bindingId,
+        openId: session.pendingClaimOpenId,
+        userId: session.pendingClaimUserId,
+      });
+    } catch (error) {
+      api.logger.warn(
+        `openclawcode failed to continue deferred feishu qr binding ${session.bindingId}: ${String(error)}`,
+      );
+    }
+  }
+}
+
 async function handleFeishuQrBindingRoute(
   api: OpenClawPluginApi,
   store: OpenClawCodeChatopsStore,
@@ -6382,6 +6461,8 @@ async function handleFeishuQrBindingRoute(
     await markFeishuQrBindingSessionReadyToClaim({
       stateDir,
       bindingId,
+      pendingClaimOpenId: openId,
+      pendingClaimUserId: userId,
     });
     return writeHtmlResponse(
       res,
@@ -6404,40 +6485,14 @@ async function handleFeishuQrBindingRoute(
     ]);
   }
 
-  await claimFeishuQrBindingSession({
-    stateDir,
-    bindingId,
-    claimedByOpenId: openId,
-    claimedByUserId: userId,
-  });
-  await setPreferredOperatorChatTarget({
-    stateDir,
-    channel: "feishu",
-    accountId: DEFAULT_ACCOUNT_ID,
-    target: `user:${openId}`,
-    source: "feishu-qr-binding",
-    replace: true,
-  });
-  await addChannelAllowFromStoreEntry({
-    channel: "feishu",
-    accountId: DEFAULT_ACCOUNT_ID,
-    entry: openId,
-    env: {
-      ...process.env,
-      OPENCLAW_STATE_DIR: stateDir,
-    },
-  });
-
-  const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
   try {
-    await processPendingSetupSessions(api, store);
-    const directTarget = {
-      notifyChannel: "feishu",
-      notifyTarget: `user:${openId}`,
-      projectMode: pluginConfig.repos.length === 1 ? ("existing-repo" as const) : undefined,
-      repoKey: pluginConfig.repos.length === 1 ? formatRepoKey(pluginConfig.repos[0]!) : undefined,
-    };
-    await proactivelyStartGitHubAuthForTargets(api, store, [directTarget]);
+    await continueFeishuQrBindingClaim({
+      api,
+      store,
+      bindingId,
+      openId,
+      userId,
+    });
   } catch (error) {
     api.logger.warn(`openclawcode failed to continue feishu qr binding setup: ${String(error)}`);
   }
@@ -10884,6 +10939,7 @@ export default {
         runnerReady = true;
         pollTimer = setInterval(() => {
           const currentPluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
+          void processFeishuQrBindingSessions(api, store).catch(() => undefined);
           void processPendingSetupSessions(api, store).catch(() => undefined);
           void proactivelyStartChatSetupSessions(api, store, currentPluginConfig.repos).catch(
             () => undefined,
@@ -10891,6 +10947,7 @@ export default {
           void processNextQueuedRun(api, store).catch(() => undefined);
         }, intervalMs);
         pollTimer.unref?.();
+        await processFeishuQrBindingSessions(api, store);
         await processPendingSetupSessions(api, store);
         await proactivelyStartChatSetupSessions(api, store, pluginConfig.repos);
         kickQueueDrain(api, store);
