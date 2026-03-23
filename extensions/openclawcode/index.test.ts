@@ -4327,7 +4327,7 @@ describe("openclawcode extension", () => {
     }
   });
 
-  it("proactively requests pairing before GitHub auth for pairing-gated user chat targets", async () => {
+  it("proactively starts GitHub auth immediately for configured pairing-gated user chat targets", async () => {
     const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-repo-"));
     const fixture = await registerPluginFixture({
       repoRoot,
@@ -4357,18 +4357,13 @@ describe("openclawcode extension", () => {
         ],
       },
     });
-    const readAllowFromStore = fixture.runtime.channel.pairing.readAllowFromStore as unknown as ReturnType<
-      typeof vi.fn
-    >;
-    const upsertPairingRequest = fixture.runtime.channel.pairing.upsertPairingRequest as unknown as ReturnType<
-      typeof vi.fn
-    >;
-    readAllowFromStore.mockResolvedValue([]);
-    upsertPairingRequest.mockResolvedValue({
-      code: "PAIR-1234",
-      created: true,
+    mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+      pid: 654,
+      logPath: "/tmp/proactive-gh-auth.log",
+      userCode: "WXYZ-1234",
+      verificationUri: "https://github.com/login/device",
+      startedAt: "2026-03-21T09:00:00.000Z",
     });
-
     try {
       await fixture.service?.start({
         config: fixture.runtime.config.loadConfig(),
@@ -4376,11 +4371,8 @@ describe("openclawcode extension", () => {
         logger: { info() {}, warn() {}, error() {} },
       });
 
-      expect(mocked.startOnboardingGitHubCliDeviceLogin).not.toHaveBeenCalled();
-      expect(upsertPairingRequest).toHaveBeenCalledWith({
-        channel: "feishu",
-        accountId: "default",
-        id: "setup-chat",
+      expect(mocked.startOnboardingGitHubCliDeviceLogin).toHaveBeenCalledWith({
+        stateDir: fixture.stateDir,
       });
       expect(mocked.runMessageAction).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -4389,7 +4381,7 @@ describe("openclawcode extension", () => {
             channel: "feishu",
             to: "user:setup-chat",
             message: expect.stringContaining(
-              "pairing must be approved first",
+              "OpenClaw Code setup is waiting for GitHub approval.",
             ),
           }),
         }),
@@ -4402,14 +4394,19 @@ describe("openclawcode extension", () => {
       ).toMatchObject({
         projectMode: "existing-repo",
         repoKey: "zhyongrui/openclawcode",
-        stage: "awaiting-chat-pairing",
+        stage: "awaiting-github-device-auth",
+        githubDeviceAuth: {
+          pid: 654,
+          userCode: "WXYZ-1234",
+          verificationUri: "https://github.com/login/device",
+        },
       });
     } finally {
       await cleanupPluginFixture(fixture);
     }
   });
 
-  it("automatically continues from pairing approval into proactive GitHub auth", async () => {
+  it("automatically continues from a saved awaiting-chat-pairing session into proactive GitHub auth", async () => {
     const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-repo-"));
     const fixture = await registerPluginFixture({
       pollIntervalMs: 10,
@@ -4441,16 +4438,21 @@ describe("openclawcode extension", () => {
         ],
       },
     });
-    const readAllowFromStore = fixture.runtime.channel.pairing.readAllowFromStore as unknown as ReturnType<
-      typeof vi.fn
-    >;
-    readAllowFromStore.mockResolvedValueOnce([]).mockResolvedValue(["setup-chat"]);
     mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
       pid: 654,
       logPath: "/tmp/proactive-gh-auth.log",
       userCode: "WXYZ-1234",
       verificationUri: "https://github.com/login/device",
       startedAt: "2026-03-21T09:00:00.000Z",
+    });
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      projectMode: "existing-repo",
+      repoKey: "zhyongrui/openclawcode",
+      stage: "awaiting-chat-pairing",
+      createdAt: "2026-03-21T08:59:00.000Z",
+      updatedAt: "2026-03-21T08:59:00.000Z",
     });
 
     try {
@@ -4467,13 +4469,6 @@ describe("openclawcode extension", () => {
       });
 
       await waitForAssertion(async () => {
-        expect(
-          mocked.runMessageAction.mock.calls.some((call) =>
-            String(call[0]?.params?.message ?? "").includes(
-              "pairing must be approved first",
-            ),
-          ),
-        ).toBe(true);
         expect(
           mocked.runMessageAction.mock.calls.some((call) =>
             String(call[0]?.params?.message ?? "").includes(

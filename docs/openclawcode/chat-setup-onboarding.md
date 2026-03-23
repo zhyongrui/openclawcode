@@ -374,12 +374,13 @@ control-plane steps.
 - the same runner loop now keeps re-checking configured targets after startup,
   so newly written operator config does not require a gateway restart before
   proactive setup can begin
-- if a target chat is still gated by DM pairing, the service now creates a
-  setup session in `awaiting-chat-pairing`, pushes the pairing code into that
-  chat, and waits for approval instead of silently assuming setup can run
-- after pairing is approved, the same background service loop automatically
-  starts one host-side `gh auth login --web` flow and pushes the verification
-  URL plus device code to that chat
+- once a concrete target chat is configured, the service now starts one
+  host-side `gh auth login --web` flow and pushes the verification URL plus
+  device code to that chat immediately, even when the channel's DM policy is
+  still `pairing`
+- existing saved sessions that were already left in `awaiting-chat-pairing`
+  are also promoted forward automatically on the next background loop instead
+  of waiting for pairing approval forever
 - when exactly one repo is mapped to that chat target, the saved setup session
   also pins that repo up front so setup can continue into repo validation and
   bootstrap automatically after auth completes

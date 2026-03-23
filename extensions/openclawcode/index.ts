@@ -1589,15 +1589,7 @@ async function proactivelyStartChatSetupSessions(
 
   const githubAuthTargets: ProactiveGitHubAuthTarget[] = [];
   for (const target of targets) {
-    if (await isProactiveSetupTargetPaired({ api, target })) {
-      githubAuthTargets.push(target);
-      continue;
-    }
-    await proactivelyRequestChatPairing({
-      api,
-      store,
-      target,
-    });
+    githubAuthTargets.push(target);
   }
 
   await proactivelyStartGitHubAuthForTargets(api, store, githubAuthTargets);
@@ -1616,9 +1608,6 @@ async function processPendingSetupSessions(
         projectMode: session.projectMode,
         repoKey: session.repoKey,
       } satisfies ProactiveChatSetupTarget;
-      if (!(await isProactiveSetupTargetPaired({ api, target }))) {
-        continue;
-      }
       if (resolveOnboardingGitHubToken()) {
         const message = await continueChatSetupSession({
           store,
