@@ -387,6 +387,106 @@ OpenClaw plugins already support plugin-owned HTTP routes through:
 So the Feishu callback endpoint should be implemented as a plugin route rather
 than as a standalone side server.
 
+## What To Borrow From The Weixin Plugin
+
+The existing Weixin plugin is useful as a product-pattern reference, even
+though it solves a different problem.
+
+### What the Weixin plugin actually does
+
+The Weixin plugin installed through:
+
+- `npx -y @tencent-weixin/openclaw-weixin-cli@latest install`
+
+is primarily a **channel login** flow, not an operator-DM binding flow.
+
+Its QR flow does this:
+
+1. request a login QR from the Weixin backend
+2. render the QR plus a URL fallback in the terminal
+3. poll login status until it becomes scanned, confirmed, expired, or failed
+4. persist the returned bot session once confirmation finishes
+
+That means the Weixin flow is about "log the channel in", while the Feishu flow
+here is about "learn which human operator should receive setup messages".
+
+So the network protocol is not reusable as-is, but several UX and control-flow
+ideas are reusable.
+
+### Product ideas worth copying
+
+Feishu QR binding should borrow these ideas from the Weixin flow:
+
+1. **Explicit state machine**
+   - show clear states such as `waiting for scan`, `waiting for approval`,
+     `binding complete`, `expired`, `retry required`
+   - avoid the current silent "setup looked complete but nothing happened"
+     feeling
+2. **QR plus plain-link fallback**
+   - always show both a scannable QR and a copyable link
+   - if terminal QR wrapping is poor, the user still has a reliable fallback
+3. **Timeout / expiry handling**
+   - binding sessions should expire clearly and give the exact retry command or
+     button
+   - the UI should not leave the operator guessing whether the QR is still
+     valid
+4. **Background continuation**
+   - once the bind finishes, OpenClaw should continue automatically into the
+     next setup step without asking the operator to re-enter a command
+5. **Install-time recovery copy**
+   - if binding cannot finish immediately, print the exact follow-up action,
+     such as reopening the link, rescanning, or using Quick actions fallback
+
+### Engineering ideas worth copying
+
+Feishu QR binding should also borrow these structural patterns:
+
+1. **Split start from wait**
+   - one function creates a bind session and URL
+   - a separate watcher / continuation path observes completion and triggers
+     the next action
+2. **Short-lived session object**
+   - keep an explicit session record with status, expiry, account id, and final
+     operator identity
+   - this makes restart recovery and support debugging easier
+3. **Single success handoff**
+   - once bind succeeds, run one durable completion path that:
+     - stores `user:<open_id>`
+     - optionally writes pairing allow-from
+     - pushes the first proactive setup message
+4. **Robust retry semantics**
+   - retries should create or refresh a binding session cleanly instead of
+     leaving several ambiguous half-finished states behind
+
+### What should not be copied directly
+
+These parts of the Weixin plugin are not a direct fit for Feishu:
+
+1. **Polling-based backend login protocol**
+   - Weixin polls QR status from a proprietary backend
+   - Feishu binding should keep using OAuth callback + signed claim URLs
+2. **Session-login mental model**
+   - Weixin QR confirms a channel account session
+   - Feishu binding needs to identify the operator's personal DM target
+3. **Terminal-only completion assumption**
+   - Feishu bind often completes on a phone browser
+   - the final success signal must survive that device hop and continue on the
+     host automatically
+
+### Recommended Feishu adaptation
+
+The best Feishu design is therefore:
+
+1. create a signed operator-binding session
+2. render QR plus plain URL
+3. move the session through clear user-visible states
+4. complete identity binding through Feishu OAuth callback
+5. persist `user:<open_id>` and pairing trust updates
+6. proactively send the first OpenClaw Code setup message in that DM
+
+This keeps the Feishu implementation aligned with Feishu's identity model while
+still borrowing the strongest QR-onboarding lessons from the Weixin plugin.
+
 ## Testing Plan
 
 ### Unit tests
