@@ -376,6 +376,16 @@ Example:
 
 This is much more actionable than a generic "setup incomplete" message.
 
+Related setup behavior:
+
+- `/occode-blueprint` during setup should show the current setup draft or
+  detected baseline summary directly, not only generic stage guidance
+
+Related setup behavior:
+
+- `/occode-blueprint` during setup should show the current setup draft or
+  detected baseline summary directly, not only generic stage guidance
+
 ## Why This Matters
 
 Without this design, the system is tempted to treat all post-auth repo flows as

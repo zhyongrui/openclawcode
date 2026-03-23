@@ -509,6 +509,38 @@ function buildChatSetupDraftingBlueprintMessage(params: {
     .join("\n");
 }
 
+function buildChatSetupBlueprintDraftSummaryMessage(params: {
+  session: ChatSetupSession;
+}): string {
+  const missing = collectChatSetupDraftMissingSections(params.session);
+  const filledSections = collectChatSetupDraftFilledSectionNames(params.session);
+  const goalSummary = buildChatSetupDraftGoalSummary(params.session);
+  const sourcePaths = params.session.blueprintDraft?.sourcePaths ?? [];
+  const suggestions = params.session.blueprintDraft?.repoNameSuggestions ?? [];
+  return [
+    "OpenClaw Code setup blueprint summary for this chat.",
+    ...buildChatSetupStateLayerLines(params.session),
+    `Draft status: ${params.session.blueprintDraft?.status ?? "draft"}`,
+    goalSummary ? `Draft goal: ${goalSummary}` : undefined,
+    sourcePaths.length > 0 ? `Draft seeded from: ${sourcePaths.join(", ")}` : undefined,
+    filledSections.length > 0 ? `Filled sections: ${filledSections.join(", ")}` : undefined,
+    `Missing before agreement: ${missing.length}`,
+    ...missing.slice(0, 5).map((section) => `- ${section}`),
+    suggestions.length > 0 ? `Repo-name suggestions: ${suggestions.join(", ")}` : undefined,
+    "Next actions:",
+    params.session.stage === "awaiting-repo-choice"
+      ? suggestions[0]
+        ? `- /occode-setup new ${suggestions[0]} to pick the suggested repo name.`
+        : "- /occode-setup new <repo-name> to choose the repo name."
+      : "- /occode-goal or /occode-blueprint-edit to keep refining the draft.",
+    params.session.stage === "awaiting-repo-choice"
+      ? "- /occode-blueprint-edit if the draft still needs changes before repo creation."
+      : "- /occode-blueprint-agree once the draft baseline is ready.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function buildChatSetupAwaitingRepoChoiceMessage(params: {
   session: ChatSetupSession;
 }): string {
@@ -9903,14 +9935,9 @@ export default {
           : undefined;
         if (hasSetupBlueprintDraftSession(setupSession) && !(ctx.args ?? "").trim()) {
           return {
-            text:
-              setupSession.stage === "awaiting-repo-choice"
-                ? buildChatSetupAwaitingRepoChoiceMessage({
-                    session: setupSession,
-                  })
-                : buildChatSetupDraftingBlueprintMessage({
-                    session: setupSession,
-                  }),
+            text: buildChatSetupBlueprintDraftSummaryMessage({
+              session: setupSession,
+            }),
           };
         }
         if (

@@ -4308,6 +4308,51 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("shows the current adoption draft through /occode-blueprint during setup", async () => {
+    const fixture = await registerPluginFixture();
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      projectMode: "existing-repo",
+      repoKey: "zhyongrui/iGallery",
+      stage: "repo-nonstandard-context-detected",
+      githubAuthSource: "gh-auth-token",
+      githubAuthLogin: "zhyongrui",
+      blueprintDraft: {
+        status: "draft",
+        sourcePaths: ["repo:summary", "README.md"],
+        sections: {
+          Goal: "Photo gallery for family albums",
+          Scope: "- Adopt the current gallery repo into OpenClaw Code.",
+        },
+      },
+      createdAt: "2026-03-19T02:35:00.000Z",
+      updatedAt: "2026-03-19T02:35:00.000Z",
+    });
+
+    try {
+      const result = await fixture.commands.get("occode-blueprint")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-blueprint",
+        args: "",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("OpenClaw Code setup blueprint summary for this chat.");
+      expect(result?.text).toContain("Draft goal: Photo gallery for family albums");
+      expect(result?.text).toContain("Draft seeded from: repo:summary, README.md");
+      expect(result?.text).toContain("Filled sections: Goal, Scope");
+      expect(result?.text).toContain("Missing before agreement: 3");
+      expect(result?.text).toContain(
+        "- /occode-goal or /occode-blueprint-edit to keep refining the draft.",
+      );
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("confirms an existing-project blueprint through /occode-blueprint-agree during setup", async () => {
     const fixture = await registerPluginFixture();
     await fixture.store.upsertSetupSession({
