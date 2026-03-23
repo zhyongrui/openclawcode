@@ -3917,6 +3917,75 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("seeds adoption drafts from stable repo docs when they exist", async () => {
+    const fixture = await registerPluginFixture();
+    mocked.resolveOnboardingGitHubToken.mockReturnValue({
+      token: "gho_test",
+      source: "gh-auth-token",
+    });
+    onboardingOpenClawCodeDeps.fetchRepositorySummary = vi.fn(async (_token, repoRef) => ({
+      owner: repoRef.owner,
+      repo: repoRef.repo,
+      private: true,
+      url: `https://github.com/${repoRef.owner}/${repoRef.repo}`,
+      defaultBranch: "main",
+    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/contents/docs/architecture.md")) {
+          return new Response(
+            JSON.stringify({
+              type: "file",
+              encoding: "base64",
+              content: Buffer.from(
+                "# Architecture\nFamily gallery focused on private album sharing and lightweight moderation.",
+                "utf8",
+              ).toString("base64"),
+            }),
+            { status: 200 },
+          );
+        }
+        if (url.includes("/contents/docs")) {
+          return new Response(JSON.stringify({ type: "dir" }), { status: 200 });
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    );
+
+    try {
+      const result = await fixture.commands.get("occode-setup")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-setup existing zhyongrui/iGallery",
+        args: "existing zhyongrui/iGallery",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("State: repo-nonstandard-context-detected");
+      expect(result?.text).toContain("Useful repo context found: docs");
+      expect(result?.text).toContain("Draft seeded from: repo:summary, docs, docs/architecture.md");
+      expect(
+        await fixture.store.getSetupSession({
+          notifyChannel: "feishu",
+          notifyTarget: "user:setup-chat",
+        }),
+      ).toMatchObject({
+        blueprintDraft: {
+          sourcePaths: ["repo:summary", "docs", "docs/architecture.md"],
+          sections: {
+            Goal:
+              "Family gallery focused on private album sharing and lightweight moderation.",
+          },
+        },
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("keeps new-project repo creation blocked until the blueprint is agreed", async () => {
     const fixture = await registerPluginFixture();
     mocked.resolveOnboardingGitHubToken.mockReturnValue({

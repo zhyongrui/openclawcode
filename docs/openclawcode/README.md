@@ -118,7 +118,8 @@ loop with:
       - existing repo + existing OpenClaw Code blueprint, with a resume summary
         pulled from the current `PROJECT-BLUEPRINT.md` when available
       - existing repo + missing OpenClaw Code blueprint, with a seeded draft
-        pulled from stable repo materials when available
+        pulled from stable repo materials when available, including common docs
+        like architecture or roadmap notes
       - new project + repo not created yet
     - bootstrap no longer starts just because GitHub auth is ready; blueprint
       agreement remains the gate before repo preparation and development

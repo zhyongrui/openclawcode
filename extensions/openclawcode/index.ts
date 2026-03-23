@@ -1083,22 +1083,62 @@ function extractPackageJsonDescription(packageJsonText: string | undefined): str
   }
 }
 
+const REPO_ADOPTION_DOC_CANDIDATE_PATHS = [
+  "docs/README.md",
+  "docs/architecture.md",
+  "docs/ARCHITECTURE.md",
+  "docs/product.md",
+  "docs/PRODUCT.md",
+  "docs/roadmap.md",
+  "docs/ROADMAP.md",
+  "ARCHITECTURE.md",
+  "ROADMAP.md",
+] as const;
+
+async function fetchFirstGitHubRepoDocLead(params: {
+  token: string;
+  repo: { owner: string; repo: string };
+  candidatePaths: readonly string[];
+}): Promise<{ path: string; lead: string } | undefined> {
+  for (const contentPath of params.candidatePaths) {
+    const content = await fetchGitHubRepoTextFileContent({
+      token: params.token,
+      repo: params.repo,
+      contentPath,
+    });
+    const lead = extractReadmeLead(content);
+    if (lead) {
+      return {
+        path: contentPath,
+        lead,
+      };
+    }
+  }
+  return undefined;
+}
+
 function buildExistingRepoBlueprintDraft(params: {
   repoKey: string;
   summary: GitHubRepositorySummary;
   detectedPaths: string[];
   readmeLead?: string;
+  docLead?: string;
+  docLeadPath?: string;
   packageDescription?: string;
   currentDraft?: ChatSetupSession["blueprintDraft"];
 }): NonNullable<ChatSetupSession["blueprintDraft"]> {
   const goalSource =
     trimBlueprintSeedText(params.summary.description, 160) ??
+    params.docLead ??
     params.packageDescription ??
     params.readmeLead ??
     `Align the existing ${params.repoKey} repository under an agreed OpenClaw Code blueprint.`;
   const scopeHints = [
     params.summary.defaultBranch
       ? `Keep the current default branch ${params.summary.defaultBranch} as the baseline.`
+      : undefined,
+    params.docLead
+      ? `Treat ${params.docLeadPath ?? "repo docs"} as baseline intent context: ${params.docLead}`
       : undefined,
     params.readmeLead
       ? `Treat the existing repo narrative as baseline context: ${params.readmeLead}`
@@ -1139,6 +1179,7 @@ function buildExistingRepoBlueprintDraft(params: {
       new Set([
         "repo:summary",
         ...params.detectedPaths,
+        params.docLeadPath,
         params.packageDescription ? "package.json" : undefined,
         params.readmeLead ? "README.md" : undefined,
         ...(params.currentDraft?.sourcePaths ?? []),
@@ -1543,6 +1584,11 @@ async function completeChatSetupProjectSelection(params: {
       };
     }
     if (classification.kind === "existing-repo-nonstandard-context") {
+      const docLead = await fetchFirstGitHubRepoDocLead({
+        token: token.token,
+        repo,
+        candidatePaths: REPO_ADOPTION_DOC_CANDIDATE_PATHS,
+      });
       const readmeLead = extractReadmeLead(
         classification.detectedPaths.includes("README.md")
           ? await fetchGitHubRepoTextFileContent({
@@ -1569,6 +1615,8 @@ async function completeChatSetupProjectSelection(params: {
           summary,
           detectedPaths: classification.detectedPaths,
           readmeLead,
+          docLead: docLead?.lead,
+          docLeadPath: docLead?.path,
           packageDescription,
           currentDraft: updated.blueprintDraft,
         }),

@@ -109,7 +109,8 @@ Desired system behavior:
 2. detect that no OpenClaw Code blueprint exists yet
 3. scan the repo for existing intent and context materials
 4. auto-seed a first blueprint draft from stable repo materials such as repo
-   description, `README.md`, and package metadata
+   description, `README.md`, package metadata, and stable docs like
+   architecture or roadmap notes when available
 5. tell the operator that development should not begin yet
 6. let the operator edit, clarify, and explicitly agree to the blueprint
 7. only then continue into bootstrap / execution readiness
