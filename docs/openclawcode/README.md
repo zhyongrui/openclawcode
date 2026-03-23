@@ -34,23 +34,24 @@ Recommended reading order:
 28. `chat-native-autonomous-engineering.md`
 29. `development-plan-chat-native-autonomy.md`
 30. `chat-setup-onboarding.md`
-31. `fresh-host-readiness-audit.md`
-32. `upgrade-and-rotation.md`
-33. `release-runbook.md`
-34. `operator-proof-routine.md`
-35. `troubleshooting.md`
-36. `proof-matrix.md`
-37. `sample-operator-config.md`
-38. `sample-automation-integration.md`
-39. `chat-intake-styles.md`
-40. `security-and-retention.md`
-41. `sync-conflict-history.md`
-42. `upstream-sync-policy.md`
-43. `operator-setup.md`
-44. `sync-promotion-runbook.md`
-45. `mvp-runbook.md`
-46. `webhook-operations.md`
-47. `third-party-skill-evaluation.md`
+31. `feishu-qr-operator-binding-design.md`
+32. `fresh-host-readiness-audit.md`
+33. `upgrade-and-rotation.md`
+34. `release-runbook.md`
+35. `operator-proof-routine.md`
+36. `troubleshooting.md`
+37. `proof-matrix.md`
+38. `sample-operator-config.md`
+39. `sample-automation-integration.md`
+40. `chat-intake-styles.md`
+41. `security-and-retention.md`
+42. `sync-conflict-history.md`
+43. `upstream-sync-policy.md`
+44. `operator-setup.md`
+45. `sync-promotion-runbook.md`
+46. `mvp-runbook.md`
+47. `webhook-operations.md`
+48. `third-party-skill-evaluation.md`
 
 Development logs live in `dev-log/`.
 
@@ -62,6 +63,10 @@ login plus one repo choice, see `single-login-bootstrap-proposal.md`.
 
 For the chat-native version of the first setup step, see
 `chat-setup-onboarding.md`.
+
+For the Feishu operator-binding design that compares QR-based binding against
+the current Quick actions fallback, see
+`feishu-qr-operator-binding-design.md`.
 
 ## Current Status
 
