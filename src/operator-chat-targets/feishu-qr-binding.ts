@@ -175,9 +175,10 @@ export function buildFeishuQrBindingClaimUrl(params: {
   baseHttpUrl: string;
   session: Pick<FeishuQrBindingSession, "bindingId" | "claimSecret">;
 }): string {
-  const normalizedBase = params.baseHttpUrl.trim().replace(/\/+$/, "");
+  const normalizedBase = `${params.baseHttpUrl.trim().replace(/\/+$/, "")}/`;
   const url = new URL(
-    `${normalizedBase}/openclaw/bind/feishu/${encodeURIComponent(params.session.bindingId)}`,
+    `/openclaw/bind/feishu/${encodeURIComponent(params.session.bindingId)}`,
+    normalizedBase,
   );
   url.searchParams.set(
     "sig",

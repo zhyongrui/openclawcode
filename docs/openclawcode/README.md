@@ -154,6 +154,11 @@ loop with:
         redirects into the official Feishu `authen` OAuth flow, exchanges the
         returned code for `open_id`, and then continues the same proactive DM
         path automatically
+      - setup now distinguishes callback reachability:
+        - non-loopback callback URLs show the real QR path
+        - loopback-only setups stop pretending mobile scan will work and instead
+          guide the operator to open the bind link in the same machine browser
+          or fall back to Feishu Quick actions
       - if that signed QR hit or OAuth callback arrives before the runner is
         fully ready, the binding session now remembers the pending Feishu
         identity and the background loop completes the first proactive DM

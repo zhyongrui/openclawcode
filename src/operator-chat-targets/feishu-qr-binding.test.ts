@@ -56,6 +56,20 @@ describe("feishu qr binding store", () => {
     expect(url).toContain("sig=");
   });
 
+  it("builds a signed claim url without duplicating a base path", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-url-basepath-"));
+    const { session } = await createFeishuQrBindingSession({
+      stateDir,
+    });
+    const url = buildFeishuQrBindingClaimUrl({
+      baseHttpUrl: "https://gateway.example.com/openclaw/",
+      session,
+    });
+
+    expect(url).toContain(`https://gateway.example.com/openclaw/bind/feishu/${session.bindingId}`);
+    expect(url).not.toContain("/openclaw/openclaw/");
+  });
+
   it("validates signed claim urls and rejects tampering", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-validate-"));
     const { session } = await createFeishuQrBindingSession({

@@ -67,6 +67,20 @@ function renderQrAscii(data: string): Promise<string> {
   });
 }
 
+type FeishuOperatorBindMode = "qr-public-callback" | "local-browser-only";
+
+function isLoopbackLikeHostname(hostname: string): boolean {
+  const normalized = hostname.trim().replace(/^\[(.*)\]$/, "$1").toLowerCase();
+  return (
+    normalized === "" ||
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1" ||
+    normalized === "0.0.0.0" ||
+    normalized === "::"
+  );
+}
+
 function resolveFeishuQrBindingBaseHttpUrl(cfg: OpenClawConfig): string {
   const remoteUrl = cfg.gateway?.remote?.url?.trim();
   if (cfg.gateway?.mode === "remote" && remoteUrl) {
@@ -82,6 +96,15 @@ function resolveFeishuQrBindingBaseHttpUrl(cfg: OpenClawConfig): string {
     port: resolveGatewayPort(cfg),
     customBindHost: cfg.gateway?.customBindHost,
   }).httpUrl.replace(/\/+$/, "");
+}
+
+function resolveFeishuOperatorBindMode(baseHttpUrl: string): FeishuOperatorBindMode {
+  try {
+    const parsed = new URL(baseHttpUrl);
+    return isLoopbackLikeHostname(parsed.hostname) ? "local-browser-only" : "qr-public-callback";
+  } catch {
+    return "local-browser-only";
+  }
 }
 
 async function noteFeishuQrBinding(params: {
@@ -105,14 +128,30 @@ async function noteFeishuQrBinding(params: {
     baseHttpUrl,
     session,
   });
-  const asciiQr = await renderQrAscii(claimUrl);
+  const bindMode = resolveFeishuOperatorBindMode(baseHttpUrl);
+  if (bindMode === "qr-public-callback") {
+    const asciiQr = await renderQrAscii(claimUrl);
+    await params.prompter.note(
+      [
+        "推荐方式: 用飞书扫码绑定",
+        asciiQr.trimEnd(),
+        `绑定链接: ${claimUrl}`,
+        "也可以直接在浏览器打开上面的链接完成绑定。",
+        "回退方式: 在飞书里打开机器人并点击 Quick actions。",
+        "OpenClaw 正在完成启动，绑定会在可用后自动继续。",
+      ].join("\n"),
+      "绑定飞书操作员",
+    );
+    return;
+  }
   await params.prompter.note(
     [
-      asciiQr.trimEnd(),
-      `绑定链接: ${claimUrl}`,
-      "OpenClaw 正在完成启动，绑定会在可用后自动继续",
+      "当前绑定链接是本机地址，手机扫码不可用。",
+      `请在这台机器的浏览器中打开: ${claimUrl}`,
+      "如果你更方便直接在飞书里继续，也可以打开机器人并点击 Quick actions。",
+      "OpenClaw 正在完成启动，绑定会在可用后自动继续。",
     ].join("\n"),
-    "用飞书扫码绑定",
+    "绑定飞书操作员",
   );
 }
 
