@@ -31,7 +31,7 @@ function hasReachedCodeExecution(run: WorkflowRun): boolean {
     run.buildResult != null ||
     run.draftPullRequest != null ||
     run.verificationReport != null ||
-    run.stage === "opening-pull-request" ||
+    run.stage === "draft-pr-opened" ||
     run.stage === "verifying" ||
     run.stage === "ready-for-human-review" ||
     run.stage === "changes-requested" ||
@@ -45,11 +45,12 @@ function resolveModeSpecificContextsPresent(run: WorkflowRun): boolean {
     return true;
   }
   const roleAdapters = (run.roleRouting?.routes ?? [])
-    .filter((route) =>
-      route.roleId === "planner" ||
-      route.roleId === "coder" ||
-      route.roleId === "reviewer" ||
-      route.roleId === "verifier",
+    .filter(
+      (route) =>
+        route.roleId === "planner" ||
+        route.roleId === "coder" ||
+        route.roleId === "reviewer" ||
+        route.roleId === "verifier",
     )
     .map((route) => route.adapterId)
     .filter((adapterId) => adapterId !== "openclaw-default");

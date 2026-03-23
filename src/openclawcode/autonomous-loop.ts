@@ -1,16 +1,14 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { RepoRef } from "./github/index.js";
-import {
-  writeProjectIssueMaterializationArtifact,
-} from "./issue-materialization.js";
+import { writeProjectIssueMaterializationArtifact } from "./issue-materialization.js";
 import {
   parseRepoRefFromRepoKey,
   resolveChatNextSuggestedCommand,
 } from "./next-suggested-command.js";
+import { readProjectOperatorProgram } from "./operator-program.js";
 import type { OpenClawCodeOperatorStatusSnapshot } from "./operator-status.js";
 import { buildOperatorProgramSummary, writeProjectProgressArtifact } from "./project-progress.js";
-import { readProjectOperatorProgram } from "./operator-program.js";
 import type { ProjectProgressOperatorProgramSummary } from "./project-progress.js";
 import type { ProjectRoleRoute } from "./role-routing.js";
 
@@ -18,12 +16,7 @@ export const PROJECT_AUTONOMOUS_LOOP_SCHEMA_VERSION = 1;
 
 export interface ProjectAutonomousLoopIteration {
   iteration: number;
-  status:
-    | "disabled"
-    | "blocked"
-    | "missing-repo"
-    | "materialized-only"
-    | "materialized-and-queued";
+  status: "disabled" | "blocked" | "missing-repo" | "materialized-only" | "materialized-and-queued";
   nextWorkDecision: string;
   selectedWorkItemId: string | null;
   selectedIssueNumber: number | null;
@@ -47,12 +40,7 @@ export interface ProjectAutonomousLoopArtifact {
   repoKey: string | null;
   enabled: boolean;
   mode: "once" | "repeat" | "off" | "status";
-  status:
-    | "disabled"
-    | "blocked"
-    | "missing-repo"
-    | "materialized-only"
-    | "materialized-and-queued";
+  status: "disabled" | "blocked" | "missing-repo" | "materialized-only" | "materialized-and-queued";
   requestedIterationCount: number;
   completedIterationCount: number;
   iterations: ProjectAutonomousLoopIteration[];
@@ -117,8 +105,10 @@ function parseOperatorProgramSummary(
     nextActionCode: parsed.operatorProgram?.nextActionCode ?? null,
     nextActionSummary: parsed.operatorProgram?.nextActionSummary ?? null,
     linkedBlueprintPath: parsed.operatorProgram?.linkedBlueprintPath ?? "PROJECT-BLUEPRINT.md",
-    linkedWorkItemsPath: parsed.operatorProgram?.linkedWorkItemsPath ?? ".openclawcode/work-items.json",
-    linkedStageGatesPath: parsed.operatorProgram?.linkedStageGatesPath ?? ".openclawcode/stage-gates.json",
+    linkedWorkItemsPath:
+      parsed.operatorProgram?.linkedWorkItemsPath ?? ".openclawcode/work-items.json",
+    linkedStageGatesPath:
+      parsed.operatorProgram?.linkedStageGatesPath ?? ".openclawcode/stage-gates.json",
   };
 }
 
@@ -269,7 +259,7 @@ export async function readProjectAutonomousLoopArtifact(
       }),
     selectedWorkItemId: parsed.selectedWorkItemId ?? null,
     selectedWorkItemExecutionMode: parsed.selectedWorkItemExecutionMode ?? null,
-    roleRoutes: Array.isArray(parsed.roleRoutes) ? (parsed.roleRoutes as ProjectRoleRoute[]) : [],
+    roleRoutes: Array.isArray(parsed.roleRoutes) ? parsed.roleRoutes : [],
     roleRouteSummary: Array.isArray(parsed.roleRouteSummary) ? parsed.roleRouteSummary : [],
     selectedIssueNumber: parsed.selectedIssueNumber ?? null,
     selectedIssueUrl: parsed.selectedIssueUrl ?? null,
@@ -313,7 +303,8 @@ async function runProjectAutonomousLoopIteration(params: {
 
   if (!params.repo) {
     status = "missing-repo";
-    stopReason = "Resolve the GitHub owner/repo before autonomous issue materialization can continue.";
+    stopReason =
+      "Resolve the GitHub owner/repo before autonomous issue materialization can continue.";
   } else if (providerPauseActive) {
     stopReason = "Provider pause is active.";
     nextSuggestedCommand = `openclaw code project-progress-show --repo-root ${repoRoot}`;
@@ -357,8 +348,7 @@ async function runProjectAutonomousLoopIteration(params: {
       status = "materialized-only";
       message = "Materialized the next issue.";
       if (issueMaterialization.selectedIssueNumber != null) {
-        nextSuggestedCommand =
-          `openclaw code run --issue ${issueMaterialization.selectedIssueNumber} --repo-root ${repoRoot}`;
+        nextSuggestedCommand = `openclaw code run --issue ${issueMaterialization.selectedIssueNumber} --repo-root ${repoRoot}`;
       }
     }
     nextSuggestedChatCommand = resolveChatNextSuggestedCommand({
@@ -469,7 +459,7 @@ function shouldContinueAutonomousLoop(params: {
   if (params.iteration >= params.maxIterations) {
     return {
       continue: false,
-      stopReason: params.artifact.stopReason,
+      stopReason: params.artifact.stopReason ?? undefined,
     };
   }
   if (
@@ -479,7 +469,7 @@ function shouldContinueAutonomousLoop(params: {
   ) {
     return {
       continue: false,
-      stopReason: params.artifact.stopReason,
+      stopReason: params.artifact.stopReason ?? undefined,
     };
   }
   if (params.artifact.status === "materialized-only") {
@@ -488,7 +478,7 @@ function shouldContinueAutonomousLoop(params: {
       stopReason:
         params.artifact.queuedIssueKey == null
           ? "Autonomous loop stopped after materialization because no queue handoff is configured."
-          : params.artifact.stopReason,
+          : (params.artifact.stopReason ?? undefined),
     };
   }
   return { continue: true };

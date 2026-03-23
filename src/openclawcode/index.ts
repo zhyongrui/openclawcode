@@ -18,7 +18,21 @@ export * from "./promotion-artifacts.js";
 export * from "./quality-gate.js";
 export * from "./role-routing.js";
 export * from "./roles/index.js";
-export * from "./runtime/index.js";
+export {
+  AgentRunFailureError,
+  OpenClawAgentRunner,
+  formatAgentRunFailureDiagnostics,
+  type AgentRunFailureDiagnostics,
+  type AgentRunRequest,
+  type AgentRunResult,
+  type AgentRunner,
+} from "./runtime/agent-runner.js";
+export {
+  HostShellRunner,
+  type ShellRunRequest,
+  type ShellRunResult,
+  type ShellRunner,
+} from "./runtime/shell-runner.js";
 export * from "./runtime-steering.js";
 export * from "./stage-gates.js";
 export * from "./validation-issues.js";

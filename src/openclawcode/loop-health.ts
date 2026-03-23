@@ -1,18 +1,4 @@
-import type { WorkflowRun } from "./contracts/index.js";
-
-export type WorkflowLoopHealthStatus = "healthy" | "warn" | "blocked" | "pending";
-
-export interface WorkflowLoopHealthSummary {
-  status: WorkflowLoopHealthStatus;
-  summary: string;
-  blockingReasons: string[];
-  warningReasons: string[];
-  failureSummary: string | null;
-  promptFootprintChars: number | null;
-  bootstrapWarningShown: boolean;
-  injectedWorkspaceFileCount: number;
-  lastCallUsageTotal: number | null;
-}
+import type { WorkflowLoopHealthSummary, WorkflowRun } from "./contracts/index.js";
 
 const HIGH_PROMPT_FOOTPRINT_CHARS = 12_000;
 
@@ -117,7 +103,7 @@ export function deriveWorkflowLoopHealth(run: WorkflowRun): WorkflowLoopHealthSu
     return summary;
   }
 
-  if (!run.verificationReport && run.stage !== "merged") {
+  if (!run.verificationReport) {
     summary.summary = "verification has not finished yet";
     return summary;
   }

@@ -1,18 +1,18 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { ProjectStageGateId } from "./stage-gates.js";
+import { GitHubRestClient, type GitHubIssueClient } from "./github/index.js";
 import {
   readProjectNextWorkSelection,
   writeProjectNextWorkSelection,
   type ProjectNextWorkDecisionId,
 } from "./next-work.js";
+import type { ProjectStageGateId } from "./stage-gates.js";
 import {
   readProjectWorkItemInventory,
   type ProjectWorkItem,
   type ProjectWorkItemExecutionMode,
 } from "./work-items.js";
-import { GitHubRestClient, type GitHubIssueClient } from "./github/index.js";
 
 export const PROJECT_ISSUE_MATERIALIZATION_SCHEMA_VERSION = 1;
 
@@ -143,7 +143,9 @@ function readMarker(body: string | undefined, marker: string): string | null {
   return match?.[1]?.trim() ?? null;
 }
 
-function sortEntries(entries: ProjectIssueMaterializationEntry[]): ProjectIssueMaterializationEntry[] {
+function sortEntries(
+  entries: ProjectIssueMaterializationEntry[],
+): ProjectIssueMaterializationEntry[] {
   return [...entries].toSorted((left, right) => {
     if (left.stale !== right.stale) {
       return left.stale ? 1 : -1;
@@ -296,7 +298,8 @@ export async function readProjectIssueMaterializationArtifact(
       parsed.outcome === "reused"
         ? parsed.outcome
         : empty.outcome,
-    blockerCount: typeof parsed.blockerCount === "number" ? parsed.blockerCount : empty.blockerCount,
+    blockerCount:
+      typeof parsed.blockerCount === "number" ? parsed.blockerCount : empty.blockerCount,
     blockers: Array.isArray(parsed.blockers)
       ? parsed.blockers.filter((value): value is string => typeof value === "string")
       : empty.blockers,
@@ -306,7 +309,11 @@ export async function readProjectIssueMaterializationArtifact(
       ? parsed.suggestions.filter((value): value is string => typeof value === "string")
       : empty.suggestions,
     entries: Array.isArray(parsed.entries)
-      ? sortEntries(parsed.entries.map((entry) => normalizeEntry(entry)).filter(Boolean))
+      ? sortEntries(
+          parsed.entries
+            .map((entry) => normalizeEntry(entry))
+            .filter((entry): entry is ProjectIssueMaterializationEntry => entry != null),
+        )
       : empty.entries,
   };
 }
@@ -402,7 +409,7 @@ export async function writeProjectIssueMaterializationArtifact(params: {
     entries: sortEntries(
       previous.entries.map((entry) =>
         entry.workItemId === selection.selectedWorkItem?.id &&
-          entry.blueprintRevisionId !== selection.blueprintRevisionId
+        entry.blueprintRevisionId !== selection.blueprintRevisionId
           ? { ...entry, stale: true }
           : entry,
       ),
@@ -441,18 +448,20 @@ export async function writeProjectIssueMaterializationArtifact(params: {
   });
   const materialized = reused
     ? reused
-    : await github.createIssue({
-        owner: params.owner,
-        repo: params.repo,
-        title: workItem.githubIssueDraft.title,
-        body: workItem.githubIssueDraft.body,
-      }).then((issue) => ({
-        issueNumber: issue.number,
-        issueUrl: issue.url,
-        issueTitle: issue.title,
-        issueState: "open" as const,
-        reusedExisting: false as const,
-      }));
+    : await github
+        .createIssue({
+          owner: params.owner,
+          repo: params.repo,
+          title: workItem.githubIssueDraft.title,
+          body: workItem.githubIssueDraft.body,
+        })
+        .then((issue) => ({
+          issueNumber: issue.number,
+          issueUrl: issue.url,
+          issueTitle: issue.title,
+          issueState: "open" as const,
+          reusedExisting: false as const,
+        }));
 
   const nextEntry: ProjectIssueMaterializationEntry = {
     workItemId: workItem.id,

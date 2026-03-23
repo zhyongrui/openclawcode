@@ -558,9 +558,10 @@ export class AgentBackedBuilder implements Builder {
     if (!run.workspace) {
       throw new Error("Workflow workspace is required before build execution.");
     }
+    const workspace = run.workspace;
 
     const prompt = buildBuilderPrompt(run, this.options.testCommands);
-    await writePromptArtifact(run.workspace.worktreePath, "builder-prompt.md", prompt);
+    await writePromptArtifact(workspace.worktreePath, "builder-prompt.md", prompt);
 
     const result = await runAgentWithTransientRetry({
       attempts: this.options.transientRetryAttempts,
@@ -568,7 +569,7 @@ export class AgentBackedBuilder implements Builder {
       run: async () =>
         await this.options.agentRunner.run({
           prompt,
-          workspaceDir: run.workspace.worktreePath,
+          workspaceDir: workspace.worktreePath,
           agentId: this.previewRuntimeRouting(run).appliedAgentId ?? undefined,
           timeoutSeconds: this.options.timeoutSeconds,
         }),
@@ -576,7 +577,7 @@ export class AgentBackedBuilder implements Builder {
 
     const changedFiles = await this.options.collectChangedFiles(run);
     const unexpectedlyEmptyTrackedFiles = await findUnexpectedlyEmptyTrackedFiles(
-      run.workspace.worktreePath,
+      workspace.worktreePath,
       this.options.shellRunner,
       changedFiles,
     );
@@ -589,7 +590,7 @@ export class AgentBackedBuilder implements Builder {
       throw new Error(scopeCheck.summary);
     }
     const changedLineCount = await readChangedLineCount(
-      run.workspace.worktreePath,
+      workspace.worktreePath,
       this.options.shellRunner,
       changedFiles,
     );
@@ -601,7 +602,7 @@ export class AgentBackedBuilder implements Builder {
     const testResults: string[] = [];
     for (const command of this.options.testCommands) {
       const outcome = await this.options.shellRunner.run({
-        cwd: run.workspace.worktreePath,
+        cwd: workspace.worktreePath,
         command,
       });
       if (outcome.code !== 0) {
@@ -616,7 +617,7 @@ export class AgentBackedBuilder implements Builder {
 
     if (this.options.autoCommit !== false) {
       await autoCommitChanges(
-        run.workspace.worktreePath,
+        workspace.worktreePath,
         this.options.shellRunner,
         `feat: implement issue #${run.issue.number}`,
         changedFiles,
@@ -624,9 +625,9 @@ export class AgentBackedBuilder implements Builder {
     }
 
     return {
-      branchName: run.workspace.branchName,
+      branchName: workspace.branchName,
       summary:
-        result.text || `Implemented issue #${run.issue.number} in ${run.workspace.worktreePath}.`,
+        result.text || `Implemented issue #${run.issue.number} in ${workspace.worktreePath}.`,
       changedFiles,
       policySignals,
       issueClassification: scopeCheck.classification,
@@ -638,7 +639,7 @@ export class AgentBackedBuilder implements Builder {
       testCommands: [...this.options.testCommands],
       testResults,
       notes: [
-        `Workspace: ${run.workspace.worktreePath}`,
+        `Workspace: ${workspace.worktreePath}`,
         `Issue classification: ${scopeCheck.classification}`,
         scopeCheck.summary,
         `Changed lines: ${policySignals.changedLineCount}`,
@@ -668,16 +669,17 @@ export class AgentBackedVerifier implements Verifier {
     if (!run.workspace) {
       throw new Error("Workflow workspace is required before verification.");
     }
+    const workspace = run.workspace;
 
     const prompt = buildVerifierPrompt(run);
-    await writePromptArtifact(run.workspace.worktreePath, "verifier-prompt.md", prompt);
+    await writePromptArtifact(workspace.worktreePath, "verifier-prompt.md", prompt);
     const result = await runAgentWithTransientRetry({
       attempts: this.options.transientRetryAttempts,
       delayMs: this.options.transientRetryDelayMs,
       run: async () =>
         await this.options.agentRunner.run({
           prompt,
-          workspaceDir: run.workspace.worktreePath,
+          workspaceDir: workspace.worktreePath,
           agentId: this.previewRuntimeRouting(run).appliedAgentId ?? undefined,
           timeoutSeconds: this.options.timeoutSeconds,
         }),

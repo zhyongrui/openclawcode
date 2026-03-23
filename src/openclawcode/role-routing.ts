@@ -4,6 +4,7 @@ import {
   PROJECT_BLUEPRINT_ROLE_IDS,
   readProjectBlueprintDocument,
   type ProjectBlueprintRoleId,
+  type ProjectBlueprintRoleAssignments,
 } from "./blueprint.js";
 import type { WorkflowStage } from "./contracts/index.js";
 
@@ -180,7 +181,10 @@ function mergeFallbackChains(primary: string[], secondary: string[]): string[] {
   return merged;
 }
 
-function resolveRoleFallbackChain(roleId: ProjectBlueprintRoleId, globalFallbackChain: string[]): string[] {
+function resolveRoleFallbackChain(
+  roleId: ProjectBlueprintRoleId,
+  globalFallbackChain: string[],
+): string[] {
   return mergeFallbackChains(
     parseFallbackChain(process.env[resolveRoleFallbackEnvVar(roleId)]),
     globalFallbackChain,
@@ -214,8 +218,9 @@ function buildStageRoutes(routes: ProjectRoleRoute[]): ProjectStageRoute[] {
         fallbackChain: route.fallbackChain,
       })),
     )
-    .sort((left, right) =>
-      left.stageId.localeCompare(right.stageId) || left.roleId.localeCompare(right.roleId),
+    .toSorted(
+      (left, right) =>
+        left.stageId.localeCompare(right.stageId) || left.roleId.localeCompare(right.roleId),
     );
 }
 
@@ -241,7 +246,10 @@ function resolveStageMixedMode(stageRoutes: ProjectStageRoute[]): boolean {
 
 function resolveFallbackSummarySuggestion(routes: ProjectRoleRoute[]): string {
   const rolesWithRoleSpecificFallbacks = routes
-    .filter((route) => parseFallbackChain(process.env[resolveRoleFallbackEnvVar(route.roleId)]).length > 0)
+    .filter(
+      (route) =>
+        parseFallbackChain(process.env[resolveRoleFallbackEnvVar(route.roleId)]).length > 0,
+    )
     .map((route) => resolveRoleLabel(route.roleId));
   if (rolesWithRoleSpecificFallbacks.length > 0) {
     return `Role-specific fallback chains are configured for ${rolesWithRoleSpecificFallbacks.join(", ")}. Recheck those providers in a live proof.`;

@@ -6,7 +6,7 @@ import type {
   HumanDelayConfig,
   TypingMode,
 } from "./types.base.js";
-import type { MemorySearchConfig } from "./types.tools.js";
+import type { AgentToolsConfig, MemorySearchConfig } from "./types.tools.js";
 
 export type AgentModelEntryConfig = {
   alias?: string;
@@ -183,6 +183,8 @@ export type AgentDefaultsConfig = {
      */
     projectSettingsPolicy?: "trusted" | "sanitize" | "ignore";
   };
+  /** Optional default tool policy inherited by agents. */
+  tools?: AgentToolsConfig;
   /** Vector memory search configuration (per-agent overrides supported). */
   memorySearch?: MemorySearchConfig;
   /** Default thinking level when no /think directive is present. */

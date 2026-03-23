@@ -232,7 +232,11 @@ function normalizeProjectBlueprintRoleId(value: string): ProjectBlueprintRoleId 
 
 function normalizeProjectBlueprintSectionName(value: string): ProjectBlueprintSectionName | null {
   const normalized = value.trim().toLowerCase().replace(/\s+/g, "-");
-  return PROJECT_BLUEPRINT_SECTION_ALIASES[normalized] ?? null;
+  return Object.hasOwn(PROJECT_BLUEPRINT_SECTION_ALIASES, normalized)
+    ? PROJECT_BLUEPRINT_SECTION_ALIASES[
+        normalized as keyof typeof PROJECT_BLUEPRINT_SECTION_ALIASES
+      ]
+    : null;
 }
 
 function normalizeProjectBlueprintStatus(value: string | undefined): ProjectBlueprintStatus | null {
@@ -619,8 +623,8 @@ function buildProjectBlueprintValidation(params: {
     errors.push(`Section still uses the default scaffold text: ${section}.`);
   }
 
-  const scopeItems = extractMarkdownListItems(params.sectionBodies.Scope);
-  const nonGoalItems = extractMarkdownListItems(params.sectionBodies["Non-Goals"]);
+  const scopeItems = extractMarkdownListItems(params.sectionBodies.Scope ?? "");
+  const nonGoalItems = extractMarkdownListItems(params.sectionBodies["Non-Goals"] ?? "");
   const duplicateScopeItems = scopeItems.filter((item) =>
     nonGoalItems.some((other) => normalizeComparableItem(other) === normalizeComparableItem(item)),
   );
@@ -628,8 +632,7 @@ function buildProjectBlueprintValidation(params: {
     errors.push(`Scope and Non-Goals conflict on the same item: ${duplicate}.`);
   }
 
-  const isAgreedOrActive =
-    params.summary.status === "agreed" || params.summary.status === "active";
+  const isAgreedOrActive = params.summary.status === "agreed" || params.summary.status === "active";
   if (isAgreedOrActive && params.summary.openQuestionCount > 0) {
     errors.push("Agreed or active blueprints must not keep unresolved Open Questions.");
   }
@@ -637,7 +640,7 @@ function buildProjectBlueprintValidation(params: {
     errors.push("Agreed or active blueprints must include at least one workstream.");
   }
 
-  const workstreams = extractMarkdownListItems(params.sectionBodies.Workstreams);
+  const workstreams = extractMarkdownListItems(params.sectionBodies.Workstreams ?? "");
   const horizontalWorkstreams = workstreams.filter((item) => isLikelyHorizontalWorkstream(item));
   if (horizontalWorkstreams.length > 0) {
     warnings.push(
@@ -800,6 +803,7 @@ export async function updateProjectBlueprintStatus(
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       throw new Error(
         `Project blueprint does not exist at ${blueprintPath}. Run \`openclaw code blueprint-init\` first.`,
+        { cause: error },
       );
     }
     throw error;
@@ -1041,10 +1045,14 @@ export async function inspectProjectBlueprintClarifications(
       0,
     );
     const orderedQuestions = questions
-      .toSorted((left, right) => left.priority - right.priority || left.text.localeCompare(right.text))
+      .toSorted(
+        (left, right) => left.priority - right.priority || left.text.localeCompare(right.text),
+      )
       .map((entry) => entry.text);
     const orderedSuggestions = suggestions
-      .toSorted((left, right) => left.priority - right.priority || left.text.localeCompare(right.text))
+      .toSorted(
+        (left, right) => left.priority - right.priority || left.text.localeCompare(right.text),
+      )
       .map((entry) => entry.text);
     return {
       ...summary,
@@ -1056,8 +1064,8 @@ export async function inspectProjectBlueprintClarifications(
     };
   }
 
-  const openQuestions = extractMarkdownListItems(summary.sectionBodies["Open Questions"]);
-  const workstreams = extractMarkdownListItems(summary.sectionBodies.Workstreams);
+  const openQuestions = extractMarkdownListItems(summary.sectionBodies["Open Questions"] ?? "");
+  const workstreams = extractMarkdownListItems(summary.sectionBodies.Workstreams ?? "");
   const hasUserStory =
     sectionContainsPhrase(summary.sectionBodies, "Goal", /\bas a\b/i) ||
     sectionContainsPhrase(summary.sectionBodies, "Scope", /\bas a\b/i) ||
@@ -1254,10 +1262,14 @@ export async function inspectProjectBlueprintClarifications(
   }
 
   const orderedQuestions = questions
-    .toSorted((left, right) => left.priority - right.priority || left.text.localeCompare(right.text))
+    .toSorted(
+      (left, right) => left.priority - right.priority || left.text.localeCompare(right.text),
+    )
     .map((entry) => entry.text);
   const orderedSuggestions = suggestions
-    .toSorted((left, right) => left.priority - right.priority || left.text.localeCompare(right.text))
+    .toSorted(
+      (left, right) => left.priority - right.priority || left.text.localeCompare(right.text),
+    )
     .map((entry) => entry.text);
 
   return {

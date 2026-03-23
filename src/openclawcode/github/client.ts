@@ -581,7 +581,7 @@ export class GitHubRestClient implements GitHubIssueClient {
     );
     const ownerFilter = request?.owner?.trim().toLowerCase();
     return repositories
-      .map((repo) => {
+      .map((repo): GitHubRepositorySummary | null => {
         const owner = repo.owner?.login?.trim();
         const name = repo.name?.trim();
         if (!owner || !name) {
@@ -592,22 +592,19 @@ export class GitHubRestClient implements GitHubIssueClient {
           repo: name,
           description: repo.description ?? undefined,
           private: repo.private !== false,
-          defaultBranch:
-            typeof repo.default_branch === "string" ? repo.default_branch : undefined,
+          defaultBranch: typeof repo.default_branch === "string" ? repo.default_branch : undefined,
           url: repo.html_url?.trim() || `https://github.com/${owner}/${name}`,
           updatedAt: typeof repo.updated_at === "string" ? repo.updated_at : undefined,
-        } satisfies GitHubRepositorySummary;
+        };
       })
-      .filter((repo): repo is GitHubRepositorySummary => repo != null)
+      .filter((repo): repo is GitHubRepositorySummary => repo !== null)
       .filter((repo) => !ownerFilter || repo.owner.toLowerCase() === ownerFilter)
       .slice(0, limit);
   }
 
   async createRepository(request: CreateRepositoryRequest): Promise<GitHubRepositorySummary> {
     if (!this.token) {
-      throw new Error(
-        "GitHub token missing. Set GITHUB_TOKEN or GH_TOKEN to create repositories.",
-      );
+      throw new Error("GitHub token missing. Set GITHUB_TOKEN or GH_TOKEN to create repositories.");
     }
     const owner = request.owner?.trim();
     const name = request.name.trim();

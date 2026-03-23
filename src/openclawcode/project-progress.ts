@@ -1,25 +1,21 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { readProjectBlueprintDocument } from "./blueprint.js";
+import type { RepoRef } from "./github/index.js";
 import {
   readProjectIssueMaterializationArtifact,
   writeProjectIssueMaterializationArtifact,
 } from "./issue-materialization.js";
-import type { RepoRef } from "./github/index.js";
 import {
   parseRepoRefFromRepoKey,
   resolveChatNextSuggestedCommand,
 } from "./next-suggested-command.js";
+import { readProjectNextWorkSelection, writeProjectNextWorkSelection } from "./next-work.js";
 import { readProjectOperatorProgram } from "./operator-program.js";
 import type { OpenClawCodeOperatorStatusSnapshot } from "./operator-status.js";
-import { readProjectNextWorkSelection, writeProjectNextWorkSelection } from "./next-work.js";
-import {
-  readProjectRoleRoutingPlan,
-  writeProjectRoleRoutingPlan,
-  type ProjectRoleRoute,
-} from "./role-routing.js";
-import { readProjectStageGateArtifact, writeProjectStageGateArtifact } from "./stage-gates.js";
-import { readProjectWorkItemInventory, writeProjectWorkItemInventory } from "./work-items.js";
+import { writeProjectRoleRoutingPlan, type ProjectRoleRoute } from "./role-routing.js";
+import { writeProjectStageGateArtifact } from "./stage-gates.js";
+import { writeProjectWorkItemInventory } from "./work-items.js";
 
 export const PROJECT_PROGRESS_SCHEMA_VERSION = 1;
 
@@ -124,7 +120,10 @@ function resolveActiveWorkstreamDetails(params: {
       summary: null,
     };
   }
-  if (params.selectedWorkItem.selectedFrom === "discovery" || params.selectedWorkItem.workstreamIndex == null) {
+  if (
+    params.selectedWorkItem.selectedFrom === "discovery" ||
+    params.selectedWorkItem.workstreamIndex == null
+  ) {
     return {
       index: null,
       count,
@@ -171,7 +170,8 @@ function buildOperatorSummary(params: {
       ? `${params.snapshot.currentRun.request.owner}/${params.snapshot.currentRun.request.repo}#${params.snapshot.currentRun.request.issueNumber}`
       : null;
   const currentRunSnapshot = currentRunIssueKey
-    ? params.snapshot.issueSnapshots.find((entry) => entry.issueKey === currentRunIssueKey) ?? null
+    ? (params.snapshot.issueSnapshots.find((entry) => entry.issueKey === currentRunIssueKey) ??
+      null)
     : null;
 
   return {
@@ -248,13 +248,14 @@ export async function writeProjectProgressArtifact(params: {
     return `${roleLabel}=${route.resolvedBackend}${route.resolvedAgentId ? `@${route.resolvedAgentId}` : ""}`;
   });
 
-  const nextSuggestedCommand = nextWork.decision === "ready-to-execute"
-    ? params.repo
-      ? `openclaw code issue-materialize --repo-root ${repoRoot}`
-      : "openclaw code issue-materialize --repo-root <repo-root>"
-    : nextWork.blockingGateId
-      ? `openclaw code stage-gates-show --repo-root ${repoRoot}`
-      : null;
+  const nextSuggestedCommand =
+    nextWork.decision === "ready-to-execute"
+      ? params.repo
+        ? `openclaw code issue-materialize --repo-root ${repoRoot}`
+        : "openclaw code issue-materialize --repo-root <repo-root>"
+      : nextWork.blockingGateId
+        ? `openclaw code stage-gates-show --repo-root ${repoRoot}`
+        : null;
   const nextSuggestedChatCommand = resolveChatNextSuggestedCommand({
     repo: params.repo,
     command: nextSuggestedCommand,
@@ -361,6 +362,7 @@ export async function readProjectProgressArtifact(
       operatorProgram: buildOperatorProgramSummary(await readProjectOperatorProgram(repoRoot)),
     };
   }
+  const blueprint = await readProjectBlueprintDocument(repoRoot);
   const parsed = JSON.parse(raw) as Partial<ProjectProgressArtifact>;
   return {
     repoRoot,
@@ -389,7 +391,7 @@ export async function readProjectProgressArtifact(
     selectedIssueTitle: parsed.selectedIssueTitle ?? null,
     issueMaterializationOutcome: parsed.issueMaterializationOutcome ?? null,
     roleRoutingMixedMode: parsed.roleRoutingMixedMode ?? false,
-    roleRoutes: Array.isArray(parsed.roleRoutes) ? parsed.roleRoutes as ProjectRoleRoute[] : [],
+    roleRoutes: Array.isArray(parsed.roleRoutes) ? parsed.roleRoutes : [],
     roleRouteSummary: Array.isArray(parsed.roleRouteSummary) ? parsed.roleRouteSummary : [],
     unresolvedRoleCount: parsed.unresolvedRoleCount ?? 0,
     blockedGateCount: parsed.blockedGateCount ?? 0,
@@ -439,8 +441,7 @@ export async function readProjectProgressArtifact(
       attemptLedgerRequired: parsed.operatorProgram?.attemptLedgerRequired ?? false,
       nextActionCode: parsed.operatorProgram?.nextActionCode ?? null,
       nextActionSummary: parsed.operatorProgram?.nextActionSummary ?? null,
-      linkedBlueprintPath:
-        parsed.operatorProgram?.linkedBlueprintPath ?? "PROJECT-BLUEPRINT.md",
+      linkedBlueprintPath: parsed.operatorProgram?.linkedBlueprintPath ?? "PROJECT-BLUEPRINT.md",
       linkedWorkItemsPath:
         parsed.operatorProgram?.linkedWorkItemsPath ?? ".openclawcode/work-items.json",
       linkedStageGatesPath:

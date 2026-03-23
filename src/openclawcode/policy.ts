@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { IssueRef } from "./contracts/index.js";
+import type { BuildPolicySignals, IssueRef } from "./contracts/index.js";
 
 export const OPENCLAWCODE_POLICY_CONTRACT_VERSION = 1;
 
@@ -97,14 +97,6 @@ export interface SuitabilityPolicySignals {
   matchedLowRiskKeywords: string[];
   matchedHighRiskLabels: string[];
   matchedHighRiskKeywords: string[];
-}
-
-export interface BuildPolicySignals {
-  changedLineCount: number;
-  changedDirectoryCount: number;
-  broadFanOut: boolean;
-  largeDiff: boolean;
-  generatedFiles: string[];
 }
 
 export interface OpenClawCodePolicySnapshot {

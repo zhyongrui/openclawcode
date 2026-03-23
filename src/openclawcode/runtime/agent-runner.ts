@@ -12,6 +12,8 @@ import {
 } from "../../config/config.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import type { SessionSystemPromptReport } from "../../config/sessions/types.js";
+import type { AgentDefaultsConfig } from "../../config/types.agent-defaults.js";
+import type { AgentConfig } from "../../config/types.agents.js";
 import { normalizeAgentId } from "../../routing/session-key.js";
 import { createNonExitingRuntime } from "../../runtime.js";
 
@@ -268,9 +270,7 @@ function forceSessionScopedSandboxForAgent(
     ]),
   );
   const skillFilter = resolveOpenClawCodeWorktreeSkillFilter(options?.workspaceDir ?? "");
-  const appendModelFallbacks = <
-    T extends { model?: string | { primary?: string; fallbacks?: string[] } } | undefined,
-  >(
+  const appendModelFallbacks = <T extends AgentDefaultsConfig | AgentConfig | undefined>(
     entry: T,
   ): T => {
     if (!entry || modelFallbacks.length === 0) {
@@ -306,9 +306,11 @@ function forceSessionScopedSandboxForAgent(
     return nextPolicy as T;
   };
 
-  const appendDeniedTools = <T extends { tools?: { deny?: string[] } }>(entry: T): T => ({
+  const appendDeniedTools = <T extends AgentDefaultsConfig | AgentConfig | undefined>(
+    entry: T,
+  ): T => ({
     ...entry,
-    tools: appendDeniedPolicy(entry.tools),
+    tools: appendDeniedPolicy(entry?.tools),
   });
 
   next.tools = appendDeniedPolicy(next.tools);

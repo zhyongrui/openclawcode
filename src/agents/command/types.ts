@@ -88,6 +88,8 @@ export type AgentCommandOpts = {
   streamParams?: AgentStreamParams;
   /** Explicit workspace directory override (for subagents to inherit parent workspace). */
   workspaceDir?: SpawnedRunMetadata["workspaceDir"];
+  /** Optional bootstrap context mode override for large or isolated worktrees. */
+  bootstrapContextMode?: "full" | "lightweight";
 };
 
 export type AgentCommandIngressOpts = Omit<

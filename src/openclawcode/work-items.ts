@@ -108,6 +108,16 @@ export interface ProjectWorkItemInventory {
   workItems: ProjectWorkItem[];
 }
 
+function emptyProjectBlueprintRoleAssignments(): ProjectBlueprintRoleAssignments {
+  return {
+    planner: null,
+    coder: null,
+    reviewer: null,
+    verifier: null,
+    docWriter: null,
+  };
+}
+
 function normalizeMarkdownListItem(line: string): string | null {
   const trimmed = line.trim();
   const match =
@@ -149,16 +159,24 @@ function normalizeWorkItemText(value: string): string {
 }
 
 function classifyProjectWorkItemClass(workItem: string): ProjectWorkItemClass {
-  if (/\b(outage|incident|sev[ -]?[0-9]|hotfix|rollback|degrad(ed|ation)|urgent)\b/i.test(workItem)) {
+  if (
+    /\b(outage|incident|sev[ -]?[0-9]|hotfix|rollback|degrad(ed|ation)|urgent)\b/i.test(workItem)
+  ) {
     return "incident";
   }
-  if (/\b(sync|upstream|rebase|merge|align|mirror|rollout|release|promot(e|ion))\b/i.test(workItem)) {
+  if (
+    /\b(sync|upstream|rebase|merge|align|mirror|rollout|release|promot(e|ion))\b/i.test(workItem)
+  ) {
     return "sync";
   }
   if (/\b(doc|docs|documentation|readme|guide|runbook|manual|tutorial)\b/i.test(workItem)) {
     return "docs";
   }
-  if (/\b(validat(e|ion)|verify|verification|test|smoke test|regression suite|audit)\b/i.test(workItem)) {
+  if (
+    /\b(validat(e|ion)|verify|verification|test|smoke test|regression suite|audit)\b/i.test(
+      workItem,
+    )
+  ) {
     return "validation";
   }
   if (/\b(fix|bug|regression|broken|crash|error|failure)\b/i.test(workItem)) {
@@ -210,9 +228,7 @@ function buildProjectWorkItemFingerprint(params: {
     .digest("hex");
 }
 
-function buildDeliveryPolicyLines(
-  executionMode: ProjectWorkItemExecutionMode,
-): string[] {
+function buildDeliveryPolicyLines(executionMode: ProjectWorkItemExecutionMode): string[] {
   const base = [
     "- Keep this work item as one demoable vertical slice.",
     "- Prefer the smallest user-visible or operator-visible change that proves progress.",
@@ -227,16 +243,16 @@ function buildDeliveryPolicyLines(
   return base;
 }
 
-function buildTestingPolicyLines(
-  executionMode: ProjectWorkItemExecutionMode,
-): string[] {
+function buildTestingPolicyLines(executionMode: ProjectWorkItemExecutionMode): string[] {
   const lines = [
     "- Start with a failing proof or executable check when practical.",
     "- Prefer public-behavior tests, CLI proofs, or chat-visible verification over implementation-only assertions.",
     "- Follow a red -> green -> refactor loop and keep the proof green before broadening scope.",
   ];
   if (executionMode === "refactor") {
-    lines.push("- Preserve existing behavior unless the acceptance criteria explicitly say otherwise.");
+    lines.push(
+      "- Preserve existing behavior unless the acceptance criteria explicitly say otherwise.",
+    );
   }
   return lines;
 }
@@ -311,8 +327,9 @@ function resolveProjectWorkItemIssueDraft(params: {
     params.humanGates.length > 0
       ? params.humanGates.map((item) => `- ${item}`)
       : ["- Follow the default autonomous policy for this repository."];
-  const executionModeLabel = params.executionMode.replace(/(^|-)([a-z])/g, (_match, dash, char) =>
-    `${dash}${String(char).toUpperCase()}`,
+  const executionModeLabel = params.executionMode.replace(
+    /(^|-)([a-z])/g,
+    (_match, dash, char) => `${dash}${String(char).toUpperCase()}`,
   );
   const deliveryPolicyLines = buildDeliveryPolicyLines(params.executionMode);
   const testingPolicyLines = buildTestingPolicyLines(params.executionMode);
@@ -506,8 +523,8 @@ function normalizeProjectWorkItem(raw: unknown): ProjectWorkItem | undefined {
       : [],
     providerRoleAssignments:
       typeof candidate.providerRoleAssignments === "object" && candidate.providerRoleAssignments
-        ? (candidate.providerRoleAssignments as ProjectBlueprintRoleAssignments)
-        : {},
+        ? candidate.providerRoleAssignments
+        : emptyProjectBlueprintRoleAssignments(),
     githubIssueDraft:
       typeof candidate.githubIssueDraft?.title === "string" &&
       typeof candidate.githubIssueDraft?.body === "string"
@@ -747,8 +764,12 @@ function mergeDiscoveredWorkItems(params: {
     return params.inventory;
   }
 
-  const plannedAndSuperseded = params.inventory.workItems.filter((item) => item.kind !== "discovered");
-  const existingDiscovered = params.inventory.workItems.filter((item) => item.kind === "discovered");
+  const plannedAndSuperseded = params.inventory.workItems.filter(
+    (item) => item.kind !== "discovered",
+  );
+  const existingDiscovered = params.inventory.workItems.filter(
+    (item) => item.kind === "discovered",
+  );
   const existingByFingerprint = new Map(existingDiscovered.map((item) => [item.fingerprint, item]));
   const mergedDiscovered = params.discoveredWorkItems.map((item) => {
     const previous = existingByFingerprint.get(item.fingerprint);
@@ -865,15 +886,25 @@ export async function readProjectWorkItemInventory(
       ...parsed,
       inventoryPath,
       repoRoot,
+      exists: parsed.exists ?? true,
+      schemaVersion: parsed.schemaVersion ?? PROJECT_WORK_ITEM_SCHEMA_VERSION,
+      generatedAt: parsed.generatedAt ?? null,
       blueprintExists: blueprint.exists,
       blueprintPath: blueprint.blueprintPath,
       blueprintTitle: blueprint.title,
       blueprintStatus: blueprint.status,
+      blueprintRevisionId: parsed.blueprintRevisionId ?? null,
       currentBlueprintRevisionId: blueprint.revisionId,
       artifactStale:
         blueprint.revisionId == null || parsed.blueprintRevisionId == null
           ? null
           : blueprint.revisionId !== parsed.blueprintRevisionId,
+      readyForExecution: parsed.readyForExecution ?? workItemCount > 0,
+      readyForIssueProjection: parsed.readyForIssueProjection ?? workItemCount > 0,
+      blockerCount: parsed.blockerCount ?? 0,
+      blockers: Array.isArray(parsed.blockers) ? parsed.blockers : [],
+      suggestionCount: parsed.suggestionCount ?? 0,
+      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
       workItemCount,
       plannedWorkItemCount,
       discoveredWorkItemCount,
