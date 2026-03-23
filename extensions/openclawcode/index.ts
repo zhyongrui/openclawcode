@@ -888,10 +888,26 @@ function hasSetupBlueprintDraftSession(
       session.blueprintDraft &&
       (session.stage === "drafting-blueprint" ||
         session.stage === "awaiting-repo-choice" ||
+        session.stage === "repo-existing-blueprint-detected" ||
         session.stage === "repo-missing-blueprint-required" ||
         session.stage === "repo-nonstandard-context-detected" ||
         session.stage === "repo-creation-pending" ||
         session.stage === "bootstrap-ready"),
+  );
+}
+
+function isSetupExistingBlueprintSession(
+  session: ChatSetupSession | undefined,
+): session is ChatSetupSession & {
+  projectMode: "existing-repo";
+  repoKey: string;
+  stage: "repo-existing-blueprint-detected";
+} {
+  return Boolean(
+    session &&
+      session.projectMode === "existing-repo" &&
+      session.repoKey &&
+      session.stage === "repo-existing-blueprint-detected",
   );
 }
 
@@ -1224,6 +1240,7 @@ function buildChatSetupExistingBlueprintDetectedMessage(params: {
   session: ChatSetupSession;
   detectedPaths: string[];
 }): string {
+  const draftRevisionCount = collectChatSetupDraftFilledSectionCount(params.session);
   return [
     "OpenClaw Code found an existing repo that already looks like an OpenClaw Code project.",
     ...buildChatSetupStateLayerLines(params.session),
@@ -1245,9 +1262,12 @@ function buildChatSetupExistingBlueprintDetectedMessage(params: {
     typeof params.session.detectedBlueprint?.humanGateCount === "number"
       ? `Blueprint counts: workstreams=${params.session.detectedBlueprint.workstreamCandidateCount} | openQuestions=${params.session.detectedBlueprint.openQuestionCount} | humanGates=${params.session.detectedBlueprint.humanGateCount}`
       : undefined,
+    draftRevisionCount > 0 ? `Pending setup revisions: ${draftRevisionCount} section(s)` : undefined,
     "This path should resume the existing project instead of treating it like a fresh setup.",
     "Next: review the current blueprint, then continue with /occode-setup-retry if the existing blueprint is still the intended baseline.",
-    "If the blueprint needs changes first, use /occode-blueprint and /occode-blueprint-edit before continuing.",
+    draftRevisionCount > 0
+      ? "Use /occode-blueprint-agree to confirm the revised baseline before continuing."
+      : "If the blueprint needs changes first, use /occode-blueprint-edit or /occode-goal before continuing.",
     `Bootstrap stays blocked until that baseline is confirmed. ${describeChatSetupBootstrap()}`,
   ]
     .filter(Boolean)
@@ -4701,12 +4721,22 @@ async function updateChatSetupBlueprintDraftSection(params: {
   body: string;
 }): Promise<ChatSetupSession> {
   const currentSections = params.session.blueprintDraft?.sections ?? {};
+  const nextStage =
+    params.session.projectMode === "existing-repo" && params.session.repoKey
+      ? params.session.stage === "repo-nonstandard-context-detected" ||
+        params.session.stage === "repo-missing-blueprint-required" ||
+        params.session.stage === "repo-existing-blueprint-detected"
+        ? params.session.stage
+        : "repo-existing-blueprint-detected"
+      : ("drafting-blueprint" as const);
   const nextSession = {
     ...params.session,
-    stage: "drafting-blueprint" as const,
+    stage: nextStage,
     blueprintDraft: {
       status: "draft" as const,
+      agreedAt: undefined,
       repoNameSuggestions: undefined,
+      sourcePaths: params.session.blueprintDraft?.sourcePaths,
       sections: {
         ...currentSections,
         [params.sectionName]: params.body.trim(),
@@ -4728,6 +4758,14 @@ function buildChatSetupDraftUpdateMessage(params: {
       ? buildChatSetupAwaitingRepoChoiceMessage({
           session: params.session,
         })
+      : params.session.stage === "repo-existing-blueprint-detected"
+        ? buildChatSetupExistingBlueprintDetectedMessage({
+            session: params.session,
+            detectedPaths: [
+              params.session.detectedBlueprint?.sourcePath,
+              ".openclawcode",
+            ].filter((value): value is string => Boolean(value)),
+          })
       : params.session.stage === "bootstrap-ready"
         ? buildChatSetupBootstrapReadyMessage({
             session: params.session,
@@ -9370,7 +9408,8 @@ export default {
             })
           : undefined;
         if (
-          hasSetupBlueprintDraftSession(setupSession) &&
+          (hasSetupBlueprintDraftSession(setupSession) ||
+            isSetupExistingBlueprintSession(setupSession)) &&
           !hasExplicitRepoArgumentInCommandBody({
             commandBody: ctx.commandBody,
             commandName: "occode-goal",
@@ -9459,7 +9498,8 @@ export default {
             })
           : undefined;
         if (
-          hasSetupBlueprintDraftSession(setupSession) &&
+          (hasSetupBlueprintDraftSession(setupSession) ||
+            isSetupExistingBlueprintSession(setupSession)) &&
           !hasExplicitRepoArgumentInCommandBody({
             commandBody: ctx.commandBody,
             commandName: "occode-blueprint-edit",

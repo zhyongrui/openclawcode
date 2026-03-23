@@ -4278,6 +4278,110 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("edits an existing-project blueprint section during setup before bootstrap", async () => {
+    const fixture = await registerPluginFixture();
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      projectMode: "existing-repo",
+      repoKey: "zhyongrui/iGallery",
+      stage: "repo-existing-blueprint-detected",
+      githubAuthSource: "gh-auth-token",
+      githubAuthLogin: "zhyongrui",
+      detectedBlueprint: {
+        sourcePath: "PROJECT-BLUEPRINT.md",
+        title: "iGallery blueprint",
+        status: "active",
+        goalSummary: "Ship a shared photo gallery with operator-driven rollout.",
+      },
+      createdAt: "2026-03-19T02:35:00.000Z",
+      updatedAt: "2026-03-19T02:35:00.000Z",
+    });
+
+    try {
+      const result = await fixture.commands.get("occode-blueprint-edit")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody:
+          "/occode-blueprint-edit success-criteria\n- Prove setup-driven resume before bootstrap.",
+        args: "success-criteria\n- Prove setup-driven resume before bootstrap.",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("Updated setup draft section `Success Criteria`.");
+      expect(result?.text).toContain("State: repo-existing-blueprint-detected");
+      expect(result?.text).toContain("Pending setup revisions: 1 section(s)");
+      expect(result?.text).toContain("/occode-blueprint-agree");
+      expect(
+        await fixture.store.getSetupSession({
+          notifyChannel: "feishu",
+          notifyTarget: "user:setup-chat",
+        }),
+      ).toMatchObject({
+        stage: "repo-existing-blueprint-detected",
+        blueprintDraft: {
+          status: "draft",
+          sections: {
+            "Success Criteria": "- Prove setup-driven resume before bootstrap.",
+          },
+        },
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("updates the existing-project goal during setup before bootstrap", async () => {
+    const fixture = await registerPluginFixture();
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      projectMode: "existing-repo",
+      repoKey: "zhyongrui/iGallery",
+      stage: "repo-existing-blueprint-detected",
+      githubAuthSource: "gh-auth-token",
+      githubAuthLogin: "zhyongrui",
+      detectedBlueprint: {
+        sourcePath: "PROJECT-BLUEPRINT.md",
+        title: "iGallery blueprint",
+        status: "active",
+      },
+      createdAt: "2026-03-19T02:35:00.000Z",
+      updatedAt: "2026-03-19T02:35:00.000Z",
+    });
+
+    try {
+      const result = await fixture.commands.get("occode-goal")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-goal Align the existing gallery around family-first sharing.",
+        args: "Align the existing gallery around family-first sharing.",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("Updated setup draft section `Goal`.");
+      expect(result?.text).toContain("Pending setup revisions: 1 section(s)");
+      expect(
+        await fixture.store.getSetupSession({
+          notifyChannel: "feishu",
+          notifyTarget: "user:setup-chat",
+        }),
+      ).toMatchObject({
+        stage: "repo-existing-blueprint-detected",
+        blueprintDraft: {
+          status: "draft",
+          sections: {
+            Goal: "Align the existing gallery around family-first sharing.",
+          },
+        },
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("shows the current GitHub identity through /occode-setup-status when auth is already ready", async () => {
     const fixture = await registerPluginFixture();
     mocked.resolveOnboardingGitHubToken.mockReturnValue({
