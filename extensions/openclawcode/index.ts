@@ -1135,6 +1135,69 @@ function buildExistingRepoBlueprintDraft(params: {
   };
 }
 
+function extractMarkdownSectionBody(content: string, sectionName: string): string | undefined {
+  const lines = content.split(/\r?\n/);
+  let startIndex = -1;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (lines[index]?.trim() === `## ${sectionName}`) {
+      startIndex = index + 1;
+      break;
+    }
+  }
+  if (startIndex < 0) {
+    return undefined;
+  }
+  const bodyLines: string[] = [];
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (lines[index]?.startsWith("## ")) {
+      break;
+    }
+    bodyLines.push(lines[index] ?? "");
+  }
+  const body = bodyLines.join("\n").trim();
+  return body.length > 0 ? body : undefined;
+}
+
+function countMarkdownBulletItems(body: string | undefined): number {
+  if (!body) {
+    return 0;
+  }
+  return body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^[-*]\s+/.test(line))
+    .length;
+}
+
+function extractBlueprintFrontmatterField(content: string, fieldName: string): string | undefined {
+  const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n?/);
+  if (!frontmatterMatch?.[1]) {
+    return undefined;
+  }
+  const escapedField = fieldName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const fieldMatch = frontmatterMatch[1].match(
+    new RegExp(`^${escapedField}:\\s*(.+)$`, "m"),
+  );
+  return fieldMatch?.[1]?.trim();
+}
+
+function parseRemoteBlueprintSummary(content: string): NonNullable<ChatSetupSession["detectedBlueprint"]> {
+  const title = content.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  const goalBody = extractMarkdownSectionBody(content, "Goal");
+  const workstreamsBody = extractMarkdownSectionBody(content, "Workstreams");
+  const openQuestionsBody = extractMarkdownSectionBody(content, "Open Questions");
+  const humanGatesBody = extractMarkdownSectionBody(content, "Human Gates");
+  return {
+    sourcePath: "PROJECT-BLUEPRINT.md",
+    title,
+    status: extractBlueprintFrontmatterField(content, "status"),
+    goalSummary: trimBlueprintSeedText(goalBody, 220),
+    workstreamCandidateCount: countMarkdownBulletItems(workstreamsBody),
+    openQuestionCount: countMarkdownBulletItems(openQuestionsBody),
+    humanGateCount: countMarkdownBulletItems(humanGatesBody),
+  };
+}
+
 function buildChatSetupExistingBlueprintDetectedMessage(params: {
   session: ChatSetupSession;
   detectedPaths: string[];
@@ -1145,6 +1208,20 @@ function buildChatSetupExistingBlueprintDetectedMessage(params: {
     `State: repo-existing-blueprint-detected`,
     params.detectedPaths.length > 0
       ? `Detected OpenClaw Code artifacts: ${params.detectedPaths.join(", ")}`
+      : undefined,
+    params.session.detectedBlueprint?.title
+      ? `Blueprint title: ${params.session.detectedBlueprint.title}`
+      : undefined,
+    params.session.detectedBlueprint?.status
+      ? `Blueprint status: ${params.session.detectedBlueprint.status}`
+      : undefined,
+    params.session.detectedBlueprint?.goalSummary
+      ? `Blueprint goal: ${params.session.detectedBlueprint.goalSummary}`
+      : undefined,
+    typeof params.session.detectedBlueprint?.workstreamCandidateCount === "number" &&
+    typeof params.session.detectedBlueprint?.openQuestionCount === "number" &&
+    typeof params.session.detectedBlueprint?.humanGateCount === "number"
+      ? `Blueprint counts: workstreams=${params.session.detectedBlueprint.workstreamCandidateCount} | openQuestions=${params.session.detectedBlueprint.openQuestionCount} | humanGates=${params.session.detectedBlueprint.humanGateCount}`
       : undefined,
     "This path should resume the existing project instead of treating it like a fresh setup.",
     "Next: review the current blueprint, then continue with /occode-setup-retry if the existing blueprint is still the intended baseline.",
@@ -1387,9 +1464,19 @@ async function completeChatSetupProjectSelection(params: {
       repo,
     });
     if (classification.kind === "existing-openclawcode-project") {
+      const blueprintContent = classification.detectedPaths.includes("PROJECT-BLUEPRINT.md")
+        ? await fetchGitHubRepoTextFileContent({
+            token: token.token,
+            repo,
+            contentPath: "PROJECT-BLUEPRINT.md",
+          })
+        : undefined;
       const classified = {
         ...updated,
         stage: "repo-existing-blueprint-detected" as const,
+        detectedBlueprint: blueprintContent
+          ? parseRemoteBlueprintSummary(blueprintContent)
+          : updated.detectedBlueprint,
       };
       await params.store.upsertSetupSession(classified);
       return {

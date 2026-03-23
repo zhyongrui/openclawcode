@@ -3747,7 +3747,35 @@ describe("openclawcode extension", () => {
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         if (url.includes("/contents/PROJECT-BLUEPRINT.md")) {
-          return new Response(JSON.stringify({ type: "file" }), { status: 200 });
+          return new Response(
+            JSON.stringify({
+              type: "file",
+              encoding: "base64",
+              content: Buffer.from(
+                [
+                  "---",
+                  "status: active",
+                  "---",
+                  "# iGallery blueprint",
+                  "",
+                  "## Goal",
+                  "Ship a shared photo gallery with operator-driven rollout.",
+                  "",
+                  "## Workstreams",
+                  "- Bootstrap setup",
+                  "- Tighten review flows",
+                  "",
+                  "## Open Questions",
+                  "- Which albums are in the first proof?",
+                  "",
+                  "## Human Gates",
+                  "- Confirm rollout scope",
+                ].join("\n"),
+                "utf8",
+              ).toString("base64"),
+            }),
+            { status: 200 },
+          );
         }
         if (url.includes("/contents/.openclawcode")) {
           return new Response(JSON.stringify({ type: "dir" }), { status: 200 });
@@ -3769,6 +3797,14 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("State: repo-existing-blueprint-detected");
       expect(result?.text).toContain("Repo: zhyongrui/iGallery");
       expect(result?.text).toContain("Detected OpenClaw Code artifacts: PROJECT-BLUEPRINT.md, .openclawcode");
+      expect(result?.text).toContain("Blueprint title: iGallery blueprint");
+      expect(result?.text).toContain("Blueprint status: active");
+      expect(result?.text).toContain(
+        "Blueprint goal: Ship a shared photo gallery with operator-driven rollout.",
+      );
+      expect(result?.text).toContain(
+        "Blueprint counts: workstreams=2 | openQuestions=1 | humanGates=1",
+      );
       expect(result?.text).toContain("/occode-setup-retry");
       expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
       expect(
@@ -3784,6 +3820,15 @@ describe("openclawcode extension", () => {
         githubAuthLogin: "zhyongrui",
         githubAuthName: "Zhongrui Ye",
         githubAuthEmail: "zyr@example.com",
+        detectedBlueprint: {
+          sourcePath: "PROJECT-BLUEPRINT.md",
+          title: "iGallery blueprint",
+          status: "active",
+          goalSummary: "Ship a shared photo gallery with operator-driven rollout.",
+          workstreamCandidateCount: 2,
+          openQuestionCount: 1,
+          humanGateCount: 1,
+        },
       });
     } finally {
       await cleanupPluginFixture(fixture);

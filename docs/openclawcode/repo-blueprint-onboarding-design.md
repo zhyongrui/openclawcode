@@ -78,7 +78,9 @@ Desired system behavior:
 
 1. bind the repo to the current chat
 2. inspect the existing blueprint and repo-local artifacts
-3. summarize the current project state back to the operator
+3. summarize the current project state back to the operator, including the
+   current blueprint goal, status, and high-level counts when the canonical
+   `PROJECT-BLUEPRINT.md` can be read
 4. ask whether to continue with the existing blueprint or revise it first
 5. continue to bootstrap or execution only after the operator confirms the
    existing blueprint is still the intended baseline

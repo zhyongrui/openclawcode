@@ -89,6 +89,15 @@ export interface OpenClawCodeSetupSession {
     sourcePaths?: string[];
     sections?: Record<string, string>;
   };
+  detectedBlueprint?: {
+    sourcePath?: string;
+    title?: string;
+    status?: string;
+    goalSummary?: string;
+    workstreamCandidateCount?: number;
+    openQuestionCount?: number;
+    humanGateCount?: number;
+  };
   lastFailure?: {
     step: "github-auth" | "repo-create" | "bootstrap" | "blueprint-sync";
     reason: string;
@@ -507,6 +516,39 @@ function normalizeSetupSession(raw: unknown): OpenClawCodeSetupSession | undefin
                       (entry): entry is [string, string] => typeof entry[1] === "string",
                     ),
                   )
+                : undefined,
+          }
+        : undefined,
+    detectedBlueprint:
+      candidate.detectedBlueprint && typeof candidate.detectedBlueprint === "object"
+        ? {
+            sourcePath:
+              typeof candidate.detectedBlueprint.sourcePath === "string"
+                ? candidate.detectedBlueprint.sourcePath
+                : undefined,
+            title:
+              typeof candidate.detectedBlueprint.title === "string"
+                ? candidate.detectedBlueprint.title
+                : undefined,
+            status:
+              typeof candidate.detectedBlueprint.status === "string"
+                ? candidate.detectedBlueprint.status
+                : undefined,
+            goalSummary:
+              typeof candidate.detectedBlueprint.goalSummary === "string"
+                ? candidate.detectedBlueprint.goalSummary
+                : undefined,
+            workstreamCandidateCount:
+              typeof candidate.detectedBlueprint.workstreamCandidateCount === "number"
+                ? candidate.detectedBlueprint.workstreamCandidateCount
+                : undefined,
+            openQuestionCount:
+              typeof candidate.detectedBlueprint.openQuestionCount === "number"
+                ? candidate.detectedBlueprint.openQuestionCount
+                : undefined,
+            humanGateCount:
+              typeof candidate.detectedBlueprint.humanGateCount === "number"
+                ? candidate.detectedBlueprint.humanGateCount
                 : undefined,
           }
         : undefined,

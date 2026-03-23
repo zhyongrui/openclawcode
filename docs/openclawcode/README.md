@@ -115,7 +115,8 @@ loop with:
       host-side `gh auth logout` / `gh auth login` commands into chat
     - after GitHub auth becomes ready, `/occode-setup` now classifies the
       project path before bootstrap:
-      - existing repo + existing OpenClaw Code blueprint
+      - existing repo + existing OpenClaw Code blueprint, with a resume summary
+        pulled from the current `PROJECT-BLUEPRINT.md` when available
       - existing repo + missing OpenClaw Code blueprint, with a seeded draft
         pulled from stable repo materials when available
       - new project + repo not created yet
