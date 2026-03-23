@@ -4354,6 +4354,54 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("shows queued revision sections when existing-project setup becomes bootstrap-ready", async () => {
+    const fixture = await registerPluginFixture();
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      projectMode: "existing-repo",
+      repoKey: "zhyongrui/iGallery",
+      stage: "repo-existing-blueprint-detected",
+      githubAuthSource: "gh-auth-token",
+      githubAuthLogin: "zhyongrui",
+      detectedBlueprint: {
+        sourcePath: "PROJECT-BLUEPRINT.md",
+        title: "iGallery blueprint",
+        status: "active",
+      },
+      blueprintDraft: {
+        status: "draft",
+        sections: {
+          Goal: "Align the gallery around family-first sharing.",
+          "Success Criteria": "- Prove setup-driven resume before bootstrap.",
+          Scope: "- Keep the current gallery baseline and onboarding flow in scope.",
+          "Non-Goals": "- Do not broaden into a net-new product rewrite.",
+          Constraints: "- Preserve the existing repo and operator flow during setup.",
+        },
+      },
+      createdAt: "2026-03-19T02:35:00.000Z",
+      updatedAt: "2026-03-19T02:35:00.000Z",
+    });
+
+    try {
+      const result = await fixture.commands.get("occode-blueprint-agree")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-blueprint-agree",
+        args: "",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("State: bootstrap-ready");
+      expect(result?.text).toContain(
+        "Revisions queued for bootstrap sync: Goal, Success Criteria",
+      );
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("edits an existing-project blueprint section during setup before bootstrap", async () => {
     const fixture = await registerPluginFixture();
     await fixture.store.upsertSetupSession({

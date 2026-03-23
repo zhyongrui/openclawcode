@@ -1382,10 +1382,14 @@ function buildChatSetupRepoCreationPendingMessage(params: {
 function buildChatSetupBootstrapReadyMessage(params: {
   session: ChatSetupSession;
 }): string {
+  const draftRevisionSections = collectChatSetupDraftFilledSectionNames(params.session);
   return [
     "OpenClaw Code has blueprint agreement and can continue into bootstrap.",
     ...buildChatSetupStateLayerLines(params.session),
     "State: bootstrap-ready",
+    draftRevisionSections.length > 0
+      ? `Revisions queued for bootstrap sync: ${draftRevisionSections.slice(0, 5).join(", ")}`
+      : undefined,
     "Next actions:",
     params.session.repoKey
       ? "- /occode-setup-retry to continue into bootstrap now."
