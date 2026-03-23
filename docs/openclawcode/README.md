@@ -159,6 +159,13 @@ loop with:
         - loopback-only setups stop pretending mobile scan will work and instead
           guide the operator to open the bind link in the same machine browser
           or fall back to Feishu Quick actions
+      - setup now tries to find a truly phone-reachable callback before giving
+        up on QR:
+        - prefer `plugins.entries.device-pair.config.publicUrl`
+        - otherwise prefer `gateway.remote.url` or Tailscale callback reachability
+        - otherwise try the existing managed `cloudflared` tunnel path
+        - if none of those work, report the precise failure reason before the
+          same-machine browser / Quick actions fallback
       - if that signed QR hit or OAuth callback arrives before the runner is
         fully ready, the binding session now remembers the pending Feishu
         identity and the background loop completes the first proactive DM

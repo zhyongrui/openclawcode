@@ -19,6 +19,7 @@ import {
 import qrcode from "qrcode-terminal";
 import { resolveGatewayPort } from "../../../src/config/config.js";
 import { resolveControlUiLinks } from "../../../src/commands/onboard-helpers.js";
+import { resolvePublicCallbackAvailability } from "../../../src/gateway/public-callback.js";
 import {
   buildFeishuQrBindingClaimUrl,
   createFeishuQrBindingSession,
@@ -67,40 +68,7 @@ function renderQrAscii(data: string): Promise<string> {
   });
 }
 
-type FeishuOperatorBindMode = "qr-public-callback" | "local-browser-only";
-
-function isLoopbackLikeHostname(hostname: string): boolean {
-  const normalized = hostname.trim().replace(/^\[(.*)\]$/, "$1").toLowerCase();
-  return (
-    normalized === "" ||
-    normalized === "localhost" ||
-    normalized === "127.0.0.1" ||
-    normalized === "::1" ||
-    normalized === "0.0.0.0" ||
-    normalized === "::"
-  );
-}
-
-function resolveFeishuQrBindingBaseHttpUrl(cfg: OpenClawConfig): string {
-  const publicUrl = cfg.plugins?.entries?.["device-pair"]?.config?.["publicUrl"];
-  if (typeof publicUrl === "string" && publicUrl.trim()) {
-    if (publicUrl.startsWith("wss://")) {
-      return publicUrl.replace(/^wss:/, "https:");
-    }
-    if (publicUrl.startsWith("ws://")) {
-      return publicUrl.replace(/^ws:/, "http:");
-    }
-    return publicUrl.trim().replace(/\/+$/, "");
-  }
-  const remoteUrl = cfg.gateway?.remote?.url?.trim();
-  if (remoteUrl) {
-    if (remoteUrl.startsWith("wss://")) {
-      return remoteUrl.replace(/^wss:/, "https:");
-    }
-    if (remoteUrl.startsWith("ws://")) {
-      return remoteUrl.replace(/^ws:/, "http:");
-    }
-  }
+function resolveLocalFeishuQrBindingBaseHttpUrl(cfg: OpenClawConfig): string {
   return resolveControlUiLinks({
     bind: cfg.gateway?.bind ?? "loopback",
     port: resolveGatewayPort(cfg),
@@ -108,12 +76,35 @@ function resolveFeishuQrBindingBaseHttpUrl(cfg: OpenClawConfig): string {
   }).httpUrl.replace(/\/+$/, "");
 }
 
-function resolveFeishuOperatorBindMode(baseHttpUrl: string): FeishuOperatorBindMode {
-  try {
-    const parsed = new URL(baseHttpUrl);
-    return isLoopbackLikeHostname(parsed.hostname) ? "local-browser-only" : "qr-public-callback";
-  } catch {
-    return "local-browser-only";
+function formatFeishuPublicCallbackSource(detail?: string): string | undefined {
+  switch (detail) {
+    case "plugins.entries.device-pair.config.publicUrl":
+      return "已配置公网地址: plugins.entries.device-pair.config.publicUrl";
+    case "gateway.remote.url":
+      return "已配置公网地址: gateway.remote.url";
+    case "gateway.bind=custom":
+      return "已配置绑定地址: gateway.bind=custom";
+    case "gateway.bind=lan":
+      return "局域网可达地址: gateway.bind=lan";
+    case "gateway.bind=tailnet":
+      return "Tailnet 可达地址: gateway.bind=tailnet";
+    default:
+      if (detail?.startsWith("gateway.tailscale.mode=")) {
+        return `Tailscale 公网入口: ${detail}`;
+      }
+      return undefined;
+  }
+}
+
+function describeFeishuPublicCallbackFailure(reason: "loopback-only-no-tunnel" | "tunnel-start-failed" | "public-base-url-misconfigured"): string {
+  switch (reason) {
+    case "public-base-url-misconfigured":
+      return "已配置的公网绑定地址当前不可用。";
+    case "tunnel-start-failed":
+      return "临时公网绑定链接创建失败。";
+    case "loopback-only-no-tunnel":
+    default:
+      return "当前 gateway 只有本机地址，暂时没有可供手机访问的绑定链接。";
   }
 }
 
@@ -129,23 +120,34 @@ async function noteFeishuQrBinding(params: {
   if (existingTarget) {
     return;
   }
-  const baseHttpUrl = resolveFeishuQrBindingBaseHttpUrl(params.cfg);
   const { session } = await createFeishuQrBindingSession({
     accountId: params.accountId,
     setupIntent: "feishu-initial-bind",
   });
-  const claimUrl = buildFeishuQrBindingClaimUrl({
-    baseHttpUrl,
-    session,
+  const callbackAvailability = await resolvePublicCallbackAvailability({
+    cfg: params.cfg,
   });
-  const bindMode = resolveFeishuOperatorBindMode(baseHttpUrl);
-  if (bindMode === "qr-public-callback") {
+  if (callbackAvailability.available) {
+    const claimUrl = buildFeishuQrBindingClaimUrl({
+      baseHttpUrl: callbackAvailability.baseUrl,
+      session,
+    });
     const asciiQr = await renderQrAscii(claimUrl);
+    const sourceLine =
+      callbackAvailability.source === "managed-tunnel"
+        ? "公网入口来源: 临时公网链接"
+        : formatFeishuPublicCallbackSource(callbackAvailability.detail);
     await params.prompter.note(
       [
         "推荐方式: 用飞书扫码绑定",
         asciiQr.trimEnd(),
         `绑定链接: ${claimUrl}`,
+        ...(sourceLine ? [sourceLine] : []),
+        ...(callbackAvailability.expiresAt
+          ? [`链接有效期至: ${callbackAvailability.expiresAt}`]
+          : callbackAvailability.source === "managed-tunnel"
+            ? ["这是临时公网链接；如果失效，重新运行配置即可刷新。"]
+            : []),
         "也可以直接在浏览器打开上面的链接完成绑定。",
         "回退方式: 在飞书里打开机器人并点击 Quick actions。",
         "OpenClaw 正在完成启动，绑定会在可用后自动继续。",
@@ -154,9 +156,15 @@ async function noteFeishuQrBinding(params: {
     );
     return;
   }
+  const baseHttpUrl = resolveLocalFeishuQrBindingBaseHttpUrl(params.cfg);
+  const claimUrl = buildFeishuQrBindingClaimUrl({
+    baseHttpUrl,
+    session,
+  });
   await params.prompter.note(
     [
-      "当前绑定链接是本机地址，手机扫码不可用。",
+      describeFeishuPublicCallbackFailure(callbackAvailability.reason),
+      ...(callbackAvailability.detail ? [`原因: ${callbackAvailability.detail}`] : []),
       `请在这台机器的浏览器中打开: ${claimUrl}`,
       "如果你更方便直接在飞书里继续，也可以打开机器人并点击 Quick actions。",
       "OpenClaw 正在完成启动，绑定会在可用后自动继续。",

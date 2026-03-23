@@ -16,11 +16,16 @@ vi.mock("./probe.js", () => ({
 }));
 
 const qrGenerateMock = vi.hoisted(() => vi.fn((_value, _opts, cb) => cb("QR ASCII")));
+const resolvePublicCallbackAvailabilityMock = vi.hoisted(() => vi.fn());
 
 vi.mock("qrcode-terminal", () => ({
   default: {
     generate: qrGenerateMock,
   },
+}));
+
+vi.mock("../../../src/gateway/public-callback.js", () => ({
+  resolvePublicCallbackAvailability: resolvePublicCallbackAvailabilityMock,
 }));
 
 import { feishuPlugin } from "./channel.js";
@@ -74,6 +79,12 @@ type FeishuConfigureRuntime = Parameters<typeof feishuConfigure>[0]["runtime"];
 describe("feishu setup wizard", () => {
   beforeEach(() => {
     qrGenerateMock.mockClear();
+    resolvePublicCallbackAvailabilityMock.mockReset();
+    resolvePublicCallbackAvailabilityMock.mockResolvedValue({
+      available: false,
+      reason: "loopback-only-no-tunnel",
+      detail: "Gateway only exposes loopback and no public callback URL or managed tunnel is available.",
+    });
   });
 
   it("does not throw when config appId/appSecret are SecretRef objects", async () => {
@@ -136,6 +147,11 @@ describe("feishu setup wizard", () => {
       confirm: vi.fn(async () => true),
       select: select as never,
     });
+    resolvePublicCallbackAvailabilityMock.mockResolvedValue({
+      available: false,
+      reason: "loopback-only-no-tunnel",
+      detail: "Gateway only exposes loopback and no public callback URL or managed tunnel is available.",
+    });
 
     try {
       await runSetupWizardConfigure({
@@ -151,7 +167,7 @@ describe("feishu setup wizard", () => {
       });
 
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("当前绑定链接是本机地址，手机扫码不可用。"),
+        expect.stringContaining("当前 gateway 只有本机地址，暂时没有可供手机访问的绑定链接。"),
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(
@@ -201,6 +217,12 @@ describe("feishu setup wizard", () => {
       confirm: vi.fn(async () => true),
       select: select as never,
     });
+    resolvePublicCallbackAvailabilityMock.mockResolvedValue({
+      available: true,
+      baseUrl: "https://gateway.example.com/openclaw",
+      source: "configured-public-base-url",
+      detail: "gateway.remote.url",
+    });
 
     try {
       await runSetupWizardConfigure({
@@ -223,6 +245,10 @@ describe("feishu setup wizard", () => {
       );
       expect(note).toHaveBeenCalledWith(
         expect.stringContaining("绑定链接: https://gateway.example.com/openclaw/bind/feishu/"),
+        "绑定飞书操作员",
+      );
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("已配置公网地址: gateway.remote.url"),
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"), "绑定飞书操作员");
@@ -265,6 +291,12 @@ describe("feishu setup wizard", () => {
       confirm: vi.fn(async () => true),
       select: select as never,
     });
+    resolvePublicCallbackAvailabilityMock.mockResolvedValue({
+      available: true,
+      baseUrl: "https://pair.example.com/gateway",
+      source: "configured-public-base-url",
+      detail: "plugins.entries.device-pair.config.publicUrl",
+    });
 
     try {
       await runSetupWizardConfigure({
@@ -290,6 +322,12 @@ describe("feishu setup wizard", () => {
 
       expect(note).toHaveBeenCalledWith(
         expect.stringContaining("绑定链接: https://pair.example.com/openclaw/bind/feishu/"),
+        "绑定飞书操作员",
+      );
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "已配置公网地址: plugins.entries.device-pair.config.publicUrl",
+        ),
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"), "绑定飞书操作员");
