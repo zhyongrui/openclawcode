@@ -780,6 +780,112 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("finishes an early Feishu QR scan automatically after the runner becomes ready", async () => {
+    const qrRepoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-bind-early-repo-"));
+    const fixture = await registerPluginFixture({
+      config: {
+        channels: {
+          feishu: {
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot: qrRepoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "bind-pending:zhyongrui/openclawcode",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [],
+          },
+        ],
+      },
+    });
+    try {
+      mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+        pid: 654,
+        logPath: "/tmp/openclawcode-feishu-qr-early-github.log",
+        verificationUri: "https://github.com/login/device",
+        userCode: "WXYZ-1234",
+        startedAt: "2026-03-23T00:00:00.000Z",
+      });
+      mocked.inspectOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+        state: "pending",
+      });
+      const { session } = await createFeishuQrBindingSession({
+        stateDir: fixture.stateDir,
+      });
+      const claimUrl = new URL(
+        buildFeishuQrBindingClaimUrl({
+          baseHttpUrl: "http://127.0.0.1:18789",
+          session,
+        }),
+      );
+      claimUrl.searchParams.set("open_id", "ou_qr_early_user");
+      claimUrl.searchParams.set("user_id", "u_qr_early_user");
+
+      const bindingRoute = fixture.routes.find((entry) => entry.path === "/openclaw/bind/feishu");
+      const earlyRes = createMockServerResponse();
+      const handled = await bindingRoute?.handler(
+        localReq({
+          method: "GET",
+          url: claimUrl.pathname + claimUrl.search,
+        }),
+        earlyRes,
+      );
+
+      expect(handled).toBe(true);
+      expect(earlyRes.statusCode).toBe(202);
+      expect(String(earlyRes.body)).toContain("扫码已收到");
+      await expect(
+        getFeishuQrBindingSessionById({
+          stateDir: fixture.stateDir,
+          bindingId: session.bindingId,
+        }),
+      ).resolves.toMatchObject({
+        state: "ready-to-claim",
+        pendingClaimOpenId: "ou_qr_early_user",
+      });
+
+      await fixture.service?.start?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      await waitForAssertion(() => {
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_qr_early_user",
+              message: expect.stringContaining("GitHub approval"),
+            }),
+          }),
+        );
+      });
+      await expect(
+        getFeishuQrBindingSessionById({
+          stateDir: fixture.stateDir,
+          bindingId: session.bindingId,
+        }),
+      ).resolves.toMatchObject({
+        state: "claimed",
+        claimedByOpenId: "ou_qr_early_user",
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+      await fs.rm(qrRepoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("records pending approvals and sends a chat prompt in approve mode", async () => {
     const fixture = await registerPluginFixture();
     try {
