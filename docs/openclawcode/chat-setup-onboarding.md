@@ -149,8 +149,21 @@ After agreement:
 
 ### Recovery controls
 
+- `/occode-github-status` reports the current host GitHub login and auth source
+- `/occode-github-switch` starts a fresh chat-native GitHub login for this chat
 - `/occode-setup-cancel` discards the active setup session for the current chat
 - `/occode-setup-retry` resumes or retries the active setup session
+
+After GitHub login succeeds, the default setup message should stay
+status-first:
+
+- confirm the active GitHub username and auth source
+- lightly remind the operator that `/occode-github-switch` is available if a
+  different account is needed later
+- remind the operator that `/occode-github-status` can re-check the current
+  host login later
+- do not print host-side `gh auth logout` / `gh auth login` repair commands as
+  the primary guidance in chat
 
 ## Session Model
 

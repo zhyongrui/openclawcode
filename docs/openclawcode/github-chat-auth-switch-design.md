@@ -39,6 +39,36 @@ wrong" case. In that case, the product should not stop at a message like:
 
 Instead, that message should be replaced with a chat-native recovery path.
 
+## Refined Product Positioning
+
+The "wrong account" case matters, but it should not dominate the default
+message after login. In practice, a freshly completed GitHub login is more
+likely to be correct than incorrect.
+
+So the ready-state message should be:
+
+- status-first
+- lightweight
+- proactive without sounding alarmist
+
+That means the default post-login message should:
+
+1. confirm which GitHub account is currently active
+2. remind the operator that account switching is available if needed
+3. remind the operator that login state can be re-checked later
+4. avoid printing host-shell repair commands directly into chat
+
+Example:
+
+- `OpenClaw Code setup has GitHub auth ready.`
+- `GitHub username: zhyongrui`
+- `Need a different GitHub account later? Send /occode-github-switch here.`
+- `Want to re-check the current host login later? Send /occode-github-status here.`
+
+This keeps the product aligned with its proactive chat-native positioning:
+OpenClaw still owns the recovery path, but it does not over-emphasize a
+relatively uncommon failure mode right after login.
+
 ## Why `owner/repo` Still Matters
 
 GitHub login identity and repo target are not the same thing.

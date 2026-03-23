@@ -98,6 +98,8 @@ loop with:
   - `/occode-bind`
   - `/occode-unbind`
   - `/occode-setup`
+  - `/occode-github-status`
+  - `/occode-github-switch`
   - `/occode-setup-status`
     - `/occode-setup` now pushes the next setup message automatically after
       browser-side GitHub auth finishes
@@ -108,6 +110,9 @@ loop with:
       commands, so `/occode-setup`, `/occode-setup-status`,
       `/occode-setup-retry`, and `/occode-setup-cancel` are no longer blocked
       behind the pairing gate for that configured operator target
+    - post-login setup messages now stay status-first and point operators at
+      `/occode-github-switch` and `/occode-github-status` instead of printing
+      host-side `gh auth logout` / `gh auth login` commands into chat
     - `/occode-setup-status` remains the explicit manual recovery / status
       command
 - a local builder/verifier runtime adapter built on top of OpenClaw's embedded

@@ -51,6 +51,7 @@ import {
   startOnboardingGitHubCliDeviceLogin,
   type OnboardingProjectMode,
   type OnboardingGitHubCliDeviceLoginStatus,
+  type ResolvedOnboardingGitHubToken,
 } from "../../src/wizard/setup.code.js";
 import { appendProjectBlueprintDiscussionEntry } from "../../src/openclawcode/blueprint-discussion.js";
 import {
@@ -747,18 +748,94 @@ function buildChatSetupGitHubSwitchGuidanceLines(params: {
 }): string[] {
   if (params.source === "gh-auth-token") {
     return [
-      params.login
-        ? `Wrong account? Run ${formatCliCommand(`gh auth logout --hostname github.com --user ${params.login}`)} on the host, then ${formatCliCommand("gh auth login --hostname github.com --web")}.`
-        : `Wrong account? Run ${formatCliCommand("gh auth logout --hostname github.com")} on the host, then ${formatCliCommand("gh auth login --hostname github.com --web")}.`,
-      "After re-login, send /occode-setup-status here to refresh the setup state.",
+      "Need a different GitHub account later? Send /occode-github-switch here to start a fresh GitHub login in chat.",
+      "Want to re-check the current host login later? Send /occode-github-status here.",
     ];
   }
   return [
     params.source === "GH_TOKEN"
-      ? "Wrong account? Replace or unset GH_TOKEN for the OpenClaw host, then refresh setup status."
-      : "Wrong account? Replace or unset GITHUB_TOKEN for the OpenClaw host, then refresh setup status.",
-    "After updating the host environment, send /occode-setup-status here again.",
+      ? "Need a different GitHub account later? Update or unset GH_TOKEN on the OpenClaw host, then send /occode-github-status here."
+      : "Need a different GitHub account later? Update or unset GITHUB_TOKEN on the OpenClaw host, then send /occode-github-status here.",
+    "Want to re-check the current host login later? Send /occode-github-status here.",
   ];
+}
+
+function buildChatSetupGitHubStatusMessage(params:
+  | {
+      available: false;
+    }
+  | {
+      available: true;
+      source: "GH_TOKEN" | "GITHUB_TOKEN" | "gh-auth-token";
+      login?: string;
+      name?: string;
+      email?: string;
+    }): string {
+  if (!params.available) {
+    return [
+      "OpenClaw Code does not have GitHub auth ready on the host.",
+      "Next: send /occode-github-switch here to start GitHub login in chat.",
+      "You can also start the full setup flow with /occode-setup.",
+    ].join("\n");
+  }
+  return [
+    "OpenClaw Code found GitHub auth on the host.",
+    params.login ? `GitHub username: ${params.login}` : undefined,
+    params.name ? `Name: ${params.name}` : undefined,
+    params.email ? `Email: ${params.email}` : undefined,
+    `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+    ...buildChatSetupGitHubSwitchGuidanceLines({
+      source: params.source,
+      login: params.login,
+    }),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildChatSetupGitHubSwitchStartedMessage(params: {
+  verificationUri: string;
+  userCode: string;
+  selectionLabel?: string;
+}): string {
+  return [
+    "OpenClaw Code is starting a fresh GitHub login for this chat.",
+    `Open: ${params.verificationUri}`,
+    `Code: ${params.userCode}`,
+    params.selectionLabel ? `Selected target: ${params.selectionLabel}` : undefined,
+    "Finish approval in your browser. OpenClaw Code will continue setup here automatically after login.",
+    "Want to re-check the current host login later? Send /occode-github-status here.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function resolveCurrentChatSetupGitHubIdentity(): Promise<
+  | {
+      token: ResolvedOnboardingGitHubToken;
+      login?: string;
+      name?: string;
+      email?: string;
+    }
+  | undefined
+> {
+  const token = resolveOnboardingGitHubToken();
+  if (!token) {
+    return undefined;
+  }
+  const identity = await resolveChatSetupGitHubIdentity({
+    token: token.token,
+  });
+  return {
+    token,
+    ...identity,
+  };
+}
+
+function summarizeCommandFailure(stderr: string, stdout: string): string {
+  const stderrLine = trimToSingleLine(stderr);
+  const stdoutLine = trimToSingleLine(stdout);
+  return stderrLine || stdoutLine || "The command failed without returning an error message.";
 }
 
 function buildChatSetupRepoSwitchGuidanceLines(params: {
@@ -8120,6 +8197,131 @@ export default {
     });
 
     registerOpenClawCodeCommand({
+      name: "occode-github-status",
+      description: "Show the current host GitHub login that openclawcode would use from this chat.",
+      acceptsArgs: false,
+      handler: async () => {
+        const current = await resolveCurrentChatSetupGitHubIdentity();
+        if (!current) {
+          return {
+            text: buildChatSetupGitHubStatusMessage({
+              available: false,
+            }),
+          };
+        }
+        return {
+          text: buildChatSetupGitHubStatusMessage({
+            available: true,
+            source: current.token.source,
+            login: current.login,
+            name: current.name,
+            email: current.email,
+          }),
+        };
+      },
+    });
+
+    registerOpenClawCodeCommand({
+      name: "occode-github-switch",
+      description: "Start a fresh GitHub login in chat for the current openclawcode setup target.",
+      acceptsArgs: false,
+      handler: async (ctx) => {
+        const notifyTarget = resolveCommandNotifyTarget(ctx);
+        if (!notifyTarget) {
+          return {
+            text:
+              "This GitHub login flow needs a concrete chat target. Start it from a direct or bound chat.",
+          };
+        }
+        const existing = await store.getSetupSession({
+          notifyChannel: ctx.channel,
+          notifyTarget,
+        });
+        const current = await resolveCurrentChatSetupGitHubIdentity();
+        if (
+          current &&
+          (current.token.source === "GH_TOKEN" || current.token.source === "GITHUB_TOKEN")
+        ) {
+          return {
+            text: buildChatSetupGitHubStatusMessage({
+              available: true,
+              source: current.token.source,
+              login: current.login,
+              name: current.name,
+              email: current.email,
+            }),
+          };
+        }
+
+        if (current?.token.source === "gh-auth-token") {
+          const logoutArgv = current.login
+            ? ["gh", "auth", "logout", "--hostname", "github.com", "--user", current.login]
+            : ["gh", "auth", "logout", "--hostname", "github.com"];
+          const logoutResult = await api.runtime.system.runCommandWithTimeout(logoutArgv, {
+            timeoutMs: 30_000,
+            noOutputTimeoutMs: 30_000,
+          });
+          if (logoutResult.code !== 0) {
+            return {
+              text: [
+                "OpenClaw Code could not clear the current GitHub login before starting a fresh one.",
+                `Reason: ${summarizeCommandFailure(logoutResult.stderr, logoutResult.stdout)}`,
+                "Use /occode-github-status to inspect the current host login and try /occode-github-switch again.",
+              ].join("\n"),
+            };
+          }
+        }
+
+        let started;
+        try {
+          started = await startOnboardingGitHubCliDeviceLogin({
+            stateDir: api.runtime.state.resolveStateDir(),
+          });
+        } catch (error) {
+          return {
+            text: buildChatSetupFailedMessage({
+              reason: error instanceof Error ? error.message : String(error),
+              repoKey: existing?.repoKey,
+              step: "github-auth",
+            }),
+          };
+        }
+        const now = new Date().toISOString();
+        await store.upsertSetupSession({
+          notifyChannel: ctx.channel,
+          notifyTarget,
+          projectMode: existing?.projectMode,
+          repoKey: existing?.repoKey,
+          pendingRepoName: existing?.pendingRepoName,
+          stage: "awaiting-github-device-auth",
+          githubAuthSource: undefined,
+          githubAuthLogin: undefined,
+          githubAuthName: undefined,
+          githubAuthEmail: undefined,
+          githubDeviceAuth: {
+            pid: started.pid,
+            logPath: started.logPath,
+            userCode: started.userCode,
+            verificationUri: started.verificationUri,
+            startedAt: started.startedAt,
+          },
+          blueprintDraft: existing?.blueprintDraft,
+          lastFailure: undefined,
+          bootstrap: existing?.bootstrap,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        });
+        return {
+          text: buildChatSetupGitHubSwitchStartedMessage({
+            verificationUri: started.verificationUri,
+            userCode: started.userCode,
+            selectionLabel: existing?.repoKey ?? existing?.pendingRepoName,
+          }),
+        };
+      },
+    });
+
+    registerOpenClawCodeCommand({
       name: "occode-setup-status",
       description: "Show the current chat-native openclawcode setup state for this chat.",
       acceptsArgs: false,
@@ -8135,17 +8337,14 @@ export default {
           notifyChannel: ctx.channel,
           notifyTarget,
         });
-        const readyToken = resolveOnboardingGitHubToken();
-        if (!existing && readyToken) {
-          const identity = await resolveChatSetupGitHubIdentity({
-            token: readyToken.token,
-          });
+        const current = await resolveCurrentChatSetupGitHubIdentity();
+        if (!existing && current) {
           return {
             text: buildChatSetupReadyMessage({
-              source: readyToken.source,
-              login: identity.login,
-              name: identity.name,
-              email: identity.email,
+              source: current.token.source,
+              login: current.login,
+              name: current.name,
+              email: current.email,
             }),
           };
         }

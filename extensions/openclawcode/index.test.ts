@@ -4056,13 +4056,100 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("Name: Zhongrui Ye");
       expect(result?.text).toContain("Email: zyr@example.com");
       expect(result?.text).toContain("Source: gh auth");
-      expect(result?.text).toContain("gh auth logout --hostname github.com --user zhyongrui");
-      expect(result?.text).toContain("gh auth login --hostname github.com --web");
-      expect(result?.text).toContain("After re-login, send /occode-setup-status here");
+      expect(result?.text).toContain("/occode-github-switch");
+      expect(result?.text).toContain("/occode-github-status");
       expect(result?.text).toContain("Next: send /occode-setup owner/repo to pin the repo for this chat.");
       expect(result?.text).not.toContain(
         "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
       );
+      expect(result?.text).not.toContain("gh auth logout --hostname github.com --user zhyongrui");
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("shows the current host GitHub login through /occode-github-status", async () => {
+    const fixture = await registerPluginFixture();
+    mocked.resolveOnboardingGitHubToken.mockReturnValue({
+      token: "gho_test",
+      source: "gh-auth-token",
+    });
+
+    try {
+      const result = await fixture.commands.get("occode-github-status")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-github-status",
+        args: "",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("OpenClaw Code found GitHub auth on the host.");
+      expect(result?.text).toContain("GitHub username: zhyongrui");
+      expect(result?.text).toContain("Source: gh auth");
+      expect(result?.text).toContain("/occode-github-switch");
+      expect(result?.text).toContain("/occode-github-status");
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("starts a fresh GitHub login through /occode-github-switch", async () => {
+    const fixture = await registerPluginFixture();
+    mocked.resolveOnboardingGitHubToken.mockReturnValue({
+      token: "gho_test",
+      source: "gh-auth-token",
+    });
+    fixture.runCommandWithTimeout.mockResolvedValue({
+      code: 0,
+      stdout: "",
+      stderr: "",
+    });
+    mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+      pid: 777,
+      logPath: "/tmp/github-switch.log",
+      userCode: "ABCD-1234",
+      verificationUri: "https://github.com/login/device",
+      startedAt: "2026-03-23T10:00:00.000Z",
+    });
+
+    try {
+      const result = await fixture.commands.get("occode-github-switch")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-github-switch",
+        args: "",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(fixture.runCommandWithTimeout).toHaveBeenCalledWith(
+        ["gh", "auth", "logout", "--hostname", "github.com", "--user", "zhyongrui"],
+        expect.objectContaining({
+          timeoutMs: 30_000,
+          noOutputTimeoutMs: 30_000,
+        }),
+      );
+      expect(mocked.startOnboardingGitHubCliDeviceLogin).toHaveBeenCalledWith({
+        stateDir: fixture.stateDir,
+      });
+      expect(result?.text).toContain("OpenClaw Code is starting a fresh GitHub login for this chat.");
+      expect(result?.text).toContain("Code: ABCD-1234");
+      expect(result?.text).toContain("/occode-github-status");
+      expect(
+        await fixture.store.getSetupSession({
+          notifyChannel: "feishu",
+          notifyTarget: "user:setup-chat",
+        }),
+      ).toMatchObject({
+        stage: "awaiting-github-device-auth",
+        githubDeviceAuth: {
+          pid: 777,
+          userCode: "ABCD-1234",
+          verificationUri: "https://github.com/login/device",
+        },
+      });
     } finally {
       await cleanupPluginFixture(fixture);
     }
@@ -4112,8 +4199,8 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
       expect(result?.text).toContain("GitHub username: zhyongrui");
       expect(result?.text).toContain("Name: Zhongrui Ye");
-      expect(result?.text).toContain("gh auth logout --hostname github.com --user zhyongrui");
-      expect(result?.text).toContain("gh auth login --hostname github.com --web");
+      expect(result?.text).toContain("/occode-github-switch");
+      expect(result?.text).toContain("/occode-github-status");
       expect(result?.text).toContain(
         "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
       );
