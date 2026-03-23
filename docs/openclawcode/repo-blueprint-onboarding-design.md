@@ -359,6 +359,7 @@ The status command should report all three layers independently:
 - GitHub auth state
 - repo binding / repo existence state
 - blueprint agreement state
+- the exact next chat commands for the current blocker
 
 Example:
 
@@ -367,8 +368,10 @@ Example:
 - Blueprint: missing
 - State: `repo-missing-blueprint-required`
 - Next:
-  - generate blueprint draft from repo materials
-  - or start blueprint drafting in chat
+  - `/occode-goal`
+  - `/occode-blueprint-edit`
+  - `/occode-blueprint-agree`
+  - `/occode-setup-retry`
 
 This is much more actionable than a generic "setup incomplete" message.
 

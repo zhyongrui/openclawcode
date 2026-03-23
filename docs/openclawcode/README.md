@@ -124,6 +124,8 @@ loop with:
       agreement remains the gate before repo preparation and development
     - `/occode-setup-status` now stays report-only for the saved setup state,
       while `/occode-setup-retry` is the explicit continue / retry command
+    - setup-state replies now also spell out the exact next chat commands for
+      the current blocker instead of only describing the blocker abstractly
 - a local builder/verifier runtime adapter built on top of OpenClaw's embedded
   agent entrypoint
 - an `openclaw code run ...` CLI path for issue-driven execution

@@ -1264,10 +1264,12 @@ function buildChatSetupExistingBlueprintDetectedMessage(params: {
       : undefined,
     draftRevisionCount > 0 ? `Pending setup revisions: ${draftRevisionCount} section(s)` : undefined,
     "This path should resume the existing project instead of treating it like a fresh setup.",
-    "Next: review the current blueprint, then continue with /occode-setup-retry if the existing blueprint is still the intended baseline.",
+    "Next actions:",
+    "- /occode-blueprint to re-check the detected baseline in this setup chat.",
     draftRevisionCount > 0
-      ? "Use /occode-blueprint-agree to confirm the revised baseline before continuing."
-      : "If the blueprint needs changes first, use /occode-blueprint-edit or /occode-goal before continuing.",
+      ? "- /occode-blueprint-agree to confirm the revised baseline before continuing."
+      : "- /occode-blueprint-edit or /occode-goal if the baseline needs changes first.",
+    "- /occode-setup-retry once the existing blueprint is still the intended baseline.",
     `Bootstrap stays blocked until that baseline is confirmed. ${describeChatSetupBootstrap()}`,
   ]
     .filter(Boolean)
@@ -1294,11 +1296,12 @@ function buildChatSetupRepoBlueprintRequiredMessage(params: {
     sourcePaths.length > 0 ? `Draft seeded from: ${sourcePaths.join(", ")}` : undefined,
     filledCount > 0 ? `Draft sections captured: ${filledCount}` : undefined,
     missing.length > 0 ? `Missing before agreement: ${missing.length}` : undefined,
-    "Next: capture or revise the blueprint in chat and agree on it before bootstrap starts.",
-    "Use /occode-goal and /occode-blueprint-edit to refine the draft here.",
+    "Next actions:",
+    "- /occode-goal or /occode-blueprint-edit to refine the draft in this setup chat.",
     missing.length > 0
-      ? "When the blueprint is agreed, send /occode-blueprint-agree and then /occode-setup-retry to continue."
-      : "If the seeded draft already matches the intended baseline, send /occode-blueprint-agree and then /occode-setup-retry to continue.",
+      ? "- /occode-blueprint-agree when the missing baseline sections are filled."
+      : "- /occode-blueprint-agree if the seeded draft already matches the intended baseline.",
+    "- /occode-setup-retry after blueprint agreement to continue into bootstrap.",
     `Bootstrap stays blocked until blueprint agreement exists. ${describeChatSetupBootstrap()}`,
   ]
     .filter(Boolean)
@@ -1313,7 +1316,12 @@ function buildChatSetupRepoCreationPendingMessage(params: {
     ...buildChatSetupStateLayerLines(params.session),
     "State: repo-creation-pending",
     "First agree on the project blueprint in chat. Repo creation and bootstrap come after blueprint agreement.",
-    "Use /occode-goal and /occode-blueprint-edit to finish the blueprint, then /occode-blueprint-agree.",
+    "Next actions:",
+    "- /occode-goal or /occode-blueprint-edit to finish the blueprint.",
+    "- /occode-blueprint-agree once the blueprint baseline is ready.",
+    params.session.pendingRepoName
+      ? `- /occode-setup new ${params.session.pendingRepoName} after agreement to create the repo and continue.`
+      : "- /occode-setup new <repo-name> after agreement to create the repo and continue.",
     `Bootstrap comes later. ${describeChatSetupBootstrap()}`,
   ]
     .filter(Boolean)
@@ -1327,7 +1335,12 @@ function buildChatSetupBootstrapReadyMessage(params: {
     "OpenClaw Code has blueprint agreement and can continue into bootstrap.",
     ...buildChatSetupStateLayerLines(params.session),
     "State: bootstrap-ready",
-    `Next: /occode-setup-retry`,
+    "Next actions:",
+    params.session.repoKey
+      ? "- /occode-setup-retry to continue into bootstrap now."
+      : params.session.pendingRepoName
+        ? `- /occode-setup new ${params.session.pendingRepoName} if repo creation still needs to run.`
+        : "- /occode-setup-retry to continue the saved setup session.",
     describeChatSetupBootstrap(),
   ].join("\n");
 }

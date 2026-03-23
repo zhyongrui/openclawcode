@@ -3799,6 +3799,8 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("Repo: zhyongrui/iGallery");
       expect(result?.text).toContain("Blueprint: existing baseline detected (active)");
       expect(result?.text).toContain("Detected OpenClaw Code artifacts: PROJECT-BLUEPRINT.md, .openclawcode");
+      expect(result?.text).toContain("- /occode-blueprint to re-check the detected baseline in this setup chat.");
+      expect(result?.text).toContain("- /occode-setup-retry once the existing blueprint is still the intended baseline.");
       expect(result?.text).toContain("Blueprint title: iGallery blueprint");
       expect(result?.text).toContain("Blueprint status: active");
       expect(result?.text).toContain(
@@ -3886,6 +3888,8 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("GitHub: ready as zhyongrui");
       expect(result?.text).toContain("Repo: zhyongrui/iGallery");
       expect(result?.text).toContain("Blueprint: draft");
+      expect(result?.text).toContain("- /occode-goal or /occode-blueprint-edit to refine the draft in this setup chat.");
+      expect(result?.text).toContain("- /occode-setup-retry after blueprint agreement to continue into bootstrap.");
       expect(result?.text).toContain("Useful repo context found: README.md");
       expect(result?.text).toContain("Draft goal: Photo gallery for family albums");
       expect(result?.text).toContain("Draft seeded from: repo:summary, README.md");
@@ -3948,6 +3952,8 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("State: repo-creation-pending");
       expect(result?.text).toContain("Repo: pending create iGallery");
       expect(result?.text).toContain("Blueprint: draft");
+      expect(result?.text).toContain("- /occode-goal or /occode-blueprint-edit to finish the blueprint.");
+      expect(result?.text).toContain("- /occode-setup new iGallery after agreement to create the repo and continue.");
       expect(result?.text).toContain("First agree on the project blueprint in chat.");
       expect(mocked.createOnboardingRepositoryViaGh).not.toHaveBeenCalled();
       expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
@@ -4264,6 +4270,7 @@ describe("openclawcode extension", () => {
 
       expect(result?.text).toContain("State: bootstrap-ready");
       expect(result?.text).toContain("Repo: zhyongrui/iGallery");
+      expect(result?.text).toContain("- /occode-setup-retry to continue into bootstrap now.");
       expect(
         await fixture.store.getSetupSession({
           notifyChannel: "feishu",
