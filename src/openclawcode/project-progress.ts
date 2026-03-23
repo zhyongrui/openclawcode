@@ -192,7 +192,7 @@ function buildOperatorSummary(params: {
   };
 }
 
-function buildOperatorProgramSummary(
+export function buildOperatorProgramSummary(
   artifact: Awaited<ReturnType<typeof readProjectOperatorProgram>>,
 ): ProjectProgressOperatorProgramSummary {
   return {

@@ -40,6 +40,7 @@ import type {
 } from "../openclawcode/index.js";
 import {
   assessValidationIssueImplementation,
+  buildOperatorProgramSummary,
   buildOpenClawCodeCapabilityMapSnapshot,
   classifyValidationIssue,
   FileSystemWorkflowRunStore,
@@ -2451,6 +2452,9 @@ function logProjectAutonomousLoopArtifact(params: {
   runtime.log(
     `Operator: queued=${artifact.queuedRunCount} | currentRun=${artifact.currentRunPresent ? "yes" : "no"} | pause=${artifact.providerPauseActive ? "yes" : "no"}`,
   );
+  runtime.log(
+    `Operator program: available=${artifact.operatorProgram.available ? "yes" : "no"} | mutableSurface=${artifact.operatorProgram.mutableSurfaceMode ?? "unset"} | proof=${artifact.operatorProgram.requireOneExecutableProof ? "required" : "optional"} | attemptLedger=${artifact.operatorProgram.attemptLedgerRequired ? "required" : "optional"} | nextAction=${artifact.operatorProgram.nextActionCode ?? "none"}`,
+  );
   if (artifact.selectedWorkItemId) {
     runtime.log(`Selected work item: ${artifact.selectedWorkItemId}`);
   }
@@ -3436,8 +3440,11 @@ function resolveStageGateReadiness(run: WorkflowRun, gateId: string): string | n
   return run.stageGates?.gates.find((gate) => gate.gateId === gateId)?.readiness ?? null;
 }
 
-function toWorkflowRunJson(run: WorkflowRun) {
+async function toWorkflowRunJson(run: WorkflowRun, repoRoot?: string) {
   const workspace = run.workspace;
+  const operatorProgram = buildOperatorProgramSummary(
+    await readProjectOperatorProgram(repoRoot ?? workspace?.repoRoot ?? process.cwd()),
+  );
   const autoMergePolicy = resolveAutoMergePolicy(run);
   const autoMergeDisposition = resolveAutoMergeDisposition(run);
   const publishedPullRequest = resolvePublishedPullRequest(run);
@@ -3587,6 +3594,30 @@ function toWorkflowRunJson(run: WorkflowRun) {
     blueprintWorkstreamCandidateCount: run.blueprintContext?.workstreamCandidateCount ?? null,
     blueprintOpenQuestionCount: run.blueprintContext?.openQuestionCount ?? null,
     blueprintHumanGateCount: run.blueprintContext?.humanGateCount ?? null,
+    operatorProgram,
+    operatorProgramAvailable: operatorProgram.available,
+    operatorProgramArtifactPath: operatorProgram.artifactPath,
+    operatorProgramUpdatedAt: operatorProgram.updatedAt,
+    operatorProgramTitle: operatorProgram.title,
+    operatorProgramSummary: operatorProgram.summary,
+    operatorProgramMutableSurfaceMode: operatorProgram.mutableSurfaceMode,
+    operatorProgramMutableSurfacePathCount: operatorProgram.mutableSurfacePathCount,
+    operatorProgramMutableSurfacePathsPresent: operatorProgram.mutableSurfacePathsPresent,
+    operatorProgramValidationBudgetSummary: operatorProgram.validationBudgetSummary,
+    operatorProgramValidationBudgetMaxPrimaryCommands:
+      operatorProgram.validationBudgetMaxPrimaryCommands,
+    operatorProgramRequireOneExecutableProof: operatorProgram.requireOneExecutableProof,
+    operatorProgramAdvancementRuleSummary: operatorProgram.advancementRuleSummary,
+    operatorProgramKeepCriteriaCount: operatorProgram.keepCriteriaCount,
+    operatorProgramDiscardCriteriaCount: operatorProgram.discardCriteriaCount,
+    operatorProgramRetryCriteriaCount: operatorProgram.retryCriteriaCount,
+    operatorProgramSimplificationBias: operatorProgram.simplificationBias,
+    operatorProgramAttemptLedgerRequired: operatorProgram.attemptLedgerRequired,
+    operatorProgramNextActionCode: operatorProgram.nextActionCode,
+    operatorProgramNextActionSummary: operatorProgram.nextActionSummary,
+    operatorProgramLinkedBlueprintPath: operatorProgram.linkedBlueprintPath,
+    operatorProgramLinkedWorkItemsPath: operatorProgram.linkedWorkItemsPath,
+    operatorProgramLinkedStageGatesPath: operatorProgram.linkedStageGatesPath,
     roleRouting: run.roleRouting ?? null,
     roleRoutingMixedMode: run.roleRouting?.mixedMode ?? null,
     roleRoutingFallbackConfigured: run.roleRouting?.fallbackConfigured ?? null,
@@ -3873,7 +3904,7 @@ export async function openclawCodeRunCommand(
   );
 
   if (opts.json) {
-    runtime.log(JSON.stringify(toWorkflowRunJson(run), null, 2));
+    runtime.log(JSON.stringify(await toWorkflowRunJson(run, repoRoot), null, 2));
     return;
   }
 

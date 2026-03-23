@@ -338,6 +338,11 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.buildResult.scopeCheck).toEqual(payload.scopeCheck);
     expect(payload.blueprintStatus).toBe("agreed");
     expect(payload.blueprintRevisionId).toBe("blueprint_rev_123");
+    expect(payload.operatorProgramAvailable).toBe(false);
+    expect(payload.operatorProgramArtifactPath).toBe("/repo/.openclawcode/operator-program.json");
+    expect(payload.operatorProgramTitle).toBeNull();
+    expect(payload.operatorProgramMutableSurfacePathCount).toBe(0);
+    expect(payload.operatorProgramRequireOneExecutableProof).toBe(false);
     expect(payload.blueprintAgreed).toBe(true);
     expect(payload.blueprintDefaultedSectionCount).toBe(0);
     expect(payload.blueprintWorkstreamCandidateCount).toBe(1);
@@ -476,6 +481,86 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.autoMergePolicyEligible).toBe(true);
     expect(payload.autoMergePolicyReason).toBe(
       "Eligible for auto-merge under the current command-layer policy.",
+    );
+  });
+
+  it("mirrors operator-program policy into run --json output when the artifact exists", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-run-json-operator-program-"));
+    await mkdir(path.join(repoRoot, ".openclawcode"), { recursive: true });
+    await writeFile(
+      path.join(repoRoot, ".openclawcode", "operator-program.json"),
+      `${JSON.stringify(
+        {
+          exists: true,
+          schemaVersion: 1,
+          updatedAt: "2026-03-23T08:40:00.000Z",
+          title: "Repo-local operator program",
+          summary:
+            "Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
+          mutableSurfaceMode: "allowlist",
+          mutableSurfacePaths: ["src/commands", "docs/openclawcode"],
+          validationBudgetSummary: "Run one proof and one targeted regression check.",
+          validationBudgetMaxPrimaryCommands: 2,
+          requireOneExecutableProof: true,
+          advancementRuleSummary:
+            "Advance only when the proof stays green and the diff remains inside the allowlist.",
+          keepCriteria: ["keep-1", "keep-2"],
+          discardCriteria: ["discard-1"],
+          retryCriteria: ["retry-1", "retry-2", "retry-3"],
+          simplificationBias: true,
+          attemptLedgerRequired: true,
+          nextActionCode: "record-advancement-rules",
+          nextActionSummary: "Record explicit advancement rules before broadening mutation scope.",
+          linkedArtifacts: {
+            blueprintPath: "PROJECT-BLUEPRINT.md",
+            workItemsPath: ".openclawcode/work-items.json",
+            stageGatesPath: ".openclawcode/stage-gates.json",
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    mocks.runIssueWorkflow.mockResolvedValueOnce(
+      createRun({
+        workspace: {
+          ...createRun().workspace!,
+          repoRoot,
+          worktreePath: path.join(repoRoot, ".openclawcode", "worktrees", "issue-2"),
+        },
+        blueprintContext: {
+          ...createRun().blueprintContext!,
+          path: path.join(repoRoot, "PROJECT-BLUEPRINT.md"),
+        },
+      }),
+    );
+
+    await openclawCodeRunCommand({ issue: "2", repoRoot, json: true }, runtime);
+
+    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    expect(payload.operatorProgram).toMatchObject({
+      available: true,
+      artifactPath: path.join(repoRoot, ".openclawcode", "operator-program.json"),
+      updatedAt: "2026-03-23T08:40:00.000Z",
+      title: "Repo-local operator program",
+      mutableSurfaceMode: "allowlist",
+      mutableSurfacePathCount: 2,
+      mutableSurfacePathsPresent: true,
+      validationBudgetSummary: "Run one proof and one targeted regression check.",
+      requireOneExecutableProof: true,
+      keepCriteriaCount: 2,
+      discardCriteriaCount: 1,
+      retryCriteriaCount: 3,
+      nextActionCode: "record-advancement-rules",
+    });
+    expect(payload.operatorProgramAvailable).toBe(true);
+    expect(payload.operatorProgramMutableSurfaceMode).toBe("allowlist");
+    expect(payload.operatorProgramMutableSurfacePathCount).toBe(2);
+    expect(payload.operatorProgramDiscardCriteriaCount).toBe(1);
+    expect(payload.operatorProgramRetryCriteriaCount).toBe(3);
+    expect(payload.operatorProgramNextActionSummary).toBe(
+      "Record explicit advancement rules before broadening mutation scope.",
     );
   });
 
@@ -2555,6 +2640,42 @@ describe("openclawCodeRunCommand", () => {
         "- None.",
         "",
       ].join("\n"),
+      "utf8",
+    );
+    await mkdir(path.join(repoRoot, ".openclawcode"), { recursive: true });
+    await writeFile(
+      path.join(repoRoot, ".openclawcode", "operator-program.json"),
+      `${JSON.stringify(
+        {
+          exists: true,
+          schemaVersion: 1,
+          updatedAt: "2026-03-20T08:00:00.000Z",
+          title: "Repo-local operator program",
+          summary: "Keep autonomous execution inside the active blueprint slice.",
+          mutableSurfaceMode: "scoped-by-work-item",
+          mutableSurfacePaths: [],
+          validationBudgetSummary: "Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+          validationBudgetMaxPrimaryCommands: 2,
+          requireOneExecutableProof: true,
+          advancementRuleSummary:
+            "Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
+          keepCriteria: ["keep-1", "keep-2", "keep-3"],
+          discardCriteria: ["discard-1", "discard-2"],
+          retryCriteria: ["retry-1", "retry-2"],
+          simplificationBias: true,
+          attemptLedgerRequired: true,
+          nextActionCode: "narrow-mutation-scope",
+          nextActionSummary:
+            "Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
+          linkedArtifacts: {
+            blueprintPath: "PROJECT-BLUEPRINT.md",
+            workItemsPath: ".openclawcode/work-items.json",
+            stageGatesPath: ".openclawcode/stage-gates.json",
+          },
+        },
+        null,
+        2,
+      )}\n`,
       "utf8",
     );
     runtime.log.mockClear();
@@ -4805,6 +4926,10 @@ describe("openclawCodeRunCommand", () => {
       nextSuggestedCommand: `openclaw code project-progress-show --repo-root ${repoRoot}`,
       nextSuggestedChatCommand: "/occode-progress openclaw/openclaw",
       message: "Queued openclaw/openclaw#777 after issue materialization.",
+      operatorProgram: {
+        available: false,
+        artifactPath: path.join(repoRoot, ".openclawcode", "operator-program.json"),
+      },
     });
 
     const snapshot = await store.snapshot();
@@ -4833,6 +4958,43 @@ describe("openclawCodeRunCommand", () => {
 
     vi.stubEnv("OPENCLAWCODE_ADAPTER_CODEX_AGENT_ID", "codex-main");
     vi.stubEnv("OPENCLAWCODE_ADAPTER_CLAUDE_CODE_AGENT_ID", "claude-main");
+    await mkdir(path.join(repoRoot, ".openclawcode"), { recursive: true });
+    await writeFile(
+      path.join(repoRoot, ".openclawcode", "operator-program.json"),
+      `${JSON.stringify(
+        {
+          exists: true,
+          schemaVersion: 1,
+          updatedAt: "2026-03-20T08:00:00.000Z",
+          title: "Repo-local operator program",
+          summary: "Keep autonomous execution inside the active blueprint slice.",
+          mutableSurfaceMode: "scoped-by-work-item",
+          mutableSurfacePaths: [],
+          validationBudgetSummary:
+            "Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+          validationBudgetMaxPrimaryCommands: 2,
+          requireOneExecutableProof: true,
+          advancementRuleSummary:
+            "Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
+          keepCriteria: ["keep-1", "keep-2", "keep-3"],
+          discardCriteria: ["discard-1", "discard-2"],
+          retryCriteria: ["retry-1", "retry-2"],
+          simplificationBias: true,
+          attemptLedgerRequired: true,
+          nextActionCode: "narrow-mutation-scope",
+          nextActionSummary:
+            "Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
+          linkedArtifacts: {
+            blueprintPath: "PROJECT-BLUEPRINT.md",
+            workItemsPath: ".openclawcode/work-items.json",
+            stageGatesPath: ".openclawcode/stage-gates.json",
+          },
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
 
     await writeFile(
       path.join(repoRoot, "PROJECT-BLUEPRINT.md"),
@@ -4997,6 +5159,14 @@ describe("openclawCodeRunCommand", () => {
       currentRunPullRequestUrl: "https://github.com/openclaw/openclawcode/pull/9910",
       currentRunStatusUpdatedAt: "2026-03-20T08:20:00.000Z",
     });
+    expect(progress.operatorProgram).toMatchObject({
+      available: true,
+      mutableSurfaceMode: "scoped-by-work-item",
+      requireOneExecutableProof: true,
+      keepCriteriaCount: 3,
+      discardCriteriaCount: 2,
+      retryCriteriaCount: 2,
+    });
 
     runtime.log.mockClear();
     await openclawCodeAutonomousLoopRunCommand(
@@ -5021,6 +5191,12 @@ describe("openclawCodeRunCommand", () => {
       currentRunBranchName: "openclawcode/issue-910",
       currentRunPullRequestNumber: 9910,
       currentRunPullRequestUrl: "https://github.com/openclaw/openclawcode/pull/9910",
+      operatorProgram: {
+        available: true,
+        artifactPath: path.join(repoRoot, ".openclawcode", "operator-program.json"),
+        mutableSurfaceMode: "scoped-by-work-item",
+        requireOneExecutableProof: true,
+      },
     });
     expect(loop.roleRoutes).toEqual(progress.roleRoutes);
     expect(loop.roleRouteSummary).toEqual(progress.roleRouteSummary);

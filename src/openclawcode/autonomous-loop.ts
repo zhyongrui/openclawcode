@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { RepoRef } from "./github/index.js";
-import type { OpenClawCodeOperatorStatusSnapshot } from "./operator-status.js";
 import {
   writeProjectIssueMaterializationArtifact,
 } from "./issue-materialization.js";
@@ -9,8 +8,11 @@ import {
   parseRepoRefFromRepoKey,
   resolveChatNextSuggestedCommand,
 } from "./next-suggested-command.js";
+import type { OpenClawCodeOperatorStatusSnapshot } from "./operator-status.js";
+import { buildOperatorProgramSummary, writeProjectProgressArtifact } from "./project-progress.js";
+import { readProjectOperatorProgram } from "./operator-program.js";
+import type { ProjectProgressOperatorProgramSummary } from "./project-progress.js";
 import type { ProjectRoleRoute } from "./role-routing.js";
-import { writeProjectProgressArtifact } from "./project-progress.js";
 
 export const PROJECT_AUTONOMOUS_LOOP_SCHEMA_VERSION = 1;
 
@@ -79,11 +81,45 @@ export interface ProjectAutonomousLoopArtifact {
   currentRunBranchName: string | null;
   currentRunPullRequestNumber: number | null;
   currentRunPullRequestUrl: string | null;
+  operatorProgram: ProjectProgressOperatorProgramSummary;
   message: string | null;
 }
 
 function resolveProjectAutonomousLoopArtifactPath(repoRootInput: string): string {
   return path.join(path.resolve(repoRootInput), ".openclawcode", "autonomous-loop.json");
+}
+
+function parseOperatorProgramSummary(
+  repoRoot: string,
+  parsed: Partial<ProjectAutonomousLoopArtifact>,
+): ProjectProgressOperatorProgramSummary {
+  return {
+    available: parsed.operatorProgram?.available ?? false,
+    artifactPath:
+      parsed.operatorProgram?.artifactPath ??
+      path.join(repoRoot, ".openclawcode", "operator-program.json"),
+    updatedAt: parsed.operatorProgram?.updatedAt ?? null,
+    title: parsed.operatorProgram?.title ?? null,
+    summary: parsed.operatorProgram?.summary ?? null,
+    mutableSurfaceMode: parsed.operatorProgram?.mutableSurfaceMode ?? null,
+    mutableSurfacePathCount: parsed.operatorProgram?.mutableSurfacePathCount ?? 0,
+    mutableSurfacePathsPresent: parsed.operatorProgram?.mutableSurfacePathsPresent ?? false,
+    validationBudgetSummary: parsed.operatorProgram?.validationBudgetSummary ?? null,
+    validationBudgetMaxPrimaryCommands:
+      parsed.operatorProgram?.validationBudgetMaxPrimaryCommands ?? null,
+    requireOneExecutableProof: parsed.operatorProgram?.requireOneExecutableProof ?? false,
+    advancementRuleSummary: parsed.operatorProgram?.advancementRuleSummary ?? null,
+    keepCriteriaCount: parsed.operatorProgram?.keepCriteriaCount ?? 0,
+    discardCriteriaCount: parsed.operatorProgram?.discardCriteriaCount ?? 0,
+    retryCriteriaCount: parsed.operatorProgram?.retryCriteriaCount ?? 0,
+    simplificationBias: parsed.operatorProgram?.simplificationBias ?? false,
+    attemptLedgerRequired: parsed.operatorProgram?.attemptLedgerRequired ?? false,
+    nextActionCode: parsed.operatorProgram?.nextActionCode ?? null,
+    nextActionSummary: parsed.operatorProgram?.nextActionSummary ?? null,
+    linkedBlueprintPath: parsed.operatorProgram?.linkedBlueprintPath ?? "PROJECT-BLUEPRINT.md",
+    linkedWorkItemsPath: parsed.operatorProgram?.linkedWorkItemsPath ?? ".openclawcode/work-items.json",
+    linkedStageGatesPath: parsed.operatorProgram?.linkedStageGatesPath ?? ".openclawcode/stage-gates.json",
+  };
 }
 
 export async function setProjectAutonomousLoopDisabled(params: {
@@ -130,6 +166,7 @@ export async function setProjectAutonomousLoopDisabled(params: {
     currentRunBranchName: null,
     currentRunPullRequestNumber: null,
     currentRunPullRequestUrl: null,
+    operatorProgram: buildOperatorProgramSummary(await readProjectOperatorProgram(repoRoot)),
     message: "Autonomous loop disabled.",
   };
   await mkdir(path.dirname(artifactPath), { recursive: true });
@@ -187,6 +224,7 @@ export async function readProjectAutonomousLoopArtifact(
       currentRunBranchName: null,
       currentRunPullRequestNumber: null,
       currentRunPullRequestUrl: null,
+      operatorProgram: buildOperatorProgramSummary(await readProjectOperatorProgram(repoRoot)),
       message: null,
     };
   }
@@ -231,7 +269,7 @@ export async function readProjectAutonomousLoopArtifact(
       }),
     selectedWorkItemId: parsed.selectedWorkItemId ?? null,
     selectedWorkItemExecutionMode: parsed.selectedWorkItemExecutionMode ?? null,
-    roleRoutes: Array.isArray(parsed.roleRoutes) ? parsed.roleRoutes as ProjectRoleRoute[] : [],
+    roleRoutes: Array.isArray(parsed.roleRoutes) ? (parsed.roleRoutes as ProjectRoleRoute[]) : [],
     roleRouteSummary: Array.isArray(parsed.roleRouteSummary) ? parsed.roleRouteSummary : [],
     selectedIssueNumber: parsed.selectedIssueNumber ?? null,
     selectedIssueUrl: parsed.selectedIssueUrl ?? null,
@@ -244,6 +282,7 @@ export async function readProjectAutonomousLoopArtifact(
     currentRunBranchName: parsed.currentRunBranchName ?? null,
     currentRunPullRequestNumber: parsed.currentRunPullRequestNumber ?? null,
     currentRunPullRequestUrl: parsed.currentRunPullRequestUrl ?? null,
+    operatorProgram: parseOperatorProgramSummary(repoRoot, parsed),
     message: parsed.message ?? null,
   };
 }
@@ -364,6 +403,7 @@ async function runProjectAutonomousLoopIteration(params: {
       currentRunBranchName: progress.operator.currentRunBranchName,
       currentRunPullRequestNumber: progress.operator.currentRunPullRequestNumber,
       currentRunPullRequestUrl: progress.operator.currentRunPullRequestUrl,
+      operatorProgram: progress.operatorProgram,
       message,
     };
     await mkdir(path.dirname(artifactPath), { recursive: true });
@@ -413,6 +453,7 @@ async function runProjectAutonomousLoopIteration(params: {
     currentRunBranchName: progress.operator.currentRunBranchName,
     currentRunPullRequestNumber: progress.operator.currentRunPullRequestNumber,
     currentRunPullRequestUrl: progress.operator.currentRunPullRequestUrl,
+    operatorProgram: progress.operatorProgram,
     message,
   };
   await mkdir(path.dirname(artifactPath), { recursive: true });

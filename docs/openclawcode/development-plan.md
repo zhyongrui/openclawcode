@@ -240,6 +240,21 @@ operator program is visible not only in repo progress and status views, but
 also in the artifacts that decide whether another autonomous attempt should
 advance, retry, or stop.
 
+That next slice has now landed:
+
+- `.openclawcode/autonomous-loop.json` now carries the shared
+  `operatorProgram` summary alongside next-work, queue, and current-run state
+- `openclaw code autonomous-loop-run --json` and
+  `openclaw code autonomous-loop-show --json` now expose the same repo-local
+  execution-policy summary used by project progress
+- `openclaw code run --json` now mirrors the operator-program policy through
+  stable top-level fields so automation can read mutable-surface mode,
+  validation budget, keep/discard/retry counts, and next-action guidance
+  without reopening the repo-local artifact separately
+
+The next slice after that should keep biasing toward live proof and fresh-host
+repeatability rather than adding convenience mirrors in isolation.
+
 ## Product Target
 
 `openclawcode` should become a GitHub-driven coding assistant built on the
