@@ -9619,6 +9619,23 @@ export default {
                   }),
           };
         }
+        if (
+          setupSession?.stage === "repo-existing-blueprint-detected" &&
+          !(ctx.args ?? "").trim()
+        ) {
+          const now = new Date().toISOString();
+          const updated = {
+            ...setupSession,
+            stage: "bootstrap-ready" as const,
+            updatedAt: now,
+          };
+          await store.upsertSetupSession(updated);
+          return {
+            text: buildChatSetupBootstrapReadyMessage({
+              session: updated,
+            }),
+          };
+        }
         const repo = parseChatopsRepoReference(ctx.args ?? "", {
           owner: defaultRepo?.owner,
           repo: defaultRepo?.repo,
@@ -9779,6 +9796,20 @@ export default {
                 : buildChatSetupDraftingBlueprintMessage({
                     session: setupSession,
                   }),
+          };
+        }
+        if (
+          setupSession?.stage === "repo-existing-blueprint-detected" &&
+          !(ctx.args ?? "").trim()
+        ) {
+          return {
+            text: buildChatSetupExistingBlueprintDetectedMessage({
+              session: setupSession,
+              detectedPaths: [
+                setupSession.detectedBlueprint?.sourcePath,
+                ".openclawcode",
+              ].filter((value): value is string => Boolean(value)),
+            }),
           };
         }
         const repo = parseChatopsRepoReference(ctx.args ?? "", {

@@ -4189,6 +4189,95 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("shows the detected existing-project blueprint through /occode-blueprint during setup", async () => {
+    const fixture = await registerPluginFixture();
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      projectMode: "existing-repo",
+      repoKey: "zhyongrui/iGallery",
+      stage: "repo-existing-blueprint-detected",
+      githubAuthSource: "gh-auth-token",
+      githubAuthLogin: "zhyongrui",
+      detectedBlueprint: {
+        sourcePath: "PROJECT-BLUEPRINT.md",
+        title: "iGallery blueprint",
+        status: "active",
+        goalSummary: "Ship a shared photo gallery with operator-driven rollout.",
+        workstreamCandidateCount: 2,
+        openQuestionCount: 1,
+        humanGateCount: 1,
+      },
+      createdAt: "2026-03-19T02:35:00.000Z",
+      updatedAt: "2026-03-19T02:35:00.000Z",
+    });
+
+    try {
+      const result = await fixture.commands.get("occode-blueprint")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-blueprint",
+        args: "",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("State: repo-existing-blueprint-detected");
+      expect(result?.text).toContain("Blueprint title: iGallery blueprint");
+      expect(result?.text).toContain("Blueprint status: active");
+      expect(result?.text).toContain(
+        "Blueprint counts: workstreams=2 | openQuestions=1 | humanGates=1",
+      );
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("confirms an existing-project blueprint through /occode-blueprint-agree during setup", async () => {
+    const fixture = await registerPluginFixture();
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      projectMode: "existing-repo",
+      repoKey: "zhyongrui/iGallery",
+      stage: "repo-existing-blueprint-detected",
+      githubAuthSource: "gh-auth-token",
+      githubAuthLogin: "zhyongrui",
+      detectedBlueprint: {
+        sourcePath: "PROJECT-BLUEPRINT.md",
+        title: "iGallery blueprint",
+        status: "active",
+      },
+      createdAt: "2026-03-19T02:35:00.000Z",
+      updatedAt: "2026-03-19T02:35:00.000Z",
+    });
+
+    try {
+      const result = await fixture.commands.get("occode-blueprint-agree")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-blueprint-agree",
+        args: "",
+        to: "user:setup-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("State: bootstrap-ready");
+      expect(result?.text).toContain("Repo: zhyongrui/iGallery");
+      expect(
+        await fixture.store.getSetupSession({
+          notifyChannel: "feishu",
+          notifyTarget: "user:setup-chat",
+        }),
+      ).toMatchObject({
+        stage: "bootstrap-ready",
+        repoKey: "zhyongrui/iGallery",
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("shows the current GitHub identity through /occode-setup-status when auth is already ready", async () => {
     const fixture = await registerPluginFixture();
     mocked.resolveOnboardingGitHubToken.mockReturnValue({
