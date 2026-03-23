@@ -1135,6 +1135,28 @@ function buildExistingRepoBlueprintDraft(params: {
   };
 }
 
+function buildChatSetupStateLayerLines(session: ChatSetupSession): string[] {
+  const githubLabel = session.githubAuthSource
+    ? `GitHub: ready${session.githubAuthLogin ? ` as ${session.githubAuthLogin}` : ""}`
+    : session.stage === "awaiting-github-device-auth"
+      ? "GitHub: awaiting device approval"
+      : "GitHub: not ready";
+  const repoLabel = session.repoKey
+    ? `Repo: ${session.repoKey}`
+    : session.pendingRepoName
+      ? `Repo: pending create ${session.pendingRepoName}`
+      : "Repo: not chosen yet";
+  const blueprintLabel =
+    session.stage === "repo-existing-blueprint-detected"
+      ? `Blueprint: existing baseline detected${session.detectedBlueprint?.status ? ` (${session.detectedBlueprint.status})` : ""}`
+      : session.stage === "bootstrap-ready"
+        ? "Blueprint: agreed"
+        : session.blueprintDraft
+          ? `Blueprint: ${session.blueprintDraft.status === "agreed" ? "agreed" : "draft"}`
+          : "Blueprint: missing";
+  return [githubLabel, repoLabel, blueprintLabel];
+}
+
 function extractMarkdownSectionBody(content: string, sectionName: string): string | undefined {
   const lines = content.split(/\r?\n/);
   let startIndex = -1;
@@ -1204,7 +1226,7 @@ function buildChatSetupExistingBlueprintDetectedMessage(params: {
 }): string {
   return [
     "OpenClaw Code found an existing repo that already looks like an OpenClaw Code project.",
-    params.session.repoKey ? `Repo: ${params.session.repoKey}` : undefined,
+    ...buildChatSetupStateLayerLines(params.session),
     `State: repo-existing-blueprint-detected`,
     params.detectedPaths.length > 0
       ? `Detected OpenClaw Code artifacts: ${params.detectedPaths.join(", ")}`
@@ -1243,7 +1265,7 @@ function buildChatSetupRepoBlueprintRequiredMessage(params: {
   const sourcePaths = params.session.blueprintDraft?.sourcePaths ?? [];
   return [
     "OpenClaw Code found an existing repo, but development should stay in blueprint-first setup.",
-    params.session.repoKey ? `Repo: ${params.session.repoKey}` : undefined,
+    ...buildChatSetupStateLayerLines(params.session),
     `State: ${params.state}`,
     params.detectedPaths.length > 0
       ? `Useful repo context found: ${params.detectedPaths.join(", ")}`
@@ -1268,7 +1290,7 @@ function buildChatSetupRepoCreationPendingMessage(params: {
 }): string {
   return [
     "OpenClaw Code has not created or bound the repo yet for this new project.",
-    params.session.pendingRepoName ? `Pending repo target: ${params.session.pendingRepoName}` : undefined,
+    ...buildChatSetupStateLayerLines(params.session),
     "State: repo-creation-pending",
     "First agree on the project blueprint in chat. Repo creation and bootstrap come after blueprint agreement.",
     "Use /occode-goal and /occode-blueprint-edit to finish the blueprint, then /occode-blueprint-agree.",
@@ -1283,7 +1305,7 @@ function buildChatSetupBootstrapReadyMessage(params: {
 }): string {
   return [
     "OpenClaw Code has blueprint agreement and can continue into bootstrap.",
-    params.session.repoKey ? `Repo: ${params.session.repoKey}` : undefined,
+    ...buildChatSetupStateLayerLines(params.session),
     "State: bootstrap-ready",
     `Next: /occode-setup-retry`,
     describeChatSetupBootstrap(),

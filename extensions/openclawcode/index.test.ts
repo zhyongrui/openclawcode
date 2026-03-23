@@ -3795,7 +3795,9 @@ describe("openclawcode extension", () => {
       });
 
       expect(result?.text).toContain("State: repo-existing-blueprint-detected");
+      expect(result?.text).toContain("GitHub: ready as zhyongrui");
       expect(result?.text).toContain("Repo: zhyongrui/iGallery");
+      expect(result?.text).toContain("Blueprint: existing baseline detected (active)");
       expect(result?.text).toContain("Detected OpenClaw Code artifacts: PROJECT-BLUEPRINT.md, .openclawcode");
       expect(result?.text).toContain("Blueprint title: iGallery blueprint");
       expect(result?.text).toContain("Blueprint status: active");
@@ -3881,6 +3883,9 @@ describe("openclawcode extension", () => {
       });
 
       expect(result?.text).toContain("State: repo-nonstandard-context-detected");
+      expect(result?.text).toContain("GitHub: ready as zhyongrui");
+      expect(result?.text).toContain("Repo: zhyongrui/iGallery");
+      expect(result?.text).toContain("Blueprint: draft");
       expect(result?.text).toContain("Useful repo context found: README.md");
       expect(result?.text).toContain("Draft goal: Photo gallery for family albums");
       expect(result?.text).toContain("Draft seeded from: repo:summary, README.md");
@@ -3941,6 +3946,8 @@ describe("openclawcode extension", () => {
       });
 
       expect(result?.text).toContain("State: repo-creation-pending");
+      expect(result?.text).toContain("Repo: pending create iGallery");
+      expect(result?.text).toContain("Blueprint: draft");
       expect(result?.text).toContain("First agree on the project blueprint in chat.");
       expect(mocked.createOnboardingRepositoryViaGh).not.toHaveBeenCalled();
       expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
