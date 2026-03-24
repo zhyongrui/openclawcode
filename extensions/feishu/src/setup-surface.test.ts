@@ -341,6 +341,73 @@ describe("feishu setup wizard", () => {
     }
   });
 
+  it("prefers device-pair publicUrl for a scannable qr binding link", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-device-pair-note-"));
+    const previousStateDir = process.env.OPENCLAW_STATE_DIR;
+    process.env.OPENCLAW_STATE_DIR = stateDir;
+
+    const note = vi.fn(async () => {});
+    const text = vi
+      .fn()
+      .mockResolvedValueOnce("secret_from_prompt")
+      .mockResolvedValueOnce("cli_from_prompt")
+      .mockResolvedValueOnce("oc_group_1");
+    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+      if (message === "Feishu connection mode") {
+        return "websocket";
+      }
+      if (message === "Which Feishu domain?") {
+        return initialValue ?? "feishu";
+      }
+      if (message === "Group chat policy") {
+        return "allowlist";
+      }
+      return initialValue ?? "allowlist";
+    });
+    const prompter = createTestWizardPrompter({
+      note,
+      text,
+      confirm: vi.fn(async () => true),
+      select: select as never,
+    });
+
+    try {
+      await runSetupWizardConfigure({
+        configure: feishuConfigure,
+        cfg: {
+          gateway: {
+            bind: "loopback",
+            port: 18789,
+          },
+          plugins: {
+            entries: {
+              "device-pair": {
+                config: {
+                  publicUrl: "wss://pair.example.com/gateway",
+                },
+              },
+            },
+          },
+        } as never,
+        prompter,
+        runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
+      });
+
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("绑定链接: https://pair.example.com/openclaw/bind/feishu/"),
+        "绑定飞书操作员",
+      );
+      expect(note).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"), "绑定飞书操作员");
+      expect(qrGenerateMock).toHaveBeenCalled();
+    } finally {
+      if (previousStateDir === undefined) {
+        delete process.env.OPENCLAW_STATE_DIR;
+      } else {
+        process.env.OPENCLAW_STATE_DIR = previousStateDir;
+      }
+    }
+  });
+
   it("does not show the qr binding note when a feishu target is already bound", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-skip-"));
     const previousStateDir = process.env.OPENCLAW_STATE_DIR;
