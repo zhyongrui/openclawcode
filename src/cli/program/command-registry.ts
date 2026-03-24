@@ -163,6 +163,19 @@ const coreEntries: CoreCliEntry[] = [
   {
     commands: [
       {
+        name: "code",
+        description: "Issue-driven coding workflow runner for GitHub issues",
+        hasSubcommands: true,
+      },
+    ],
+    register: async ({ program }) => {
+      const mod = await import("./register.code.js");
+      mod.registerCodeCommands(program);
+    },
+  },
+  {
+    commands: [
+      {
         name: "mcp",
         description: "Manage embedded Pi MCP servers",
         hasSubcommands: true,

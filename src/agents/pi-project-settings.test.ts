@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  applyEmbeddedPiRetrySettingsForWorkspace,
   buildEmbeddedPiSettingsSnapshot,
   DEFAULT_EMBEDDED_PI_PROJECT_SETTINGS_POLICY,
   resolveEmbeddedPiProjectSettingsPolicy,
+  shouldDisableEmbeddedPiRetryForWorkspace,
 } from "./pi-project-settings.js";
 
 type EmbeddedPiSettingsArgs = Parameters<typeof buildEmbeddedPiSettingsSnapshot>[0];
@@ -124,5 +126,43 @@ describe("buildEmbeddedPiSettingsSnapshot", () => {
         args: ["/workspace/probe.ts"],
       },
     });
+  });
+});
+
+describe("openclawcode embedded retry settings", () => {
+  it("disables inner SDK retries for openclawcode issue worktrees", () => {
+    const settingsManager = {
+      applyOverrides: vi.fn(),
+    };
+
+    const result = applyEmbeddedPiRetrySettingsForWorkspace({
+      settingsManager,
+      cwd: "/repo/.openclawcode/worktrees/run-71",
+    });
+
+    expect(result).toEqual({ didOverride: true });
+    expect(settingsManager.applyOverrides).toHaveBeenCalledWith({
+      retry: { enabled: false },
+    });
+  });
+
+  it("leaves regular workspaces unchanged", () => {
+    const settingsManager = {
+      applyOverrides: vi.fn(),
+    };
+
+    const result = applyEmbeddedPiRetrySettingsForWorkspace({
+      settingsManager,
+      cwd: "/repo",
+    });
+
+    expect(result).toEqual({ didOverride: false });
+    expect(settingsManager.applyOverrides).not.toHaveBeenCalled();
+  });
+
+  it("detects openclawcode worktrees on Windows-style paths too", () => {
+    expect(
+      shouldDisableEmbeddedPiRetryForWorkspace("C:\\repo\\.openclawcode\\worktrees\\run-71"),
+    ).toBe(true);
   });
 });

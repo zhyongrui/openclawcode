@@ -170,6 +170,22 @@ describe("registerPluginCommand", () => {
     });
   });
 
+  it("normalizes invisible characters and slash variants before matching", () => {
+    const result = registerPluginCommand("demo-plugin", {
+      name: "occode-setup",
+      description: "Start setup",
+      acceptsArgs: true,
+      handler: async () => ({ text: "ok" }),
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(matchPluginCommand("\u200b／occode-setup new-project")).toMatchObject({
+      command: expect.objectContaining({ name: "occode-setup", pluginId: "demo-plugin" }),
+      args: "new-project",
+    });
+    expect(__testing.normalizePluginCommandBody("\ufeff／occode-setup")).toBe("/occode-setup");
+  });
+
   it("rejects provider aliases that collide with another registered command", () => {
     expect(
       registerPluginCommand("demo-plugin", {

@@ -18,3 +18,19 @@ export function buildPairingReply(params: {
     formatCliCommand(`openclaw pairing approve ${channel} ${code}`),
   ].join("\n");
 }
+
+export function buildPairingCommandRetryReply(params: {
+  channel: PairingChannel;
+  idLine: string;
+  code: string;
+  commandBody: string;
+}): string {
+  const { commandBody } = params;
+  return [
+    buildPairingReply(params),
+    "",
+    "This chat command is blocked until pairing is approved.",
+    "After approval, resend:",
+    commandBody,
+  ].join("\n");
+}

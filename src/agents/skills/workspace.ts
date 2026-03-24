@@ -762,22 +762,19 @@ function resolveSyncedSkillDestinationPath(params: {
   }).resolved;
 }
 
-export async function syncSkillsToWorkspace(params: {
+async function syncMergedSkills(params: {
   sourceWorkspaceDir: string;
   targetWorkspaceDir: string;
   config?: OpenClawConfig;
   managedSkillsDir?: string;
   bundledSkillsDir?: string;
+  targetSkillsDir?: string;
 }) {
   const sourceDir = resolveUserPath(params.sourceWorkspaceDir);
   const targetDir = resolveUserPath(params.targetWorkspaceDir);
-  if (sourceDir === targetDir) {
-    return;
-  }
+  const targetSkillsDir = resolveUserPath(params.targetSkillsDir ?? path.join(targetDir, "skills"));
 
-  await serializeByKey(`syncSkills:${targetDir}`, async () => {
-    const targetSkillsDir = path.join(targetDir, "skills");
-
+  await serializeByKey(`syncSkills:${targetSkillsDir}`, async () => {
     const entries = loadSkillEntries(sourceDir, {
       config: params.config,
       managedSkillsDir: params.managedSkillsDir,
@@ -817,6 +814,42 @@ export async function syncSkillsToWorkspace(params: {
         skillsLogger.warn(`Failed to copy ${entry.skill.name} to sandbox: ${message}`);
       }
     }
+  });
+}
+
+export async function syncSkillsToWorkspace(params: {
+  sourceWorkspaceDir: string;
+  targetWorkspaceDir: string;
+  config?: OpenClawConfig;
+  managedSkillsDir?: string;
+  bundledSkillsDir?: string;
+}) {
+  const sourceDir = resolveUserPath(params.sourceWorkspaceDir);
+  const targetDir = resolveUserPath(params.targetWorkspaceDir);
+  if (sourceDir === targetDir) {
+    return;
+  }
+
+  await syncMergedSkills(params);
+}
+
+export async function mirrorMergedSkillsToProjectWorkspace(params: {
+  workspaceDir: string;
+  config?: OpenClawConfig;
+  managedSkillsDir?: string;
+  bundledSkillsDir?: string;
+}) {
+  const workspaceDir = resolveUserPath(params.workspaceDir);
+  const targetSkillsDir = path.join(workspaceDir, ".agents", "skills");
+
+  await fsp.rm(targetSkillsDir, { recursive: true, force: true });
+  await syncMergedSkills({
+    sourceWorkspaceDir: workspaceDir,
+    targetWorkspaceDir: workspaceDir,
+    targetSkillsDir,
+    config: params.config,
+    managedSkillsDir: params.managedSkillsDir,
+    bundledSkillsDir: params.bundledSkillsDir,
   });
 }
 

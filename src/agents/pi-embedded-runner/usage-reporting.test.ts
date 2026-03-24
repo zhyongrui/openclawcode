@@ -140,6 +140,36 @@ describe("runEmbeddedPiAgent usage reporting", () => {
     );
   });
 
+  it("forwards bootstrap context overrides into embedded attempts", async () => {
+    mockedRunEmbeddedAttempt.mockResolvedValueOnce({
+      aborted: false,
+      promptError: null,
+      timedOut: false,
+      sessionIdUsed: "test-session",
+      assistantTexts: [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    await runEmbeddedPiAgent({
+      sessionId: "test-session",
+      sessionKey: "test-key",
+      sessionFile: "/tmp/session.json",
+      workspaceDir: "/tmp/repo/.openclawcode/worktrees/run-87",
+      prompt: "hello",
+      timeoutMs: 30000,
+      runId: "run-bootstrap-context-forwarding",
+      bootstrapContextMode: "lightweight",
+      bootstrapContextRunKind: "default",
+    });
+
+    expect(mockedRunEmbeddedAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bootstrapContextMode: "lightweight",
+        bootstrapContextRunKind: "default",
+      }),
+    );
+  });
+
   it("reports total usage from the last turn instead of accumulated total", async () => {
     // Simulate a multi-turn run result.
     // Turn 1: Input 100, Output 50. Total 150.

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { captureEnv } from "../test-utils/env.js";
-import { buildPairingReply } from "./pairing-messages.js";
+import { buildPairingCommandRetryReply, buildPairingReply } from "./pairing-messages.js";
 
 describe("buildPairingReply", () => {
   let envSnapshot: ReturnType<typeof captureEnv>;
@@ -59,4 +59,19 @@ describe("buildPairingReply", () => {
       expect(text).toMatch(commandRe);
     });
   }
+
+  it("formats a retry hint for blocked chat commands", () => {
+    const text = buildPairingCommandRetryReply({
+      channel: "feishu",
+      idLine: "Your Feishu user id: ou-123",
+      code: "ABCDEFGH",
+      commandBody: "/occode-setup",
+    });
+
+    expect(text).toContain("OpenClaw: access not configured.");
+    expect(text).toContain("Pairing code: ABCDEFGH");
+    expect(text).toContain("This chat command is blocked until pairing is approved.");
+    expect(text).toContain("After approval, resend:");
+    expect(text).toContain("/occode-setup");
+  });
 });

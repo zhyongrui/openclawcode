@@ -34,6 +34,7 @@ import { listConfiguredWebSearchProviders } from "../web-search/runtime.js";
 import type { WizardPrompter } from "./prompts.js";
 import { setupWizardShellCompletion } from "./setup.completion.js";
 import { resolveSetupSecretInputString } from "./setup.secret-input.js";
+import { runOnboardingOpenClawCode } from "./setup.code.js";
 import type { GatewayWizardSettings, WizardFlow } from "./setup.types.js";
 
 type FinalizeOnboardingOptions = {
@@ -573,6 +574,8 @@ export async function finalizeSetupWizard(
       );
     }
   }
+
+  await runOnboardingOpenClawCode({ prompter });
 
   await prompter.note(
     'What now: https://openclaw.ai/showcase ("What People Are Building").',

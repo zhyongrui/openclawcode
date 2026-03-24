@@ -27,10 +27,13 @@ vi.mock("../acp-cli.js", () => ({ registerAcpCli }));
 vi.mock("../nodes-cli.js", () => ({ registerNodesCli }));
 vi.mock("../../config/config.js", () => configModule);
 
+const {
+  awaitPendingSubCliRegistrations,
+  loadValidatedConfigForPluginRegistration,
+  registerSubCliByName,
+  registerSubCliCommands,
+} = await import("./register.subclis.js");
 const mockedModuleIds = ["../acp-cli.js", "../nodes-cli.js", "../../config/config.js"];
-
-const { loadValidatedConfigForPluginRegistration, registerSubCliByName, registerSubCliCommands } =
-  await import("./register.subclis.js");
 
 afterAll(() => {
   for (const id of mockedModuleIds) {
@@ -65,6 +68,10 @@ describe("registerSubCliCommands", () => {
     nodesAction.mockClear();
     configModule.loadConfig.mockReset();
     configModule.readConfigFileSnapshot.mockReset();
+    configModule.readConfigFileSnapshot.mockResolvedValue({
+      valid: false,
+      config: {},
+    });
   });
 
   afterEach(() => {
@@ -95,6 +102,20 @@ describe("registerSubCliCommands", () => {
     expect(names).toContain("gateway");
     expect(names).toContain("clawbot");
     expect(registerAcpCli).not.toHaveBeenCalled();
+  });
+
+  it("awaits eager subcommand registration when lazy subcommands are disabled", async () => {
+    process.env.OPENCLAW_DISABLE_LAZY_SUBCOMMANDS = "1";
+    const program = createRegisteredProgram(["node", "openclaw", "acp"]);
+
+    await awaitPendingSubCliRegistrations(program);
+
+    expect(program.commands.map((cmd) => cmd.name())).toContain("acp");
+
+    await program.parseAsync(["acp"], { from: "user" });
+
+    expect(registerAcpCli).toHaveBeenCalledTimes(1);
+    expect(acpAction).toHaveBeenCalledTimes(1);
   });
 
   it("returns null for plugin registration when the config snapshot is invalid", async () => {

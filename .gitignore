@@ -1,5 +1,6 @@
 node_modules
 **/node_modules/
+node_modules.bad.*/
 .env
 docker-compose.override.yml
 docker-compose.extra.yml
@@ -84,6 +85,7 @@ apps/ios/*.mobileprovision
 
 # Local untracked files
 .local/
+.openclawcode/
 docs/.local/
 tmp/
 IDENTITY.md

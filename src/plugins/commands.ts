@@ -35,6 +35,19 @@ import type {
 
 // Maximum allowed length for command arguments (defense in depth)
 const MAX_ARGS_LENGTH = 4096;
+const INVISIBLE_COMMAND_CHARS_RE = /[\u200b-\u200d\u2060\ufeff]/gu;
+const SLASH_VARIANTS_RE = /[／⁄∕]/gu;
+
+export function normalizePluginCommandBody(commandBody: string): string {
+  if (!commandBody) {
+    return "";
+  }
+  return commandBody
+    .normalize("NFKC")
+    .replace(INVISIBLE_COMMAND_CHARS_RE, "")
+    .replace(SLASH_VARIANTS_RE, "/")
+    .trim();
+}
 
 export {
   clearPluginCommands,
@@ -56,7 +69,7 @@ export {
 export function matchPluginCommand(
   commandBody: string,
 ): { command: RegisteredPluginCommand; args?: string } | null {
-  const trimmed = commandBody.trim();
+  const trimmed = normalizePluginCommandBody(commandBody);
   if (!trimmed.startsWith("/")) {
     return null;
   }
@@ -301,5 +314,6 @@ function listPluginInvocationNames(command: OpenClawPluginCommandDefinition): st
 }
 
 export const __testing = {
+  normalizePluginCommandBody,
   resolveBindingConversationFromCommand,
 };

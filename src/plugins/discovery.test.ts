@@ -38,6 +38,7 @@ function buildDiscoveryEnv(stateDir: string): NodeJS.ProcessEnv {
     OPENCLAW_STATE_DIR: stateDir,
     OPENCLAW_HOME: undefined,
     OPENCLAW_BUNDLED_PLUGINS_DIR: "/nonexistent/bundled/plugins",
+    OPENCLAW_PREFER_BUILT_BUNDLED_PLUGINS: undefined,
   };
 }
 
@@ -274,6 +275,40 @@ describe("discoverOpenClawPlugins", () => {
 
     const ids = candidates.map((c) => c.idHint);
     expect(ids).toContain("demo-plugin-dir");
+  });
+
+  it("prefers a built bundled override when requested", async () => {
+    const stateDir = makeTempDir();
+    const bundledRoot = path.join(stateDir, "extensions");
+    const sourcePluginDir = path.join(bundledRoot, "openclawcode");
+    const builtPluginDir = path.join(stateDir, "dist", "extensions", "openclawcode");
+
+    mkdirSafe(sourcePluginDir);
+    mkdirSafe(builtPluginDir);
+    fs.writeFileSync(path.join(sourcePluginDir, "index.ts"), "export default {}", "utf-8");
+    fs.writeFileSync(
+      path.join(sourcePluginDir, "openclaw.plugin.json"),
+      JSON.stringify({ id: "openclawcode", configSchema: { type: "object" } }),
+      "utf-8",
+    );
+    fs.writeFileSync(path.join(builtPluginDir, "index.js"), "export default {}", "utf-8");
+    fs.writeFileSync(
+      path.join(builtPluginDir, "openclaw.plugin.json"),
+      JSON.stringify({ id: "openclawcode", configSchema: { type: "object" } }),
+      "utf-8",
+    );
+
+    const result = discoverOpenClawPlugins({
+      env: {
+        ...buildDiscoveryEnv(stateDir),
+        OPENCLAW_BUNDLED_PLUGINS_DIR: bundledRoot,
+        OPENCLAW_PREFER_BUILT_BUNDLED_PLUGINS: "1",
+      },
+    });
+
+    const bundledCandidate = result.candidates.find((candidate) => candidate.origin === "bundled");
+    expect(bundledCandidate?.source).toBe(path.join(builtPluginDir, "index.js"));
+    expect(bundledCandidate?.rootDir).toBe(builtPluginDir);
   });
 
   it("auto-detects Codex bundles as bundle candidates", async () => {

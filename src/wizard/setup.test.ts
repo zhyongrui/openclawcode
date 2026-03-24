@@ -289,6 +289,7 @@ describe("runSetupWizard", () => {
   });
 
   it("skips prompts and setup steps when flags are set", async () => {
+    writeConfigFile.mockClear();
     const select = vi.fn(
       async (_params: WizardSelectParams<unknown>) => "quickstart",
     ) as unknown as WizardPrompter["select"];
@@ -317,6 +318,10 @@ describe("runSetupWizard", () => {
     expect(setupSkills).not.toHaveBeenCalled();
     expect(healthCommand).not.toHaveBeenCalled();
     expect(runTui).not.toHaveBeenCalled();
+    const persistedConfig = writeConfigFile.mock.calls.at(-1)?.[0] as OpenClawConfig | undefined;
+    expect(persistedConfig?.plugins?.enabled).toBe(true);
+    expect(persistedConfig?.plugins?.allow).toContain("openclawcode");
+    expect(persistedConfig?.plugins?.entries?.openclawcode?.enabled).toBe(true);
   });
 
   async function runTuiHatchTest(params: {

@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   createSandbox,
   createSandboxFsBridge,
+  dockerExecResult,
+  getDockerArg,
+  getDockerScript,
   createSeededSandboxFsBridge,
   getScriptsFromCalls,
   installFsBridgeTestHarness,
@@ -77,6 +80,38 @@ describe("sandbox fs bridge shell compatibility", () => {
         Buffer.from("voice"),
       );
       expect(mockedExecDockerRaw).not.toHaveBeenCalled();
+    });
+  });
+
+  it("stats in-boundary directories without tripping boundary validation", async () => {
+    await withTempDir("openclaw-fs-bridge-stat-dir-", async (stateDir) => {
+      const workspaceDir = path.join(stateDir, "workspace");
+      const docsDir = path.join(workspaceDir, "docs", "openclawcode");
+      await fs.mkdir(docsDir, { recursive: true });
+
+      mockedExecDockerRaw.mockImplementation(async (args) => {
+        const script = getDockerScript(args);
+        if (script.includes('readlink -f -- "$cursor"')) {
+          return dockerExecResult(`${getDockerArg(args, 1)}\n`);
+        }
+        if (script.includes('stat -c "%F|%s|%Y"')) {
+          return dockerExecResult("directory|0|2");
+        }
+        return dockerExecResult("");
+      });
+
+      const bridge = createSandboxFsBridge({
+        sandbox: createSandbox({
+          workspaceDir,
+          agentWorkspaceDir: workspaceDir,
+        }),
+      });
+
+      await expect(bridge.stat({ filePath: "docs/openclawcode" })).resolves.toEqual({
+        type: "directory",
+        size: 0,
+        mtimeMs: 2000,
+      });
     });
   });
 

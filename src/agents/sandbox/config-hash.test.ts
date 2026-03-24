@@ -1,6 +1,23 @@
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { computeSandboxBrowserConfigHash, computeSandboxConfigHash } from "./config-hash.js";
 import type { SandboxDockerConfig } from "./types.js";
+
+const tempDirs: string[] = [];
+
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function createTempDir(prefix: string): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  tempDirs.push(dir);
+  return dir;
+}
 
 function createDockerConfig(overrides?: Partial<SandboxDockerConfig>): SandboxDockerConfig {
   return {
@@ -102,6 +119,35 @@ describe("computeSandboxConfigHash", () => {
       } as Partial<SandboxDockerConfig>),
     });
     expect(left).not.toBe(right);
+  });
+
+  it("changes when linked worktree compatibility mounts change", () => {
+    const root = createTempDir("openclaw-config-hash-");
+    const workspaceDir = path.join(root, "repo", ".openclawcode", "worktrees", "run-1");
+    const shared = {
+      workspaceAccess: "rw" as const,
+      workspaceDir,
+      agentWorkspaceDir: workspaceDir,
+    };
+
+    fs.mkdirSync(workspaceDir, { recursive: true });
+    const withoutLinkedGit = computeSandboxConfigHash({
+      ...shared,
+      docker: createDockerConfig(),
+    });
+
+    const adminDir = path.join(root, "repo", ".git", "worktrees", "run-1");
+    fs.mkdirSync(adminDir, { recursive: true });
+    fs.writeFileSync(path.join(workspaceDir, ".git"), `gitdir: ${adminDir}\n`, "utf8");
+    fs.writeFileSync(path.join(adminDir, "commondir"), "../..\n", "utf8");
+    fs.writeFileSync(path.join(adminDir, "gitdir"), `${path.join(workspaceDir, ".git")}\n`, "utf8");
+
+    const withLinkedGit = computeSandboxConfigHash({
+      ...shared,
+      docker: createDockerConfig(),
+    });
+
+    expect(withLinkedGit).not.toBe(withoutLinkedGit);
   });
 });
 

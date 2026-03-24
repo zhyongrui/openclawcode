@@ -20,6 +20,8 @@ const {
   mockDownloadMessageResourceFeishu,
   mockCreateFeishuClient,
   mockResolveAgentRoute,
+  mockMatchPluginCommand,
+  mockExecutePluginCommand,
   mockReadSessionUpdatedAt,
   mockResolveStorePath,
   mockResolveConfiguredBindingRoute,
@@ -28,7 +30,14 @@ const {
   mockTouchBinding,
 } = vi.hoisted(() => ({
   mockCreateFeishuReplyDispatcher: vi.fn(() => ({
-    dispatcher: vi.fn(),
+    dispatcher: {
+      sendToolResult: vi.fn(() => false),
+      sendBlockReply: vi.fn(() => false),
+      sendFinalReply: vi.fn(() => true),
+      waitForIdle: vi.fn(async () => {}),
+      getQueuedCounts: vi.fn(() => ({ tool: 0, block: 0, final: 1 })),
+      markComplete: vi.fn(),
+    },
     replyOptions: {},
     markDispatchIdle: vi.fn(),
   })),
@@ -49,6 +58,8 @@ const {
     mainSessionKey: "agent:main:main",
     matchedBy: "default",
   })),
+  mockMatchPluginCommand: vi.fn(() => null),
+  mockExecutePluginCommand: vi.fn(),
   mockReadSessionUpdatedAt: vi.fn(),
   mockResolveStorePath: vi.fn(() => "/tmp/feishu-sessions.json"),
   mockResolveConfiguredBindingRoute: vi.fn(({ route }) => ({
@@ -79,6 +90,15 @@ vi.mock("./client.js", () => ({
   createFeishuClient: mockCreateFeishuClient,
 }));
 
+vi.mock("../../../src/plugins/commands.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../src/plugins/commands.js")>();
+  return {
+    ...actual,
+    matchPluginCommand: mockMatchPluginCommand,
+    executePluginCommand: mockExecutePluginCommand,
+  };
+});
+
 vi.mock("openclaw/plugin-sdk/conversation-runtime", async (importOriginal) => {
   const actual = await importOriginal<typeof import("openclaw/plugin-sdk/conversation-runtime")>();
   return {
@@ -92,6 +112,16 @@ vi.mock("openclaw/plugin-sdk/conversation-runtime", async (importOriginal) => {
     }),
   };
 });
+
+function createRuntimeEnv(): RuntimeEnv {
+  return {
+    log: vi.fn(),
+    error: vi.fn(),
+    exit: vi.fn((code: number): never => {
+      throw new Error(`exit ${code}`);
+    }),
+  } as RuntimeEnv;
+}
 
 vi.mock("../../../src/infra/outbound/session-binding-service.js", () => ({
   getSessionBindingService: () => ({
@@ -465,6 +495,8 @@ describe("handleFeishuMessage command authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockShouldComputeCommandAuthorized.mockReset().mockReturnValue(true);
+    mockMatchPluginCommand.mockReset().mockReturnValue(null);
+    mockExecutePluginCommand.mockReset();
     mockGetMessageFeishu.mockReset().mockResolvedValue(null);
     mockListFeishuThreadMessages.mockReset().mockResolvedValue([]);
     mockReadSessionUpdatedAt.mockReturnValue(undefined);
@@ -615,6 +647,75 @@ describe("handleFeishuMessage command authorization", () => {
         Surface: "feishu",
       }),
     );
+  });
+
+  it("executes matched plugin commands directly without invoking agent dispatch", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(true);
+    mockResolveCommandAuthorizedFromAuthorizers.mockReturnValue(true);
+    mockMatchPluginCommand.mockReturnValue({
+      command: {
+        name: "occode-start",
+        description: "Start openclawcode issue workflow",
+        pluginId: "openclawcode",
+        acceptsArgs: true,
+        handler: vi.fn(),
+      },
+      args: "#36",
+    });
+    mockExecutePluginCommand.mockResolvedValue({ text: "plugin output" });
+
+    const cfg: ClawdbotConfig = {
+      commands: { useAccessGroups: true },
+      channels: {
+        feishu: {
+          dmPolicy: "open",
+          allowFrom: ["ou-attacker"],
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-attacker",
+        },
+      },
+      message: {
+        message_id: "msg-plugin-command",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "/occode-start #36" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockExecutePluginCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        senderId: "ou-attacker",
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: "/occode-start #36",
+        from: "feishu:ou-attacker",
+        to: "user:ou-attacker",
+        accountId: "default",
+      }),
+    );
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
+
+    const dispatcherRecord = mockCreateFeishuReplyDispatcher.mock.results[0]?.value as {
+      dispatcher: {
+        sendFinalReply: ReturnType<typeof vi.fn>;
+        markComplete: ReturnType<typeof vi.fn>;
+        waitForIdle: ReturnType<typeof vi.fn>;
+      };
+    };
+    expect(dispatcherRecord.dispatcher.sendFinalReply).toHaveBeenCalledWith({
+      text: "plugin output",
+    });
+    expect(dispatcherRecord.dispatcher.markComplete).toHaveBeenCalledTimes(1);
+    expect(dispatcherRecord.dispatcher.waitForIdle).toHaveBeenCalledTimes(1);
   });
 
   it("reads pairing allow store for non-command DMs when dmPolicy is pairing", async () => {
@@ -823,6 +924,277 @@ describe("handleFeishuMessage command authorization", () => {
     expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
   });
 
+  it("replies with pairing guidance for blocked plugin commands even when a pairing request already exists", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(true);
+    mockReadAllowFromStore.mockResolvedValue([]);
+    mockUpsertPairingRequest.mockResolvedValue({ code: "ABCDEFGH", created: false });
+    mockMatchPluginCommand.mockReturnValue({
+      command: {
+        name: "occode-setup",
+        description: "Start setup",
+        pluginId: "openclawcode",
+        acceptsArgs: true,
+        handler: vi.fn(),
+      },
+      args: "",
+    });
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "pairing",
+          allowFrom: [],
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-unapproved",
+        },
+      },
+      message: {
+        message_id: "msg-pairing-plugin-reminder",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "/occode-setup" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockSendMessageFeishu).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("This chat command is blocked until pairing is approved."),
+        accountId: "default",
+      }),
+    );
+    expect(mockSendMessageFeishu).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("After approval, resend:\n/occode-setup"),
+        accountId: "default",
+      }),
+    );
+    expect(mockExecutePluginCommand).not.toHaveBeenCalled();
+    expect(mockFinalizeInboundContext).not.toHaveBeenCalled();
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
+  });
+
+  it("replies with pairing guidance for blocked slash commands even when plugin routing is unavailable", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(true);
+    mockReadAllowFromStore.mockResolvedValue([]);
+    mockUpsertPairingRequest.mockResolvedValue({ code: "ABCDEFGH", created: false });
+    mockMatchPluginCommand.mockReturnValue(null);
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "pairing",
+          allowFrom: [],
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-unapproved",
+        },
+      },
+      message: {
+        message_id: "msg-pairing-slash-reminder",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "/occode-setup new-project" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockSendMessageFeishu).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("This chat command is blocked until pairing is approved."),
+        accountId: "default",
+      }),
+    );
+    expect(mockSendMessageFeishu).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("After approval, resend:\n/occode-setup new-project"),
+        accountId: "default",
+      }),
+    );
+    expect(mockExecutePluginCommand).not.toHaveBeenCalled();
+    expect(mockFinalizeInboundContext).not.toHaveBeenCalled();
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
+  });
+
+  it("allows configured openclawcode setup commands through pairing-gated DMs", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(true);
+    mockReadAllowFromStore.mockResolvedValue([]);
+    mockResolveCommandAuthorizedFromAuthorizers.mockReturnValue(false);
+    mockMatchPluginCommand.mockReturnValue({
+      command: {
+        name: "occode-setup",
+        description: "Start setup",
+        pluginId: "openclawcode",
+        acceptsArgs: true,
+        handler: vi.fn(),
+      },
+      args: "",
+    });
+    mockExecutePluginCommand.mockResolvedValue({ text: "plugin output" });
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "pairing",
+          allowFrom: [],
+        },
+      },
+      plugins: {
+        entries: {
+          openclawcode: {
+            enabled: true,
+            config: {
+              repos: [
+                {
+                  owner: "zhyongrui",
+                  repo: "openclawcode",
+                  repoRoot: "/tmp/openclawcode",
+                  baseBranch: "main",
+                  triggerMode: "approve",
+                  notifyChannel: "feishu",
+                  notifyTarget: "user:ou-unapproved",
+                  builderAgent: "main",
+                  verifierAgent: "main",
+                  testCommands: ["pnpm test"],
+                },
+              ],
+            },
+          },
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-unapproved",
+        },
+      },
+      message: {
+        message_id: "msg-configured-setup-bypass",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "/occode-setup" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockUpsertPairingRequest).not.toHaveBeenCalled();
+    expect(mockSendMessageFeishu).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("Pairing code:"),
+      }),
+    );
+    expect(mockExecutePluginCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commandBody: "/occode-setup",
+        isAuthorizedSender: true,
+      }),
+    );
+  });
+
+  it("allows bind-pending openclawcode setup commands through pairing-gated DMs", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(true);
+    mockReadAllowFromStore.mockResolvedValue([]);
+    mockResolveCommandAuthorizedFromAuthorizers.mockReturnValue(false);
+    mockMatchPluginCommand.mockReturnValue({
+      command: {
+        name: "occ-setup",
+        description: "Start setup",
+        pluginId: "openclawcode",
+        acceptsArgs: true,
+        handler: vi.fn(),
+      },
+      args: "",
+    });
+    mockExecutePluginCommand.mockResolvedValue({ text: "plugin output" });
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "pairing",
+          allowFrom: [],
+        },
+      },
+      plugins: {
+        entries: {
+          openclawcode: {
+            enabled: true,
+            config: {
+              repos: [
+                {
+                  owner: "zhyongrui",
+                  repo: "openclawcode",
+                  repoRoot: "/tmp/openclawcode",
+                  baseBranch: "main",
+                  triggerMode: "approve",
+                  notifyChannel: "feishu",
+                  notifyTarget: "bind-pending:zhyongrui/openclawcode",
+                  builderAgent: "main",
+                  verifierAgent: "main",
+                  testCommands: ["pnpm test"],
+                },
+              ],
+            },
+          },
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-unapproved",
+        },
+      },
+      message: {
+        message_id: "msg-bind-pending-setup-bypass",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "/occ-setup" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockUpsertPairingRequest).not.toHaveBeenCalled();
+    expect(mockSendMessageFeishu).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("Pairing code:"),
+      }),
+    );
+    expect(mockExecutePluginCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commandBody: "/occ-setup",
+        isAuthorizedSender: true,
+      }),
+    );
+  });
+
   it("computes group command authorization from group allowFrom", async () => {
     mockShouldComputeCommandAuthorized.mockReturnValue(true);
     mockResolveCommandAuthorizedFromAuthorizers.mockReturnValue(false);
@@ -904,6 +1276,59 @@ describe("handleFeishuMessage command authorization", () => {
     await dispatchMessage({ cfg, event });
 
     expect(mockShouldComputeCommandAuthorized).toHaveBeenCalledWith("/model", cfg);
+  });
+
+  it("normalizes invisible characters and slash variants before plugin-command probing", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(true);
+    mockResolveCommandAuthorizedFromAuthorizers.mockReturnValue(true);
+    mockMatchPluginCommand.mockReturnValue({
+      command: {
+        name: "occode-setup",
+        description: "Start setup",
+        pluginId: "openclawcode",
+        acceptsArgs: true,
+        handler: vi.fn(),
+      },
+      args: "new-project",
+    });
+    mockExecutePluginCommand.mockResolvedValue({ text: "plugin output" });
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "open",
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-attacker",
+        },
+      },
+      message: {
+        message_id: "msg-plugin-command-normalized",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "\u200b／occode-setup new-project" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockShouldComputeCommandAuthorized).toHaveBeenCalledWith(
+      "/occode-setup new-project",
+      cfg,
+    );
+    expect(mockMatchPluginCommand).toHaveBeenCalledWith("/occode-setup new-project");
+    expect(mockExecutePluginCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commandBody: "/occode-setup new-project",
+      }),
+    );
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
   });
 
   it("falls back to top-level allowFrom for group command authorization", async () => {

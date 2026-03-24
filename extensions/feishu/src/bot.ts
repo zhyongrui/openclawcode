@@ -20,6 +20,17 @@ import {
   resolveDefaultGroupPolicy,
   warnMissingProviderGroupPolicyFallbackOnce,
 } from "../runtime-api.js";
+import {
+  executePluginCommand,
+  matchPluginCommand,
+  normalizePluginCommandBody,
+} from "../../../src/plugins/commands.js";
+import { resolveOpenClawCodePluginConfig } from "../../../src/integrations/openclaw-plugin/index.js";
+import { isBindPendingNotifyTarget } from "../../../src/openclawcode/operator-chat-targets.js";
+import {
+  buildPairingCommandRetryReply,
+  buildPairingReply,
+} from "../../../src/pairing/pairing-messages.js";
 import { resolveFeishuAccount } from "./accounts.js";
 import {
   checkBotMentioned,
@@ -98,6 +109,23 @@ export type FeishuBotAddedEvent = {
   operator_tenant_key?: string;
 };
 
+function hasRenderableReplyPayload(payload: {
+  text?: string;
+  mediaUrl?: string;
+  mediaUrls?: string[];
+}): boolean {
+  if ((payload.text ?? "").trim()) {
+    return true;
+  }
+  if ((payload.mediaUrl ?? "").trim()) {
+    return true;
+  }
+  if (payload.mediaUrls?.some((entry) => entry.trim())) {
+    return true;
+  }
+  return false;
+}
+
 // --- Broadcast support ---
 // Resolve broadcast agent list for a given peer (group) ID.
 // Returns null if no broadcast config exists or the peer is not in the broadcast list.
@@ -107,6 +135,75 @@ export function resolveBroadcastAgents(cfg: ClawdbotConfig, peerId: string): str
   const agents = (broadcast as Record<string, unknown>)[peerId];
   if (!Array.isArray(agents) || agents.length === 0) return null;
   return agents as string[];
+}
+
+const OPENCLAWCODE_SETUP_COMMAND_NAMES = new Set([
+  "occode-setup",
+  "occ-setup",
+  "occode-setup-status",
+  "occ-setup-status",
+  "occode-setup-retry",
+  "occ-setup-retry",
+  "occode-setup-cancel",
+  "occ-setup-cancel",
+]);
+
+function resolveOpenClawCodeSetupCommandName(commandBody: string): string | undefined {
+  const token = commandBody.trim().split(/\s+/, 1)[0]?.trim();
+  if (!token?.startsWith("/")) {
+    return undefined;
+  }
+  const commandName = token.slice(1).toLowerCase();
+  return OPENCLAWCODE_SETUP_COMMAND_NAMES.has(commandName) ? commandName : undefined;
+}
+
+function shouldBypassPairingForConfiguredOpenClawCodeSetup(params: {
+  cfg: ClawdbotConfig;
+  isDirect: boolean;
+  senderOpenId: string;
+  commandBody: string;
+  pluginMatch: ReturnType<typeof matchPluginCommand>;
+}): boolean {
+  if (!params.isDirect) {
+    return false;
+  }
+  const commandName = resolveOpenClawCodeSetupCommandName(params.commandBody);
+  if (!commandName) {
+    return false;
+  }
+  if (
+    params.pluginMatch &&
+    (params.pluginMatch.command.pluginId !== "openclawcode" ||
+      !OPENCLAWCODE_SETUP_COMMAND_NAMES.has(params.pluginMatch.command.name))
+  ) {
+    return false;
+  }
+  const plugins =
+    params.cfg && typeof params.cfg === "object" && params.cfg.plugins && typeof params.cfg.plugins === "object"
+      ? (params.cfg.plugins as Record<string, unknown>)
+      : undefined;
+  const entries =
+    plugins?.entries && typeof plugins.entries === "object"
+      ? (plugins.entries as Record<string, unknown>)
+      : undefined;
+  const openclawcodeEntry =
+    entries?.openclawcode && typeof entries.openclawcode === "object"
+      ? (entries.openclawcode as Record<string, unknown>)
+      : undefined;
+  const openclawcodeConfig =
+    openclawcodeEntry?.config && typeof openclawcodeEntry.config === "object"
+      ? (openclawcodeEntry.config as Record<string, unknown>)
+      : undefined;
+  if (!openclawcodeConfig) {
+    return false;
+  }
+  const pluginConfig = resolveOpenClawCodePluginConfig(openclawcodeConfig);
+  return pluginConfig.repos.some(
+    (repo) =>
+      repo.notifyChannel === "feishu" &&
+      (repo.notifyTarget.trim() === `user:${params.senderOpenId}` ||
+        isBindPendingNotifyTarget(repo.notifyTarget)),
+  );
 }
 
 // Build a session key for a broadcast target agent by replacing the agent ID prefix.
@@ -449,11 +546,14 @@ export async function handleFeishuMessage(params: {
       channel: "feishu",
       accountId: account.accountId,
     });
-    const commandProbeBody = isGroup ? normalizeFeishuCommandProbeBody(ctx.content) : ctx.content;
+    const commandProbeBody = normalizePluginCommandBody(
+      isGroup ? normalizeFeishuCommandProbeBody(ctx.content) : ctx.content,
+    );
     const shouldComputeCommandAuthorized = core.channel.commands.shouldComputeCommandAuthorized(
       commandProbeBody,
       cfg,
     );
+    const pluginMatch = matchPluginCommand(commandProbeBody);
     const storeAllowFrom =
       !isGroup &&
       dmPolicy !== "allowlist" &&
@@ -467,30 +567,52 @@ export async function handleFeishuMessage(params: {
       senderIds: [senderUserId],
       senderName: ctx.senderName,
     }).allowed;
+    const bypassPairingForConfiguredSetup = shouldBypassPairingForConfiguredOpenClawCodeSetup({
+      cfg,
+      isDirect,
+      senderOpenId: ctx.senderOpenId,
+      commandBody: commandProbeBody,
+      pluginMatch,
+    });
 
-    if (isDirect && dmPolicy !== "open" && !dmAllowed) {
+    if (isDirect && dmPolicy !== "open" && !dmAllowed && !bypassPairingForConfiguredSetup) {
       if (dmPolicy === "pairing") {
-        await pairing.issueChallenge({
-          senderId: ctx.senderOpenId,
-          senderIdLine: `Your Feishu user id: ${ctx.senderOpenId}`,
+        const senderIdLine = `Your Feishu user id: ${ctx.senderOpenId}`;
+        const pairingResult = await pairing.upsertPairingRequest({
+          id: ctx.senderOpenId,
           meta: { name: ctx.senderName },
-          onCreated: () => {
-            log(`feishu[${account.accountId}]: pairing request sender=${ctx.senderOpenId}`);
-          },
-          sendPairingReply: async (text) => {
+        });
+        if (pairingResult.created) {
+          log(`feishu[${account.accountId}]: pairing request sender=${ctx.senderOpenId}`);
+        }
+        const shouldSendPairingReply = pairingResult.created || shouldComputeCommandAuthorized;
+        if (shouldSendPairingReply && pairingResult.code) {
+          const text =
+            shouldComputeCommandAuthorized
+              ? buildPairingCommandRetryReply({
+                  channel: "feishu",
+                  idLine: senderIdLine,
+                  code: pairingResult.code,
+                  commandBody: commandProbeBody,
+                })
+              : buildPairingReply({
+                  channel: "feishu",
+                  idLine: senderIdLine,
+                  code: pairingResult.code,
+                });
+          try {
             await sendMessageFeishu({
               cfg,
               to: `chat:${ctx.chatId}`,
               text,
               accountId: account.accountId,
             });
-          },
-          onReplyError: (err) => {
+          } catch (err) {
             log(
               `feishu[${account.accountId}]: pairing reply failed for ${ctx.senderOpenId}: ${String(err)}`,
             );
-          },
-        });
+          }
+        }
       } else {
         log(
           `feishu[${account.accountId}]: blocked unauthorized sender ${ctx.senderOpenId} (dmPolicy=${dmPolicy})`,
@@ -502,19 +624,23 @@ export async function handleFeishuMessage(params: {
     const commandAllowFrom = isGroup
       ? (groupConfig?.allowFrom ?? configAllowFrom)
       : effectiveDmAllowFrom;
-    const senderAllowedForCommands = resolveFeishuAllowlistMatch({
-      allowFrom: commandAllowFrom,
-      senderId: ctx.senderOpenId,
-      senderIds: [senderUserId],
-      senderName: ctx.senderName,
-    }).allowed;
+    const senderAllowedForCommands = bypassPairingForConfiguredSetup
+      ? true
+      : resolveFeishuAllowlistMatch({
+          allowFrom: commandAllowFrom,
+          senderId: ctx.senderOpenId,
+          senderIds: [senderUserId],
+          senderName: ctx.senderName,
+        }).allowed;
     const commandAuthorized = shouldComputeCommandAuthorized
-      ? core.channel.commands.resolveCommandAuthorizedFromAuthorizers({
-          useAccessGroups,
-          authorizers: [
-            { configured: commandAllowFrom.length > 0, allowed: senderAllowedForCommands },
-          ],
-        })
+      ? bypassPairingForConfiguredSetup
+        ? true
+        : core.channel.commands.resolveCommandAuthorizedFromAuthorizers({
+            useAccessGroups,
+            authorizers: [
+              { configured: commandAllowFrom.length > 0, allowed: senderAllowedForCommands },
+            ],
+          })
       : undefined;
 
     // In group chats, the session is scoped to the group, but the *speaker* is the sender.
@@ -949,6 +1075,62 @@ export async function handleFeishuMessage(params: {
     const replyTargetMessageId =
       isTopicSession || configReplyInThread ? (ctx.rootId ?? ctx.messageId) : ctx.messageId;
     const threadReply = isGroup ? (groupSession?.threadReply ?? false) : false;
+
+    if (pluginMatch) {
+      const { dispatcher, markDispatchIdle } = createFeishuReplyDispatcher({
+        cfg,
+        agentId: route.agentId,
+        runtime: runtime as RuntimeEnv,
+        chatId: ctx.chatId,
+        replyToMessageId: replyTargetMessageId,
+        skipReplyToInMessages: !isGroup,
+        replyInThread,
+        rootId: ctx.rootId,
+        threadReply,
+        mentionTargets: ctx.mentionTargets,
+        accountId: account.accountId,
+        messageCreateTimeMs,
+      });
+      const pluginReply = await executePluginCommand({
+        command: pluginMatch.command,
+        args: pluginMatch.args,
+        senderId: ctx.senderOpenId,
+        channel: "feishu",
+        isAuthorizedSender: commandAuthorized === true,
+        commandBody: commandProbeBody,
+        config: cfg,
+        from: feishuFrom,
+        to: feishuTo,
+        accountId: account.accountId,
+      });
+
+      log(
+        `feishu[${account.accountId}]: executing plugin command ${pluginMatch.command.name} (session=${route.sessionKey})`,
+      );
+      await core.channel.reply.withReplyDispatcher({
+        dispatcher,
+        onSettled: () => {
+          markDispatchIdle();
+        },
+        run: async () => {
+          const finalPayload = hasRenderableReplyPayload(pluginReply)
+            ? pluginReply
+            : { text: "Done." };
+          const queuedFinal = dispatcher.sendFinalReply(finalPayload);
+          return { queuedFinal, counts: dispatcher.getQueuedCounts() };
+        },
+      });
+
+      if (isGroup && historyKey && chatHistories) {
+        clearHistoryEntriesIfEnabled({
+          historyMap: chatHistories,
+          historyKey,
+          limit: historyLimit,
+        });
+      }
+
+      return;
+    }
 
     if (broadcastAgents) {
       // Cross-account dedup: in multi-account setups, Feishu delivers the same

@@ -1,4 +1,7 @@
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { Readable } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { computeSandboxConfigHash } from "./config-hash.js";
@@ -200,6 +203,10 @@ function createSandboxConfig(
   };
 }
 
+function createTempDir(prefix: string): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+}
+
 describe("ensureSandboxContainer config-hash recreation", () => {
   beforeEach(async () => {
     spawnState.calls.length = 0;
@@ -350,4 +357,45 @@ describe("ensureSandboxContainer config-hash recreation", () => {
       expect(bindArgs).toContain(expectedMainMount);
     },
   );
+
+  it("mounts linked worktree git metadata at host absolute paths", async () => {
+    const root = createTempDir("openclaw-docker-worktree-");
+    const workspaceDir = path.join(root, "repo", ".openclawcode", "worktrees", "run-1");
+    const commonGitDir = path.join(root, "repo", ".git");
+    const adminDir = path.join(commonGitDir, "worktrees", "run-1");
+
+    fs.mkdirSync(workspaceDir, { recursive: true });
+    fs.mkdirSync(adminDir, { recursive: true });
+    fs.writeFileSync(path.join(workspaceDir, ".git"), `gitdir: ${adminDir}\n`, "utf8");
+    fs.writeFileSync(path.join(adminDir, "commondir"), "../..\n", "utf8");
+    fs.writeFileSync(path.join(adminDir, "gitdir"), `${path.join(workspaceDir, ".git")}\n`, "utf8");
+
+    const cfg = createSandboxConfig([], []);
+
+    spawnState.inspectRunning = false;
+    spawnState.labelHash = "";
+    registryMocks.readRegistry.mockResolvedValue({ entries: [] });
+    registryMocks.updateRegistry.mockResolvedValue(undefined);
+
+    try {
+      await ensureSandboxContainer({
+        sessionKey: "agent:main:session-1",
+        workspaceDir,
+        agentWorkspaceDir: workspaceDir,
+        cfg,
+      });
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+
+    const createCall = spawnState.calls.find(
+      (call) => call.command === "docker" && call.args[0] === "create",
+    );
+    expect(createCall).toBeDefined();
+
+    const bindArgs = collectDockerFlagValues(createCall?.args ?? [], "-v");
+    expect(bindArgs).toContain(`${workspaceDir}:/workspace`);
+    expect(bindArgs).toContain(`${workspaceDir}:${workspaceDir}`);
+    expect(bindArgs).toContain(`${commonGitDir}:${commonGitDir}`);
+  });
 });

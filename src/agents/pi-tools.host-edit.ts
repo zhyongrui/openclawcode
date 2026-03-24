@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { AgentToolResult, AgentToolUpdateCallback } from "@mariozechner/pi-agent-core";
@@ -146,7 +147,32 @@ export function wrapEditToolWithRecovery(
       }
 
       try {
-        return await base.execute(toolCallId, params, signal, onUpdate);
+        const result = await base.execute(toolCallId, params, signal, onUpdate);
+
+        if (!absolutePath || newText === undefined) {
+          return result;
+        }
+
+        const currentContent = await options.readFile(absolutePath).catch(() => undefined);
+        if (
+          typeof currentContent === "string" &&
+          didEditLikelyApply({
+            originalContent,
+            currentContent,
+            oldText,
+            newText,
+          })
+        ) {
+          return result;
+        }
+
+        if (absolutePath && originalContent !== undefined) {
+          await fs.writeFile(absolutePath, originalContent, "utf-8").catch(() => undefined);
+        }
+
+        throw new Error(
+          `Edit verification failed for ${pathParam ?? absolutePath}: file content on disk did not match the requested replacement after the tool reported success.${originalContent !== undefined ? " The original file contents were restored." : ""}`,
+        );
       } catch (err) {
         if (!absolutePath) {
           throw err;
@@ -168,7 +194,7 @@ export function wrapEditToolWithRecovery(
               newText,
             })
           ) {
-            return buildEditSuccessResult(pathParam ?? absolutePath);
+            return buildEditSuccessResult(pathParam);
           }
         }
 

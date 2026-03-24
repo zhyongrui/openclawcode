@@ -4,6 +4,13 @@ import { fileURLToPath } from "node:url";
 import { resolveOpenClawPackageRootSync } from "../infra/openclaw-root.js";
 import { resolveUserPath } from "../utils.js";
 
+export type BundledPluginsResolveOptions = {
+  argv1?: string;
+  moduleUrl?: string;
+  cwd?: string;
+  execPath?: string;
+};
+
 function isSourceCheckoutRoot(packageRoot: string): boolean {
   return (
     fs.existsSync(path.join(packageRoot, ".git")) &&
@@ -12,18 +19,28 @@ function isSourceCheckoutRoot(packageRoot: string): boolean {
   );
 }
 
-export function resolveBundledPluginsDir(env: NodeJS.ProcessEnv = process.env): string | undefined {
+export function resolveBundledPluginsDir(
+  env: NodeJS.ProcessEnv = process.env,
+  opts: BundledPluginsResolveOptions = {},
+): string | undefined {
   const override = env.OPENCLAW_BUNDLED_PLUGINS_DIR?.trim();
   if (override) {
     return resolveUserPath(override, env);
   }
 
-  const preferSourceCheckout = Boolean(env.VITEST);
+  const preferSourceCheckout =
+    Boolean(env.VITEST) || env.OPENCLAW_WATCH_MODE === "1";
 
   try {
     const packageRoots = [
-      resolveOpenClawPackageRootSync({ cwd: process.cwd() }),
-      resolveOpenClawPackageRootSync({ moduleUrl: import.meta.url }),
+      resolveOpenClawPackageRootSync({
+        argv1: opts.argv1 ?? process.argv[1],
+        moduleUrl: opts.moduleUrl ?? import.meta.url,
+        cwd: opts.cwd ?? process.cwd(),
+      }),
+      resolveOpenClawPackageRootSync({
+        moduleUrl: opts.moduleUrl ?? import.meta.url,
+      }),
     ].filter(
       (entry, index, all): entry is string => Boolean(entry) && all.indexOf(entry) === index,
     );
@@ -53,7 +70,7 @@ export function resolveBundledPluginsDir(env: NodeJS.ProcessEnv = process.env): 
 
   // bun --compile: ship a sibling `extensions/` next to the executable.
   try {
-    const execDir = path.dirname(process.execPath);
+    const execDir = path.dirname(opts.execPath ?? process.execPath);
     const siblingBuilt = path.join(execDir, "dist", "extensions");
     if (fs.existsSync(siblingBuilt)) {
       return siblingBuilt;
@@ -66,9 +83,25 @@ export function resolveBundledPluginsDir(env: NodeJS.ProcessEnv = process.env): 
     // ignore
   }
 
-  // npm/dev: walk up from this module to find `extensions/` at the package root.
+  // npm/dev: resolve `<packageRoot>/extensions` first so a partial `dist/extensions`
+  // directory does not shadow the full bundled tree at the package root.
   try {
-    let cursor = path.dirname(fileURLToPath(import.meta.url));
+    const moduleUrl = opts.moduleUrl ?? import.meta.url;
+    const argv1 = opts.argv1 ?? process.argv[1];
+    const cwd = opts.cwd ?? process.cwd();
+    const packageRoot = resolveOpenClawPackageRootSync({
+      argv1,
+      moduleUrl,
+      cwd,
+    });
+    if (packageRoot) {
+      const candidate = path.join(packageRoot, "extensions");
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    let cursor = path.dirname(fileURLToPath(moduleUrl));
     for (let i = 0; i < 6; i += 1) {
       const candidate = path.join(cursor, "extensions");
       if (fs.existsSync(candidate)) {

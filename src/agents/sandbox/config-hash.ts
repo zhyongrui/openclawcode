@@ -1,5 +1,6 @@
 import { hashTextSha256 } from "./hash.js";
 import type { SandboxBrowserConfig, SandboxDockerConfig, SandboxWorkspaceAccess } from "./types.js";
+import { resolveWorkspaceMounts } from "./workspace-mounts.js";
 
 type SandboxHashInput = {
   docker: SandboxDockerConfig;
@@ -41,16 +42,35 @@ function normalizeForHash(value: unknown): unknown {
   return value;
 }
 
-export function computeSandboxConfigHash(input: SandboxHashInput): string {
-  return computeHash(input);
-}
-
-export function computeSandboxBrowserConfigHash(input: SandboxBrowserHashInput): string {
-  return computeHash(input);
-}
-
 function computeHash(input: unknown): string {
   const payload = normalizeForHash(input);
   const raw = JSON.stringify(payload);
   return hashTextSha256(raw);
+}
+
+function withResolvedWorkspaceMounts<
+  T extends {
+    workspaceAccess: SandboxWorkspaceAccess;
+    workspaceDir: string;
+    agentWorkspaceDir: string;
+    docker: Pick<SandboxDockerConfig, "workdir">;
+  },
+>(input: T): T & { workspaceMounts: string[] } {
+  return {
+    ...input,
+    workspaceMounts: resolveWorkspaceMounts({
+      workspaceDir: input.workspaceDir,
+      agentWorkspaceDir: input.agentWorkspaceDir,
+      workdir: input.docker.workdir,
+      workspaceAccess: input.workspaceAccess,
+    }),
+  };
+}
+
+export function computeSandboxConfigHash(input: SandboxHashInput): string {
+  return computeHash(withResolvedWorkspaceMounts(input));
+}
+
+export function computeSandboxBrowserConfigHash(input: SandboxBrowserHashInput): string {
+  return computeHash(withResolvedWorkspaceMounts(input));
 }

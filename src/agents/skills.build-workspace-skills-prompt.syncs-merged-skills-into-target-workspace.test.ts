@@ -4,7 +4,11 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { withEnv } from "../test-utils/env.js";
 import { writeSkill } from "./skills.e2e-test-helpers.js";
-import { buildWorkspaceSkillsPrompt, syncSkillsToWorkspace } from "./skills.js";
+import {
+  buildWorkspaceSkillsPrompt,
+  mirrorMergedSkillsToProjectWorkspace,
+  syncSkillsToWorkspace,
+} from "./skills.js";
 
 async function pathExists(filePath: string): Promise<boolean> {
   try {
@@ -121,6 +125,41 @@ describe("buildWorkspaceSkillsPrompt", () => {
     expect(prompt).not.toContain("Bundled version");
     expect(prompt).not.toContain("Extra version");
     expect(prompt.replaceAll("\\", "/")).toContain("demo-skill/SKILL.md");
+  });
+
+  it("mirrors merged skills into project-local .agents/skills for same-workspace runs", async () => {
+    const workspaceDir = await createCaseDir("runtime-workspace");
+    const extraDir = path.join(workspaceDir, ".extra");
+    const bundledDir = path.join(workspaceDir, ".bundled");
+    const managedDir = path.join(workspaceDir, ".managed");
+
+    await writeSkill({
+      dir: path.join(extraDir, "runtime-skill"),
+      name: "runtime-skill",
+      description: "Runtime-only extra skill",
+    });
+
+    await withEnv({ HOME: workspaceDir, PATH: "" }, () =>
+      mirrorMergedSkillsToProjectWorkspace({
+        workspaceDir,
+        config: { skills: { load: { extraDirs: [extraDir] } } },
+        bundledSkillsDir: bundledDir,
+        managedSkillsDir: managedDir,
+      }),
+    );
+
+    const mirroredSkill = path.join(workspaceDir, ".agents", "skills", "runtime-skill", "SKILL.md");
+    expect(await fs.readFile(mirroredSkill, "utf-8")).toContain("runtime-skill");
+
+    const prompt = buildPrompt(workspaceDir, {
+      bundledSkillsDir: bundledDir,
+      managedSkillsDir: managedDir,
+      config: { skills: { load: { extraDirs: [extraDir] } } },
+    });
+
+    expect(prompt).toContain("Runtime-only extra skill");
+    expect(prompt.replaceAll("\\", "/")).toContain(".agents/skills/runtime-skill/SKILL.md");
+    expect(prompt.replaceAll("\\", "/")).not.toContain("/.extra/runtime-skill/SKILL.md");
   });
   it.runIf(process.platform !== "win32")(
     "does not sync workspace skills that resolve outside the source workspace root",

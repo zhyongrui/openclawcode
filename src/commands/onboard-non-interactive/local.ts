@@ -22,9 +22,22 @@ import {
 } from "./local/output.js";
 import { applyNonInteractiveSkillsConfig } from "./local/skills-config.js";
 import { resolveNonInteractiveWorkspaceDir } from "./local/workspace.js";
+import {
+  formatOnboardingGitHubAuthSourceLabel,
+  onboardingOpenClawCodeDeps,
+  resolveOnboardingGitHubToken,
+} from "../../wizard/setup.code.js";
 
 const INSTALL_DAEMON_HEALTH_DEADLINE_MS = 45_000;
 const ATTACH_EXISTING_GATEWAY_HEALTH_DEADLINE_MS = 15_000;
+
+function formatChatCommandWithAlias(command: string): string {
+  if (!command.startsWith("/occode-")) {
+    return formatCliCommand(command);
+  }
+  const alias = command.replace(/^\/occode-/, "/occ-");
+  return `${formatCliCommand(command)} (alias ${formatCliCommand(alias)})`;
+}
 
 async function collectGatewayHealthFailureDiagnostics(): Promise<
   GatewayHealthFailureDiagnostics | undefined
@@ -239,6 +252,43 @@ export async function runNonInteractiveLocalSetup(params: {
     await healthCommand({ json: false, timeoutMs: 10_000 }, runtime);
   }
 
+  const openClawCodeBootstrapCommand = formatCliCommand(
+    "openclaw code bootstrap --repo owner/repo --json",
+  );
+  const openClawCodeChatSetupCommand = "/occode-setup";
+  const resolvedGitHubToken = resolveOnboardingGitHubToken();
+  const githubViewer = resolvedGitHubToken
+    ? await onboardingOpenClawCodeDeps.fetchAuthenticatedViewer(resolvedGitHubToken.token).catch(() => undefined)
+    : undefined;
+  const openClawCodeSummary = {
+    githubAuthAvailable: Boolean(resolvedGitHubToken),
+    githubAuthSource: resolvedGitHubToken?.source,
+    githubAuthSourceLabel: resolvedGitHubToken
+      ? formatOnboardingGitHubAuthSourceLabel(resolvedGitHubToken.source)
+      : undefined,
+    githubAuthLogin: githubViewer?.login,
+    githubAuthName: githubViewer?.name,
+    githubAuthEmail: githubViewer?.email,
+    bootstrapCommand: openClawCodeBootstrapCommand,
+    chatSetupCommand: openClawCodeChatSetupCommand,
+    switchAccountCommand:
+      resolvedGitHubToken?.source === "gh-auth-token" && githubViewer?.login
+        ? formatCliCommand(
+            `gh auth logout --hostname github.com --user ${githubViewer.login}`,
+          )
+        : resolvedGitHubToken?.source === "gh-auth-token"
+          ? formatCliCommand("gh auth logout --hostname github.com")
+          : undefined,
+    switchAccountHint:
+      resolvedGitHubToken?.source === "GH_TOKEN"
+        ? "Replace or unset GH_TOKEN for the host before running OpenClaw Code."
+        : resolvedGitHubToken?.source === "GITHUB_TOKEN"
+          ? "Replace or unset GITHUB_TOKEN for the host before running OpenClaw Code."
+          : resolvedGitHubToken?.source === "gh-auth-token"
+            ? `Then run ${formatCliCommand("gh auth login --hostname github.com --web")} with the intended account.`
+            : undefined,
+  };
+
   logNonInteractiveOnboardingJson({
     opts,
     runtime,
@@ -256,9 +306,37 @@ export async function runNonInteractiveLocalSetup(params: {
     daemonRuntime: opts.installDaemon ? daemonRuntimeRaw : undefined,
     skipSkills: Boolean(opts.skipSkills),
     skipHealth: Boolean(opts.skipHealth),
+    openClawCode: openClawCodeSummary,
   });
 
   if (!opts.json) {
+    if (resolvedGitHubToken) {
+      runtime.log(
+        [
+          "OpenClaw Code GitHub auth is ready on this host.",
+          githubViewer?.login ? `GitHub username: ${githubViewer.login}` : undefined,
+          githubViewer?.name ? `Name: ${githubViewer.name}` : undefined,
+          githubViewer?.email ? `Email: ${githubViewer.email}` : undefined,
+          `Source: ${formatOnboardingGitHubAuthSourceLabel(resolvedGitHubToken.source)}`,
+          `Next: ${openClawCodeBootstrapCommand}`,
+          `Chat path: ${formatChatCommandWithAlias(openClawCodeChatSetupCommand)}`,
+          openClawCodeSummary.switchAccountCommand
+            ? `Wrong account? Run ${openClawCodeSummary.switchAccountCommand}.`
+            : undefined,
+          openClawCodeSummary.switchAccountHint,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
+    } else {
+      runtime.log(
+        [
+          "OpenClaw Code GitHub auth is not configured on this host yet.",
+          `Fix: ${formatCliCommand("gh auth login")}`,
+          `Then use ${openClawCodeBootstrapCommand} or ${formatChatCommandWithAlias(openClawCodeChatSetupCommand)}.`,
+        ].join("\n"),
+      );
+    }
     runtime.log(
       `Tip: run \`${formatCliCommand("openclaw configure --section web")}\` to store your Brave API key for web_search. Docs: https://docs.openclaw.ai/tools/web`,
     );

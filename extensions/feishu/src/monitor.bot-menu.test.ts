@@ -4,6 +4,7 @@ import {
   createInboundDebouncer,
   resolveInboundDebounceMs,
 } from "../../../src/auto-reply/inbound-debounce.js";
+import { getPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 import { createPluginRuntimeMock } from "../../../test/helpers/extensions/plugin-runtime-mock.js";
 import type { ClawdbotConfig, RuntimeEnv } from "../runtime-api.js";
 import { monitorSingleAccount } from "./monitor.account.js";
@@ -150,6 +151,16 @@ describe("Feishu bot menu handler", () => {
       }),
     );
     expect(handleFeishuMessageMock).not.toHaveBeenCalled();
+    expect(
+      await getPreferredOperatorChatTarget({
+        stateDir: process.env.OPENCLAW_STATE_DIR,
+        channel: "feishu",
+      }),
+    ).toMatchObject({
+      channel: "feishu",
+      target: "user:ou_user1",
+      source: "feishu-quick-actions-menu",
+    });
   });
 
   it("does not block bot-menu handling on quick-action launcher send", async () => {

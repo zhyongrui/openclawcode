@@ -1,0 +1,73 @@
+{
+  "id": "openclawcode",
+  "name": "OpenClawCode",
+  "description": "GitHub issue chatops adapter for the openclawcode workflow.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "githubWebhookSecretEnv": {
+        "type": "string"
+      },
+      "pollIntervalMs": {
+        "type": "number",
+        "minimum": 1000
+      },
+      "repos": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "owner": { "type": "string" },
+            "repo": { "type": "string" },
+            "repoRoot": { "type": "string" },
+            "baseBranch": { "type": "string" },
+            "triggerMode": {
+              "type": "string",
+              "enum": ["approve", "auto"]
+            },
+            "notifyChannel": { "type": "string" },
+            "notifyTarget": { "type": "string" },
+            "builderAgent": { "type": "string" },
+            "verifierAgent": { "type": "string" },
+            "testCommands": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "triggerLabels": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "skipLabels": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "openPullRequest": { "type": "boolean" },
+            "mergeOnApprove": { "type": "boolean" }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "repoRoot",
+            "notifyChannel",
+            "notifyTarget",
+            "builderAgent",
+            "verifierAgent",
+            "testCommands"
+          ]
+        }
+      }
+    }
+  },
+  "uiHints": {
+    "githubWebhookSecretEnv": {
+      "label": "GitHub Webhook Secret Env",
+      "help": "Environment variable name that stores the GitHub webhook secret."
+    },
+    "pollIntervalMs": {
+      "label": "Runner Poll Interval",
+      "help": "How often the plugin checks for queued openclawcode runs."
+    }
+  }
+}

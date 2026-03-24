@@ -515,6 +515,41 @@ describe("createOpenClawCodingTools", () => {
     }
   });
 
+  it("returns a paged directory listing when sandbox read targets a directory", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-read-dir-"));
+    const docsDir = path.join(tmpDir, "docs", "openclawcode");
+    await fs.mkdir(path.join(docsDir, "dev-log"), { recursive: true });
+    await fs.writeFile(path.join(docsDir, "README.md"), "readme", "utf8");
+    await fs.writeFile(path.join(docsDir, "architecture.md"), "arch", "utf8");
+    await fs.writeFile(path.join(docsDir, "mvp.md"), "mvp", "utf8");
+    try {
+      const readTool = createSandboxedReadTool({
+        root: tmpDir,
+        bridge: createHostSandboxFsBridge(tmpDir),
+      });
+      const firstPage = await readTool.execute("read-dir-1", {
+        file_path: "docs/openclawcode",
+        offset: 1,
+        limit: 2,
+      });
+      const secondPage = await readTool.execute("read-dir-2", {
+        file_path: "docs/openclawcode",
+        offset: 3,
+        limit: 2,
+      });
+      const firstText = extractToolText(firstPage);
+      const secondText = extractToolText(secondPage);
+
+      expect(firstText).toContain("architecture.md");
+      expect(firstText).toContain("dev-log/");
+      expect(firstText).toContain("Use offset=3 to continue");
+      expect(secondText).toContain("README.md");
+      expect(secondText).toContain("mvp.md");
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("adds capped continuation guidance when aggregated read output reaches budget", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-read-cap-"));
     const filePath = path.join(tmpDir, "huge.txt");

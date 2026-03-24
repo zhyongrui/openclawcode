@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AgentToolResult } from "@mariozechner/pi-agent-core";
 import { createEditTool, createReadTool, createWriteTool } from "@mariozechner/pi-coding-agent";
 import {
@@ -22,6 +23,7 @@ import {
   patchToolSchemaForClaudeCompatibility,
   wrapToolParamNormalization,
 } from "./pi-tools.params.js";
+import { createDeterministicSandboxEditTool } from "./pi-tools.sandbox-edit.js";
 import type { AnyAgentTool } from "./pi-tools.types.js";
 import { assertSandboxPath } from "./sandbox-paths.js";
 import type { SandboxFsBridge } from "./sandbox/fs-bridge.js";
@@ -50,6 +52,9 @@ const MAX_ADAPTIVE_READ_PAGES = 8;
 type OpenClawReadToolOptions = {
   modelContextWindowTokens?: number;
   imageSanitization?: ImageSanitizationLimits;
+  readDirectoryEntries?: (
+    filePath: string,
+  ) => Promise<Array<{ name: string; isDirectory: boolean }> | null>;
 };
 
 type ReadTruncationDetails = {
@@ -203,6 +208,56 @@ function stripReadTruncationContentDetails(
       truncation: restTruncation,
     },
   };
+}
+
+function coercePositiveInteger(value: unknown, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+  return Math.floor(value);
+}
+
+async function maybeReadDirectoryListing(params: {
+  args: Record<string, unknown>;
+  options?: OpenClawReadToolOptions;
+}): Promise<AgentToolResult<unknown> | null> {
+  const filePath = typeof params.args.path === "string" ? params.args.path : undefined;
+  if (!filePath || !params.options?.readDirectoryEntries) {
+    return null;
+  }
+
+  const entries = await params.options.readDirectoryEntries(filePath);
+  if (!entries) {
+    return null;
+  }
+
+  const offset = coercePositiveInteger(params.args.offset, 1);
+  const limit = coercePositiveInteger(params.args.limit, 200);
+  const startIndex = Math.max(0, offset - 1);
+  const pageEntries = entries.slice(startIndex, startIndex + limit);
+  const nextOffset = startIndex + pageEntries.length + 1;
+  const remaining = Math.max(0, entries.length - (startIndex + pageEntries.length));
+  const textLines =
+    pageEntries.length > 0
+      ? pageEntries.map((entry) => (entry.isDirectory ? `${entry.name}/` : entry.name))
+      : entries.length === 0
+        ? ["(empty directory)"]
+        : [`[No directory entries at offset ${offset}.]`];
+  let text = textLines.join("\n");
+  if (remaining > 0) {
+    text += `\n\n[${remaining} more entries in directory. Use offset=${nextOffset} to continue.]`;
+  }
+
+  return {
+    content: [{ type: "text", text }] as AgentToolResult<unknown>["content"],
+    details: {
+      truncation: {
+        truncated: remaining > 0,
+        outputLines: pageEntries.length,
+        firstLineExceedsLimit: false,
+      },
+    },
+  } as AgentToolResult<unknown>;
 }
 
 async function executeReadWithAdaptivePaging(params: {
@@ -372,13 +427,9 @@ function mapContainerPathToWorkspaceRoot(params: {
     return params.filePath;
   }
 
-  let candidate = params.filePath.startsWith("@") ? params.filePath.slice(1) : params.filePath;
-  if (/^file:\/\//i.test(candidate)) {
-    const localFilePath = trySafeFileURLToPath(candidate);
-    if (!localFilePath) {
-      return params.filePath;
-    }
-    candidate = localFilePath;
+  let candidate = normalizeToolPathCandidate(params.filePath);
+  if (candidate === null) {
+    return params.filePath;
   }
 
   const normalizedCandidate = candidate.replace(/\\/g, "/");
@@ -396,13 +447,60 @@ function mapContainerPathToWorkspaceRoot(params: {
   return path.resolve(params.root, ...relative.split("/").filter(Boolean));
 }
 
+function normalizeToolPathCandidate(filePath: string): string | null {
+  let candidate = filePath.startsWith("@") ? filePath.slice(1) : filePath;
+  if (!/^file:\/\//i.test(candidate)) {
+    return candidate;
+  }
+
+  try {
+    return fileURLToPath(candidate);
+  } catch {
+    try {
+      const parsed = new URL(candidate);
+      if (parsed.protocol !== "file:") {
+        return null;
+      }
+      const pathname = decodeURIComponent(parsed.pathname || "");
+      return pathname.startsWith("/") ? pathname : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function canonicalizeWorkspaceToolPath(params: {
+  originalPath: string;
+  mappedPath: string;
+  root: string;
+}): string {
+  const normalizedCandidate = normalizeToolPathCandidate(params.mappedPath);
+  if (!normalizedCandidate || !path.isAbsolute(normalizedCandidate)) {
+    return params.originalPath;
+  }
+
+  const resolvedRoot = path.resolve(params.root);
+  const resolvedCandidate = path.resolve(normalizedCandidate);
+  const relative = path.relative(resolvedRoot, resolvedCandidate);
+  if (relative === "") {
+    return ".";
+  }
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    return params.originalPath;
+  }
+  return relative.split(path.sep).join(path.posix.sep);
+}
+
 export function resolveToolPathAgainstWorkspaceRoot(params: {
   filePath: string;
   root: string;
   containerWorkdir?: string;
 }): string {
   const mapped = mapContainerPathToWorkspaceRoot(params);
-  const candidate = mapped.startsWith("@") ? mapped.slice(1) : mapped;
+  const candidate = normalizeToolPathCandidate(mapped);
+  if (!candidate) {
+    return params.filePath;
+  }
   return path.isAbsolute(candidate)
     ? path.resolve(candidate)
     : path.resolve(params.root, candidate || ".");
@@ -566,6 +664,7 @@ export function wrapToolWorkspaceRootGuardWithOptions(
         normalized ??
         (args && typeof args === "object" ? (args as Record<string, unknown>) : undefined);
       const filePath = record?.path;
+      let nextArgs = normalized ?? args;
       if (typeof filePath === "string" && filePath.trim()) {
         const sandboxPath = mapContainerPathToWorkspaceRoot({
           filePath,
@@ -573,8 +672,19 @@ export function wrapToolWorkspaceRootGuardWithOptions(
           containerWorkdir: options?.containerWorkdir,
         });
         await assertSandboxPath({ filePath: sandboxPath, cwd: root, root });
+        const canonicalPath = canonicalizeWorkspaceToolPath({
+          originalPath: filePath,
+          mappedPath: sandboxPath,
+          root,
+        });
+        if (canonicalPath !== filePath && record) {
+          nextArgs = {
+            ...record,
+            path: canonicalPath,
+          };
+        }
       }
-      return tool.execute(toolCallId, normalized ?? args, signal, onUpdate);
+      return tool.execute(toolCallId, nextArgs, signal, onUpdate);
     },
   };
 }
@@ -593,6 +703,28 @@ export function createSandboxedReadTool(params: SandboxToolParams) {
   return createOpenClawReadTool(base, {
     modelContextWindowTokens: params.modelContextWindowTokens,
     imageSanitization: params.imageSanitization,
+    readDirectoryEntries: async (filePath) => {
+      const stat = await params.bridge.stat({ filePath, cwd: params.root }).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        return /ENOENT|No such file/i.test(message) ? null : Promise.reject(error);
+      });
+      if (!stat || stat.type !== "directory") {
+        return null;
+      }
+      const hostPath = params.bridge.resolvePath({ filePath, cwd: params.root }).hostPath;
+      if (!hostPath) {
+        throw new Error(`Expected hostPath for sandbox directory read: ${filePath}`);
+      }
+      const entries = await fs.readdir(hostPath, { withFileTypes: true });
+      return entries
+        .map((entry) => ({
+          name: entry.name,
+          isDirectory: entry.isDirectory(),
+        }))
+        .toSorted((left, right) =>
+          left.name.localeCompare(right.name, undefined, { sensitivity: "base" }),
+        );
+    },
   });
 }
 
@@ -607,7 +739,8 @@ export function createSandboxedEditTool(params: SandboxToolParams) {
   const base = createEditTool(params.root, {
     operations: createSandboxEditOperations(params),
   }) as unknown as AnyAgentTool;
-  const withRecovery = wrapEditToolWithRecovery(base, {
+  const deterministic = createDeterministicSandboxEditTool(base, params);
+  const withRecovery = wrapEditToolWithRecovery(deterministic, {
     root: params.root,
     readFile: async (absolutePath: string) =>
       (await params.bridge.readFile({ filePath: absolutePath, cwd: params.root })).toString("utf8"),
@@ -646,6 +779,13 @@ export function createOpenClawReadTool(
         normalized ??
         (params && typeof params === "object" ? (params as Record<string, unknown>) : undefined);
       assertRequiredParams(record, CLAUDE_PARAM_GROUPS.read, base.name);
+      const directoryResult = await maybeReadDirectoryListing({
+        args: (normalized ?? params ?? {}) as Record<string, unknown>,
+        options,
+      });
+      if (directoryResult) {
+        return directoryResult;
+      }
       const result = await executeReadWithAdaptivePaging({
         base,
         toolCallId,

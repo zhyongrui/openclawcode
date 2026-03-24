@@ -7,7 +7,7 @@ export type SafeOpenSyncResult =
   | { ok: true; path: string; fd: number; stat: fs.Stats }
   | { ok: false; reason: SafeOpenSyncFailureReason; error?: unknown };
 
-export type SafeOpenSyncAllowedType = "file" | "directory";
+export type SafeOpenSyncAllowedType = "file" | "directory" | "file-or-directory";
 
 type SafeOpenSyncFs = Pick<
   typeof fs,
@@ -94,6 +94,9 @@ export function openVerifiedFileSync(params: {
 }
 
 function isAllowedType(stat: fs.Stats, allowedType: SafeOpenSyncAllowedType): boolean {
+  if (allowedType === "file-or-directory") {
+    return stat.isFile() || stat.isDirectory();
+  }
   if (allowedType === "directory") {
     return stat.isDirectory();
   }

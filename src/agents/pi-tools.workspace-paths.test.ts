@@ -229,4 +229,38 @@ describe("sandboxed workspace paths", () => {
       });
     });
   });
+
+  it("accepts host absolute workspace paths inside a sandboxed workspace", async () => {
+    await withTempDir("openclaw-sandbox-", async (sandboxDir) => {
+      await withTempDir("openclaw-workspace-", async (workspaceDir) => {
+        const sandbox = createPiToolsSandboxContext({
+          workspaceDir: sandboxDir,
+          agentWorkspaceDir: workspaceDir,
+          workspaceAccess: "rw" as const,
+          fsBridge: createHostSandboxFsBridge(sandboxDir),
+          tools: { allow: [], deny: [] },
+        });
+
+        const absolutePath = path.join(sandboxDir, "src", "feature.ts");
+        await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+        await fs.writeFile(absolutePath, "export const enabled = true;\n", "utf8");
+
+        const cfg: OpenClawConfig = { tools: { fs: { workspaceOnly: true } } };
+        const tools = createOpenClawCodingTools({ workspaceDir, sandbox, config: cfg });
+        const { readTool, editTool } = expectReadWriteEditTools(tools);
+
+        const readResult = await readTool.execute("sbx-host-absolute-read", {
+          path: absolutePath,
+        });
+        expect(getTextContent(readResult)).toContain("enabled = true");
+
+        await editTool.execute("sbx-host-absolute-edit", {
+          path: absolutePath,
+          oldText: "true",
+          newText: "false",
+        });
+        expect(await fs.readFile(absolutePath, "utf8")).toContain("enabled = false");
+      });
+    });
+  });
 });
