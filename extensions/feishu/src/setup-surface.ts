@@ -25,7 +25,7 @@ import {
   createFeishuQrBindingSession,
 } from "../../../src/operator-chat-targets/feishu-qr-binding.js";
 import { getPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
-import { inspectFeishuCredentials, listFeishuAccountIds } from "./accounts.js";
+import { inspectFeishuCredentials, listFeishuAccountIds, resolveFeishuAccount } from "./accounts.js";
 import { probeFeishu } from "./probe.js";
 import { feishuSetupAdapter } from "./setup-core.js";
 import type { FeishuConfig } from "./types.js";
@@ -74,6 +74,13 @@ function resolveLocalFeishuQrBindingBaseHttpUrl(cfg: OpenClawConfig): string {
     port: resolveGatewayPort(cfg),
     customBindHost: cfg.gateway?.customBindHost,
   }).httpUrl.replace(/\/+$/, "");
+}
+
+function buildFeishuBotOpenUrl(params: { appId: string; domain?: string }): string {
+  const host = params.domain === "lark" ? "applink.larksuite.com" : "applink.feishu.cn";
+  const url = new URL(`https://${host}/client/bot/open`);
+  url.searchParams.set("appId", params.appId);
+  return url.toString();
 }
 
 function formatFeishuPublicCallbackSource(detail?: string): string | undefined {
@@ -161,12 +168,31 @@ async function noteFeishuQrBinding(params: {
     baseHttpUrl,
     session,
   });
+  const account = resolveFeishuAccount({
+    cfg: params.cfg,
+    accountId: params.accountId,
+  });
+  const botOpenUrl = account.appId
+    ? buildFeishuBotOpenUrl({
+        appId: account.appId,
+        domain: account.domain,
+      })
+    : undefined;
+  const fallbackQr = botOpenUrl ? await renderQrAscii(botOpenUrl) : undefined;
   await params.prompter.note(
     [
       describeFeishuPublicCallbackFailure(callbackAvailability.reason),
       ...(callbackAvailability.detail ? [`原因: ${callbackAvailability.detail}`] : []),
-      `请在这台机器的浏览器中打开: ${claimUrl}`,
-      "如果你更方便直接在飞书里继续，也可以打开机器人并点击 Quick actions。",
+      ...(fallbackQr
+        ? [
+            "服务器/远程主机场景推荐方式: 用飞书扫码打开机器人",
+            fallbackQr.trimEnd(),
+            `机器人链接: ${botOpenUrl}`,
+            "扫码进入飞书后，点击 Quick actions 完成绑定。",
+          ]
+        : ["如果你更方便直接在飞书里继续，也可以打开机器人并点击 Quick actions。"]),
+      `同机浏览器备用: ${claimUrl}`,
+      "上面的本地链接只适用于运行 OpenClaw 的这台机器。",
       "OpenClaw 正在完成启动，绑定会在可用后自动继续。",
     ].join("\n"),
     "绑定飞书操作员",

@@ -171,14 +171,27 @@ describe("feishu setup wizard", () => {
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("请在这台机器的浏览器中打开: http://127.0.0.1:18789/openclaw/bind/feishu/"),
+        expect.stringContaining("服务器/远程主机场景推荐方式: 用飞书扫码打开机器人"),
+        "绑定飞书操作员",
+      );
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("机器人链接: https://applink.feishu.cn/client/bot/open?appId=cli_from_prompt"),
+        "绑定飞书操作员",
+      );
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("同机浏览器备用: http://127.0.0.1:18789/openclaw/bind/feishu/"),
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(
         expect.stringContaining("Quick actions"),
         "绑定飞书操作员",
       );
-      expect(qrGenerateMock).not.toHaveBeenCalled();
+      expect(note).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"), "绑定飞书操作员");
+      expect(qrGenerateMock).toHaveBeenCalledWith(
+        "https://applink.feishu.cn/client/bot/open?appId=cli_from_prompt",
+        { small: true },
+        expect.any(Function),
+      );
     } finally {
       if (previousStateDir === undefined) {
         delete process.env.OPENCLAW_STATE_DIR;
@@ -369,6 +382,12 @@ describe("feishu setup wizard", () => {
       text,
       confirm: vi.fn(async () => true),
       select: select as never,
+    });
+    resolvePublicCallbackAvailabilityMock.mockResolvedValue({
+      available: true,
+      baseUrl: "https://pair.example.com/openclaw",
+      source: "configured-public-base-url",
+      detail: "plugins.entries.device-pair.config.publicUrl",
     });
 
     try {
