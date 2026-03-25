@@ -153,6 +153,9 @@ async function noteFeishuQrBinding(params: {
         asciiQr.trimEnd(),
         `绑定链接: ${claimUrl}`,
         ...(sourceLine ? [sourceLine] : []),
+        ...(callbackAvailability.source === "managed-tunnel" && callbackAvailability.detail
+          ? [`注意: ${callbackAvailability.detail}`]
+          : []),
         ...(callbackAvailability.expiresAt
           ? [`链接有效期至: ${callbackAvailability.expiresAt}`]
           : callbackAvailability.source === "managed-tunnel"
@@ -217,6 +220,8 @@ async function prewarmFeishuPublicCallbackTooling(
         "已预先安装临时公网绑定组件 cloudflared。",
         `安装位置: ${preparation.binaryPath}`,
         "后续生成飞书扫码绑定公网链接时会直接复用，不再临时下载安装。",
+        "这一步只是公网绑定预热，不是最终的绑定二维码。",
+        "继续完成下面的配置后，OpenClaw 会继续展示飞书绑定二维码。",
       ].join("\n"),
       "飞书公网绑定预热",
     );

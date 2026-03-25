@@ -119,6 +119,31 @@ describe("resolvePublicCallbackAvailability", () => {
     );
   });
 
+  it("keeps the managed tunnel qr flow when tunnel self-check returns a warning", async () => {
+    const startManagedTunnel = vi.fn(async () => ({
+      baseUrl: "https://qr-bind.trycloudflare.com",
+      detail: "Managed tunnel created a public URL, but it never became reachable (fetch failed). 仍会继续提供该公网链接，优先用手机扫码尝试。",
+    }));
+
+    const result = await resolvePublicCallbackAvailability({
+      cfg: {
+        gateway: {
+          bind: "loopback",
+          port: 18789,
+        },
+      } as never,
+      startManagedTunnel,
+    });
+
+    expect(result).toEqual({
+      available: true,
+      baseUrl: "https://qr-bind.trycloudflare.com",
+      source: "managed-tunnel",
+      detail:
+        "Managed tunnel created a public URL, but it never became reachable (fetch failed). 仍会继续提供该公网链接，优先用手机扫码尝试。",
+    });
+  });
+
   it("downloads cloudflared into the managed state bin when missing", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cloudflared-state-"));
     const fetchMock = vi.fn(async () =>

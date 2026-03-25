@@ -33,6 +33,7 @@ export type PublicCallbackAvailability =
 export type ManagedTunnelStartResult = {
   baseUrl: string;
   expiresAt?: string;
+  detail?: string;
 };
 
 export type PublicCallbackToolPreparation =
@@ -524,8 +525,18 @@ async function defaultStartManagedTunnel(params: {
       "Managed tunnel command exited successfully, but no public URL was discovered.",
     );
   }
-  await verifyPublicBaseUrlReachable(baseUrl);
-  return { baseUrl };
+  try {
+    await verifyPublicBaseUrlReachable(baseUrl);
+    return { baseUrl };
+  } catch (error) {
+    return {
+      baseUrl,
+      detail:
+        error instanceof Error
+          ? `${error.message} 仍会继续提供该公网链接，优先用手机扫码尝试。`
+          : "Managed tunnel self-check failed. The public link may still work from your phone.",
+    };
+  }
 }
 
 async function resolveDirectPublicCallbackAvailability(params: {
@@ -665,6 +676,7 @@ export async function resolvePublicCallbackAvailability(params: {
         available: true,
         baseUrl: result.baseUrl.replace(/\/+$/, ""),
         source: "managed-tunnel",
+        detail: result.detail,
         expiresAt: result.expiresAt,
       };
     } catch (error) {
