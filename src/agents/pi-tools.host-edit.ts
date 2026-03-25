@@ -194,7 +194,7 @@ export function wrapEditToolWithRecovery(
               newText,
             })
           ) {
-            return buildEditSuccessResult(pathParam);
+            return buildEditSuccessResult(pathParam ?? absolutePath);
           }
         }
 
