@@ -1,9 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
-import { resolveGatewayPort, resolveStateDir } from "../config/paths.js";
+import { resolveGatewayPort, resolveIsNixMode, resolveStateDir } from "../config/paths.js";
 import type { OpenClawConfig } from "../config/types.js";
 import { runExec } from "../process/exec.js";
 import { resolveGatewayBindUrl } from "../shared/gateway-bind-url.js";
@@ -34,11 +35,47 @@ export type ManagedTunnelStartResult = {
   expiresAt?: string;
 };
 
+export type PublicCallbackToolPreparation =
+  | {
+      status: "not-needed";
+      source: "configured-public-base-url";
+      detail?: string;
+    }
+  | {
+      status: "ready";
+      source:
+        | "explicit-cloudflared"
+        | "existing-cloudflared"
+        | "managed-cloudflared-cache"
+        | "downloaded-cloudflared";
+      binaryPath: string;
+    }
+  | {
+      status: "failed";
+      reason: "public-base-url-misconfigured" | "cloudflared-prepare-failed";
+      detail: string;
+    };
+
 type ManagedTunnelStarter = (params: {
   stateDir: string;
   targetUrl: string;
   env: NodeJS.ProcessEnv;
 }) => Promise<ManagedTunnelStartResult>;
+
+type ManagedCloudflaredResolution =
+  | {
+      binaryPath: string;
+      source: "explicit-cloudflared" | "existing-cloudflared" | "managed-cloudflared-cache";
+    }
+  | {
+      binaryPath: string;
+      source: "downloaded-cloudflared";
+    };
+
+type CloudflaredDownloadSpec = {
+  url: string;
+  archive: "binary" | "tgz";
+};
 
 async function verifyPublicBaseUrlReachable(baseUrl: string): Promise<void> {
   const probeUrl = `${baseUrl.replace(/\/+$/, "")}/`;
@@ -77,6 +114,7 @@ function resolveCandidateHomeDir(env: NodeJS.ProcessEnv): string | null {
 
 function resolveCloudflaredCandidatePaths(env: NodeJS.ProcessEnv): string[] {
   const candidates = new Set<string>();
+  candidates.add(resolveManagedCloudflaredInstallPath(env));
   const pathEntries = (env.PATH ?? "")
     .split(path.delimiter)
     .map((entry) => entry.trim())
@@ -95,6 +133,15 @@ function resolveCloudflaredCandidatePaths(env: NodeJS.ProcessEnv): string[] {
   return [...candidates];
 }
 
+function probeCloudflaredBinary(candidate: string, env: NodeJS.ProcessEnv): boolean {
+  const probe = spawnSync(candidate, ["--version"], {
+    encoding: "utf8",
+    timeout: 10_000,
+    env,
+  });
+  return probe.status === 0;
+}
+
 export function resolveCloudflaredBinary(env: NodeJS.ProcessEnv): string | null {
   const explicit = env.OPENCLAWCODE_CLOUDFLARED_BIN?.trim();
   if (explicit) {
@@ -104,16 +151,187 @@ export function resolveCloudflaredBinary(env: NodeJS.ProcessEnv): string | null 
     if (!candidate || !existsSync(candidate)) {
       continue;
     }
-    const probe = spawnSync(candidate, ["--version"], {
-      encoding: "utf8",
-      timeout: 10_000,
-      env,
-    });
-    if (probe.status === 0) {
+    if (probeCloudflaredBinary(candidate, env)) {
       return candidate;
     }
   }
   return null;
+}
+
+function resolveManagedCloudflaredInstallPath(
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  const filename = platform === "win32" ? "cloudflared.exe" : "cloudflared";
+  return path.join(resolveStateDir(env), "bin", filename);
+}
+
+function resolveCloudflaredDownloadSpec(
+  platform: NodeJS.Platform,
+  arch: string,
+): CloudflaredDownloadSpec | null {
+  if (platform === "linux") {
+    switch (arch) {
+      case "x64":
+        return {
+          url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64",
+          archive: "binary",
+        };
+      case "arm64":
+        return {
+          url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64",
+          archive: "binary",
+        };
+      case "arm":
+        return {
+          url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm",
+          archive: "binary",
+        };
+      case "ia32":
+        return {
+          url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-386",
+          archive: "binary",
+        };
+      default:
+        return null;
+    }
+  }
+  if (platform === "darwin") {
+    switch (arch) {
+      case "x64":
+        return {
+          url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64.tgz",
+          archive: "tgz",
+        };
+      case "arm64":
+        return {
+          url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-arm64.tgz",
+          archive: "tgz",
+        };
+      default:
+        return null;
+    }
+  }
+  return null;
+}
+
+async function installManagedCloudflaredBinary(params: {
+  env: NodeJS.ProcessEnv;
+  platform?: NodeJS.Platform;
+  arch?: string;
+  fetchImpl?: typeof fetch;
+}): Promise<string> {
+  const platform = params.platform ?? process.platform;
+  const arch = params.arch ?? process.arch;
+  const spec = resolveCloudflaredDownloadSpec(platform, arch);
+  if (!spec) {
+    throw new Error(
+      `cloudflared auto-install is not supported on ${platform}/${arch}. Install it manually or set OPENCLAWCODE_CLOUDFLARED_BIN.`,
+    );
+  }
+
+  const fetchImpl = params.fetchImpl ?? fetch;
+  const response = await fetchImpl(spec.url, {
+    redirect: "follow",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to download cloudflared: HTTP ${response.status} from ${spec.url}`);
+  }
+
+  const targetPath = resolveManagedCloudflaredInstallPath(params.env, platform);
+  await mkdir(path.dirname(targetPath), { recursive: true });
+
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "openclaw-cloudflared-"));
+  const downloadPath = path.join(tempDir, path.basename(new URL(spec.url).pathname) || "cloudflared");
+  const stagedPath = path.join(tempDir, path.basename(targetPath));
+
+  try {
+    const payload = Buffer.from(await response.arrayBuffer());
+    await writeFile(downloadPath, payload, { mode: 0o755 });
+
+    let extractedPath = downloadPath;
+    if (spec.archive === "tgz") {
+      const extractResult = spawnSync("tar", ["-xzf", downloadPath, "-C", tempDir], {
+        encoding: "utf8",
+      });
+      if (extractResult.status !== 0) {
+        const detail =
+          extractResult.stderr.trim() ||
+          extractResult.stdout.trim() ||
+          "tar failed while extracting cloudflared.";
+        throw new Error(detail);
+      }
+      extractedPath = path.join(tempDir, "cloudflared");
+      if (!existsSync(extractedPath)) {
+        throw new Error("Downloaded cloudflared archive did not contain the expected binary.");
+      }
+    }
+
+    await copyFile(extractedPath, stagedPath);
+    await chmod(stagedPath, 0o755);
+    await rm(targetPath, { force: true });
+    await copyFile(stagedPath, targetPath);
+    await chmod(targetPath, 0o755);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+
+  if (!probeCloudflaredBinary(targetPath, params.env)) {
+    await rm(targetPath, { force: true });
+    throw new Error("Downloaded cloudflared, but the installed binary failed validation.");
+  }
+  return targetPath;
+}
+
+export async function ensureManagedCloudflaredBinary(params: {
+  env?: NodeJS.ProcessEnv;
+  platform?: NodeJS.Platform;
+  arch?: string;
+  fetchImpl?: typeof fetch;
+} = {}): Promise<ManagedCloudflaredResolution> {
+  const env = params.env ?? process.env;
+  const explicit = env.OPENCLAWCODE_CLOUDFLARED_BIN?.trim();
+  if (explicit) {
+    if (existsSync(explicit) && probeCloudflaredBinary(explicit, env)) {
+      return {
+        binaryPath: explicit,
+        source: "explicit-cloudflared",
+      };
+    }
+    throw new Error(
+      `OPENCLAWCODE_CLOUDFLARED_BIN points to ${explicit}, but cloudflared --version failed.`,
+    );
+  }
+
+  const discoveryEnv = { ...env };
+  delete discoveryEnv.OPENCLAWCODE_CLOUDFLARED_BIN;
+  const discovered = resolveCloudflaredBinary(discoveryEnv);
+  if (discovered) {
+    return {
+      binaryPath: discovered,
+      source:
+        path.resolve(discovered) === path.resolve(resolveManagedCloudflaredInstallPath(env, params.platform))
+          ? "managed-cloudflared-cache"
+          : "existing-cloudflared",
+    };
+  }
+
+  if (resolveIsNixMode(env)) {
+    throw new Error(
+      "cloudflared was not found and auto-install is disabled in Nix mode. Install it via Nix or set OPENCLAWCODE_CLOUDFLARED_BIN.",
+    );
+  }
+
+  const binaryPath = await installManagedCloudflaredBinary({
+    env,
+    platform: params.platform,
+    arch: params.arch,
+    fetchImpl: params.fetchImpl,
+  });
+  return {
+    binaryPath,
+    source: "downloaded-cloudflared",
+  };
 }
 
 function isLoopbackLikeHostname(hostname: string): boolean {
@@ -274,12 +492,9 @@ async function defaultStartManagedTunnel(params: {
   targetUrl: string;
   env: NodeJS.ProcessEnv;
 }): Promise<ManagedTunnelStartResult> {
-  const cloudflaredBin = resolveCloudflaredBinary(params.env);
-  if (!cloudflaredBin) {
-    throw new Error(
-      "cloudflared was not found. Install it or set OPENCLAWCODE_CLOUDFLARED_BIN to the binary path.",
-    );
-  }
+  const cloudflared = await ensureManagedCloudflaredBinary({
+    env: params.env,
+  });
   const scriptPath = fileURLToPath(
     new URL("../../scripts/openclawcode-webhook-tunnel.sh", import.meta.url),
   );
@@ -291,7 +506,7 @@ async function defaultStartManagedTunnel(params: {
       OPENCLAW_STATE_DIR: params.stateDir,
       OPENCLAWCODE_TUNNEL_OPERATOR_ROOT: params.stateDir,
       OPENCLAWCODE_TUNNEL_TARGET_URL: params.targetUrl,
-      OPENCLAWCODE_CLOUDFLARED_BIN: cloudflaredBin,
+      OPENCLAWCODE_CLOUDFLARED_BIN: cloudflared.binaryPath,
     },
   });
   if (result.status !== 0) {
@@ -313,19 +528,27 @@ async function defaultStartManagedTunnel(params: {
   return { baseUrl };
 }
 
-export async function resolvePublicCallbackAvailability(params: {
+async function resolveDirectPublicCallbackAvailability(params: {
   cfg: OpenClawConfig;
-  env?: NodeJS.ProcessEnv;
-  runCommandWithTimeout?: TailscaleStatusCommandRunner;
-  startManagedTunnel?: ManagedTunnelStarter | false;
-}): Promise<PublicCallbackAvailability> {
-  const env = params.env ?? process.env;
+  runCommandWithTimeout: TailscaleStatusCommandRunner;
+}): Promise<
+  | {
+      available: true;
+      baseUrl: string;
+      detail?: string;
+    }
+  | {
+      available: false;
+      reason: "public-base-url-misconfigured";
+      detail: string;
+    }
+  | null
+> {
   const configured = resolveConfiguredBaseUrl(params.cfg);
   if (configured && "baseUrl" in configured) {
     return {
       available: true,
       baseUrl: configured.baseUrl,
-      source: "configured-public-base-url",
       detail: configured.detail,
     };
   }
@@ -337,15 +560,11 @@ export async function resolvePublicCallbackAvailability(params: {
     };
   }
 
-  const tailscale = await resolveTailscaleBaseUrl(
-    params.cfg,
-    params.runCommandWithTimeout ?? defaultRunTailscaleStatus,
-  );
+  const tailscale = await resolveTailscaleBaseUrl(params.cfg, params.runCommandWithTimeout);
   if (tailscale && "baseUrl" in tailscale) {
     return {
       available: true,
       baseUrl: tailscale.baseUrl,
-      source: "configured-public-base-url",
       detail: tailscale.detail,
     };
   }
@@ -354,6 +573,85 @@ export async function resolvePublicCallbackAvailability(params: {
       available: false,
       reason: "public-base-url-misconfigured",
       detail: tailscale.error,
+    };
+  }
+
+  return null;
+}
+
+export async function preparePublicCallbackTooling(params: {
+  cfg: OpenClawConfig;
+  env?: NodeJS.ProcessEnv;
+  runCommandWithTimeout?: TailscaleStatusCommandRunner;
+  fetchImpl?: typeof fetch;
+  platform?: NodeJS.Platform;
+  arch?: string;
+}): Promise<PublicCallbackToolPreparation> {
+  const env = params.env ?? process.env;
+  const direct = await resolveDirectPublicCallbackAvailability({
+    cfg: params.cfg,
+    runCommandWithTimeout: params.runCommandWithTimeout ?? defaultRunTailscaleStatus,
+  });
+  if (direct?.available) {
+    return {
+      status: "not-needed",
+      source: "configured-public-base-url",
+      detail: direct.detail,
+    };
+  }
+  if (direct && !direct.available) {
+    return {
+      status: "failed",
+      reason: direct.reason,
+      detail: direct.detail,
+    };
+  }
+
+  try {
+    const result = await ensureManagedCloudflaredBinary({
+      env,
+      platform: params.platform,
+      arch: params.arch,
+      fetchImpl: params.fetchImpl,
+    });
+    return {
+      status: "ready",
+      source: result.source,
+      binaryPath: result.binaryPath,
+    };
+  } catch (error) {
+    return {
+      status: "failed",
+      reason: "cloudflared-prepare-failed",
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export async function resolvePublicCallbackAvailability(params: {
+  cfg: OpenClawConfig;
+  env?: NodeJS.ProcessEnv;
+  runCommandWithTimeout?: TailscaleStatusCommandRunner;
+  startManagedTunnel?: ManagedTunnelStarter | false;
+}): Promise<PublicCallbackAvailability> {
+  const env = params.env ?? process.env;
+  const direct = await resolveDirectPublicCallbackAvailability({
+    cfg: params.cfg,
+    runCommandWithTimeout: params.runCommandWithTimeout ?? defaultRunTailscaleStatus,
+  });
+  if (direct?.available) {
+    return {
+      available: true,
+      baseUrl: direct.baseUrl,
+      source: "configured-public-base-url",
+      detail: direct.detail,
+    };
+  }
+  if (direct && !direct.available) {
+    return {
+      available: false,
+      reason: "public-base-url-misconfigured",
+      detail: direct.detail,
     };
   }
 

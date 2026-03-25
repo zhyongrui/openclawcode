@@ -19,7 +19,10 @@ import {
 import qrcode from "qrcode-terminal";
 import { resolveGatewayPort } from "../../../src/config/config.js";
 import { resolveControlUiLinks } from "../../../src/commands/onboard-helpers.js";
-import { resolvePublicCallbackAvailability } from "../../../src/gateway/public-callback.js";
+import {
+  preparePublicCallbackTooling,
+  resolvePublicCallbackAvailability,
+} from "../../../src/gateway/public-callback.js";
 import {
   buildFeishuQrBindingClaimUrl,
   createFeishuQrBindingSession,
@@ -197,6 +200,37 @@ async function noteFeishuQrBinding(params: {
     ].join("\n"),
     "绑定飞书操作员",
   );
+}
+
+async function prewarmFeishuPublicCallbackTooling(
+  params: Pick<
+    Parameters<typeof noteFeishuQrBinding>[0],
+    "cfg" | "prompter"
+  >,
+): Promise<void> {
+  const preparation = await preparePublicCallbackTooling({
+    cfg: params.cfg,
+  });
+  if (preparation.status === "ready" && preparation.source === "downloaded-cloudflared") {
+    await params.prompter.note(
+      [
+        "已预先安装临时公网绑定组件 cloudflared。",
+        `安装位置: ${preparation.binaryPath}`,
+        "后续生成飞书扫码绑定公网链接时会直接复用，不再临时下载安装。",
+      ].join("\n"),
+      "飞书公网绑定预热",
+    );
+    return;
+  }
+  if (preparation.status === "failed" && preparation.reason === "cloudflared-prepare-failed") {
+    await params.prompter.note(
+      [
+        "未能预先准备临时公网绑定组件，后续扫码绑定可能无法自动生成公网链接。",
+        `原因: ${preparation.detail}`,
+      ].join("\n"),
+      "飞书公网绑定预热",
+    );
+  }
 }
 
 function isFeishuConfigured(cfg: OpenClawConfig): boolean {
@@ -417,6 +451,11 @@ export const feishuSetupWizard: ChannelSetupWizard = {
         await prompter.note(`Connection test failed: ${String(err)}`, "Feishu connection test");
       }
     }
+
+    await prewarmFeishuPublicCallbackTooling({
+      cfg: next,
+      prompter,
+    });
 
     const currentMode =
       (next.channels?.feishu as FeishuConfig | undefined)?.connectionMode ?? "websocket";

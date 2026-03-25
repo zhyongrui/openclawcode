@@ -17,6 +17,7 @@ vi.mock("./probe.js", () => ({
 
 const qrGenerateMock = vi.hoisted(() => vi.fn((_value, _opts, cb) => cb("QR ASCII")));
 const resolvePublicCallbackAvailabilityMock = vi.hoisted(() => vi.fn());
+const preparePublicCallbackToolingMock = vi.hoisted(() => vi.fn());
 
 vi.mock("qrcode-terminal", () => ({
   default: {
@@ -25,6 +26,7 @@ vi.mock("qrcode-terminal", () => ({
 }));
 
 vi.mock("../../../src/gateway/public-callback.js", () => ({
+  preparePublicCallbackTooling: preparePublicCallbackToolingMock,
   resolvePublicCallbackAvailability: resolvePublicCallbackAvailabilityMock,
 }));
 
@@ -79,6 +81,12 @@ type FeishuConfigureRuntime = Parameters<typeof feishuConfigure>[0]["runtime"];
 describe("feishu setup wizard", () => {
   beforeEach(() => {
     qrGenerateMock.mockClear();
+    preparePublicCallbackToolingMock.mockReset();
+    preparePublicCallbackToolingMock.mockResolvedValue({
+      status: "ready",
+      source: "existing-cloudflared",
+      binaryPath: "/usr/bin/cloudflared",
+    });
     resolvePublicCallbackAvailabilityMock.mockReset();
     resolvePublicCallbackAvailabilityMock.mockResolvedValue({
       available: false,
@@ -191,6 +199,79 @@ describe("feishu setup wizard", () => {
         "https://applink.feishu.cn/client/bot/open?appId=cli_from_prompt",
         { small: true },
         expect.any(Function),
+      );
+    } finally {
+      if (previousStateDir === undefined) {
+        delete process.env.OPENCLAW_STATE_DIR;
+      } else {
+        process.env.OPENCLAW_STATE_DIR = previousStateDir;
+      }
+    }
+  });
+
+  it("prewarms cloudflared before showing the binding qr note", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-prewarm-"));
+    const previousStateDir = process.env.OPENCLAW_STATE_DIR;
+    process.env.OPENCLAW_STATE_DIR = stateDir;
+
+    const note = vi.fn(async () => {});
+    const text = vi
+      .fn()
+      .mockResolvedValueOnce("secret_from_prompt")
+      .mockResolvedValueOnce("cli_from_prompt")
+      .mockResolvedValueOnce("oc_group_1");
+    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+      if (message === "Feishu connection mode") {
+        return "websocket";
+      }
+      if (message === "Which Feishu domain?") {
+        return initialValue ?? "feishu";
+      }
+      if (message === "Group chat policy") {
+        return "allowlist";
+      }
+      return initialValue ?? "allowlist";
+    });
+    const prompter = createTestWizardPrompter({
+      note,
+      text,
+      confirm: vi.fn(async () => true),
+      select: select as never,
+    });
+    preparePublicCallbackToolingMock.mockResolvedValue({
+      status: "ready",
+      source: "downloaded-cloudflared",
+      binaryPath: "/tmp/openclaw-state/bin/cloudflared",
+    });
+
+    try {
+      await runSetupWizardConfigure({
+        configure: feishuConfigure,
+        cfg: {
+          gateway: {
+            bind: "loopback",
+            port: 18789,
+          },
+        } as never,
+        prompter,
+        runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
+      });
+
+      expect(preparePublicCallbackToolingMock).toHaveBeenCalled();
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("已预先安装临时公网绑定组件 cloudflared。"),
+        "飞书公网绑定预热",
+      );
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("/tmp/openclaw-state/bin/cloudflared"),
+        "飞书公网绑定预热",
+      );
+      const prewarmIndex = note.mock.calls.findIndex((call) => call[1] === "飞书公网绑定预热");
+      const bindingIndex = note.mock.calls.findIndex((call) => call[1] === "绑定飞书操作员");
+      expect(prewarmIndex).toBeGreaterThanOrEqual(0);
+      expect(bindingIndex).toBeGreaterThanOrEqual(0);
+      expect(note.mock.invocationCallOrder[prewarmIndex]).toBeLessThan(
+        note.mock.invocationCallOrder[bindingIndex],
       );
     } finally {
       if (previousStateDir === undefined) {

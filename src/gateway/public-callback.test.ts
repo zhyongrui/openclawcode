@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
+  ensureManagedCloudflaredBinary,
+  preparePublicCallbackTooling,
   resolveCloudflaredBinary,
   resolvePublicCallbackAvailability,
 } from "./public-callback.js";
@@ -115,6 +117,72 @@ describe("resolvePublicCallbackAvailability", () => {
         targetUrl: "http://127.0.0.1:18789",
       }),
     );
+  });
+
+  it("downloads cloudflared into the managed state bin when missing", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cloudflared-state-"));
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        "#!/usr/bin/env bash\nif [ \"$1\" = \"--version\" ]; then echo 'cloudflared version downloaded'; exit 0; fi\nexit 1\n",
+        { status: 200 },
+      ),
+    );
+
+    const result = await ensureManagedCloudflaredBinary({
+      env: {
+        HOME: stateDir,
+        PATH: "/usr/bin:/bin",
+        OPENCLAW_STATE_DIR: stateDir,
+      },
+      platform: "linux",
+      arch: "x64",
+      fetchImpl: fetchMock as typeof fetch,
+    });
+
+    expect(result.source).toBe("downloaded-cloudflared");
+    expect(result.binaryPath).toBe(path.join(stateDir, "bin", "cloudflared"));
+    expect(resolveCloudflaredBinary({
+      HOME: stateDir,
+      PATH: "/usr/bin:/bin",
+      OPENCLAW_STATE_DIR: stateDir,
+    })).toBe(result.binaryPath);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64",
+      expect.objectContaining({ redirect: "follow" }),
+    );
+  });
+
+  it("prepares cloudflared during setup when no direct public callback exists", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cloudflared-prepare-"));
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        "#!/usr/bin/env bash\nif [ \"$1\" = \"--version\" ]; then echo 'cloudflared version prepared'; exit 0; fi\nexit 1\n",
+        { status: 200 },
+      ),
+    );
+
+    const result = await preparePublicCallbackTooling({
+      cfg: {
+        gateway: {
+          bind: "loopback",
+          port: 18789,
+        },
+      } as never,
+      env: {
+        HOME: stateDir,
+        PATH: "/usr/bin:/bin",
+        OPENCLAW_STATE_DIR: stateDir,
+      },
+      platform: "linux",
+      arch: "x64",
+      fetchImpl: fetchMock as typeof fetch,
+    });
+
+    expect(result).toEqual({
+      status: "ready",
+      source: "downloaded-cloudflared",
+      binaryPath: path.join(stateDir, "bin", "cloudflared"),
+    });
   });
 
   it("reports a managed tunnel failure explicitly", async () => {
