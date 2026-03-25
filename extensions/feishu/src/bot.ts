@@ -31,7 +31,7 @@ import {
   buildPairingCommandRetryReply,
   buildPairingReply,
 } from "../../../src/pairing/pairing-messages.js";
-import { resolveFeishuAccount } from "./accounts.js";
+import { resolveFeishuRuntimeAccount } from "./accounts.js";
 import {
   checkBotMentioned,
   normalizeFeishuCommandProbeBody,
@@ -337,7 +337,7 @@ export async function handleFeishuMessage(params: {
   } = params;
 
   // Resolve account with merged config
-  const account = resolveFeishuAccount({ cfg, accountId });
+  const account = resolveFeishuRuntimeAccount({ cfg, accountId });
   const feishuCfg = account.config;
 
   const log = runtime?.log ?? console.log;
