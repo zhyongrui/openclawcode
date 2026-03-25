@@ -76,3 +76,39 @@ Check:
 - current repo bindings in operator-status snapshot
 - plugin config repo list
 - token and app permissions from `upgrade-and-rotation.md`
+
+## Source Plugin Runtime Mismatch
+
+Symptoms:
+
+- `openclaw onboard` or gateway startup logs show plugin source entries such as
+  `extensions/feishu/index.ts` or `extensions/openclawcode/index.ts`
+- multiple plugins fail during load with the same `TypeError`
+- one real example:
+  - `Cannot read properties of undefined (reading 'resolveEmbeddedSessionLane')`
+
+When this usually happens:
+
+- development is running from a local repo checkout
+- the `openclaw` executable on `PATH` comes from a different installation
+  root than that checkout
+- plugin entry / SDK alias resolution uses the local checkout, but plugin
+  runtime resolution accidentally comes from the global install
+
+Check:
+
+- confirm which binary is running:
+  - `which openclaw`
+- confirm the checkout you expected to use:
+  - `pwd`
+- if logs reference local source plugin entries from the repo checkout but
+  fail inside newer runtime helpers, suspect host/runtime skew first
+- update to a build that includes the workspace-runtime fix
+  (`fix(plugins): prefer workspace runtime for source plugins`)
+
+Prevention:
+
+- during development, prefer running the repo-local build/entrypoint instead of
+  assuming the global `openclaw` binary matches the checkout
+- keep plugin entry resolution, plugin SDK alias resolution, and plugin runtime
+  resolution aligned to the same workspace/package root
