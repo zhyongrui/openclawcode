@@ -168,12 +168,14 @@ function resolvePluginSdkAlias(params: {
 function resolvePluginRuntimeModule(params: {
   modulePath: string;
   argv1?: string;
+  cwd?: string;
   env?: NodeJS.ProcessEnv;
 }) {
   const run = () =>
     resolvePluginRuntimeModulePath({
       modulePath: params.modulePath,
       argv1: params.argv1,
+      cwd: params.cwd,
     });
   return params.env ? withEnv(params.env, run) : run();
 }
@@ -323,6 +325,24 @@ describe("plugin sdk alias helpers", () => {
     const first = expectedFirst === "dist" ? fixture.distFile : fixture.srcFile;
     const second = expectedFirst === "dist" ? fixture.srcFile : fixture.distFile;
     expect(candidates.indexOf(first)).toBeLessThan(candidates.indexOf(second));
+  });
+
+  it("resolves plugin runtime from workspace cwd instead of a mismatched global argv root", () => {
+    const localFixture = createPluginRuntimeAliasFixture();
+    const globalFixture = createPluginRuntimeAliasFixture({
+      srcBody: 'export const createPluginRuntime = () => ({ source: "global-src" });\n',
+      distBody: 'export const createPluginRuntime = () => ({ source: "global-dist" });\n',
+    });
+
+    const resolved = withEnv({ NODE_ENV: undefined }, () =>
+      resolvePluginRuntimeModule({
+        modulePath: "/tmp/tsx-cache/openclaw-loader.js",
+        argv1: path.join(globalFixture.root, "openclaw.mjs"),
+        cwd: localFixture.root,
+      }),
+    );
+
+    expect(resolved).toBe(localFixture.srcFile);
   });
 
   it("derives plugin-sdk subpaths from package exports", () => {
