@@ -71,6 +71,26 @@ function renderQrAscii(data: string): Promise<string> {
   });
 }
 
+async function printQrToTerminal(params: {
+  title: string;
+  data: string;
+  fallbackUrlLabel: string;
+}): Promise<void> {
+  const asciiQr = await renderQrAscii(params.data);
+  console.log(
+    [
+      "",
+      params.title,
+      "",
+      asciiQr.trimEnd(),
+      "",
+      `如果二维码未能成功展示，请用浏览器打开以下链接：`,
+      `${params.fallbackUrlLabel}: ${params.data}`,
+      "",
+    ].join("\n"),
+  );
+}
+
 function resolveLocalFeishuQrBindingBaseHttpUrl(cfg: OpenClawConfig): string {
   return resolveControlUiLinks({
     bind: cfg.gateway?.bind ?? "loopback",
@@ -142,7 +162,11 @@ async function noteFeishuQrBinding(params: {
       baseHttpUrl: callbackAvailability.baseUrl,
       session,
     });
-    const asciiQr = await renderQrAscii(claimUrl);
+    await printQrToTerminal({
+      title: "使用飞书扫描以下二维码，以完成绑定：",
+      data: claimUrl,
+      fallbackUrlLabel: "绑定链接",
+    });
     const sourceLine =
       callbackAvailability.source === "managed-tunnel"
         ? "公网入口来源: 临时公网链接"
@@ -150,7 +174,7 @@ async function noteFeishuQrBinding(params: {
     await params.prompter.note(
       [
         "推荐方式: 用飞书扫码绑定",
-        asciiQr.trimEnd(),
+        "二维码已直接输出到当前终端，避免被提示框裁切。",
         `绑定链接: ${claimUrl}`,
         ...(sourceLine ? [sourceLine] : []),
         ...(callbackAvailability.source === "managed-tunnel" && callbackAvailability.detail
@@ -184,15 +208,21 @@ async function noteFeishuQrBinding(params: {
         domain: account.domain,
       })
     : undefined;
-  const fallbackQr = botOpenUrl ? await renderQrAscii(botOpenUrl) : undefined;
+  if (botOpenUrl) {
+    await printQrToTerminal({
+      title: "使用飞书扫描以下二维码，打开机器人：",
+      data: botOpenUrl,
+      fallbackUrlLabel: "机器人链接",
+    });
+  }
   await params.prompter.note(
     [
       describeFeishuPublicCallbackFailure(callbackAvailability.reason),
       ...(callbackAvailability.detail ? [`原因: ${callbackAvailability.detail}`] : []),
-      ...(fallbackQr
+      ...(botOpenUrl
         ? [
             "服务器/远程主机场景推荐方式: 用飞书扫码打开机器人",
-            fallbackQr.trimEnd(),
+            "机器人二维码已直接输出到当前终端，避免被提示框裁切。",
             `机器人链接: ${botOpenUrl}`,
             "扫码进入飞书后，点击 Quick actions 完成绑定。",
           ]

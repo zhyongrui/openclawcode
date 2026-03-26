@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createNonExitingTypedRuntimeEnv } from "../../../test/helpers/extensions/runtime-env.js";
 import {
   createPluginSetupWizardConfigure,
@@ -18,6 +18,7 @@ vi.mock("./probe.js", () => ({
 const qrGenerateMock = vi.hoisted(() => vi.fn((_value, _opts, cb) => cb("QR ASCII")));
 const resolvePublicCallbackAvailabilityMock = vi.hoisted(() => vi.fn());
 const preparePublicCallbackToolingMock = vi.hoisted(() => vi.fn());
+const consoleLogMock = vi.hoisted(() => vi.fn());
 
 vi.mock("qrcode-terminal", () => ({
   default: {
@@ -80,6 +81,8 @@ type FeishuConfigureRuntime = Parameters<typeof feishuConfigure>[0]["runtime"];
 
 describe("feishu setup wizard", () => {
   beforeEach(() => {
+    consoleLogMock.mockReset();
+    vi.spyOn(console, "log").mockImplementation(consoleLogMock);
     qrGenerateMock.mockClear();
     preparePublicCallbackToolingMock.mockReset();
     preparePublicCallbackToolingMock.mockResolvedValue({
@@ -93,6 +96,10 @@ describe("feishu setup wizard", () => {
       reason: "loopback-only-no-tunnel",
       detail: "Gateway only exposes loopback and no public callback URL or managed tunnel is available.",
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("does not throw when config appId/appSecret are SecretRef objects", async () => {
@@ -194,7 +201,14 @@ describe("feishu setup wizard", () => {
         expect.stringContaining("Quick actions"),
         "绑定飞书操作员",
       );
-      expect(note).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"), "绑定飞书操作员");
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("机器人二维码已直接输出到当前终端，避免被提示框裁切。"),
+        "绑定飞书操作员",
+      );
+      expect(consoleLogMock).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"));
+      expect(consoleLogMock).toHaveBeenCalledWith(
+        expect.stringContaining("使用飞书扫描以下二维码，打开机器人："),
+      );
       expect(qrGenerateMock).toHaveBeenCalledWith(
         "https://applink.feishu.cn/client/bot/open?appId=cli_from_prompt",
         { small: true },
@@ -345,7 +359,14 @@ describe("feishu setup wizard", () => {
         expect.stringContaining("已配置公网地址: gateway.remote.url"),
         "绑定飞书操作员",
       );
-      expect(note).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"), "绑定飞书操作员");
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("二维码已直接输出到当前终端，避免被提示框裁切。"),
+        "绑定飞书操作员",
+      );
+      expect(consoleLogMock).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"));
+      expect(consoleLogMock).toHaveBeenCalledWith(
+        expect.stringContaining("使用飞书扫描以下二维码，以完成绑定："),
+      );
       expect(qrGenerateMock).toHaveBeenCalled();
     } finally {
       if (previousStateDir === undefined) {
@@ -495,7 +516,11 @@ describe("feishu setup wizard", () => {
         ),
         "绑定飞书操作员",
       );
-      expect(note).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"), "绑定飞书操作员");
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("二维码已直接输出到当前终端，避免被提示框裁切。"),
+        "绑定飞书操作员",
+      );
+      expect(consoleLogMock).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"));
       expect(qrGenerateMock).toHaveBeenCalled();
     } finally {
       if (previousStateDir === undefined) {
@@ -568,7 +593,11 @@ describe("feishu setup wizard", () => {
         expect.stringContaining("绑定链接: https://pair.example.com/openclaw/bind/feishu/"),
         "绑定飞书操作员",
       );
-      expect(note).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"), "绑定飞书操作员");
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("二维码已直接输出到当前终端，避免被提示框裁切。"),
+        "绑定飞书操作员",
+      );
+      expect(consoleLogMock).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"));
       expect(qrGenerateMock).toHaveBeenCalled();
     } finally {
       if (previousStateDir === undefined) {
@@ -630,6 +659,7 @@ describe("feishu setup wizard", () => {
 
       expect(note).not.toHaveBeenCalledWith(expect.any(String), "绑定飞书操作员");
       expect(qrGenerateMock).not.toHaveBeenCalled();
+      expect(consoleLogMock).not.toHaveBeenCalled();
     } finally {
       if (previousStateDir === undefined) {
         delete process.env.OPENCLAW_STATE_DIR;
