@@ -6297,6 +6297,13 @@ function scheduleNotification(params: {
   });
 }
 
+function buildFeishuQrBindingWelcomeMessage(): string {
+  return [
+    "你好，我已经完成飞书绑定。",
+    "后续我会在这里主动同步 OpenClaw 的配置进度、授权步骤和任务通知。",
+  ].join("\n");
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -6476,7 +6483,11 @@ async function handleFeishuQrBindingOAuthCallback(params: {
   } catch (error) {
     params.api.logger.warn(`openclawcode failed to continue feishu oauth callback: ${String(error)}`);
   }
-  return writeHtmlResponse(params.res, 200, "绑定完成", ["OpenClaw 已完成飞书绑定。", "后续步骤会继续在飞书里发送给你。"]);
+  return writeHtmlResponse(params.res, 200, "绑定完成", [
+    "OpenClaw 已完成飞书绑定。",
+    "机器人已向你主动发送欢迎消息。",
+    "后续步骤会继续在飞书里发送给你。",
+  ]);
 }
 
 async function continueFeishuQrBindingClaim(params: {
@@ -6514,6 +6525,18 @@ async function continueFeishuQrBindingClaim(params: {
       OPENCLAW_STATE_DIR: stateDir,
     },
   });
+  try {
+    await sendText({
+      api: params.api,
+      channel: "feishu",
+      target: `user:${openId}`,
+      text: buildFeishuQrBindingWelcomeMessage(),
+    });
+  } catch (error) {
+    params.api.logger.warn(
+      `openclawcode failed to send feishu binding welcome message to ${openId}: ${String(error)}`,
+    );
+  }
 
   const pluginConfig = resolveOpenClawCodePluginConfig(params.api.pluginConfig);
   await processPendingSetupSessions(params.api, params.store);
@@ -6705,6 +6728,7 @@ async function handleFeishuQrBindingRoute(
 
   return writeHtmlResponse(res, 200, "绑定完成", [
     "OpenClaw 已完成飞书绑定。",
+    "机器人已向你主动发送欢迎消息。",
     "后续步骤会继续在飞书里发送给你。",
   ]);
 }

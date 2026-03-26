@@ -754,6 +754,19 @@ describe("openclawcode extension", () => {
       expect(handled).toBe(true);
       expect(res.statusCode).toBe(200);
       expect(String(res.body)).toContain("绑定完成");
+      expect(String(res.body)).toContain("主动发送欢迎消息");
+      await waitForAssertion(() => {
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_qr_bound_user",
+              message: expect.stringContaining("你好，我已经完成飞书绑定。"),
+            }),
+          }),
+        );
+      });
       await waitForAssertion(() => {
         expect(mocked.runMessageAction).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -980,6 +993,7 @@ describe("openclawcode extension", () => {
       expect(handled).toBe(true);
       expect(res.statusCode).toBe(200);
       expect(String(res.body)).toContain("绑定完成");
+      expect(String(res.body)).toContain("主动发送欢迎消息");
       expect(mocked.exchangeFeishuQrOAuthCode).toHaveBeenCalledWith({
         credentials: {
           appId: "cli_app",
@@ -987,6 +1001,18 @@ describe("openclawcode extension", () => {
           domain: "feishu",
         },
         code: "oauth_code_123",
+      });
+      await waitForAssertion(() => {
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_qr_oauth_user",
+              message: expect.stringContaining("你好，我已经完成飞书绑定。"),
+            }),
+          }),
+        );
       });
       await waitForAssertion(() => {
         expect(mocked.runMessageAction).toHaveBeenCalledWith(
@@ -1112,6 +1138,18 @@ describe("openclawcode extension", () => {
         logger: { info() {}, warn() {}, error() {} },
       });
 
+      await waitForAssertion(() => {
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_qr_early_user",
+              message: expect.stringContaining("你好，我已经完成飞书绑定。"),
+            }),
+          }),
+        );
+      });
       await waitForAssertion(() => {
         expect(mocked.runMessageAction).toHaveBeenCalledWith(
           expect.objectContaining({
