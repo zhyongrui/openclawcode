@@ -7,6 +7,7 @@ import {
 } from "../../scripts/generate-bundled-plugin-metadata.mjs";
 import {
   BUNDLED_PLUGIN_METADATA,
+  resolveBundledPluginGeneratedLocation,
   resolveBundledPluginGeneratedPath,
 } from "./bundled-plugin-metadata.js";
 import {
@@ -49,6 +50,33 @@ describe("bundled plugin metadata", () => {
         built: "plugin/index.js",
       }),
     ).toBe(path.join(tempRoot, "plugin", "index.js"));
+  });
+
+  it("prefers sibling dist outputs for source extension roots", () => {
+    const tempRoot = createGeneratedPluginTempRoot("openclaw-bundled-plugin-metadata-");
+    const sourceRoot = path.join(tempRoot, "extensions", "feishu");
+    const distRoot = path.join(tempRoot, "dist", "extensions", "feishu");
+
+    fs.mkdirSync(sourceRoot, { recursive: true });
+    fs.writeFileSync(path.join(sourceRoot, "index.ts"), "export {};\n", "utf8");
+    fs.mkdirSync(distRoot, { recursive: true });
+    fs.writeFileSync(path.join(distRoot, "index.js"), "export {};\n", "utf8");
+
+    expect(
+      resolveBundledPluginGeneratedPath(sourceRoot, {
+        source: "./index.ts",
+        built: "index.js",
+      }),
+    ).toBe(path.join(distRoot, "index.js"));
+    expect(
+      resolveBundledPluginGeneratedLocation(sourceRoot, {
+        source: "./index.ts",
+        built: "index.js",
+      }),
+    ).toEqual({
+      path: path.join(distRoot, "index.js"),
+      rootDir: distRoot,
+    });
   });
 
   it("supports check mode for stale generated artifacts", () => {

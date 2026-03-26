@@ -13,6 +13,16 @@
         "type": "number",
         "minimum": 1000
       },
+      "feishuOperatorBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accountId": { "type": "string" },
+          "email": { "type": "string" },
+          "mobile": { "type": "string" },
+          "sendWelcomeMessage": { "type": "boolean" }
+        }
+      },
       "repos": {
         "type": "array",
         "items": {
@@ -68,6 +78,10 @@
     "pollIntervalMs": {
       "label": "Runner Poll Interval",
       "help": "How often the plugin checks for queued openclawcode runs."
+    },
+    "feishuOperatorBinding": {
+      "label": "Feishu Operator Binding",
+      "help": "Optional fixed Feishu operator contact for automatic open_id lookup and proactive DM binding."
     }
   }
 }

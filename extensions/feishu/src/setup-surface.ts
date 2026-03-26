@@ -17,8 +17,9 @@ import {
   type SecretInput,
 } from "openclaw/plugin-sdk/setup";
 import qrcode from "qrcode-terminal";
-import { resolveGatewayPort } from "../../../src/config/config.js";
 import { resolveControlUiLinks } from "../../../src/commands/onboard-helpers.js";
+import { resolveGatewayPort } from "../../../src/config/config.js";
+import type { PluginEntryConfig } from "../../../src/config/types.plugins.js";
 import {
   preparePublicCallbackTooling,
   resolvePublicCallbackAvailability,
@@ -28,7 +29,11 @@ import {
   createFeishuQrBindingSession,
 } from "../../../src/operator-chat-targets/feishu-qr-binding.js";
 import { getPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
-import { inspectFeishuCredentials, listFeishuAccountIds, resolveFeishuAccount } from "./accounts.js";
+import {
+  inspectFeishuCredentials,
+  listFeishuAccountIds,
+  resolveFeishuAccount,
+} from "./accounts.js";
 import { probeFeishu } from "./probe.js";
 import { feishuSetupAdapter } from "./setup-core.js";
 import type { FeishuConfig } from "./types.js";
@@ -126,7 +131,9 @@ function formatFeishuPublicCallbackSource(detail?: string): string | undefined {
   }
 }
 
-function describeFeishuPublicCallbackFailure(reason: "loopback-only-no-tunnel" | "tunnel-start-failed" | "public-base-url-misconfigured"): string {
+function describeFeishuPublicCallbackFailure(
+  reason: "loopback-only-no-tunnel" | "tunnel-start-failed" | "public-base-url-misconfigured",
+): string {
   switch (reason) {
     case "public-base-url-misconfigured":
       return "已配置的公网绑定地址当前不可用。";
@@ -136,6 +143,141 @@ function describeFeishuPublicCallbackFailure(reason: "loopback-only-no-tunnel" |
     default:
       return "当前 gateway 只有本机地址，暂时没有可供手机访问的绑定链接。";
   }
+}
+
+function hasOpenClawCodePluginEntry(cfg: OpenClawConfig): boolean {
+  const entries = cfg.plugins?.entries;
+  return Boolean(
+    entries &&
+    typeof entries === "object" &&
+    Object.prototype.hasOwnProperty.call(entries, "openclawcode"),
+  );
+}
+
+function resolveConfiguredFeishuOperatorContactBinding(params: {
+  cfg: OpenClawConfig;
+  accountId: string;
+}): { accountId?: string; email?: string; mobile?: string } | undefined {
+  const binding = (
+    params.cfg.plugins?.entries?.openclawcode as
+      | { config?: { feishuOperatorBinding?: Record<string, unknown> } }
+      | undefined
+  )?.config?.feishuOperatorBinding;
+  if (!binding || typeof binding !== "object") {
+    return undefined;
+  }
+  const accountId = normalizeString(binding.accountId);
+  if (accountId && accountId !== params.accountId) {
+    return undefined;
+  }
+  const email = normalizeString(binding.email);
+  const mobile = normalizeString(binding.mobile);
+  if (!email && !mobile) {
+    return undefined;
+  }
+  return {
+    accountId,
+    email,
+    mobile,
+  };
+}
+
+function patchOpenClawCodeFeishuOperatorContactBinding(params: {
+  cfg: OpenClawConfig;
+  binding?: {
+    accountId?: string;
+    email?: string;
+    mobile?: string;
+  };
+}): OpenClawConfig {
+  const entries =
+    params.cfg.plugins?.entries && typeof params.cfg.plugins.entries === "object"
+      ? ({ ...(params.cfg.plugins.entries as Record<string, PluginEntryConfig>) } satisfies Record<
+          string,
+          PluginEntryConfig
+        >)
+      : {};
+  const existingEntry =
+    entries.openclawcode && typeof entries.openclawcode === "object"
+      ? ({ ...(entries.openclawcode as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+  const existingConfig =
+    existingEntry.config && typeof existingEntry.config === "object"
+      ? ({ ...(existingEntry.config as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+
+  if (params.binding) {
+    existingConfig.feishuOperatorBinding = {
+      ...(params.binding.accountId ? { accountId: params.binding.accountId } : {}),
+      ...(params.binding.email ? { email: params.binding.email } : {}),
+      ...(params.binding.mobile ? { mobile: params.binding.mobile } : {}),
+    };
+  } else {
+    delete existingConfig.feishuOperatorBinding;
+  }
+
+  entries.openclawcode = {
+    ...existingEntry,
+    enabled: existingEntry.enabled === false ? false : true,
+    ...(Object.keys(existingConfig).length > 0 ? { config: existingConfig } : {}),
+  };
+
+  return {
+    ...params.cfg,
+    plugins: {
+      ...params.cfg.plugins,
+      entries,
+    },
+  };
+}
+
+async function promptFeishuOperatorContactBinding(params: {
+  cfg: OpenClawConfig;
+  accountId: string;
+  prompter: Parameters<NonNullable<ChannelSetupWizard["finalize"]>>[0]["prompter"];
+}): Promise<OpenClawConfig> {
+  if (!hasOpenClawCodePluginEntry(params.cfg)) {
+    return params.cfg;
+  }
+
+  const existing = resolveConfiguredFeishuOperatorContactBinding({
+    cfg: params.cfg,
+    accountId: params.accountId,
+  });
+  const bindingMode = (await params.prompter.select({
+    message: "OpenClaw Code 飞书绑定方式",
+    options: [
+      { value: "email", label: "邮箱（推荐）" },
+      { value: "mobile", label: "手机号" },
+      { value: "qr", label: "二维码回退" },
+    ],
+    initialValue: existing?.email ? "email" : existing?.mobile ? "mobile" : "email",
+  })) as "email" | "mobile" | "qr";
+
+  if (bindingMode === "qr") {
+    return patchOpenClawCodeFeishuOperatorContactBinding({
+      cfg: params.cfg,
+      binding: undefined,
+    });
+  }
+
+  const message = bindingMode === "email" ? "输入要绑定的飞书邮箱" : "输入要绑定的飞书手机号";
+  const initialValue = bindingMode === "email" ? existing?.email : existing?.mobile;
+  const value = String(
+    await params.prompter.text({
+      message,
+      initialValue,
+      validate: (raw) => (String(raw ?? "").trim() ? undefined : "Required"),
+    }),
+  ).trim();
+
+  return patchOpenClawCodeFeishuOperatorContactBinding({
+    cfg: params.cfg,
+    binding: {
+      ...(params.accountId !== DEFAULT_ACCOUNT_ID ? { accountId: params.accountId } : {}),
+      ...(bindingMode === "email" ? { email: value } : { mobile: value }),
+    },
+  });
 }
 
 async function noteFeishuQrBinding(params: {
@@ -148,6 +290,26 @@ async function noteFeishuQrBinding(params: {
     accountId: params.accountId,
   });
   if (existingTarget) {
+    return;
+  }
+  const configuredContactBinding = resolveConfiguredFeishuOperatorContactBinding({
+    cfg: params.cfg,
+    accountId: params.accountId,
+  });
+  if (configuredContactBinding) {
+    const contactLabel = configuredContactBinding.email
+      ? `邮箱: ${configuredContactBinding.email}`
+      : `手机号: ${configuredContactBinding.mobile}`;
+    await params.prompter.note(
+      [
+        "已检测到 openclawcode 的飞书联系方式直绑配置。",
+        contactLabel,
+        "这次不会再展示二维码绑定步骤。",
+        "OpenClaw 启动后会自动查询该用户的 open_id，完成绑定，并主动发送欢迎消息。",
+        "如果自动查询失败，再回退到二维码 / Quick actions 绑定。",
+      ].join("\n"),
+      "绑定飞书操作员",
+    );
     return;
   }
   const { session } = await createFeishuQrBindingSession({
@@ -185,8 +347,14 @@ async function noteFeishuQrBinding(params: {
           : callbackAvailability.source === "managed-tunnel"
             ? ["这是临时公网链接；如果失效，重新运行配置即可刷新。"]
             : []),
+        ...(callbackAvailability.source === "managed-tunnel"
+          ? [
+              "注意: 飞书 OAuth 回调地址需要由应用管理员预先加入白名单；匿名 trycloudflare 域名通常不适合这一步。",
+              "如果扫码后看到 redirect URL 有误，请改用聊天页右上角 Quick actions，或先配置固定公网地址。",
+            ]
+          : []),
         "也可以直接在浏览器打开上面的链接完成绑定。",
-        "回退方式: 在飞书里打开机器人并点击 Quick actions。",
+        "回退方式: 在飞书聊天页点击右上角 Quick actions。",
         "OpenClaw 正在完成启动，绑定会在可用后自动继续。",
       ].join("\n"),
       "绑定飞书操作员",
@@ -224,9 +392,10 @@ async function noteFeishuQrBinding(params: {
             "服务器/远程主机场景推荐方式: 用飞书扫码打开机器人",
             "机器人二维码已直接输出到当前终端，避免被提示框裁切。",
             `机器人链接: ${botOpenUrl}`,
-            "扫码进入飞书后，点击 Quick actions 完成绑定。",
+            "注意: 扫这个码只是打开机器人，不会自动完成绑定。",
+            "进入飞书聊天页后，点击右上角 Quick actions 完成绑定。",
           ]
-        : ["如果你更方便直接在飞书里继续，也可以打开机器人并点击 Quick actions。"]),
+        : ["如果你更方便直接在飞书里继续，也可以打开机器人，在聊天页右上角点击 Quick actions。"]),
       `同机浏览器备用: ${claimUrl}`,
       "上面的本地链接只适用于运行 OpenClaw 的这台机器。",
       "OpenClaw 正在完成启动，绑定会在可用后自动继续。",
@@ -236,10 +405,7 @@ async function noteFeishuQrBinding(params: {
 }
 
 async function prewarmFeishuPublicCallbackTooling(
-  params: Pick<
-    Parameters<typeof noteFeishuQrBinding>[0],
-    "cfg" | "prompter"
-  >,
+  params: Pick<Parameters<typeof noteFeishuQrBinding>[0], "cfg" | "prompter">,
 ): Promise<void> {
   const preparation = await preparePublicCallbackTooling({
     cfg: params.cfg,
@@ -487,10 +653,20 @@ export const feishuSetupWizard: ChannelSetupWizard = {
       }
     }
 
-    await prewarmFeishuPublicCallbackTooling({
+    next = await promptFeishuOperatorContactBinding({
       cfg: next,
+      accountId: DEFAULT_ACCOUNT_ID,
       prompter,
     });
+
+    if (
+      !resolveConfiguredFeishuOperatorContactBinding({ cfg: next, accountId: DEFAULT_ACCOUNT_ID })
+    ) {
+      await prewarmFeishuPublicCallbackTooling({
+        cfg: next,
+        prompter,
+      });
+    }
 
     const currentMode =
       (next.channels?.feishu as FeishuConfig | undefined)?.connectionMode ?? "websocket";

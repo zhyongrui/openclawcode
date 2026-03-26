@@ -54,10 +54,18 @@ export interface OpenClawCodeChatopsRepoConfig {
   mergeOnApprove?: boolean;
 }
 
+export interface OpenClawCodeFeishuOperatorBindingConfig {
+  accountId?: string;
+  email?: string;
+  mobile?: string;
+  sendWelcomeMessage?: boolean;
+}
+
 export interface OpenClawCodePluginConfig {
   githubWebhookSecretEnv?: string;
   pollIntervalMs?: number;
   repos: OpenClawCodeChatopsRepoConfig[];
+  feishuOperatorBinding?: OpenClawCodeFeishuOperatorBindingConfig;
 }
 
 export interface ChatopsIssueIntakeDecision {
@@ -281,10 +289,27 @@ export function resolveOpenClawCodePluginConfig(
     });
   }
 
+  let feishuOperatorBinding: OpenClawCodeFeishuOperatorBindingConfig | undefined;
+  const feishuOperatorBindingRaw = pluginConfig?.feishuOperatorBinding;
+  if (feishuOperatorBindingRaw && typeof feishuOperatorBindingRaw === "object") {
+    const candidate = feishuOperatorBindingRaw as Record<string, unknown>;
+    const email = readString(candidate.email);
+    const mobile = readString(candidate.mobile);
+    if (email || mobile) {
+      feishuOperatorBinding = {
+        accountId: readString(candidate.accountId),
+        email,
+        mobile,
+        sendWelcomeMessage: readBoolean(candidate.sendWelcomeMessage),
+      };
+    }
+  }
+
   return {
     githubWebhookSecretEnv: readString(pluginConfig?.githubWebhookSecretEnv),
     pollIntervalMs: readPositiveInteger(pluginConfig?.pollIntervalMs),
     repos,
+    feishuOperatorBinding,
   };
 }
 

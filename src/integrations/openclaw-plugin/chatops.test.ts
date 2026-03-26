@@ -4,6 +4,7 @@ import {
   buildOpenClawCodeRunArgv,
   buildRunRequestFromCommand,
   parseChatopsIssueDraftCommand,
+  resolveOpenClawCodePluginConfig,
   type OpenClawCodeChatopsRepoConfig,
 } from "./chatops.js";
 
@@ -158,6 +159,35 @@ describe("openclawcode chatops run request plumbing", () => {
         bodySynthesized: true,
         sourceRequest: "Tighten onboarding alias guidance",
       },
+    });
+  });
+
+  it("parses an optional Feishu operator binding contact", () => {
+    const config = resolveOpenClawCodePluginConfig({
+      feishuOperatorBinding: {
+        accountId: "ops",
+        email: "owner@example.com",
+        sendWelcomeMessage: false,
+      },
+      repos: [
+        {
+          owner: "zhyongrui",
+          repo: "openclawcode",
+          repoRoot: "/repo",
+          notifyChannel: "feishu",
+          notifyTarget: "bind-pending:zhyongrui/openclawcode",
+          builderAgent: "main-builder",
+          verifierAgent: "main-verifier",
+          testCommands: ["pnpm test"],
+        },
+      ],
+    });
+
+    expect(config.feishuOperatorBinding).toEqual({
+      accountId: "ops",
+      email: "owner@example.com",
+      mobile: undefined,
+      sendWelcomeMessage: false,
     });
   });
 });

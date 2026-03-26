@@ -91,6 +91,12 @@ resolve_cloudflared_bin() {
 
   local home_dir="${HOME:-}"
   local candidates=()
+  if [[ -n "${OPENCLAW_STATE_DIR:-}" ]]; then
+    candidates+=("${OPENCLAW_STATE_DIR}/bin/cloudflared")
+  fi
+  if [[ -n "${OPERATOR_ROOT:-}" ]]; then
+    candidates+=("${OPERATOR_ROOT}/bin/cloudflared")
+  fi
   if [[ -n "$home_dir" ]]; then
     candidates+=("${home_dir}/.local/bin/cloudflared")
     candidates+=("${home_dir}/bin/cloudflared")

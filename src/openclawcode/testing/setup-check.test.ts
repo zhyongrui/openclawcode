@@ -175,6 +175,8 @@ describe("openclawcode-setup-check.sh source", () => {
     expect(script).toContain("OPENCLAWCODE_GITHUB_HOOK_EVENTS");
     expect(script).toContain("OPENCLAWCODE_TUNNEL_OPERATOR_ROOT");
     expect(script).toContain("OPENCLAWCODE_OPERATOR_ROOT");
+    expect(script).toContain("${OPENCLAW_STATE_DIR}/bin/cloudflared");
+    expect(script).toContain("${OPERATOR_ROOT}/bin/cloudflared");
     expect(script).toContain("find_running_tunnel_pid");
   });
 });
@@ -226,8 +228,7 @@ describeWithShell("openclawcode-setup-check.sh", () => {
       configFile,
       `${JSON.stringify(
         {
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {
@@ -359,8 +360,7 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
       configFile,
       `${JSON.stringify(
         {
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {
@@ -720,8 +720,7 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
       configFile,
       `${JSON.stringify(
         {
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {
@@ -1186,8 +1185,7 @@ exit 1
       configFile,
       `${JSON.stringify(
         {
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {
@@ -1311,8 +1309,7 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
       configFile,
       `${JSON.stringify(
         {
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {
@@ -1450,8 +1447,7 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
               },
             },
           ],
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {
@@ -1629,10 +1625,9 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
                 },
               },
             ],
-            plugins:
-          {
+            plugins: {
               enabled: true,
-            allow: ["openclawcode"],
+              allow: ["openclawcode"],
               entries: {
                 openclawcode: {
                   enabled: true,
@@ -1829,8 +1824,7 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
       configFile,
       `${JSON.stringify(
         {
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {
@@ -1976,8 +1970,7 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
       configFile,
       `${JSON.stringify(
         {
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {
@@ -2113,8 +2106,7 @@ printf '{"accepted":false,"reason":"unconfigured-repo"}\\n202'
       configFile,
       `${JSON.stringify(
         {
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {
@@ -2266,8 +2258,7 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
       configFile,
       `${JSON.stringify(
         {
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {
@@ -2413,8 +2404,7 @@ printf '%s' "$script" | "${realPythonPath}" "$@"
       configFile,
       `${JSON.stringify(
         {
-          plugins:
-          {
+          plugins: {
             enabled: true,
             allow: ["openclawcode"],
             entries: {

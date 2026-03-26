@@ -1,15 +1,27 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   ensureManagedCloudflaredBinary,
   preparePublicCallbackTooling,
   resolveCloudflaredBinary,
+  resolveManagedTunnelScriptPath,
   resolvePublicCallbackAvailability,
 } from "./public-callback.js";
 
 describe("resolvePublicCallbackAvailability", () => {
+  it("resolves the managed tunnel helper from the package root for dist entrypoints", () => {
+    const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+    const resolved = resolveManagedTunnelScriptPath({
+      cwd: os.tmpdir(),
+      moduleUrl: pathToFileURL(path.join(repoRoot, "dist", "env-test.js")).href,
+    });
+
+    expect(resolved).toBe(path.join(repoRoot, "scripts", "openclawcode-webhook-tunnel.sh"));
+  });
+
   it("finds cloudflared in ~/.local/bin even when PATH is stripped", async () => {
     const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cloudflared-home-"));
     const localBinDir = path.join(fakeHome, ".local", "bin");
@@ -17,7 +29,7 @@ describe("resolvePublicCallbackAvailability", () => {
     await fs.mkdir(localBinDir, { recursive: true });
     await fs.writeFile(
       fakeBinary,
-      "#!/usr/bin/env bash\nif [ \"$1\" = \"--version\" ]; then echo 'cloudflared version test'; exit 0; fi\nexit 1\n",
+      '#!/usr/bin/env bash\nif [ "$1" = "--version" ]; then echo \'cloudflared version test\'; exit 0; fi\nexit 1\n',
       { mode: 0o755 },
     );
 
@@ -122,7 +134,8 @@ describe("resolvePublicCallbackAvailability", () => {
   it("keeps the managed tunnel qr flow when tunnel self-check returns a warning", async () => {
     const startManagedTunnel = vi.fn(async () => ({
       baseUrl: "https://qr-bind.trycloudflare.com",
-      detail: "Managed tunnel created a public URL, but it never became reachable (fetch failed). 仍会继续提供该公网链接，优先用手机扫码尝试。",
+      detail:
+        "Managed tunnel created a public URL, but it never became reachable (fetch failed). 仍会继续提供该公网链接，优先用手机扫码尝试。",
     }));
 
     const result = await resolvePublicCallbackAvailability({
@@ -146,11 +159,12 @@ describe("resolvePublicCallbackAvailability", () => {
 
   it("downloads cloudflared into the managed state bin when missing", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cloudflared-state-"));
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        "#!/usr/bin/env bash\nif [ \"$1\" = \"--version\" ]; then echo 'cloudflared version downloaded'; exit 0; fi\nexit 1\n",
-        { status: 200 },
-      ),
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          '#!/usr/bin/env bash\nif [ "$1" = "--version" ]; then echo \'cloudflared version downloaded\'; exit 0; fi\nexit 1\n',
+          { status: 200 },
+        ),
     );
 
     const result = await ensureManagedCloudflaredBinary({
@@ -166,11 +180,13 @@ describe("resolvePublicCallbackAvailability", () => {
 
     expect(result.source).toBe("downloaded-cloudflared");
     expect(result.binaryPath).toBe(path.join(stateDir, "bin", "cloudflared"));
-    expect(resolveCloudflaredBinary({
-      HOME: stateDir,
-      PATH: "/usr/bin:/bin",
-      OPENCLAW_STATE_DIR: stateDir,
-    })).toBe(result.binaryPath);
+    expect(
+      resolveCloudflaredBinary({
+        HOME: stateDir,
+        PATH: "/usr/bin:/bin",
+        OPENCLAW_STATE_DIR: stateDir,
+      }),
+    ).toBe(result.binaryPath);
     expect(fetchMock).toHaveBeenCalledWith(
       "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64",
       expect.objectContaining({ redirect: "follow" }),
@@ -179,11 +195,12 @@ describe("resolvePublicCallbackAvailability", () => {
 
   it("prepares cloudflared during setup when no direct public callback exists", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-cloudflared-prepare-"));
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        "#!/usr/bin/env bash\nif [ \"$1\" = \"--version\" ]; then echo 'cloudflared version prepared'; exit 0; fi\nexit 1\n",
-        { status: 200 },
-      ),
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          '#!/usr/bin/env bash\nif [ "$1" = "--version" ]; then echo \'cloudflared version prepared\'; exit 0; fi\nexit 1\n',
+          { status: 200 },
+        ),
     );
 
     const result = await preparePublicCallbackTooling({

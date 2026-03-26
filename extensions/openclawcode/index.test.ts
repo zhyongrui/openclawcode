@@ -5,25 +5,12 @@ import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawCodeChatopsStore } from "../../src/integrations/openclaw-plugin/index.js";
-import {
-  getPreferredOperatorChatTarget,
-  setPreferredOperatorChatTarget,
-} from "../../src/operator-chat-targets/store.js";
-import {
-  buildFeishuQrBindingClaimUrl,
-  createFeishuQrBindingSession,
-  getFeishuQrBindingSessionById,
-} from "../../src/operator-chat-targets/feishu-qr-binding.js";
-import { encodeFeishuQrOAuthState } from "../../src/operator-chat-targets/feishu-qr-oauth.js";
-import { readChannelAllowFromStore } from "../../src/pairing/pairing-store.js";
-import {
-  readProjectAutonomousLoopArtifact,
-} from "../../src/openclawcode/autonomous-loop.js";
+import { readProjectAutonomousLoopArtifact } from "../../src/openclawcode/autonomous-loop.js";
+import { readProjectBlueprintDiscussionArtifact } from "../../src/openclawcode/blueprint-discussion.js";
 import {
   createProjectBlueprint,
   readProjectBlueprintDocument,
 } from "../../src/openclawcode/blueprint.js";
-import { readProjectBlueprintDiscussionArtifact } from "../../src/openclawcode/blueprint-discussion.js";
 import type { WorkflowRun } from "../../src/openclawcode/contracts/index.js";
 import { writeProjectDiscoveryInventory } from "../../src/openclawcode/discovery.js";
 import { readProjectIssueMaterializationArtifact } from "../../src/openclawcode/issue-materialization.js";
@@ -37,14 +24,25 @@ import {
   readProjectWorkItemInventory,
   writeProjectWorkItemInventory,
 } from "../../src/openclawcode/work-items.js";
+import {
+  buildFeishuQrBindingClaimUrl,
+  createFeishuQrBindingSession,
+  getFeishuQrBindingSessionById,
+} from "../../src/operator-chat-targets/feishu-qr-binding.js";
+import { encodeFeishuQrOAuthState } from "../../src/operator-chat-targets/feishu-qr-oauth.js";
+import {
+  getPreferredOperatorChatTarget,
+  setPreferredOperatorChatTarget,
+} from "../../src/operator-chat-targets/store.js";
+import { readChannelAllowFromStore } from "../../src/pairing/pairing-store.js";
 import type {
   OpenClawPluginCommandDefinition,
   OpenClawPluginService,
 } from "../../src/plugins/types.js";
 import { createMockServerResponse } from "../../src/test-utils/mock-http-response.js";
+import { onboardingOpenClawCodeDeps } from "../../src/wizard/setup.code.js";
 import { withEnvAsync } from "../../test/helpers/extensions/env.js";
 import { createPluginRuntimeMock } from "../../test/helpers/extensions/plugin-runtime-mock.js";
-import { onboardingOpenClawCodeDeps } from "../../src/wizard/setup.code.js";
 import plugin from "./index.js";
 
 const mocked = vi.hoisted(() => ({
@@ -56,6 +54,7 @@ const mocked = vi.hoisted(() => ({
   createOnboardingRepositoryViaGh: vi.fn(),
   runOnboardingOpenClawCodeBootstrap: vi.fn(),
   exchangeFeishuQrOAuthCode: vi.fn(),
+  resolveFeishuUserOpenIdByContact: vi.fn(),
 }));
 
 vi.mock("../../src/infra/http-body.js", () => ({
@@ -79,14 +78,17 @@ vi.mock("../../src/wizard/setup.code.js", async (importOriginal) => {
 });
 
 vi.mock("../../src/operator-chat-targets/feishu-qr-oauth.js", async (importOriginal) => {
-  const actual = await importOriginal<
-    typeof import("../../src/operator-chat-targets/feishu-qr-oauth.js")
-  >();
+  const actual =
+    await importOriginal<typeof import("../../src/operator-chat-targets/feishu-qr-oauth.js")>();
   return {
     ...actual,
     exchangeFeishuQrOAuthCode: mocked.exchangeFeishuQrOAuthCode,
   };
 });
+
+vi.mock("../feishu/src/contact-user-id.js", () => ({
+  resolveFeishuUserOpenIdByContact: mocked.resolveFeishuUserOpenIdByContact,
+}));
 
 function createApi(params: {
   stateDir: string;
@@ -618,6 +620,10 @@ describe("openclawcode extension", () => {
     mocked.createOnboardingRepositoryViaGh.mockReset();
     mocked.runOnboardingOpenClawCodeBootstrap.mockReset();
     mocked.exchangeFeishuQrOAuthCode.mockReset();
+    mocked.resolveFeishuUserOpenIdByContact.mockReset();
+    mocked.resolveFeishuUserOpenIdByContact.mockRejectedValue(
+      new Error("Feishu contact binding not configured in this test"),
+    );
     mocked.runOnboardingOpenClawCodeBootstrap.mockResolvedValue({
       repo: {
         owner: "zhyongrui",
@@ -650,13 +656,11 @@ describe("openclawcode extension", () => {
         recommendedProofMode: "cli-only",
       },
     });
-    onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(
-      async () => ({
-        login: "zhyongrui",
-        name: "Zhongrui Ye",
-        email: "zyr@example.com",
-      }),
-    );
+    onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(async () => ({
+      login: "zhyongrui",
+      name: "Zhongrui Ye",
+      email: "zyr@example.com",
+    }));
     onboardingOpenClawCodeDeps.fetchRepositorySummary = vi.fn(async (_token, repoRef) => ({
       owner: repoRef.owner,
       repo: repoRef.repo,
@@ -674,9 +678,9 @@ describe("openclawcode extension", () => {
       expect(fixture.routes.map((entry) => entry.path)).toEqual(
         expect.arrayContaining(["/plugins/openclawcode/github", "/openclaw/bind/feishu"]),
       );
-      expect(
-        fixture.routes.find((entry) => entry.path === "/openclaw/bind/feishu")?.match,
-      ).toBe("prefix");
+      expect(fixture.routes.find((entry) => entry.path === "/openclaw/bind/feishu")?.match).toBe(
+        "prefix",
+      );
     } finally {
       await cleanupPluginFixture(fixture);
     }
@@ -813,7 +817,9 @@ describe("openclawcode extension", () => {
   });
 
   it("redirects a Feishu QR claim without open_id into Feishu OAuth", async () => {
-    const qrRepoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-bind-oauth-repo-"));
+    const qrRepoRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-feishu-bind-oauth-repo-"),
+    );
     const fixture = await registerPluginFixture({
       config: {
         channels: {
@@ -910,8 +916,85 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("does not redirect a trycloudflare claim host into Feishu OAuth", async () => {
+    const qrRepoRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-feishu-bind-ephemeral-repo-"),
+    );
+    const fixture = await registerPluginFixture({
+      config: {
+        channels: {
+          feishu: {
+            appId: "cli_app",
+            appSecret: "cli_secret",
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot: qrRepoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "bind-pending:zhyongrui/openclawcode",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [],
+          },
+        ],
+      },
+    });
+    try {
+      const { session } = await createFeishuQrBindingSession({
+        stateDir: fixture.stateDir,
+      });
+      const claimUrl = new URL(
+        buildFeishuQrBindingClaimUrl({
+          baseHttpUrl: "https://scan-host.trycloudflare.com",
+          session,
+        }),
+      );
+
+      await fixture.service?.start?.({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      const bindingRoute = fixture.routes.find((entry) => entry.path === "/openclaw/bind/feishu");
+      const res = createMockServerResponse();
+      const handled = await bindingRoute?.handler(
+        localReq({
+          method: "GET",
+          url: claimUrl.pathname + claimUrl.search,
+          headers: {
+            host: "scan-host.trycloudflare.com",
+            "x-forwarded-proto": "https",
+          },
+        }),
+        res,
+      );
+
+      expect(handled).toBe(true);
+      expect(res.statusCode).toBe(200);
+      expect(String(res.body)).toContain("当前绑定链接使用的是临时公网域名");
+      expect(String(res.body)).toContain("Quick actions");
+      expect(String(res.body)).toContain(
+        "https://scan-host.trycloudflare.com/openclaw/bind/feishu/oauth/callback",
+      );
+    } finally {
+      await cleanupPluginFixture(fixture);
+      await fs.rm(qrRepoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("completes a Feishu OAuth callback and continues setup automatically", async () => {
-    const qrRepoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-bind-oauth-callback-repo-"));
+    const qrRepoRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-feishu-bind-oauth-callback-repo-"),
+    );
     const fixture = await registerPluginFixture({
       config: {
         channels: {
@@ -1060,7 +1143,9 @@ describe("openclawcode extension", () => {
   });
 
   it("finishes an early Feishu QR scan automatically after the runner becomes ready", async () => {
-    const qrRepoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-bind-early-repo-"));
+    const qrRepoRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-feishu-bind-early-repo-"),
+    );
     const fixture = await registerPluginFixture({
       config: {
         channels: {
@@ -4127,8 +4212,7 @@ describe("openclawcode extension", () => {
         status: "draft",
         sections: {
           Goal: "Shared image gallery for family albums",
-          "Success Criteria":
-            "- Create the repo from chat and return the next proof commands.",
+          "Success Criteria": "- Create the repo from chat and return the next proof commands.",
           Scope: "- Start with repo bootstrap and blueprint alignment only.",
           "Non-Goals": "- No mobile app or public sharing in the first MVP.",
           Constraints: "- Stay inside chat until repo creation is necessary.",
@@ -4162,9 +4246,7 @@ describe("openclawcode extension", () => {
           status: "agreed",
         },
       });
-      expect(saved?.blueprintDraft?.repoNameSuggestions?.[0]).toBe(
-        "shared-image-gallery-family",
-      );
+      expect(saved?.blueprintDraft?.repoNameSuggestions?.[0]).toBe("shared-image-gallery-family");
     } finally {
       await cleanupPluginFixture(fixture);
     }
@@ -4213,8 +4295,7 @@ describe("openclawcode extension", () => {
         repoNameSuggestions: ["shared-image-gallery"],
         sections: {
           Goal: "Shared image gallery for family albums",
-          "Success Criteria":
-            "- Create the repo from chat and return the next proof commands.",
+          "Success Criteria": "- Create the repo from chat and return the next proof commands.",
           Scope: "- Start with repo bootstrap and blueprint alignment only.",
           "Non-Goals": "- No mobile app or public sharing in the first MVP.",
           Constraints: "- Stay inside chat until repo creation is necessary.",
@@ -4344,9 +4425,15 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("GitHub: ready as zhyongrui");
       expect(result?.text).toContain("Repo: zhyongrui/iGallery");
       expect(result?.text).toContain("Blueprint: existing baseline detected (active)");
-      expect(result?.text).toContain("Detected OpenClaw Code artifacts: PROJECT-BLUEPRINT.md, .openclawcode");
-      expect(result?.text).toContain("- /occode-blueprint to re-check the detected baseline in this setup chat.");
-      expect(result?.text).toContain("- /occode-setup-retry once the existing blueprint is still the intended baseline.");
+      expect(result?.text).toContain(
+        "Detected OpenClaw Code artifacts: PROJECT-BLUEPRINT.md, .openclawcode",
+      );
+      expect(result?.text).toContain(
+        "- /occode-blueprint to re-check the detected baseline in this setup chat.",
+      );
+      expect(result?.text).toContain(
+        "- /occode-setup-retry once the existing blueprint is still the intended baseline.",
+      );
       expect(result?.text).toContain("Blueprint title: iGallery blueprint");
       expect(result?.text).toContain("Blueprint status: active");
       expect(result?.text).toContain(
@@ -4434,8 +4521,12 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("GitHub: ready as zhyongrui");
       expect(result?.text).toContain("Repo: zhyongrui/iGallery");
       expect(result?.text).toContain("Blueprint: draft");
-      expect(result?.text).toContain("- /occode-goal or /occode-blueprint-edit to refine the draft in this setup chat.");
-      expect(result?.text).toContain("- /occode-setup-retry after blueprint agreement to continue into bootstrap.");
+      expect(result?.text).toContain(
+        "- /occode-goal or /occode-blueprint-edit to refine the draft in this setup chat.",
+      );
+      expect(result?.text).toContain(
+        "- /occode-setup-retry after blueprint agreement to continue into bootstrap.",
+      );
       expect(result?.text).toContain("Useful repo context found: README.md");
       expect(result?.text).toContain("Draft goal: Photo gallery for family albums");
       expect(result?.text).toContain("Draft seeded from: repo:summary, README.md");
@@ -4522,8 +4613,7 @@ describe("openclawcode extension", () => {
         blueprintDraft: {
           sourcePaths: ["repo:summary", "docs", "docs/architecture.md"],
           sections: {
-            Goal:
-              "Family gallery focused on private album sharing and lightweight moderation.",
+            Goal: "Family gallery focused on private album sharing and lightweight moderation.",
           },
         },
       });
@@ -4567,8 +4657,12 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("State: repo-creation-pending");
       expect(result?.text).toContain("Repo: pending create iGallery");
       expect(result?.text).toContain("Blueprint: draft");
-      expect(result?.text).toContain("- /occode-goal or /occode-blueprint-edit to finish the blueprint.");
-      expect(result?.text).toContain("- /occode-setup new iGallery after agreement to create the repo and continue.");
+      expect(result?.text).toContain(
+        "- /occode-goal or /occode-blueprint-edit to finish the blueprint.",
+      );
+      expect(result?.text).toContain(
+        "- /occode-setup new iGallery after agreement to create the repo and continue.",
+      );
       expect(result?.text).toContain("First agree on the project blueprint in chat.");
       expect(mocked.createOnboardingRepositoryViaGh).not.toHaveBeenCalled();
       expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
@@ -4985,9 +5079,7 @@ describe("openclawcode extension", () => {
       });
 
       expect(result?.text).toContain("State: bootstrap-ready");
-      expect(result?.text).toContain(
-        "Revisions queued for bootstrap sync: Goal, Success Criteria",
-      );
+      expect(result?.text).toContain("Revisions queued for bootstrap sync: Goal, Success Criteria");
     } finally {
       await cleanupPluginFixture(fixture);
     }
@@ -5201,7 +5293,9 @@ describe("openclawcode extension", () => {
       expect(mocked.startOnboardingGitHubCliDeviceLogin).toHaveBeenCalledWith({
         stateDir: fixture.stateDir,
       });
-      expect(result?.text).toContain("OpenClaw Code is starting a fresh GitHub login for this chat.");
+      expect(result?.text).toContain(
+        "OpenClaw Code is starting a fresh GitHub login for this chat.",
+      );
       expect(result?.text).toContain("Code: ABCD-1234");
       expect(result?.text).toContain("/occode-github-status");
       expect(
@@ -5383,9 +5477,7 @@ describe("openclawcode extension", () => {
           params: expect.objectContaining({
             channel: "telegram",
             to: "chat:primary",
-            message: expect.stringContaining(
-              "OpenClaw Code setup is waiting for GitHub approval.",
-            ),
+            message: expect.stringContaining("OpenClaw Code setup is waiting for GitHub approval."),
           }),
         }),
       );
@@ -5403,6 +5495,106 @@ describe("openclawcode extension", () => {
           userCode: "WXYZ-1234",
           verificationUri: "https://github.com/login/device",
         },
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("auto-binds a configured Feishu operator contact on service start", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-contact-bind-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      config: {
+        channels: {
+          feishu: {
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        feishuOperatorBinding: {
+          email: "owner@example.com",
+        },
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "bind-pending:zhyongrui/openclawcode",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
+          },
+        ],
+      },
+    });
+    mocked.resolveFeishuUserOpenIdByContact.mockResolvedValue({
+      openId: "ou_owner_contact",
+      matchedBy: "email",
+      matchedValue: "owner@example.com",
+    });
+    mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+      pid: 654,
+      logPath: "/tmp/proactive-gh-auth.log",
+      userCode: "WXYZ-1234",
+      verificationUri: "https://github.com/login/device",
+      startedAt: "2026-03-21T09:00:00.000Z",
+    });
+
+    try {
+      await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
+        await fixture.service?.start({
+          config: {},
+          stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        expect(mocked.resolveFeishuUserOpenIdByContact).toHaveBeenCalledWith(
+          expect.objectContaining({
+            email: "owner@example.com",
+          }),
+        );
+        expect(
+          await getPreferredOperatorChatTarget({
+            stateDir: fixture.stateDir,
+            channel: "feishu",
+          }),
+        ).toMatchObject({
+          channel: "feishu",
+          target: "user:ou_owner_contact",
+          source: "feishu-contact-binding",
+        });
+        await expect(
+          readChannelAllowFromStore("feishu", process.env, "default"),
+        ).resolves.toContain("ou_owner_contact");
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_owner_contact",
+              message: expect.stringContaining("我已经完成飞书绑定"),
+            }),
+          }),
+        );
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_owner_contact",
+              message: expect.stringContaining(
+                "OpenClaw Code setup is waiting for GitHub approval.",
+              ),
+            }),
+          }),
+        );
       });
     } finally {
       await cleanupPluginFixture(fixture);
@@ -5462,9 +5654,7 @@ describe("openclawcode extension", () => {
           params: expect.objectContaining({
             channel: "feishu",
             to: "user:bound-operator",
-            message: expect.stringContaining(
-              "OpenClaw Code setup is waiting for GitHub approval.",
-            ),
+            message: expect.stringContaining("OpenClaw Code setup is waiting for GitHub approval."),
           }),
         }),
       );
@@ -6087,7 +6277,9 @@ describe("openclawcode extension", () => {
         config: {},
       });
 
-      expect(result?.text).toContain("Blueprint goal: Ship chat-native setup with clear operator guidance.");
+      expect(result?.text).toContain(
+        "Blueprint goal: Ship chat-native setup with clear operator guidance.",
+      );
       expect(result?.text).toContain("Clarifications:");
       expect(result?.text).toContain("/occode-blueprint zhyongrui/openclawcode");
       expect(
@@ -6536,9 +6728,7 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain(
         "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
       );
-      expect(result?.text).toContain(
-        "Operator program criteria: keep=3 | discard=2 | retry=2",
-      );
+      expect(result?.text).toContain("Operator program criteria: keep=3 | discard=2 | retry=2");
       expect(result?.text).toContain(
         "Operator program advancement: Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
       );
@@ -7261,20 +7451,30 @@ describe("openclawcode extension", () => {
 
       expect(result?.text).toContain("openclawcode inbox for zhyongrui/openclawcode");
       expect(result?.text).toContain("Quality gates: pass=1 | warn=1 | fail=0 | pending=0");
-      expect(result?.text).toContain("Pre-code discipline: ready=0 | warn=1 | blocked=0 | pending=0");
-      expect(result?.text).toContain("Pre-code gaps: mode-specific-contexts=1 | fresh-role-execution=1");
-      expect(result?.text).toContain("Pre-code next: make planner/coder/verifier contexts mode-specific");
+      expect(result?.text).toContain(
+        "Pre-code discipline: ready=0 | warn=1 | blocked=0 | pending=0",
+      );
+      expect(result?.text).toContain(
+        "Pre-code gaps: mode-specific-contexts=1 | fresh-role-execution=1",
+      );
+      expect(result?.text).toContain(
+        "Pre-code next: make planner/coder/verifier contexts mode-specific",
+      );
       expect(result?.text).toContain(
         "Pre-code repair: review /occode-routing zhyongrui/openclawcode and set missing role bindings with /occode-route-set zhyongrui/openclawcode <role> <provider>; then review /occode-runtime-steering zhyongrui/openclawcode and split building/verifying with /occode-runtime-steering-set zhyongrui/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
       );
       expect(result?.text).toContain(
         "Operator program: available=yes | mutableSurface=scoped-by-work-item | proof=required | attemptLedger=required | nextAction=narrow-mutation-scope",
       );
-      expect(result?.text).toContain("Operator program meta: Repo-local operator program | updated=");
+      expect(result?.text).toContain(
+        "Operator program meta: Repo-local operator program | updated=",
+      );
       expect(result?.text).toContain(
         "Operator program summary: Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
       );
-      expect(result?.text).toContain("Operator program scope: paths=0 | allowlist=no | simplify=yes");
+      expect(result?.text).toContain(
+        "Operator program scope: paths=0 | allowlist=no | simplify=yes",
+      );
       expect(result?.text).toContain(
         "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
       );
@@ -7297,8 +7497,12 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("Queued: 1");
       expect(result?.text).toContain("- zhyongrui/openclawcode#302 | Queued.");
       expect(result?.text).toContain("Recent ledger: 2");
-      expect(result?.text).toContain("- zhyongrui/openclawcode#304 | Merged | final: merged | PR #404 | 2026-03-11T03:00:00.000Z");
-      expect(result?.text).toContain("- zhyongrui/openclawcode#305 | Ready For Human Review | final: awaiting human review | 2026-03-11T02:58:00.000Z");
+      expect(result?.text).toContain(
+        "- zhyongrui/openclawcode#304 | Merged | final: merged | PR #404 | 2026-03-11T03:00:00.000Z",
+      );
+      expect(result?.text).toContain(
+        "- zhyongrui/openclawcode#305 | Ready For Human Review | final: awaiting human review | 2026-03-11T02:58:00.000Z",
+      );
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
@@ -8508,9 +8712,7 @@ describe("openclawcode extension", () => {
         "Rerun: run-242 | from Changes Requested | 2026-03-16T12:05:00.000Z",
       );
       expect(status?.text).toContain("Rerun reason: Address GitHub review feedback");
-      expect(status?.text).toContain(
-        "Rerun review: Changes Requested | 2026-03-16T12:00:00.000Z",
-      );
+      expect(status?.text).toContain("Rerun review: Changes Requested | 2026-03-16T12:00:00.000Z");
       expect(status?.text).toContain(
         "Rerun review summary: Please add a regression test for the rerun path.",
       );
@@ -9046,7 +9248,9 @@ describe("openclawcode extension", () => {
         config: {},
       });
 
-      expect(result?.text).toContain("openclawcode issue materialization for zhyongrui/openclawcode");
+      expect(result?.text).toContain(
+        "openclawcode issue materialization for zhyongrui/openclawcode",
+      );
       expect(result?.text).toContain("Outcome: created");
       expect(result?.text).toContain("Execution mode: feature");
       expect(result?.text).toContain("Selected issue: #77");
@@ -9802,26 +10006,24 @@ describe("openclawcode extension", () => {
         "Queued from test.",
       );
 
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(
-            JSON.stringify([
-              {
-                number: 89,
-                title: "[Blueprint]: Stop autopilot when queued work already exists.",
-                body: "materialized body",
-                html_url: "https://github.com/zhyongrui/openclawcode/issues/89",
-                state: "open",
-                labels: [],
-              },
-            ]),
+      const fetchMock = vi.fn().mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
             {
-              status: 200,
-              headers: { "Content-Type": "application/json" },
+              number: 89,
+              title: "[Blueprint]: Stop autopilot when queued work already exists.",
+              body: "materialized body",
+              html_url: "https://github.com/zhyongrui/openclawcode/issues/89",
+              state: "open",
+              labels: [],
             },
-          ),
-        );
+          ]),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      );
       vi.stubGlobal("fetch", fetchMock);
       vi.stubEnv("GH_TOKEN", "test-gh-token");
 
@@ -9986,7 +10188,9 @@ describe("openclawcode extension", () => {
       expect(onceResult?.text).toContain("Current run stage: building");
       expect(onceResult?.text).toContain("Current run branch: openclawcode/issue-910");
       expect(onceResult?.text).toContain("Current run PR: #9910");
-      expect(onceResult?.text).toContain("Stop reason: A run is already active for this repository.");
+      expect(onceResult?.text).toContain(
+        "Stop reason: A run is already active for this repository.",
+      );
 
       const progressArtifact = await readProjectProgressArtifact(fixture.repoRoot);
       expect(progressArtifact.roleRouteSummary).toEqual([
@@ -10394,18 +10598,23 @@ describe("openclawcode extension", () => {
       });
 
       await waitForAssertion(async () => {
-        expect(mocked.runMessageAction.mock.calls.some((call) => {
-          const message = String(call[0]?.params?.message ?? "");
-          return (
-            message.includes("openclawcode is resuming queue drain after the provider pause cleared.") &&
-            message.includes("Next issue: zhyongrui/openclawcode#6706")
-          );
-        })).toBe(true);
-        expect(mocked.runMessageAction.mock.calls.some((call) =>
-          String(call[0]?.params?.message ?? "").includes(
-            "openclawcode is starting zhyongrui/openclawcode#6706.",
+        expect(
+          mocked.runMessageAction.mock.calls.some((call) => {
+            const message = String(call[0]?.params?.message ?? "");
+            return (
+              message.includes(
+                "openclawcode is resuming queue drain after the provider pause cleared.",
+              ) && message.includes("Next issue: zhyongrui/openclawcode#6706")
+            );
+          }),
+        ).toBe(true);
+        expect(
+          mocked.runMessageAction.mock.calls.some((call) =>
+            String(call[0]?.params?.message ?? "").includes(
+              "openclawcode is starting zhyongrui/openclawcode#6706.",
+            ),
           ),
-        )).toBe(true);
+        ).toBe(true);
       });
     } finally {
       await fixture.service?.stop?.({

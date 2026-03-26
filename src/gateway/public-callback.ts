@@ -1,11 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { resolveGatewayPort, resolveIsNixMode, resolveStateDir } from "../config/paths.js";
 import type { OpenClawConfig } from "../config/types.js";
+import { resolveOpenClawPackageRootSync } from "../infra/openclaw-root.js";
 import { runExec } from "../process/exec.js";
 import { resolveGatewayBindUrl } from "../shared/gateway-bind-url.js";
 import {
@@ -23,10 +24,7 @@ export type PublicCallbackAvailability =
     }
   | {
       available: false;
-      reason:
-        | "loopback-only-no-tunnel"
-        | "tunnel-start-failed"
-        | "public-base-url-misconfigured";
+      reason: "loopback-only-no-tunnel" | "tunnel-start-failed" | "public-base-url-misconfigured";
       detail?: string;
     };
 
@@ -77,6 +75,80 @@ type CloudflaredDownloadSpec = {
   url: string;
   archive: "binary" | "tgz";
 };
+
+const MANAGED_TUNNEL_SCRIPT_BASENAME = "openclawcode-webhook-tunnel.sh";
+
+function buildManagedTunnelScriptCandidates(opts: {
+  argv1?: string;
+  cwd?: string;
+  moduleUrl?: string;
+}): string[] {
+  const candidates = new Set<string>();
+  const packageRoot = resolveOpenClawPackageRootSync({
+    argv1: opts.argv1,
+    cwd: opts.cwd,
+    moduleUrl: opts.moduleUrl,
+  });
+  if (packageRoot) {
+    candidates.add(path.join(packageRoot, "scripts", MANAGED_TUNNEL_SCRIPT_BASENAME));
+  }
+
+  const startDirs = new Set<string>();
+  if (opts.cwd?.trim()) {
+    startDirs.add(path.resolve(opts.cwd));
+  }
+  if (opts.argv1?.trim()) {
+    startDirs.add(path.dirname(path.resolve(opts.argv1)));
+  }
+  if (opts.moduleUrl) {
+    try {
+      startDirs.add(path.dirname(fileURLToPath(opts.moduleUrl)));
+    } catch {
+      // Ignore invalid file URLs and keep other candidates.
+    }
+  }
+
+  for (const startDir of startDirs) {
+    let current = startDir;
+    for (let depth = 0; depth < 8; depth += 1) {
+      candidates.add(path.join(current, "scripts", MANAGED_TUNNEL_SCRIPT_BASENAME));
+      const parent = path.dirname(current);
+      if (parent === current) {
+        break;
+      }
+      current = parent;
+    }
+  }
+
+  return [...candidates];
+}
+
+export function resolveManagedTunnelScriptPath(
+  opts: {
+    argv1?: string;
+    cwd?: string;
+    moduleUrl?: string;
+  } = {},
+): string {
+  for (const candidate of buildManagedTunnelScriptCandidates({
+    argv1: opts.argv1 ?? process.argv[1],
+    cwd: opts.cwd ?? process.cwd(),
+    moduleUrl: opts.moduleUrl ?? import.meta.url,
+  })) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  throw new Error(
+    `Failed to locate ${MANAGED_TUNNEL_SCRIPT_BASENAME}. Checked: ${buildManagedTunnelScriptCandidates(
+      {
+        argv1: opts.argv1 ?? process.argv[1],
+        cwd: opts.cwd ?? process.cwd(),
+        moduleUrl: opts.moduleUrl ?? import.meta.url,
+      },
+    ).join(", ")}`,
+  );
+}
 
 async function verifyPublicBaseUrlReachable(baseUrl: string): Promise<void> {
   const probeUrl = `${baseUrl.replace(/\/+$/, "")}/`;
@@ -243,7 +315,10 @@ async function installManagedCloudflaredBinary(params: {
   await mkdir(path.dirname(targetPath), { recursive: true });
 
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "openclaw-cloudflared-"));
-  const downloadPath = path.join(tempDir, path.basename(new URL(spec.url).pathname) || "cloudflared");
+  const downloadPath = path.join(
+    tempDir,
+    path.basename(new URL(spec.url).pathname) || "cloudflared",
+  );
   const stagedPath = path.join(tempDir, path.basename(targetPath));
 
   try {
@@ -284,12 +359,14 @@ async function installManagedCloudflaredBinary(params: {
   return targetPath;
 }
 
-export async function ensureManagedCloudflaredBinary(params: {
-  env?: NodeJS.ProcessEnv;
-  platform?: NodeJS.Platform;
-  arch?: string;
-  fetchImpl?: typeof fetch;
-} = {}): Promise<ManagedCloudflaredResolution> {
+export async function ensureManagedCloudflaredBinary(
+  params: {
+    env?: NodeJS.ProcessEnv;
+    platform?: NodeJS.Platform;
+    arch?: string;
+    fetchImpl?: typeof fetch;
+  } = {},
+): Promise<ManagedCloudflaredResolution> {
   const env = params.env ?? process.env;
   const explicit = env.OPENCLAWCODE_CLOUDFLARED_BIN?.trim();
   if (explicit) {
@@ -311,7 +388,8 @@ export async function ensureManagedCloudflaredBinary(params: {
     return {
       binaryPath: discovered,
       source:
-        path.resolve(discovered) === path.resolve(resolveManagedCloudflaredInstallPath(env, params.platform))
+        path.resolve(discovered) ===
+        path.resolve(resolveManagedCloudflaredInstallPath(env, params.platform))
           ? "managed-cloudflared-cache"
           : "existing-cloudflared",
     };
@@ -336,7 +414,10 @@ export async function ensureManagedCloudflaredBinary(params: {
 }
 
 function isLoopbackLikeHostname(hostname: string): boolean {
-  const normalized = hostname.trim().replace(/^\[(.*)\]$/, "$1").toLowerCase();
+  const normalized = hostname
+    .trim()
+    .replace(/^\[(.*)\]$/, "$1")
+    .toLowerCase();
   return (
     normalized === "" ||
     normalized === "localhost" ||
@@ -458,11 +539,7 @@ async function defaultRunTailscaleStatus(
     const err = error as { stdout?: unknown; status?: unknown; code?: unknown };
     return {
       code:
-        typeof err.status === "number"
-          ? err.status
-          : typeof err.code === "number"
-            ? err.code
-            : 1,
+        typeof err.status === "number" ? err.status : typeof err.code === "number" ? err.code : 1,
       stdout: typeof err.stdout === "string" ? err.stdout : "",
     };
   }
@@ -496,9 +573,7 @@ async function defaultStartManagedTunnel(params: {
   const cloudflared = await ensureManagedCloudflaredBinary({
     env: params.env,
   });
-  const scriptPath = fileURLToPath(
-    new URL("../../scripts/openclawcode-webhook-tunnel.sh", import.meta.url),
-  );
+  const scriptPath = resolveManagedTunnelScriptPath();
   const result = spawnSync("bash", [scriptPath, "start-tunnel"], {
     cwd: path.dirname(path.dirname(scriptPath)),
     encoding: "utf8",
@@ -666,7 +741,8 @@ export async function resolvePublicCallbackAvailability(params: {
     };
   }
 
-  const starter = params.startManagedTunnel === undefined ? defaultStartManagedTunnel : params.startManagedTunnel;
+  const starter =
+    params.startManagedTunnel === undefined ? defaultStartManagedTunnel : params.startManagedTunnel;
   if (starter) {
     try {
       const stateDir = resolveStateDir(env);

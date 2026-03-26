@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 import { createNonExitingTypedRuntimeEnv } from "../../../test/helpers/extensions/runtime-env.js";
 import {
   createPluginSetupWizardConfigure,
@@ -9,7 +10,6 @@ import {
   createTestWizardPrompter,
   runSetupWizardConfigure,
 } from "../../../test/helpers/extensions/setup-wizard.js";
-import { setPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 
 vi.mock("./probe.js", () => ({
   probeFeishu: vi.fn(async () => ({ ok: false, error: "mocked" })),
@@ -94,7 +94,8 @@ describe("feishu setup wizard", () => {
     resolvePublicCallbackAvailabilityMock.mockResolvedValue({
       available: false,
       reason: "loopback-only-no-tunnel",
-      detail: "Gateway only exposes loopback and no public callback URL or managed tunnel is available.",
+      detail:
+        "Gateway only exposes loopback and no public callback URL or managed tunnel is available.",
     });
   });
 
@@ -139,33 +140,51 @@ describe("feishu setup wizard", () => {
     process.env.OPENCLAW_STATE_DIR = stateDir;
 
     const note = vi.fn(async () => {});
-    const text = vi
-      .fn()
-      .mockResolvedValueOnce("secret_from_prompt")
-      .mockResolvedValueOnce("cli_from_prompt")
-      .mockResolvedValueOnce("oc_group_1");
-    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-      if (message === "Feishu connection mode") {
-        return "websocket";
-      }
-      if (message === "Which Feishu domain?") {
-        return initialValue ?? "feishu";
-      }
-      if (message === "Group chat policy") {
-        return "allowlist";
-      }
-      return initialValue ?? "allowlist";
-    });
+    const text = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "Enter Feishu App Secret") {
+          return "secret_from_prompt";
+        }
+        if (message === "Enter Feishu App ID") {
+          return "cli_from_prompt";
+        }
+        if (message === "输入要绑定的飞书邮箱") {
+          return initialValue ?? "owner@example.com";
+        }
+        if (message === "Group chat allowlist (chat_ids)") {
+          return "oc_group_1";
+        }
+        return initialValue ?? "";
+      },
+    );
+    const select = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "OpenClaw Code 飞书绑定方式") {
+          return "email";
+        }
+        if (message === "Feishu connection mode") {
+          return "websocket";
+        }
+        if (message === "Which Feishu domain?") {
+          return initialValue ?? "feishu";
+        }
+        if (message === "Group chat policy") {
+          return "allowlist";
+        }
+        return initialValue ?? "allowlist";
+      },
+    );
     const prompter = createTestWizardPrompter({
       note,
-      text,
+      text: text as never,
       confirm: vi.fn(async () => true),
       select: select as never,
     });
     resolvePublicCallbackAvailabilityMock.mockResolvedValue({
       available: false,
       reason: "loopback-only-no-tunnel",
-      detail: "Gateway only exposes loopback and no public callback URL or managed tunnel is available.",
+      detail:
+        "Gateway only exposes loopback and no public callback URL or managed tunnel is available.",
     });
 
     try {
@@ -190,19 +209,22 @@ describe("feishu setup wizard", () => {
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("机器人链接: https://applink.feishu.cn/client/bot/open?appId=cli_from_prompt"),
+        expect.stringContaining(
+          "机器人链接: https://applink.feishu.cn/client/bot/open?appId=cli_from_prompt",
+        ),
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(
         expect.stringContaining("同机浏览器备用: http://127.0.0.1:18789/openclaw/bind/feishu/"),
         "绑定飞书操作员",
       );
+      expect(note).toHaveBeenCalledWith(expect.stringContaining("Quick actions"), "绑定飞书操作员");
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("Quick actions"),
+        expect.stringContaining("机器人二维码已直接输出到当前终端，避免被提示框裁切。"),
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("机器人二维码已直接输出到当前终端，避免被提示框裁切。"),
+        expect.stringContaining("扫这个码只是打开机器人，不会自动完成绑定。"),
         "绑定飞书操作员",
       );
       expect(consoleLogMock).toHaveBeenCalledWith(expect.stringContaining("QR ASCII"));
@@ -223,6 +245,201 @@ describe("feishu setup wizard", () => {
     }
   });
 
+  it("skips qr guidance when openclawcode has a configured feishu contact binding", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-contact-binding-"));
+    const previousStateDir = process.env.OPENCLAW_STATE_DIR;
+    process.env.OPENCLAW_STATE_DIR = stateDir;
+
+    const note = vi.fn(async () => {});
+    const text = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "Enter Feishu App Secret") {
+          return "secret_from_prompt";
+        }
+        if (message === "Enter Feishu App ID") {
+          return "cli_from_prompt";
+        }
+        if (message === "输入要绑定的飞书邮箱") {
+          return initialValue ?? "owner@example.com";
+        }
+        if (message === "Group chat allowlist (chat_ids)") {
+          return "oc_group_1";
+        }
+        return initialValue ?? "";
+      },
+    );
+    const select = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "OpenClaw Code 飞书绑定方式") {
+          return "email";
+        }
+        if (message === "Feishu connection mode") {
+          return "websocket";
+        }
+        if (message === "Which Feishu domain?") {
+          return initialValue ?? "feishu";
+        }
+        if (message === "Group chat policy") {
+          return "allowlist";
+        }
+        return initialValue ?? "allowlist";
+      },
+    );
+    const prompter = createTestWizardPrompter({
+      note,
+      text: text as never,
+      confirm: vi.fn(async () => true),
+      select: select as never,
+    });
+
+    try {
+      await runSetupWizardConfigure({
+        configure: feishuConfigure,
+        cfg: {
+          plugins: {
+            entries: {
+              openclawcode: {
+                config: {
+                  feishuOperatorBinding: {
+                    email: "owner@example.com",
+                  },
+                },
+              },
+            },
+          },
+        } as never,
+        prompter,
+        runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
+      });
+
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("已检测到 openclawcode 的飞书联系方式直绑配置。"),
+        "绑定飞书操作员",
+      );
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("邮箱: owner@example.com"),
+        "绑定飞书操作员",
+      );
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("这次不会再展示二维码绑定步骤。"),
+        "绑定飞书操作员",
+      );
+      expect(consoleLogMock).not.toHaveBeenCalledWith(expect.stringContaining("QR ASCII"));
+      expect(qrGenerateMock).not.toHaveBeenCalled();
+    } finally {
+      if (previousStateDir === undefined) {
+        delete process.env.OPENCLAW_STATE_DIR;
+      } else {
+        process.env.OPENCLAW_STATE_DIR = previousStateDir;
+      }
+    }
+  });
+
+  it("prompts for an openclawcode feishu operator email after credentials and stores it", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-contact-prompt-"));
+    const previousStateDir = process.env.OPENCLAW_STATE_DIR;
+    process.env.OPENCLAW_STATE_DIR = stateDir;
+
+    const note = vi.fn(async () => {});
+    const text = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "Enter Feishu App Secret") {
+          return "secret_from_prompt";
+        }
+        if (message === "Enter Feishu App ID") {
+          return "cli_from_prompt";
+        }
+        if (message === "输入要绑定的飞书邮箱") {
+          return initialValue ?? "owner@example.com";
+        }
+        if (message === "Group chat allowlist (chat_ids)") {
+          return "oc_group_1";
+        }
+        return initialValue ?? "";
+      },
+    );
+    const select = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "OpenClaw Code 飞书绑定方式") {
+          return "email";
+        }
+        if (message === "Feishu connection mode") {
+          return "websocket";
+        }
+        if (message === "Which Feishu domain?") {
+          return initialValue ?? "feishu";
+        }
+        if (message === "Group chat policy") {
+          return "allowlist";
+        }
+        return initialValue ?? "allowlist";
+      },
+    );
+    const prompter = createTestWizardPrompter({
+      note,
+      text: text as never,
+      confirm: vi.fn(async () => true),
+      select: select as never,
+    });
+
+    try {
+      const result = await runSetupWizardConfigure({
+        configure: feishuConfigure,
+        cfg: {
+          plugins: {
+            entries: {
+              openclawcode: {
+                enabled: true,
+                config: {},
+              },
+            },
+          },
+        } as never,
+        prompter,
+        runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
+      });
+
+      expect(text).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "输入要绑定的飞书邮箱",
+        }),
+      );
+      expect(
+        (
+          result as {
+            cfg?: {
+              plugins?: {
+                entries?: {
+                  openclawcode?: {
+                    config?: {
+                      feishuOperatorBinding?: {
+                        email?: string;
+                      };
+                    };
+                  };
+                };
+              };
+            };
+          }
+        ).cfg?.plugins?.entries?.openclawcode?.config?.feishuOperatorBinding,
+      ).toMatchObject({
+        email: "owner@example.com",
+      });
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("这次不会再展示二维码绑定步骤。"),
+        "绑定飞书操作员",
+      );
+      expect(qrGenerateMock).not.toHaveBeenCalled();
+      expect(preparePublicCallbackToolingMock).not.toHaveBeenCalled();
+    } finally {
+      if (previousStateDir === undefined) {
+        delete process.env.OPENCLAW_STATE_DIR;
+      } else {
+        process.env.OPENCLAW_STATE_DIR = previousStateDir;
+      }
+    }
+  });
+
   it("prewarms cloudflared before showing the binding qr note", async () => {
     const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-prewarm-"));
     const previousStateDir = process.env.OPENCLAW_STATE_DIR;
@@ -234,18 +451,20 @@ describe("feishu setup wizard", () => {
       .mockResolvedValueOnce("secret_from_prompt")
       .mockResolvedValueOnce("cli_from_prompt")
       .mockResolvedValueOnce("oc_group_1");
-    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-      if (message === "Feishu connection mode") {
-        return "websocket";
-      }
-      if (message === "Which Feishu domain?") {
-        return initialValue ?? "feishu";
-      }
-      if (message === "Group chat policy") {
-        return "allowlist";
-      }
-      return initialValue ?? "allowlist";
-    });
+    const select = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "Feishu connection mode") {
+          return "websocket";
+        }
+        if (message === "Which Feishu domain?") {
+          return initialValue ?? "feishu";
+        }
+        if (message === "Group chat policy") {
+          return "allowlist";
+        }
+        return initialValue ?? "allowlist";
+      },
+    );
     const prompter = createTestWizardPrompter({
       note,
       text,
@@ -307,18 +526,20 @@ describe("feishu setup wizard", () => {
       .mockResolvedValueOnce("secret_from_prompt")
       .mockResolvedValueOnce("cli_from_prompt")
       .mockResolvedValueOnce("oc_group_1");
-    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-      if (message === "Feishu connection mode") {
-        return "websocket";
-      }
-      if (message === "Which Feishu domain?") {
-        return initialValue ?? "feishu";
-      }
-      if (message === "Group chat policy") {
-        return "allowlist";
-      }
-      return initialValue ?? "allowlist";
-    });
+    const select = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "Feishu connection mode") {
+          return "websocket";
+        }
+        if (message === "Which Feishu domain?") {
+          return initialValue ?? "feishu";
+        }
+        if (message === "Group chat policy") {
+          return "allowlist";
+        }
+        return initialValue ?? "allowlist";
+      },
+    );
     const prompter = createTestWizardPrompter({
       note,
       text,
@@ -378,7 +599,9 @@ describe("feishu setup wizard", () => {
   });
 
   it("still shows the binding qr when a managed tunnel only fails host self-check", async () => {
-    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-managed-warning-"));
+    const stateDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "openclaw-feishu-qr-managed-warning-"),
+    );
     const previousStateDir = process.env.OPENCLAW_STATE_DIR;
     process.env.OPENCLAW_STATE_DIR = stateDir;
 
@@ -388,18 +611,20 @@ describe("feishu setup wizard", () => {
       .mockResolvedValueOnce("secret_from_prompt")
       .mockResolvedValueOnce("cli_from_prompt")
       .mockResolvedValueOnce("oc_group_1");
-    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-      if (message === "Feishu connection mode") {
-        return "websocket";
-      }
-      if (message === "Which Feishu domain?") {
-        return initialValue ?? "feishu";
-      }
-      if (message === "Group chat policy") {
-        return "allowlist";
-      }
-      return initialValue ?? "allowlist";
-    });
+    const select = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "Feishu connection mode") {
+          return "websocket";
+        }
+        if (message === "Which Feishu domain?") {
+          return initialValue ?? "feishu";
+        }
+        if (message === "Group chat policy") {
+          return "allowlist";
+        }
+        return initialValue ?? "allowlist";
+      },
+    );
     const prompter = createTestWizardPrompter({
       note,
       text,
@@ -432,11 +657,19 @@ describe("feishu setup wizard", () => {
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("注意: Managed tunnel created a public URL, but it never became reachable (fetch failed). 仍会继续提供该公网链接，优先用手机扫码尝试。"),
+        expect.stringContaining(
+          "注意: Managed tunnel created a public URL, but it never became reachable (fetch failed). 仍会继续提供该公网链接，优先用手机扫码尝试。",
+        ),
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("绑定链接: https://qr-bind.trycloudflare.com/openclaw/bind/feishu/"),
+        expect.stringContaining(
+          "绑定链接: https://qr-bind.trycloudflare.com/openclaw/bind/feishu/",
+        ),
+        "绑定飞书操作员",
+      );
+      expect(note).toHaveBeenCalledWith(
+        expect.stringContaining("匿名 trycloudflare 域名通常不适合这一步。"),
         "绑定飞书操作员",
       );
     } finally {
@@ -449,7 +682,9 @@ describe("feishu setup wizard", () => {
   });
 
   it("prefers device-pair publicUrl for a scannable qr binding link", async () => {
-    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-device-pair-note-"));
+    const stateDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "openclaw-feishu-qr-device-pair-note-"),
+    );
     const previousStateDir = process.env.OPENCLAW_STATE_DIR;
     process.env.OPENCLAW_STATE_DIR = stateDir;
 
@@ -459,18 +694,20 @@ describe("feishu setup wizard", () => {
       .mockResolvedValueOnce("secret_from_prompt")
       .mockResolvedValueOnce("cli_from_prompt")
       .mockResolvedValueOnce("oc_group_1");
-    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-      if (message === "Feishu connection mode") {
-        return "websocket";
-      }
-      if (message === "Which Feishu domain?") {
-        return initialValue ?? "feishu";
-      }
-      if (message === "Group chat policy") {
-        return "allowlist";
-      }
-      return initialValue ?? "allowlist";
-    });
+    const select = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "Feishu connection mode") {
+          return "websocket";
+        }
+        if (message === "Which Feishu domain?") {
+          return initialValue ?? "feishu";
+        }
+        if (message === "Group chat policy") {
+          return "allowlist";
+        }
+        return initialValue ?? "allowlist";
+      },
+    );
     const prompter = createTestWizardPrompter({
       note,
       text,
@@ -511,9 +748,7 @@ describe("feishu setup wizard", () => {
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "已配置公网地址: plugins.entries.device-pair.config.publicUrl",
-        ),
+        expect.stringContaining("已配置公网地址: plugins.entries.device-pair.config.publicUrl"),
         "绑定飞书操作员",
       );
       expect(note).toHaveBeenCalledWith(
@@ -532,7 +767,9 @@ describe("feishu setup wizard", () => {
   });
 
   it("prefers device-pair publicUrl for a scannable qr binding link", async () => {
-    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-feishu-qr-device-pair-note-"));
+    const stateDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "openclaw-feishu-qr-device-pair-note-"),
+    );
     const previousStateDir = process.env.OPENCLAW_STATE_DIR;
     process.env.OPENCLAW_STATE_DIR = stateDir;
 
@@ -542,18 +779,20 @@ describe("feishu setup wizard", () => {
       .mockResolvedValueOnce("secret_from_prompt")
       .mockResolvedValueOnce("cli_from_prompt")
       .mockResolvedValueOnce("oc_group_1");
-    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-      if (message === "Feishu connection mode") {
-        return "websocket";
-      }
-      if (message === "Which Feishu domain?") {
-        return initialValue ?? "feishu";
-      }
-      if (message === "Group chat policy") {
-        return "allowlist";
-      }
-      return initialValue ?? "allowlist";
-    });
+    const select = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "Feishu connection mode") {
+          return "websocket";
+        }
+        if (message === "Which Feishu domain?") {
+          return initialValue ?? "feishu";
+        }
+        if (message === "Group chat policy") {
+          return "allowlist";
+        }
+        return initialValue ?? "allowlist";
+      },
+    );
     const prompter = createTestWizardPrompter({
       note,
       text,
@@ -625,18 +864,20 @@ describe("feishu setup wizard", () => {
       .mockResolvedValueOnce("secret_from_prompt")
       .mockResolvedValueOnce("cli_from_prompt")
       .mockResolvedValueOnce("oc_group_1");
-    const select = vi.fn(async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-      if (message === "Feishu connection mode") {
-        return "websocket";
-      }
-      if (message === "Which Feishu domain?") {
-        return initialValue ?? "feishu";
-      }
-      if (message === "Group chat policy") {
-        return "allowlist";
-      }
-      return initialValue ?? "allowlist";
-    });
+    const select = vi.fn(
+      async ({ message, initialValue }: { message: string; initialValue?: string }) => {
+        if (message === "Feishu connection mode") {
+          return "websocket";
+        }
+        if (message === "Which Feishu domain?") {
+          return initialValue ?? "feishu";
+        }
+        if (message === "Group chat policy") {
+          return "allowlist";
+        }
+        return initialValue ?? "allowlist";
+      },
+    );
     const prompter = createTestWizardPrompter({
       note,
       text,

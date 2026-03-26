@@ -6,7 +6,7 @@ import { resolveUserPath } from "../utils.js";
 import { detectBundleManifestFormat, loadBundleManifest } from "./bundle-manifest.js";
 import {
   BUNDLED_PLUGIN_METADATA,
-  resolveBundledPluginGeneratedPath,
+  resolveBundledPluginGeneratedLocation,
 } from "./bundled-plugin-metadata.js";
 import {
   DEFAULT_PLUGIN_ENTRY_CANDIDATES,
@@ -839,16 +839,20 @@ function discoverBundledMetadataInDirectory(params: {
 
   const coveredDirectories = new Set<string>();
   for (const entry of BUNDLED_PLUGIN_METADATA) {
-    const rootDir = path.join(params.dir, entry.dirName);
-    if (!fs.existsSync(rootDir)) {
+    const sourceRootDir = path.join(params.dir, entry.dirName);
+    if (!fs.existsSync(sourceRootDir)) {
       continue;
     }
     coveredDirectories.add(entry.dirName);
-    const source = resolveBundledPluginGeneratedPath(rootDir, entry.source);
-    if (!source) {
+    const sourceLocation = resolveBundledPluginGeneratedLocation(sourceRootDir, entry.source);
+    if (!sourceLocation) {
       continue;
     }
-    const setupSource = resolveBundledPluginGeneratedPath(rootDir, entry.setupSource);
+    const rootDir = sourceLocation.rootDir;
+    const source = sourceLocation.path;
+    const setupSource =
+      resolveBundledPluginGeneratedLocation(rootDir, entry.setupSource)?.path ??
+      resolveBundledPluginGeneratedLocation(sourceRootDir, entry.setupSource)?.path;
     const packageManifest = readPackageManifest(rootDir, false);
     addCandidate({
       candidates: params.candidates,

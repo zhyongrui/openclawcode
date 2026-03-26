@@ -259,6 +259,40 @@ describe("discoverOpenClawPlugins", () => {
     expect(ids).not.toContain("microsoft-speech");
   });
 
+  it("keeps bundled metadata candidates inside sibling dist roots", () => {
+    const stateDir = makeTempDir();
+    const bundledRoot = path.join(stateDir, "extensions");
+    const sourceRoot = path.join(bundledRoot, "feishu");
+    const distRoot = path.join(stateDir, "dist", "extensions", "feishu");
+
+    mkdirSafe(sourceRoot);
+    mkdirSafe(distRoot);
+    fs.writeFileSync(path.join(sourceRoot, "index.ts"), "export default {};\n", "utf-8");
+    fs.writeFileSync(path.join(distRoot, "index.js"), "export default {};\n", "utf-8");
+    fs.writeFileSync(path.join(distRoot, "openclaw.plugin.json"), '{"id":"feishu"}\n', "utf-8");
+    fs.writeFileSync(
+      path.join(distRoot, "package.json"),
+      JSON.stringify({ name: "@openclaw/feishu", openclaw: { extensions: ["./index.js"] } }),
+      "utf-8",
+    );
+
+    const result = discoverOpenClawPlugins({
+      env: {
+        ...buildDiscoveryEnv(stateDir),
+        OPENCLAW_BUNDLED_PLUGINS_DIR: bundledRoot,
+      },
+    });
+
+    const feishu = result.candidates.find((candidate) => candidate.idHint === "feishu");
+    expect(normalizePathForAssertion(feishu?.source)).toBe(
+      normalizePathForAssertion(path.join(distRoot, "index.js")),
+    );
+    expect(normalizePathForAssertion(feishu?.rootDir)).toBe(normalizePathForAssertion(distRoot));
+    expect(hasDiagnosticSourceSuffix(result.diagnostics, "/dist/extensions/feishu/index.js")).toBe(
+      false,
+    );
+  });
+
   it("treats configured directory paths as plugin packages", async () => {
     const stateDir = makeTempDir();
     const packDir = path.join(stateDir, "packs", "demo-plugin-dir");
