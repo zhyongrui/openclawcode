@@ -16,24 +16,9 @@ import {
   type OpenClawConfig,
   type SecretInput,
 } from "openclaw/plugin-sdk/setup";
-import qrcode from "qrcode-terminal";
-import { resolveControlUiLinks } from "../../../src/commands/onboard-helpers.js";
-import { resolveGatewayPort } from "../../../src/config/config.js";
 import type { PluginEntryConfig } from "../../../src/config/types.plugins.js";
-import {
-  preparePublicCallbackTooling,
-  resolvePublicCallbackAvailability,
-} from "../../../src/gateway/public-callback.js";
-import {
-  buildFeishuQrBindingClaimUrl,
-  createFeishuQrBindingSession,
-} from "../../../src/operator-chat-targets/feishu-qr-binding.js";
 import { getPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
-import {
-  inspectFeishuCredentials,
-  listFeishuAccountIds,
-  resolveFeishuAccount,
-} from "./accounts.js";
+import { inspectFeishuCredentials, listFeishuAccountIds } from "./accounts.js";
 import { probeFeishu } from "./probe.js";
 import { feishuSetupAdapter } from "./setup-core.js";
 import type { FeishuConfig } from "./types.js";
@@ -66,83 +51,6 @@ function setFeishuGroupAllowFrom(cfg: OpenClawConfig, groupAllowFrom: string[]):
       },
     },
   };
-}
-
-function renderQrAscii(data: string): Promise<string> {
-  return new Promise((resolve) => {
-    qrcode.generate(data, { small: true }, (output: string) => {
-      resolve(output);
-    });
-  });
-}
-
-async function printQrToTerminal(params: {
-  title: string;
-  data: string;
-  fallbackUrlLabel: string;
-}): Promise<void> {
-  const asciiQr = await renderQrAscii(params.data);
-  console.log(
-    [
-      "",
-      params.title,
-      "",
-      asciiQr.trimEnd(),
-      "",
-      `如果二维码未能成功展示，请用浏览器打开以下链接：`,
-      `${params.fallbackUrlLabel}: ${params.data}`,
-      "",
-    ].join("\n"),
-  );
-}
-
-function resolveLocalFeishuQrBindingBaseHttpUrl(cfg: OpenClawConfig): string {
-  return resolveControlUiLinks({
-    bind: cfg.gateway?.bind ?? "loopback",
-    port: resolveGatewayPort(cfg),
-    customBindHost: cfg.gateway?.customBindHost,
-  }).httpUrl.replace(/\/+$/, "");
-}
-
-function buildFeishuBotOpenUrl(params: { appId: string; domain?: string }): string {
-  const host = params.domain === "lark" ? "applink.larksuite.com" : "applink.feishu.cn";
-  const url = new URL(`https://${host}/client/bot/open`);
-  url.searchParams.set("appId", params.appId);
-  return url.toString();
-}
-
-function formatFeishuPublicCallbackSource(detail?: string): string | undefined {
-  switch (detail) {
-    case "plugins.entries.device-pair.config.publicUrl":
-      return "已配置公网地址: plugins.entries.device-pair.config.publicUrl";
-    case "gateway.remote.url":
-      return "已配置公网地址: gateway.remote.url";
-    case "gateway.bind=custom":
-      return "已配置绑定地址: gateway.bind=custom";
-    case "gateway.bind=lan":
-      return "局域网可达地址: gateway.bind=lan";
-    case "gateway.bind=tailnet":
-      return "Tailnet 可达地址: gateway.bind=tailnet";
-    default:
-      if (detail?.startsWith("gateway.tailscale.mode=")) {
-        return `Tailscale 公网入口: ${detail}`;
-      }
-      return undefined;
-  }
-}
-
-function describeFeishuPublicCallbackFailure(
-  reason: "loopback-only-no-tunnel" | "tunnel-start-failed" | "public-base-url-misconfigured",
-): string {
-  switch (reason) {
-    case "public-base-url-misconfigured":
-      return "已配置的公网绑定地址当前不可用。";
-    case "tunnel-start-failed":
-      return "临时公网绑定链接创建失败。";
-    case "loopback-only-no-tunnel":
-    default:
-      return "当前 gateway 只有本机地址，暂时没有可供手机访问的绑定链接。";
-  }
 }
 
 function hasOpenClawCodePluginEntry(cfg: OpenClawConfig): boolean {
@@ -249,12 +157,12 @@ async function promptFeishuOperatorContactBinding(params: {
     options: [
       { value: "email", label: "邮箱（推荐）" },
       { value: "mobile", label: "手机号" },
-      { value: "qr", label: "二维码回退" },
+      { value: "skip", label: "暂不绑定" },
     ],
     initialValue: existing?.email ? "email" : existing?.mobile ? "mobile" : "email",
-  })) as "email" | "mobile" | "qr";
+  })) as "email" | "mobile" | "skip";
 
-  if (bindingMode === "qr") {
+  if (bindingMode === "skip") {
     return patchOpenClawCodeFeishuOperatorContactBinding({
       cfg: params.cfg,
       binding: undefined,
@@ -280,7 +188,7 @@ async function promptFeishuOperatorContactBinding(params: {
   });
 }
 
-async function noteFeishuQrBinding(params: {
+async function noteFeishuOperatorBinding(params: {
   cfg: OpenClawConfig;
   accountId: string;
   prompter: Parameters<NonNullable<ChannelSetupWizard["finalize"]>>[0]["prompter"];
@@ -304,134 +212,21 @@ async function noteFeishuQrBinding(params: {
       [
         "已检测到 openclawcode 的飞书联系方式直绑配置。",
         contactLabel,
-        "这次不会再展示二维码绑定步骤。",
+        "当前已不再提供二维码绑定。",
         "OpenClaw 启动后会自动查询该用户的 open_id，完成绑定，并主动发送欢迎消息。",
-        "如果自动查询失败，再回退到二维码 / Quick actions 绑定。",
       ].join("\n"),
       "绑定飞书操作员",
     );
     return;
-  }
-  const { session } = await createFeishuQrBindingSession({
-    accountId: params.accountId,
-    setupIntent: "feishu-initial-bind",
-  });
-  const callbackAvailability = await resolvePublicCallbackAvailability({
-    cfg: params.cfg,
-  });
-  if (callbackAvailability.available) {
-    const claimUrl = buildFeishuQrBindingClaimUrl({
-      baseHttpUrl: callbackAvailability.baseUrl,
-      session,
-    });
-    await printQrToTerminal({
-      title: "使用飞书扫描以下二维码，以完成绑定：",
-      data: claimUrl,
-      fallbackUrlLabel: "绑定链接",
-    });
-    const sourceLine =
-      callbackAvailability.source === "managed-tunnel"
-        ? "公网入口来源: 临时公网链接"
-        : formatFeishuPublicCallbackSource(callbackAvailability.detail);
-    await params.prompter.note(
-      [
-        "推荐方式: 用飞书扫码绑定",
-        "二维码已直接输出到当前终端，避免被提示框裁切。",
-        `绑定链接: ${claimUrl}`,
-        ...(sourceLine ? [sourceLine] : []),
-        ...(callbackAvailability.source === "managed-tunnel" && callbackAvailability.detail
-          ? [`注意: ${callbackAvailability.detail}`]
-          : []),
-        ...(callbackAvailability.expiresAt
-          ? [`链接有效期至: ${callbackAvailability.expiresAt}`]
-          : callbackAvailability.source === "managed-tunnel"
-            ? ["这是临时公网链接；如果失效，重新运行配置即可刷新。"]
-            : []),
-        ...(callbackAvailability.source === "managed-tunnel"
-          ? [
-              "注意: 飞书 OAuth 回调地址需要由应用管理员预先加入白名单；匿名 trycloudflare 域名通常不适合这一步。",
-              "如果扫码后看到 redirect URL 有误，请改用聊天页右上角 Quick actions，或先配置固定公网地址。",
-            ]
-          : []),
-        "也可以直接在浏览器打开上面的链接完成绑定。",
-        "回退方式: 在飞书聊天页点击右上角 Quick actions。",
-        "OpenClaw 正在完成启动，绑定会在可用后自动继续。",
-      ].join("\n"),
-      "绑定飞书操作员",
-    );
-    return;
-  }
-  const baseHttpUrl = resolveLocalFeishuQrBindingBaseHttpUrl(params.cfg);
-  const claimUrl = buildFeishuQrBindingClaimUrl({
-    baseHttpUrl,
-    session,
-  });
-  const account = resolveFeishuAccount({
-    cfg: params.cfg,
-    accountId: params.accountId,
-  });
-  const botOpenUrl = account.appId
-    ? buildFeishuBotOpenUrl({
-        appId: account.appId,
-        domain: account.domain,
-      })
-    : undefined;
-  if (botOpenUrl) {
-    await printQrToTerminal({
-      title: "使用飞书扫描以下二维码，打开机器人：",
-      data: botOpenUrl,
-      fallbackUrlLabel: "机器人链接",
-    });
   }
   await params.prompter.note(
     [
-      describeFeishuPublicCallbackFailure(callbackAvailability.reason),
-      ...(callbackAvailability.detail ? [`原因: ${callbackAvailability.detail}`] : []),
-      ...(botOpenUrl
-        ? [
-            "服务器/远程主机场景推荐方式: 用飞书扫码打开机器人",
-            "机器人二维码已直接输出到当前终端，避免被提示框裁切。",
-            `机器人链接: ${botOpenUrl}`,
-            "注意: 扫这个码只是打开机器人，不会自动完成绑定。",
-            "进入飞书聊天页后，点击右上角 Quick actions 完成绑定。",
-          ]
-        : ["如果你更方便直接在飞书里继续，也可以打开机器人，在聊天页右上角点击 Quick actions。"]),
-      `同机浏览器备用: ${claimUrl}`,
-      "上面的本地链接只适用于运行 OpenClaw 的这台机器。",
-      "OpenClaw 正在完成启动，绑定会在可用后自动继续。",
+      "当前未配置 openclawcode 的飞书联系方式直绑。",
+      "OpenClaw Code 已不再提供二维码绑定。",
+      "如果你希望 OpenClaw 主动给操作员发送欢迎消息和后续通知，请重新运行配置并填写飞书邮箱或手机号。",
     ].join("\n"),
     "绑定飞书操作员",
   );
-}
-
-async function prewarmFeishuPublicCallbackTooling(
-  params: Pick<Parameters<typeof noteFeishuQrBinding>[0], "cfg" | "prompter">,
-): Promise<void> {
-  const preparation = await preparePublicCallbackTooling({
-    cfg: params.cfg,
-  });
-  if (preparation.status === "ready" && preparation.source === "downloaded-cloudflared") {
-    await params.prompter.note(
-      [
-        "已预先安装临时公网绑定组件 cloudflared。",
-        `安装位置: ${preparation.binaryPath}`,
-        "后续生成飞书扫码绑定公网链接时会直接复用，不再临时下载安装。",
-        "这一步只是公网绑定预热，不是最终的绑定二维码。",
-        "继续完成下面的配置后，OpenClaw 会继续展示飞书绑定二维码。",
-      ].join("\n"),
-      "飞书公网绑定预热",
-    );
-    return;
-  }
-  if (preparation.status === "failed" && preparation.reason === "cloudflared-prepare-failed") {
-    await params.prompter.note(
-      [
-        "未能预先准备临时公网绑定组件，后续扫码绑定可能无法自动生成公网链接。",
-        `原因: ${preparation.detail}`,
-      ].join("\n"),
-      "飞书公网绑定预热",
-    );
-  }
 }
 
 function isFeishuConfigured(cfg: OpenClawConfig): boolean {
@@ -659,15 +454,6 @@ export const feishuSetupWizard: ChannelSetupWizard = {
       prompter,
     });
 
-    if (
-      !resolveConfiguredFeishuOperatorContactBinding({ cfg: next, accountId: DEFAULT_ACCOUNT_ID })
-    ) {
-      await prewarmFeishuPublicCallbackTooling({
-        cfg: next,
-        prompter,
-      });
-    }
-
     const currentMode =
       (next.channels?.feishu as FeishuConfig | undefined)?.connectionMode ?? "websocket";
     const connectionMode = (await prompter.select({
@@ -792,7 +578,7 @@ export const feishuSetupWizard: ChannelSetupWizard = {
       }
     }
 
-    await noteFeishuQrBinding({
+    await noteFeishuOperatorBinding({
       cfg: next,
       accountId: DEFAULT_ACCOUNT_ID,
       prompter,
