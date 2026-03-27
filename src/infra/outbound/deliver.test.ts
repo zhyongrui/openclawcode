@@ -1,6 +1,6 @@
 import path from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { markdownToSignalTextChunks } from "../../../extensions/signal/src/format.js";
+import { markdownToSignalTextChunks } from "../../../extensions/signal/api.js";
 import {
   signalOutbound,
   telegramOutbound,
@@ -98,6 +98,8 @@ const telegramChunkConfig: OpenClawConfig = {
 const whatsappChunkConfig: OpenClawConfig = {
   channels: { whatsapp: { textChunkLimit: 4000 } },
 };
+
+const expectedResolvedTmpRoot = path.resolve(resolvePreferredOpenClawTmpDir());
 
 type DeliverOutboundArgs = Parameters<DeliverModule["deliverOutboundPayloads"]>[0];
 type DeliverOutboundPayload = DeliverOutboundArgs["payloads"][number];
@@ -490,7 +492,7 @@ describe("deliverOutboundPayloads", () => {
       "123",
       "hi",
       expect.objectContaining({
-        mediaLocalRoots: expect.arrayContaining([resolvePreferredOpenClawTmpDir()]),
+        mediaLocalRoots: expect.arrayContaining([expectedResolvedTmpRoot]),
       }),
     );
   });
@@ -510,7 +512,7 @@ describe("deliverOutboundPayloads", () => {
       "+1555",
       "hi",
       expect.objectContaining({
-        mediaLocalRoots: expect.arrayContaining([resolvePreferredOpenClawTmpDir()]),
+        mediaLocalRoots: expect.arrayContaining([expectedResolvedTmpRoot]),
       }),
     );
   });
@@ -573,7 +575,7 @@ describe("deliverOutboundPayloads", () => {
       "+1555",
       "hi",
       expect.objectContaining({
-        mediaLocalRoots: expect.arrayContaining([resolvePreferredOpenClawTmpDir()]),
+        mediaLocalRoots: expect.arrayContaining([expectedResolvedTmpRoot]),
       }),
     );
   });
@@ -593,7 +595,7 @@ describe("deliverOutboundPayloads", () => {
       "imessage:+15551234567",
       "hi",
       expect.objectContaining({
-        mediaLocalRoots: expect.arrayContaining([resolvePreferredOpenClawTmpDir()]),
+        mediaLocalRoots: expect.arrayContaining([expectedResolvedTmpRoot]),
       }),
     );
   });

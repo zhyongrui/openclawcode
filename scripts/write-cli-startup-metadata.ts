@@ -1,8 +1,6 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { MIN_NODE_VERSION } from "../src/infra/runtime-guard.ts";
-import { renderRootHelpText } from "../src/cli/program/root-help.ts";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 function dedupe(values: string[]): string[] {
   const seen = new Set<string>();
@@ -38,6 +36,19 @@ type ExtensionChannelEntry = {
   order: number;
   label: string;
 };
+
+function readMinimumNodeVersion(): string {
+  const runtimeGuardPath = path.join(rootDir, "src", "infra", "runtime-guard.ts");
+  const source = readFileSync(runtimeGuardPath, "utf8");
+  const match = source.match(
+    /export const MIN_NODE:\s*Semver\s*=\s*\{\s*major:\s*(\d+),\s*minor:\s*(\d+),\s*patch:\s*(\d+)\s*\}/,
+  );
+  if (!match) {
+    throw new Error(`Unable to determine minimum Node version from ${runtimeGuardPath}.`);
+  }
+  const [, major, minor, patch] = match;
+  return `${major}.${minor}.${patch}`;
+}
 
 function readBundledChannelCatalogIds(): string[] {
   const entries: ExtensionChannelEntry[] = [];
@@ -77,9 +88,38 @@ function readBundledChannelCatalogIds(): string[] {
     .map((entry) => entry.id);
 }
 
+async function renderBundledRootHelpText(): Promise<string> {
+  const bundleName = readdirSync(distDir).find(
+    (entry) => entry.startsWith("root-help-") && entry.endsWith(".js"),
+  );
+  if (!bundleName) {
+    throw new Error("No root-help bundle found in dist; cannot write CLI startup metadata.");
+  }
+  const moduleUrl = pathToFileURL(path.join(distDir, bundleName)).href;
+  const mod = (await import(moduleUrl)) as { outputRootHelp?: () => void };
+  if (typeof mod.outputRootHelp !== "function") {
+    throw new Error(`Bundle ${bundleName} does not export outputRootHelp.`);
+  }
+
+  let output = "";
+  const originalWrite = process.stdout.write.bind(process.stdout);
+  const captureWrite: typeof process.stdout.write = ((chunk: string | Uint8Array) => {
+    output += String(chunk);
+    return true;
+  }) as typeof process.stdout.write;
+  process.stdout.write = captureWrite;
+  try {
+    mod.outputRootHelp();
+  } finally {
+    process.stdout.write = originalWrite;
+  }
+  return output;
+}
+
 const catalog = readBundledChannelCatalogIds();
 const channelOptions = dedupe([...CORE_CHANNEL_ORDER, ...catalog]);
-const rootHelpText = renderRootHelpText();
+const minimumNodeVersion = readMinimumNodeVersion();
+const rootHelpText = await renderBundledRootHelpText();
 
 mkdirSync(distDir, { recursive: true });
 writeFileSync(
@@ -88,7 +128,7 @@ writeFileSync(
     {
       generatedBy: "scripts/write-cli-startup-metadata.ts",
       channelOptions,
-      minimumNodeVersion: MIN_NODE_VERSION,
+      minimumNodeVersion,
       rootHelpText,
     },
     null,

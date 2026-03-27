@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { normalizeSignalAccountInput } from "../../../extensions/signal/src/setup-surface.js";
+import { normalizeSignalAccountInput } from "../../../extensions/signal/api.js";
 import { telegramOutbound, whatsappOutbound } from "../../../test/channel-outbounds.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import { normalizeIMessageMessagingTarget } from "./normalize/imessage.js";
@@ -166,6 +166,12 @@ describe("whatsappOutbound.resolveTarget", () => {
     });
 
     expectWhatsAppTargetResolutionError(result);
+    if (!result || result.ok) {
+      throw new Error("expected WhatsApp target resolution to fail");
+    }
+    expect(result.error.message).toBe(
+      'Target "+15550000000" is not listed in the configured WhatsApp allowFrom policy.',
+    );
   });
 
   it("keeps group JID targets even when allowFrom does not contain them", () => {
