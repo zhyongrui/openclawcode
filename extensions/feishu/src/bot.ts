@@ -30,8 +30,6 @@ import { resolveStateDir } from "../../../src/config/paths.js";
 import { resolveOpenClawCodePluginConfig } from "../../../src/integrations/openclaw-plugin/index.js";
 import {
   claimPendingFeishuOperatorScanCode,
-  extractFeishuOperatorScanCodeCandidates,
-  summarizeFeishuOperatorScanCodeMessage,
 } from "../../../src/operator-chat-targets/feishu-scan-code.js";
 import { setPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 import { isBindPendingNotifyTarget } from "../../../src/openclawcode/operator-chat-targets.js";
@@ -730,10 +728,8 @@ export async function handleFeishuMessage(params: {
             );
             return;
           }
-          const summary = summarizeFeishuOperatorScanCodeMessage(ctx.content);
-          const candidates = extractFeishuOperatorScanCodeCandidates(ctx.content);
           log(
-            `feishu[${account.accountId}]: scan-code claim ${directScanResult.status} for ${ctx.senderOpenId} normalized_len=${summary.normalizedLength} normalized_preview=${summary.normalizedPreview || "empty"} candidates=${candidates.join("|") || "none"}`
+            `feishu[${account.accountId}]: scan-code claim ${directScanResult.status} for ${ctx.senderOpenId}`,
           );
           if (directScanResult.status === "error") {
             try {
