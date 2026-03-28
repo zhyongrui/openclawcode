@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import qrcode from "qrcode-terminal";
 import { DEFAULT_BOOTSTRAP_FILENAME } from "../agents/workspace.js";
 import { formatCliCommand } from "../cli/command-format.js";
 import {
@@ -26,16 +27,26 @@ import type { OpenClawConfig } from "../config/config.js";
 import { describeGatewayServiceRestart, resolveGatewayService } from "../daemon/service.js";
 import { isSystemdUserServiceAvailable } from "../daemon/systemd.js";
 import { ensureControlUiAssetsBuilt } from "../infra/control-ui-assets.js";
-import type { RuntimeEnv } from "../runtime.js";
+import {
+  writeRuntimeStdout,
+  type RuntimeEnv,
+} from "../runtime.js";
 import { restoreTerminalState } from "../terminal/restore.js";
 import { runTui } from "../tui/tui.js";
 import { resolveUserPath } from "../utils.js";
 import { listConfiguredWebSearchProviders } from "../web-search/runtime.js";
+import {
+  buildFeishuBotOpenUrl,
+  getFeishuTransportReady,
+  getPendingFeishuOperatorScanCode,
+} from "../operator-chat-targets/feishu-scan-code.js";
 import type { WizardPrompter } from "./prompts.js";
 import { setupWizardShellCompletion } from "./setup.completion.js";
 import { resolveSetupSecretInputString } from "./setup.secret-input.js";
 import { runOnboardingOpenClawCode } from "./setup.code.js";
 import type { GatewayWizardSettings, WizardFlow } from "./setup.types.js";
+import { inspectFeishuCredentials } from "../../extensions/feishu/src/accounts.js";
+import type { FeishuConfig } from "../../extensions/feishu/src/types.js";
 
 type FinalizeOnboardingOptions = {
   flow: WizardFlow;
@@ -47,6 +58,106 @@ type FinalizeOnboardingOptions = {
   prompter: WizardPrompter;
   runtime: RuntimeEnv;
 };
+
+const FEISHU_SCAN_DISPLAY_WAIT_MS = 60_000;
+const FEISHU_SCAN_DISPLAY_POLL_MS = 500;
+
+function resolveFeishuOperatorBindingMode(cfg: OpenClawConfig): "email" | "mobile" | "scan" | undefined {
+  const binding = (
+    cfg.plugins?.entries?.openclawcode as
+      | { config?: { feishuOperatorBinding?: Record<string, unknown> } }
+      | undefined
+  )?.config?.feishuOperatorBinding;
+  if (!binding || typeof binding !== "object") {
+    return undefined;
+  }
+  const mode = typeof binding.mode === "string" ? binding.mode.trim() : "";
+  if (mode === "scan" || mode === "email" || mode === "mobile") {
+    return mode;
+  }
+  if (typeof binding.email === "string" && binding.email.trim()) {
+    return "email";
+  }
+  if (typeof binding.mobile === "string" && binding.mobile.trim()) {
+    return "mobile";
+  }
+  return undefined;
+}
+
+function renderQrAscii(data: string): Promise<string> {
+  return new Promise((resolve) => {
+    qrcode.generate(data, { small: true }, (output: string) => {
+      resolve(output);
+    });
+  });
+}
+
+async function waitForFeishuScanAndCodeReady(params: {
+  cfg: OpenClawConfig;
+  runtime: RuntimeEnv;
+  prompter: WizardPrompter;
+}): Promise<void> {
+  if (resolveFeishuOperatorBindingMode(params.cfg) !== "scan") {
+    return;
+  }
+
+  const feishuCfg = params.cfg.channels?.feishu as FeishuConfig | undefined;
+  const creds = inspectFeishuCredentials(feishuCfg);
+  if (!creds?.appId) {
+    throw new Error("Feishu scan-and-code was selected, but channels.feishu.appId is unavailable.");
+  }
+
+  const accountId = "default";
+  const botUrl = buildFeishuBotOpenUrl({
+    appId: creds.appId,
+    domain: creds.domain,
+  });
+
+  let readyCode: string | undefined;
+  const progress = params.prompter.progress("Feishu scan-and-code");
+  try {
+    progress.update("Waiting for Feishu bot startup…");
+    const deadline = Date.now() + FEISHU_SCAN_DISPLAY_WAIT_MS;
+    while (Date.now() < deadline) {
+      const [transportReady, pendingCode] = await Promise.all([
+        getFeishuTransportReady({ accountId }),
+        getPendingFeishuOperatorScanCode({ accountId }),
+      ]);
+      if (transportReady && pendingCode?.code) {
+        readyCode = pendingCode.code;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, FEISHU_SCAN_DISPLAY_POLL_MS));
+    }
+  } finally {
+    progress.stop(readyCode ? "Feishu scan-and-code ready." : "Feishu scan-and-code not ready.");
+  }
+
+  if (!readyCode) {
+    throw new Error(
+      "Feishu scan-and-code was selected, but Gateway did not become ready to receive the code within 60 seconds.",
+    );
+  }
+
+  await params.prompter.note(
+    "Gateway and Feishu are ready. Scan the bot, then send the one-time code in a direct message.",
+    "Feishu scan-and-code",
+  );
+  const qrAscii = await renderQrAscii(botUrl);
+  writeRuntimeStdout(
+    params.runtime,
+    [
+      "",
+      "Feishu scan-and-code",
+      "",
+      qrAscii.trimEnd(),
+      "",
+      `One-time code: ${readyCode}`,
+      `Bot link: ${botUrl}`,
+      "",
+    ].join("\n"),
+  );
+}
 
 export async function finalizeSetupWizard(
   options: FinalizeOnboardingOptions,
@@ -282,6 +393,12 @@ export async function finalizeSetupWizard(
       );
     }
   }
+
+  await waitForFeishuScanAndCodeReady({
+    cfg: nextConfig,
+    runtime,
+    prompter,
+  });
 
   const controlUiEnabled =
     nextConfig.gateway?.controlUi?.enabled ?? baseConfig.gateway?.controlUi?.enabled ?? true;

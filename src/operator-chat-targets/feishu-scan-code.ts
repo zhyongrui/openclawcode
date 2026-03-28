@@ -36,6 +36,14 @@ type FeishuOperatorScanCodeStore = {
   bindings: FeishuOperatorScanCodeBinding[];
 };
 
+type FeishuTransportReadyStore = {
+  version: 1;
+  accounts: Array<{
+    accountId: string;
+    readyAt: string;
+  }>;
+};
+
 export type ClaimFeishuOperatorScanCodeResult =
   | {
       status: "claimed";
@@ -89,6 +97,13 @@ export function resolveFeishuOperatorScanCodesPath(params?: {
   env?: NodeJS.ProcessEnv;
 }): string {
   return path.join(resolveEffectiveStateDir(params), "feishu-operator-scan-codes.json");
+}
+
+function resolveFeishuTransportReadyPath(params?: {
+  stateDir?: string;
+  env?: NodeJS.ProcessEnv;
+}): string {
+  return path.join(resolveEffectiveStateDir(params), "feishu-transport-ready.json");
 }
 
 function normalizeBinding(
@@ -175,6 +190,49 @@ async function saveStore(
   },
 ): Promise<void> {
   await writeJsonFileAtomically(resolveFeishuOperatorScanCodesPath(params), store);
+}
+
+async function loadTransportReadyStore(params?: {
+  stateDir?: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<FeishuTransportReadyStore> {
+  const { value } = await readJsonFileWithFallback<FeishuTransportReadyStore>(
+    resolveFeishuTransportReadyPath(params),
+    {
+      version: 1,
+      accounts: [],
+    },
+  );
+  const accounts = Array.isArray(value.accounts) ? value.accounts : [];
+  return {
+    version: 1,
+    accounts: accounts
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") {
+          return undefined;
+        }
+        const candidate = entry as { accountId?: unknown; readyAt?: unknown };
+        const accountId = normalizeAccountId(
+          typeof candidate.accountId === "string" ? candidate.accountId : undefined,
+        );
+        const readyAt =
+          typeof candidate.readyAt === "string" && candidate.readyAt.trim()
+            ? candidate.readyAt
+            : undefined;
+        return readyAt ? { accountId, readyAt } : undefined;
+      })
+      .filter((entry): entry is { accountId: string; readyAt: string } => Boolean(entry)),
+  };
+}
+
+async function saveTransportReadyStore(
+  store: FeishuTransportReadyStore,
+  params?: {
+    stateDir?: string;
+    env?: NodeJS.ProcessEnv;
+  },
+): Promise<void> {
+  await writeJsonFileAtomically(resolveFeishuTransportReadyPath(params), store);
 }
 
 function pruneStore(
@@ -292,6 +350,50 @@ export async function claimPendingFeishuOperatorScanCode(params: {
     await saveStore(store, params);
     return { status: "claimed", binding: claimed };
   });
+}
+
+export async function markFeishuTransportReady(params?: {
+  accountId?: string;
+  stateDir?: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<void> {
+  const accountId = normalizeAccountId(params?.accountId);
+  const filePath = resolveFeishuTransportReadyPath(params);
+  await withFileLock(filePath, FEISHU_SCAN_CODE_LOCK_OPTIONS, async () => {
+    const store = await loadTransportReadyStore(params);
+    const readyAt = new Date().toISOString();
+    const existingIndex = store.accounts.findIndex((entry) => entry.accountId === accountId);
+    if (existingIndex >= 0) {
+      store.accounts[existingIndex] = { accountId, readyAt };
+    } else {
+      store.accounts.push({ accountId, readyAt });
+    }
+    await saveTransportReadyStore(store, params);
+  });
+}
+
+export async function clearFeishuTransportReady(params?: {
+  accountId?: string;
+  stateDir?: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<void> {
+  const accountId = normalizeAccountId(params?.accountId);
+  const filePath = resolveFeishuTransportReadyPath(params);
+  await withFileLock(filePath, FEISHU_SCAN_CODE_LOCK_OPTIONS, async () => {
+    const store = await loadTransportReadyStore(params);
+    store.accounts = store.accounts.filter((entry) => entry.accountId !== accountId);
+    await saveTransportReadyStore(store, params);
+  });
+}
+
+export async function getFeishuTransportReady(params?: {
+  accountId?: string;
+  stateDir?: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<{ accountId: string; readyAt: string } | undefined> {
+  const accountId = normalizeAccountId(params?.accountId);
+  const store = await loadTransportReadyStore(params);
+  return store.accounts.find((entry) => entry.accountId === accountId);
 }
 
 export function buildFeishuBotOpenUrl(params: {

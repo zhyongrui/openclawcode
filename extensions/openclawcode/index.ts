@@ -3,7 +3,6 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/routing";
-import qrcode from "qrcode-terminal";
 import { formatCliCommand } from "../../src/cli/command-format.js";
 import { readRequestBodyWithLimit } from "../../src/infra/http-body.js";
 import {
@@ -115,7 +114,6 @@ import {
   setPreferredOperatorChatTarget,
 } from "../../src/operator-chat-targets/store.js";
 import { addChannelAllowFromStoreEntry } from "../../src/pairing/pairing-store.js";
-import { defaultRuntime } from "../../src/runtime.js";
 import {
   buildOnboardingRepoNameSuggestions,
   createOnboardingRepositoryViaGh,
@@ -6447,17 +6445,8 @@ async function maybeAutoBindConfiguredFeishuOperator(params: {
   }
 }
 
-function renderQrAscii(data: string): Promise<string> {
-  return new Promise((resolve) => {
-    qrcode.generate(data, { small: true }, (output: string) => {
-      resolve(output);
-    });
-  });
-}
-
 async function announcePendingFeishuOperatorScanCode(params: {
   api: OpenClawPluginApi;
-  code: string;
 }): Promise<void> {
   const feishuCfg = params.api.config.channels?.feishu as FeishuConfig | undefined;
   const creds = inspectFeishuCredentials(feishuCfg);
@@ -6474,29 +6463,10 @@ async function announcePendingFeishuOperatorScanCode(params: {
   });
   const lines = [
     "Feishu scan-and-code fallback is ready.",
-    `Send this one-time code to the Feishu bot in a direct message: ${params.code}`,
     `Bot link: ${botUrl}`,
+    "Onboarding will display the QR code and one-time code in the interactive terminal once the bot is ready.",
   ];
   params.api.logger.info(lines.join("\n"));
-
-  if (!process.stdout.isTTY) {
-    return;
-  }
-
-  const qrAscii = await renderQrAscii(botUrl);
-  defaultRuntime.writeStdout(
-    [
-      "",
-      "Feishu scan-and-code fallback",
-      "Scan the bot QR code, then send the one-time code in a direct message.",
-      `Code: ${params.code}`,
-      "",
-      qrAscii.trimEnd(),
-      "",
-      `Bot link: ${botUrl}`,
-      "",
-    ].join("\n"),
-  );
 }
 
 async function maybePrepareDelayedFeishuOperatorScanCode(params: {
@@ -6529,7 +6499,6 @@ async function maybePrepareDelayedFeishuOperatorScanCode(params: {
     }));
   await announcePendingFeishuOperatorScanCode({
     api: params.api,
-    code: pending.code,
   });
 }
 

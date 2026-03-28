@@ -21,6 +21,10 @@ import {
   wsClients,
 } from "./monitor.state.js";
 import type { ResolvedFeishuAccount } from "./types.js";
+import {
+  clearFeishuTransportReady,
+  markFeishuTransportReady,
+} from "../../../src/operator-chat-targets/feishu-scan-code.js";
 
 export type MonitorTransportParams = {
   account: ResolvedFeishuAccount;
@@ -118,6 +122,7 @@ export async function monitorWebSocket({
       } catch (err) {
         error(`feishu[${accountId}]: error closing WebSocket client: ${String(err)}`);
       } finally {
+        void clearFeishuTransportReady({ accountId }).catch(() => undefined);
         wsClients.delete(accountId);
         botOpenIds.delete(accountId);
         botNames.delete(accountId);
@@ -140,6 +145,7 @@ export async function monitorWebSocket({
 
     try {
       wsClient.start({ eventDispatcher });
+      void markFeishuTransportReady({ accountId }).catch(() => undefined);
       log(`feishu[${accountId}]: WebSocket client started`);
     } catch (err) {
       cleanup();
@@ -264,6 +270,7 @@ export async function monitorWebhook({
   return new Promise((resolve, reject) => {
     const cleanup = () => {
       server.close();
+      void clearFeishuTransportReady({ accountId }).catch(() => undefined);
       httpServers.delete(accountId);
       botOpenIds.delete(accountId);
       botNames.delete(accountId);
@@ -284,6 +291,7 @@ export async function monitorWebhook({
     abortSignal?.addEventListener("abort", handleAbort, { once: true });
 
     server.listen(port, host, () => {
+      void markFeishuTransportReady({ accountId }).catch(() => undefined);
       log(`feishu[${accountId}]: Webhook server listening on ${host}:${port}`);
     });
 

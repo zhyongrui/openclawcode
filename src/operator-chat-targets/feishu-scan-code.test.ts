@@ -4,9 +4,12 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildFeishuBotOpenUrl,
+  clearFeishuTransportReady,
   claimPendingFeishuOperatorScanCode,
   ensurePendingFeishuOperatorScanCode,
+  getFeishuTransportReady,
   getPendingFeishuOperatorScanCode,
+  markFeishuTransportReady,
 } from "./feishu-scan-code.js";
 
 describe("feishu operator scan code store", () => {
@@ -85,5 +88,43 @@ describe("feishu operator scan code store", () => {
     expect(buildFeishuBotOpenUrl({ appId: "cli_123", domain: "lark" })).toBe(
       "https://applink.larksuite.com/client/bot/open?appId=cli_123",
     );
+  });
+
+  it("tracks Feishu transport readiness per account", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "feishu-scan-ready-"));
+
+    expect(
+      await getFeishuTransportReady({
+        stateDir,
+        accountId: "default",
+      }),
+    ).toBeUndefined();
+
+    await markFeishuTransportReady({
+      stateDir,
+      accountId: "default",
+    });
+
+    expect(
+      await getFeishuTransportReady({
+        stateDir,
+        accountId: "default",
+      }),
+    ).toMatchObject({
+      accountId: "default",
+      readyAt: expect.any(String),
+    });
+
+    await clearFeishuTransportReady({
+      stateDir,
+      accountId: "default",
+    });
+
+    expect(
+      await getFeishuTransportReady({
+        stateDir,
+        accountId: "default",
+      }),
+    ).toBeUndefined();
   });
 });
