@@ -73,6 +73,21 @@ const getPendingFeishuOperatorScanCode = vi.hoisted(() =>
     >
   >(async () => undefined),
 );
+const getPreferredOperatorChatTarget = vi.hoisted(() =>
+  vi.fn<
+    () => Promise<
+      | {
+          channel: string;
+          accountId: string;
+          target: string;
+          source?: string;
+          createdAt: string;
+          updatedAt: string;
+        }
+      | undefined
+    >
+  >(async () => undefined),
+);
 const buildFeishuBotOpenUrl = vi.hoisted(() =>
   vi.fn(() => "https://applink.feishu.cn/client/bot/open?appId=cli_test"),
 );
@@ -135,6 +150,10 @@ vi.mock("../operator-chat-targets/feishu-scan-code.js", () => ({
   buildFeishuBotOpenUrl,
   getFeishuTransportReady,
   getPendingFeishuOperatorScanCode,
+}));
+
+vi.mock("../operator-chat-targets/store.js", () => ({
+  getPreferredOperatorChatTarget,
 }));
 
 vi.mock("../daemon/service.js", () => ({
@@ -324,6 +343,8 @@ describe("finalizeSetupWizard", () => {
     getFeishuTransportReady.mockResolvedValue(undefined);
     getPendingFeishuOperatorScanCode.mockReset();
     getPendingFeishuOperatorScanCode.mockResolvedValue(undefined);
+    getPreferredOperatorChatTarget.mockReset();
+    getPreferredOperatorChatTarget.mockResolvedValue(undefined);
     buildFeishuBotOpenUrl.mockReset();
     buildFeishuBotOpenUrl.mockReturnValue("https://applink.feishu.cn/client/bot/open?appId=cli_test");
     inspectFeishuCredentials.mockReset();
@@ -674,6 +695,48 @@ describe("finalizeSetupWizard", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("skips delayed Feishu scan waiting when an operator is already bound", async () => {
+    const prompter = createLaterPrompter();
+    getPreferredOperatorChatTarget.mockResolvedValue({
+      channel: "feishu",
+      accountId: "default",
+      target: "user:ou_existing",
+      source: "feishu-scan-code",
+      createdAt: "2026-03-28T00:00:00.000Z",
+      updatedAt: "2026-03-28T00:00:00.000Z",
+    });
+
+    await finalizeSetupWizard(
+      createAdvancedFinalizeArgs({
+        nextConfig: {
+          channels: {
+            feishu: {},
+          },
+          plugins: {
+            entries: {
+              openclawcode: {
+                config: {
+                  feishuOperatorBinding: {
+                    mode: "scan",
+                  },
+                },
+              },
+            },
+          },
+        },
+        prompter,
+        runtime: createRuntime(),
+      }),
+    );
+
+    expect(getFeishuTransportReady).not.toHaveBeenCalled();
+    expect(getPendingFeishuOperatorScanCode).not.toHaveBeenCalled();
+    expect(prompter.note).toHaveBeenCalledWith(
+      expect.stringContaining("Feishu operator already configured as user:ou_existing."),
+      "Feishu scan-and-code",
+    );
   });
 
   it("reports selected providers blocked by plugin policy as unavailable", async () => {

@@ -40,6 +40,7 @@ import {
   getFeishuTransportReady,
   getPendingFeishuOperatorScanCode,
 } from "../operator-chat-targets/feishu-scan-code.js";
+import { getPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
 import type { WizardPrompter } from "./prompts.js";
 import { setupWizardShellCompletion } from "./setup.completion.js";
 import { resolveSetupSecretInputString } from "./setup.secret-input.js";
@@ -112,6 +113,21 @@ async function waitForFeishuScanAndCodeReady(params: {
     appId: creds.appId,
     domain: creds.domain,
   });
+  const existingTarget = await getPreferredOperatorChatTarget({
+    channel: "feishu",
+    accountId,
+  });
+  if (existingTarget) {
+    await params.prompter.note(
+      [
+        `Feishu operator already configured as ${existingTarget.target}.`,
+        "Skipping scan-and-code because there is no pending code to claim.",
+        "Clear the existing Feishu operator target first if you want to test this flow again.",
+      ].join("\n"),
+      "Feishu scan-and-code",
+    );
+    return;
+  }
 
   let readyCode: string | undefined;
   const progress = params.prompter.progress("Feishu scan-and-code");
