@@ -1,9 +1,11 @@
 import crypto from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import os from "node:os";
 import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/routing";
 import { formatCliCommand } from "../../src/cli/command-format.js";
+import { resolveStateDir } from "../../src/config/paths.js";
 import { readRequestBodyWithLimit } from "../../src/infra/http-body.js";
 import {
   OpenClawCodeChatopsStore,
@@ -108,6 +110,7 @@ import {
   claimPendingFeishuOperatorScanCode,
   ensurePendingFeishuOperatorScanCode,
   getPendingFeishuOperatorScanCode,
+  summarizeFeishuOperatorScanCodeMessage,
 } from "../../src/operator-chat-targets/feishu-scan-code.js";
 import {
   getPreferredOperatorChatTarget,
@@ -6310,6 +6313,10 @@ function buildFeishuOperatorBindingWelcomeMessage(): string {
   ].join("\n");
 }
 
+function resolveCanonicalOpenClawStateDir(): string {
+  return resolveStateDir(process.env, os.homedir);
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -6349,7 +6356,7 @@ async function finalizeFeishuOperatorBinding(params: {
   sendWelcomeMessage?: boolean;
   continueSetup: boolean;
 }): Promise<void> {
-  const stateDir = params.api.runtime.state.resolveStateDir();
+  const stateDir = resolveCanonicalOpenClawStateDir();
   const openId = params.openId.trim();
   const accountId = params.accountId?.trim() || DEFAULT_ACCOUNT_ID;
   if (!openId) {
@@ -6478,7 +6485,7 @@ async function maybePrepareDelayedFeishuOperatorScanCode(params: {
     return;
   }
   const accountId = bindingConfig.accountId?.trim() || DEFAULT_ACCOUNT_ID;
-  const stateDir = params.api.runtime.state.resolveStateDir();
+  const stateDir = resolveCanonicalOpenClawStateDir();
   const existingTarget = await getPreferredOperatorChatTarget({
     stateDir,
     channel: "feishu",
@@ -6528,7 +6535,7 @@ async function maybeClaimDelayedFeishuOperatorScanCode(params: {
 
   const accountId =
     params.event.accountId?.trim() || bindingConfig.accountId?.trim() || DEFAULT_ACCOUNT_ID;
-  const stateDir = params.api.runtime.state.resolveStateDir();
+  const stateDir = resolveCanonicalOpenClawStateDir();
   const claim = await claimPendingFeishuOperatorScanCode({
     stateDir,
     accountId,
@@ -6536,6 +6543,10 @@ async function maybeClaimDelayedFeishuOperatorScanCode(params: {
     openId: senderId,
   });
   if (claim.status !== "claimed") {
+    const summary = summarizeFeishuOperatorScanCodeMessage(params.event.content);
+    params.api.logger.info(
+      `openclawcode feishu scan mismatch sender=${senderId} account=${accountId} expected=${claim.binding?.code ?? "none"} normalized_len=${summary.normalizedLength} normalized_preview=${summary.normalizedPreview || "empty"}`,
+    );
     return false;
   }
 

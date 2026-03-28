@@ -74,6 +74,33 @@ function messageContainsCode(message: string, expectedCode: string): boolean {
   return normalizedMessage.includes(normalizedCode);
 }
 
+export function summarizeFeishuOperatorScanCodeMessage(message: string): {
+  normalizedLength: number;
+  normalizedPreview: string;
+} {
+  const normalized = normalizeCode(message);
+  return {
+    normalizedLength: normalized.length,
+    normalizedPreview: normalized.slice(0, 24),
+  };
+}
+
+export function extractFeishuOperatorScanCodeCandidates(message: string): string[] {
+  const normalized = normalizeCode(message);
+  if (!normalized) {
+    return [];
+  }
+  const candidates = new Set<string>();
+  candidates.add(normalized);
+  for (const match of message.toUpperCase().matchAll(/[A-Z0-9][A-Z0-9\s:.,-]{3,31}/g)) {
+    const candidate = normalizeCode(match[0]);
+    if (candidate) {
+      candidates.add(candidate);
+    }
+  }
+  return [...candidates].slice(0, 5);
+}
+
 function parseTimestamp(value: string | undefined): number | null {
   if (!value) {
     return null;

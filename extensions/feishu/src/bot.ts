@@ -1,3 +1,4 @@
+import os from "node:os";
 import {
   ensureConfiguredBindingRouteReady,
   resolveConfiguredBindingRoute,
@@ -25,8 +26,16 @@ import {
   matchPluginCommand,
   normalizePluginCommandBody,
 } from "../../../src/plugins/commands.js";
+import { resolveStateDir } from "../../../src/config/paths.js";
 import { resolveOpenClawCodePluginConfig } from "../../../src/integrations/openclaw-plugin/index.js";
+import {
+  claimPendingFeishuOperatorScanCode,
+  extractFeishuOperatorScanCodeCandidates,
+  summarizeFeishuOperatorScanCodeMessage,
+} from "../../../src/operator-chat-targets/feishu-scan-code.js";
+import { setPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 import { isBindPendingNotifyTarget } from "../../../src/openclawcode/operator-chat-targets.js";
+import { addChannelAllowFromStoreEntry } from "../../../src/pairing/pairing-store.js";
 import {
   buildPairingCommandRetryReply,
   buildPairingReply,
@@ -229,6 +238,100 @@ function isConfiguredOpenClawCodeFeishuScanMode(cfg: ClawdbotConfig): boolean {
   }
   const pluginConfig = resolveOpenClawCodePluginConfig(openclawcodeConfig);
   return pluginConfig.feishuOperatorBinding?.mode === "scan";
+}
+
+function buildOpenClawCodeFeishuScanWelcomeMessage(): string {
+  return [
+    "你好，我已经完成飞书绑定。",
+    "后续我会在这里主动同步 OpenClaw 的配置进度、授权步骤和任务通知。",
+  ].join("\n");
+}
+
+async function maybeHandleConfiguredOpenClawCodeFeishuScan(params: {
+  cfg: ClawdbotConfig;
+  accountId: string;
+  chatId: string;
+  senderOpenId: string;
+  content: string;
+}): Promise<
+  | { status: "claimed" }
+  | { status: "missing" | "mismatch" | "expired" | "already-claimed" }
+  | { status: "error"; error: string }
+> {
+  const plugins =
+    params.cfg &&
+    typeof params.cfg === "object" &&
+    params.cfg.plugins &&
+    typeof params.cfg.plugins === "object"
+      ? (params.cfg.plugins as Record<string, unknown>)
+      : undefined;
+  const entries =
+    plugins?.entries && typeof plugins.entries === "object"
+      ? (plugins.entries as Record<string, unknown>)
+      : undefined;
+  const openclawcodeEntry =
+    entries?.openclawcode && typeof entries.openclawcode === "object"
+      ? (entries.openclawcode as Record<string, unknown>)
+      : undefined;
+  const openclawcodeConfig =
+    openclawcodeEntry?.config && typeof openclawcodeEntry.config === "object"
+      ? (openclawcodeEntry.config as Record<string, unknown>)
+      : undefined;
+  if (!openclawcodeConfig) {
+    return { status: "missing" };
+  }
+  const pluginConfig = resolveOpenClawCodePluginConfig(openclawcodeConfig);
+  const bindingConfig = pluginConfig.feishuOperatorBinding;
+  if (bindingConfig?.mode !== "scan") {
+    return { status: "missing" };
+  }
+
+  const accountId = bindingConfig.accountId?.trim() || params.accountId.trim() || "default";
+  const stateDir = resolveStateDir(process.env, os.homedir);
+
+  try {
+    const claim = await claimPendingFeishuOperatorScanCode({
+      stateDir,
+      accountId,
+      code: params.content,
+      openId: params.senderOpenId,
+    });
+    if (claim.status !== "claimed") {
+      return { status: claim.status };
+    }
+
+    const binding = await setPreferredOperatorChatTarget({
+      stateDir,
+      channel: "feishu",
+      accountId,
+      target: `user:${params.senderOpenId}`,
+      source: "feishu-scan-code",
+      replace: true,
+    });
+    await addChannelAllowFromStoreEntry({
+      channel: "feishu",
+      accountId,
+      entry: params.senderOpenId,
+      env: {
+        ...process.env,
+        OPENCLAW_STATE_DIR: stateDir,
+      },
+    });
+    if ((bindingConfig.sendWelcomeMessage ?? true) && binding.status !== "existing") {
+      await sendMessageFeishu({
+        cfg: params.cfg,
+        to: `chat:${params.chatId}`,
+        text: buildOpenClawCodeFeishuScanWelcomeMessage(),
+        accountId,
+      });
+    }
+    return { status: "claimed" };
+  } catch (error) {
+    return {
+      status: "error",
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 // Build a session key for a broadcast target agent by replacing the agent ID prefix.
@@ -613,6 +716,56 @@ export async function handleFeishuMessage(params: {
     if (isDirect && dmPolicy !== "open" && !dmAllowed && !bypassPairingForConfiguredSetup) {
       if (dmPolicy === "pairing") {
         const useFeishuScanCode = isConfiguredOpenClawCodeFeishuScanMode(cfg);
+        if (useFeishuScanCode) {
+          const directScanResult = await maybeHandleConfiguredOpenClawCodeFeishuScan({
+            cfg,
+            accountId: account.accountId,
+            chatId: ctx.chatId,
+            senderOpenId: ctx.senderOpenId,
+            content: ctx.content,
+          });
+          if (directScanResult.status === "claimed") {
+            log(
+              `feishu[${account.accountId}]: direct scan-code claim handled unauthorized DM from ${ctx.senderOpenId}`,
+            );
+            return;
+          }
+          const summary = summarizeFeishuOperatorScanCodeMessage(ctx.content);
+          const candidates = extractFeishuOperatorScanCodeCandidates(ctx.content);
+          log(
+            `feishu[${account.accountId}]: scan-code claim ${directScanResult.status} for ${ctx.senderOpenId} normalized_len=${summary.normalizedLength} normalized_preview=${summary.normalizedPreview || "empty"} candidates=${candidates.join("|") || "none"}`
+          );
+          if (directScanResult.status === "error") {
+            try {
+              await sendMessageFeishu({
+                cfg,
+                to: `chat:${ctx.chatId}`,
+                text: "We received your code, but binding failed internally. Ask the bot owner to retry setup.",
+                accountId: account.accountId,
+              });
+            } catch (err) {
+              log(
+                `feishu[${account.accountId}]: scan-code internal-error reply failed for ${ctx.senderOpenId}: ${String(err)}`,
+              );
+            }
+            return;
+          }
+          try {
+            await sendMessageFeishu({
+              cfg,
+              to: `chat:${ctx.chatId}`,
+              text:
+                "That code was not recognized or has expired. Use the latest one-time code shown during onboarding, then send it here again.",
+              accountId: account.accountId,
+            });
+          } catch (err) {
+            log(
+              `feishu[${account.accountId}]: scan-code mismatch reply failed for ${ctx.senderOpenId}: ${String(err)}`,
+            );
+          }
+          return;
+        }
+
         const hookRunner = getGlobalHookRunner();
         if (hookRunner?.hasHooks("inbound_claim")) {
           const claimResult = await hookRunner.runInboundClaim(
@@ -644,25 +797,6 @@ export async function handleFeishuMessage(params: {
             );
             return;
           }
-        }
-        if (useFeishuScanCode) {
-          log(
-            `feishu[${account.accountId}]: scan-code claim did not match for ${ctx.senderOpenId}`,
-          );
-          try {
-            await sendMessageFeishu({
-              cfg,
-              to: `chat:${ctx.chatId}`,
-              text:
-                "That code was not recognized or has expired. Use the latest one-time code shown during onboarding, then send it here again.",
-              accountId: account.accountId,
-            });
-          } catch (err) {
-            log(
-              `feishu[${account.accountId}]: scan-code mismatch reply failed for ${ctx.senderOpenId}: ${String(err)}`,
-            );
-          }
-          return;
         }
 
         const senderIdLine = `Your Feishu user id: ${ctx.senderOpenId}`;

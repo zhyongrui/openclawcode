@@ -195,6 +195,9 @@ const {
   mockTouchBinding,
   mockHookRunnerHasHooks,
   mockHookRunnerRunInboundClaim,
+  mockClaimPendingFeishuOperatorScanCode,
+  mockSetPreferredOperatorChatTarget,
+  mockAddChannelAllowFromStoreEntry,
 } = vi.hoisted(() => ({
   mockCreateFeishuReplyDispatcher: vi.fn(() => ({
     dispatcher: createReplyDispatcher(),
@@ -232,6 +235,18 @@ const {
   mockTouchBinding: vi.fn(),
   mockHookRunnerHasHooks: vi.fn(() => false),
   mockHookRunnerRunInboundClaim: vi.fn(async () => undefined),
+  mockClaimPendingFeishuOperatorScanCode: vi.fn(async () => ({ status: "mismatch" })),
+  mockSetPreferredOperatorChatTarget: vi.fn(async () => ({
+    status: "created",
+    binding: {
+      channel: "feishu",
+      accountId: "default",
+      target: "user:ou-scan-user",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  })),
+  mockAddChannelAllowFromStoreEntry: vi.fn(async () => undefined),
 }));
 
 vi.mock("./reply-dispatcher.js", () => ({
@@ -300,6 +315,32 @@ vi.mock("../../../src/plugins/hook-runner-global.js", () => ({
   }),
 }));
 
+vi.mock("../../../src/operator-chat-targets/feishu-scan-code.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../../src/operator-chat-targets/feishu-scan-code.js")>();
+  return {
+    ...actual,
+    claimPendingFeishuOperatorScanCode: mockClaimPendingFeishuOperatorScanCode,
+  };
+});
+
+vi.mock("../../../src/operator-chat-targets/store.js", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../../src/operator-chat-targets/store.js")>();
+  return {
+    ...actual,
+    setPreferredOperatorChatTarget: mockSetPreferredOperatorChatTarget,
+  };
+});
+
+vi.mock("../../../src/pairing/pairing-store.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../src/pairing/pairing-store.js")>();
+  return {
+    ...actual,
+    addChannelAllowFromStoreEntry: mockAddChannelAllowFromStoreEntry,
+  };
+});
+
 async function dispatchMessage(params: { cfg: ClawdbotConfig; event: FeishuMessageEvent }) {
   const runtime = createRuntimeEnv();
   await handleFeishuMessage({
@@ -328,6 +369,18 @@ describe("handleFeishuMessage ACP routing", () => {
     mockTouchBinding.mockReset();
     mockHookRunnerHasHooks.mockReset().mockReturnValue(false);
     mockHookRunnerRunInboundClaim.mockReset().mockResolvedValue(undefined);
+    mockClaimPendingFeishuOperatorScanCode.mockReset().mockResolvedValue({ status: "mismatch" });
+    mockSetPreferredOperatorChatTarget.mockReset().mockResolvedValue({
+      status: "created",
+      binding: {
+        channel: "feishu",
+        accountId: "default",
+        target: "user:ou-scan-user",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    mockAddChannelAllowFromStoreEntry.mockReset().mockResolvedValue(undefined);
     mockResolveAgentRoute.mockReset().mockReturnValue({
       ...buildDefaultResolveRoute(),
       sessionKey: "agent:main:feishu:direct:ou_sender_1",
@@ -1068,8 +1121,7 @@ describe("handleFeishuMessage command authorization", () => {
   it("does not fall back to legacy pairing when scan-code mode is configured but the code does not match", async () => {
     mockShouldComputeCommandAuthorized.mockReturnValue(false);
     mockReadAllowFromStore.mockResolvedValue([]);
-    mockHookRunnerHasHooks.mockReturnValue(true);
-    mockHookRunnerRunInboundClaim.mockResolvedValue(undefined);
+    mockClaimPendingFeishuOperatorScanCode.mockResolvedValue({ status: "mismatch" });
 
     const cfg: ClawdbotConfig = {
       channels: {
@@ -1109,7 +1161,13 @@ describe("handleFeishuMessage command authorization", () => {
 
     await dispatchMessage({ cfg, event });
 
-    expect(mockHookRunnerRunInboundClaim).toHaveBeenCalled();
+    expect(mockClaimPendingFeishuOperatorScanCode).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: "default",
+        code: "WRONGCODE",
+        openId: "ou-scan-user",
+      }),
+    );
     expect(mockUpsertPairingRequest).not.toHaveBeenCalled();
     expect(mockSendMessageFeishu).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1118,6 +1176,88 @@ describe("handleFeishuMessage command authorization", () => {
         accountId: "default",
       }),
     );
+    expect(mockFinalizeInboundContext).not.toHaveBeenCalled();
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
+  });
+
+  it("claims a matching scan code directly and sends the welcome message", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(false);
+    mockReadAllowFromStore.mockResolvedValue([]);
+    mockClaimPendingFeishuOperatorScanCode.mockResolvedValue({
+      status: "claimed",
+      binding: {
+        accountId: "default",
+        code: "CY2JXH",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        claimedByOpenId: "ou-scan-user",
+      },
+    });
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "pairing",
+          allowFrom: [],
+        },
+      },
+      plugins: {
+        entries: {
+          openclawcode: {
+            enabled: true,
+            config: {
+              feishuOperatorBinding: {
+                mode: "scan",
+              },
+            },
+          },
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-scan-user",
+        },
+      },
+      message: {
+        message_id: "msg-scan-success",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "CY2JXH" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockSetPreferredOperatorChatTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "feishu",
+        accountId: "default",
+        target: "user:ou-scan-user",
+        source: "feishu-scan-code",
+        replace: true,
+      }),
+    );
+    expect(mockAddChannelAllowFromStoreEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "feishu",
+        accountId: "default",
+        entry: "ou-scan-user",
+      }),
+    );
+    expect(mockSendMessageFeishu).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("我已经完成飞书绑定"),
+        accountId: "default",
+      }),
+    );
+    expect(mockUpsertPairingRequest).not.toHaveBeenCalled();
+    expect(mockHookRunnerRunInboundClaim).not.toHaveBeenCalled();
     expect(mockFinalizeInboundContext).not.toHaveBeenCalled();
     expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
   });

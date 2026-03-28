@@ -5048,28 +5048,30 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      expect(
-        await getPendingFeishuOperatorScanCode({
-          stateDir: fixture.stateDir,
-          accountId: "default",
-        }),
-      ).toBeUndefined();
+      await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
+        expect(
+          await getPendingFeishuOperatorScanCode({
+            stateDir: fixture.stateDir,
+            accountId: "default",
+          }),
+        ).toBeUndefined();
 
-      await fixture.service?.start({
-        config: {},
-        stateDir: fixture.stateDir,
-        logger: { info() {}, warn() {}, error() {} },
-      });
-
-      expect(mocked.resolveFeishuUserOpenIdByContact).not.toHaveBeenCalled();
-      await expect(
-        getPendingFeishuOperatorScanCode({
+        await fixture.service?.start({
+          config: {},
           stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        expect(mocked.resolveFeishuUserOpenIdByContact).not.toHaveBeenCalled();
+        await expect(
+          getPendingFeishuOperatorScanCode({
+            stateDir: fixture.stateDir,
+            accountId: "default",
+          }),
+        ).resolves.toMatchObject({
           accountId: "default",
-        }),
-      ).resolves.toMatchObject({
-        accountId: "default",
-        code: expect.stringMatching(/^[A-Z2-9]{6}$/),
+          code: expect.stringMatching(/^[A-Z2-9]{6}$/),
+        });
       });
     } finally {
       await cleanupPluginFixture(fixture);
@@ -5097,69 +5099,71 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      await fixture.service?.start({
-        config: {},
-        stateDir: fixture.stateDir,
-        logger: { info() {}, warn() {}, error() {} },
-      });
-
-      const pending = await getPendingFeishuOperatorScanCode({
-        stateDir: fixture.stateDir,
-        accountId: "default",
-      });
-      const handler = fixture.hooks.get("inbound_claim");
-
-      expect(pending).toBeDefined();
-      expect(handler).toBeTypeOf("function");
-
-      await expect(
-        handler?.(
-          {
-            channel: "feishu",
-            accountId: "default",
-            senderId: "ou_scan_user",
-            content: pending?.code ?? "",
-            isGroup: false,
-          } as PluginHookInboundClaimEvent,
-          {
-            channelId: "feishu",
-            accountId: "default",
-            conversationId: "user:ou_scan_user",
-            senderId: "ou_scan_user",
-            messageId: "om_scan_claim",
-          },
-        ),
-      ).resolves.toEqual({ handled: true });
-
-      await expect(
-        getPreferredOperatorChatTarget({
+      await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
+        await fixture.service?.start({
+          config: {},
           stateDir: fixture.stateDir,
-          channel: "feishu",
-        }),
-      ).resolves.toMatchObject({
-        channel: "feishu",
-        target: "user:ou_scan_user",
-        source: "feishu-scan-code",
-      });
-      await expect(
-        readChannelAllowFromStore("feishu", { OPENCLAW_STATE_DIR: fixture.stateDir }, "default"),
-      ).resolves.toContain("ou_scan_user");
-      await expect(
-        getPendingFeishuOperatorScanCode({
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        const pending = await getPendingFeishuOperatorScanCode({
           stateDir: fixture.stateDir,
           accountId: "default",
-        }),
-      ).resolves.toBeUndefined();
-      expect(mocked.runMessageAction).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: "send",
-          params: expect.objectContaining({
+        });
+        const handler = fixture.hooks.get("inbound_claim");
+
+        expect(pending).toBeDefined();
+        expect(handler).toBeTypeOf("function");
+
+        await expect(
+          handler?.(
+            {
+              channel: "feishu",
+              accountId: "default",
+              senderId: "ou_scan_user",
+              content: pending?.code ?? "",
+              isGroup: false,
+            } as PluginHookInboundClaimEvent,
+            {
+              channelId: "feishu",
+              accountId: "default",
+              conversationId: "user:ou_scan_user",
+              senderId: "ou_scan_user",
+              messageId: "om_scan_claim",
+            },
+          ),
+        ).resolves.toEqual({ handled: true });
+
+        await expect(
+          getPreferredOperatorChatTarget({
+            stateDir: fixture.stateDir,
             channel: "feishu",
-            to: "user:ou_scan_user",
-            message: expect.stringContaining("我已经完成飞书绑定"),
           }),
-        }),
-      );
+        ).resolves.toMatchObject({
+          channel: "feishu",
+          target: "user:ou_scan_user",
+          source: "feishu-scan-code",
+        });
+        await expect(
+          readChannelAllowFromStore("feishu", { OPENCLAW_STATE_DIR: fixture.stateDir }, "default"),
+        ).resolves.toContain("ou_scan_user");
+        await expect(
+          getPendingFeishuOperatorScanCode({
+            stateDir: fixture.stateDir,
+            accountId: "default",
+          }),
+        ).resolves.toBeUndefined();
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_scan_user",
+              message: expect.stringContaining("我已经完成飞书绑定"),
+            }),
+          }),
+        );
+      });
     } finally {
       await cleanupPluginFixture(fixture);
     }
