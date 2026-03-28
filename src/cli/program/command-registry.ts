@@ -150,19 +150,6 @@ const coreEntries: CoreCliEntry[] = [
   {
     commands: [
       {
-        name: "memory",
-        description: "Search and reindex memory files",
-        hasSubcommands: true,
-      },
-    ],
-    register: async ({ program }) => {
-      const mod = await import("../memory-cli.js");
-      mod.registerMemoryCli(program);
-    },
-  },
-  {
-    commands: [
-      {
         name: "code",
         description: "Issue-driven coding workflow runner for GitHub issues",
         hasSubcommands: true,
