@@ -18,6 +18,8 @@ export type GeneratedBundledPluginMetadata = {
   idHint: string;
   source: GeneratedBundledPluginPathPair;
   setupSource?: GeneratedBundledPluginPathPair;
+  publicSurfaceArtifacts?: readonly string[];
+  runtimeSidecarArtifacts?: readonly string[];
   packageName?: string;
   packageVersion?: string;
   packageDescription?: string;
