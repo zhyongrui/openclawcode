@@ -10968,22 +10968,26 @@ export default {
       },
     });
 
-    api.registerHook("inbound_claim", async (event) => {
-      const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
-      const claimed = await maybeClaimDelayedFeishuOperatorScanCode({
-        api,
-        store,
-        bindingConfig: pluginConfig.feishuOperatorBinding,
-        event: {
-          channel: event.channel,
-          accountId: event.accountId,
-          senderId: event.senderId,
-          content: event.content,
-          isGroup: event.isGroup,
-        },
-      });
-      return claimed ? { handled: true } : undefined;
-    });
+    api.registerHook(
+      "inbound_claim",
+      async (event) => {
+        const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
+        const claimed = await maybeClaimDelayedFeishuOperatorScanCode({
+          api,
+          store,
+          bindingConfig: pluginConfig.feishuOperatorBinding,
+          event: {
+            channel: event.channel,
+            accountId: event.accountId,
+            senderId: event.senderId,
+            content: event.content,
+            isGroup: event.isGroup,
+          },
+        });
+        return claimed ? { handled: true } : undefined;
+      },
+      { name: "openclawcode-feishu-scan-claim" },
+    );
 
     api.registerService({
       id: "openclawcode-runner",
