@@ -81,6 +81,53 @@ describe("feishu operator scan code store", () => {
     ).toBeUndefined();
   });
 
+  it("matches a code embedded in a natural-language message", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "feishu-scan-code-"));
+    const created = await ensurePendingFeishuOperatorScanCode({
+      stateDir,
+      accountId: "default",
+    });
+
+    await expect(
+      claimPendingFeishuOperatorScanCode({
+        stateDir,
+        accountId: "default",
+        code: `My code is ${created.code}.`,
+        openId: "ou_sender",
+      }),
+    ).resolves.toEqual({
+      status: "claimed",
+      binding: expect.objectContaining({
+        code: created.code,
+        claimedByOpenId: "ou_sender",
+      }),
+    });
+  });
+
+  it("matches a code even if the user inserts spaces or punctuation", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "feishu-scan-code-"));
+    const created = await ensurePendingFeishuOperatorScanCode({
+      stateDir,
+      accountId: "default",
+    });
+
+    const segmented = created.code.split("").join(" ");
+    await expect(
+      claimPendingFeishuOperatorScanCode({
+        stateDir,
+        accountId: "default",
+        code: `验证码：${segmented}`,
+        openId: "ou_sender",
+      }),
+    ).resolves.toEqual({
+      status: "claimed",
+      binding: expect.objectContaining({
+        code: created.code,
+        claimedByOpenId: "ou_sender",
+      }),
+    });
+  });
+
   it("builds a bot-open URL for Feishu and Lark", () => {
     expect(buildFeishuBotOpenUrl({ appId: "cli_123" })).toBe(
       "https://applink.feishu.cn/client/bot/open?appId=cli_123",

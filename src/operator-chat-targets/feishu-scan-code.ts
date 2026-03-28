@@ -65,6 +65,15 @@ function normalizeCode(value: string): string {
     .replace(/[^A-Z0-9]/g, "");
 }
 
+function messageContainsCode(message: string, expectedCode: string): boolean {
+  const normalizedMessage = normalizeCode(message);
+  const normalizedCode = normalizeCode(expectedCode);
+  if (!normalizedMessage || !normalizedCode) {
+    return false;
+  }
+  return normalizedMessage.includes(normalizedCode);
+}
+
 function parseTimestamp(value: string | undefined): number | null {
   if (!value) {
     return null;
@@ -314,9 +323,9 @@ export async function claimPendingFeishuOperatorScanCode(params: {
   env?: NodeJS.ProcessEnv;
 }): Promise<ClaimFeishuOperatorScanCodeResult> {
   const accountId = normalizeAccountId(params.accountId);
-  const code = normalizeCode(params.code);
+  const code = params.code;
   const openId = params.openId.trim();
-  if (!code || !openId) {
+  if (!normalizeCode(code) || !openId) {
     return { status: "missing" };
   }
   const filePath = resolveFeishuOperatorScanCodesPath(params);
@@ -337,7 +346,7 @@ export async function claimPendingFeishuOperatorScanCode(params: {
       await saveStore(store, params);
       return { status: "expired", binding: current };
     }
-    if (current.code !== code) {
+    if (!messageContainsCode(code, current.code)) {
       return { status: "mismatch", binding: current };
     }
     const claimed: FeishuOperatorScanCodeBinding = {
