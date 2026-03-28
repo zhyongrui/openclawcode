@@ -1065,6 +1065,63 @@ describe("handleFeishuMessage command authorization", () => {
     expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
   });
 
+  it("does not fall back to legacy pairing when scan-code mode is configured but the code does not match", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(false);
+    mockReadAllowFromStore.mockResolvedValue([]);
+    mockHookRunnerHasHooks.mockReturnValue(true);
+    mockHookRunnerRunInboundClaim.mockResolvedValue(undefined);
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "pairing",
+          allowFrom: [],
+        },
+      },
+      plugins: {
+        entries: {
+          openclawcode: {
+            enabled: true,
+            config: {
+              feishuOperatorBinding: {
+                mode: "scan",
+              },
+            },
+          },
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-scan-user",
+        },
+      },
+      message: {
+        message_id: "msg-scan-mismatch",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "WRONGCODE" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockHookRunnerRunInboundClaim).toHaveBeenCalled();
+    expect(mockUpsertPairingRequest).not.toHaveBeenCalled();
+    expect(mockSendMessageFeishu).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "chat:oc-dm",
+        text: expect.stringContaining("That code was not recognized or has expired."),
+        accountId: "default",
+      }),
+    );
+    expect(mockFinalizeInboundContext).not.toHaveBeenCalled();
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
+  });
+
   it("replies with pairing guidance for blocked plugin commands even when a pairing request already exists", async () => {
     mockShouldComputeCommandAuthorized.mockReturnValue(true);
     mockReadAllowFromStore.mockResolvedValue([]);

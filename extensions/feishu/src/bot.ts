@@ -207,6 +207,30 @@ function shouldBypassPairingForConfiguredOpenClawCodeSetup(params: {
   );
 }
 
+function isConfiguredOpenClawCodeFeishuScanMode(cfg: ClawdbotConfig): boolean {
+  const plugins =
+    cfg && typeof cfg === "object" && cfg.plugins && typeof cfg.plugins === "object"
+      ? (cfg.plugins as Record<string, unknown>)
+      : undefined;
+  const entries =
+    plugins?.entries && typeof plugins.entries === "object"
+      ? (plugins.entries as Record<string, unknown>)
+      : undefined;
+  const openclawcodeEntry =
+    entries?.openclawcode && typeof entries.openclawcode === "object"
+      ? (entries.openclawcode as Record<string, unknown>)
+      : undefined;
+  const openclawcodeConfig =
+    openclawcodeEntry?.config && typeof openclawcodeEntry.config === "object"
+      ? (openclawcodeEntry.config as Record<string, unknown>)
+      : undefined;
+  if (!openclawcodeConfig) {
+    return false;
+  }
+  const pluginConfig = resolveOpenClawCodePluginConfig(openclawcodeConfig);
+  return pluginConfig.feishuOperatorBinding?.mode === "scan";
+}
+
 // Build a session key for a broadcast target agent by replacing the agent ID prefix.
 // Session keys follow the format: agent:<agentId>:<channel>:<peerKind>:<peerId>
 export function buildBroadcastSessionKey(
@@ -588,6 +612,7 @@ export async function handleFeishuMessage(params: {
 
     if (isDirect && dmPolicy !== "open" && !dmAllowed && !bypassPairingForConfiguredSetup) {
       if (dmPolicy === "pairing") {
+        const useFeishuScanCode = isConfiguredOpenClawCodeFeishuScanMode(cfg);
         const hookRunner = getGlobalHookRunner();
         if (hookRunner?.hasHooks("inbound_claim")) {
           const claimResult = await hookRunner.runInboundClaim(
@@ -619,6 +644,25 @@ export async function handleFeishuMessage(params: {
             );
             return;
           }
+        }
+        if (useFeishuScanCode) {
+          log(
+            `feishu[${account.accountId}]: scan-code claim did not match for ${ctx.senderOpenId}`,
+          );
+          try {
+            await sendMessageFeishu({
+              cfg,
+              to: `chat:${ctx.chatId}`,
+              text:
+                "That code was not recognized or has expired. Use the latest one-time code shown during onboarding, then send it here again.",
+              accountId: account.accountId,
+            });
+          } catch (err) {
+            log(
+              `feishu[${account.accountId}]: scan-code mismatch reply failed for ${ctx.senderOpenId}: ${String(err)}`,
+            );
+          }
+          return;
         }
 
         const senderIdLine = `Your Feishu user id: ${ctx.senderOpenId}`;
