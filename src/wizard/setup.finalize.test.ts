@@ -550,11 +550,12 @@ describe("finalizeSetupWizard", () => {
 
   it("prints the delayed Feishu scan QR and one-time code in the onboarding terminal", async () => {
     const note = vi.fn(async () => {});
+    const select = vi.fn(async () => "later");
     const progressUpdate = vi.fn();
     const progressStop = vi.fn();
     const prompter = buildWizardPrompter({
       note,
-      select: vi.fn(async () => "later") as never,
+      select: select as never,
       confirm: vi.fn(async () => false),
       progress: vi.fn(() => ({ update: progressUpdate, stop: progressStop })),
     });
@@ -572,7 +573,16 @@ describe("finalizeSetupWizard", () => {
     });
 
     await finalizeSetupWizard(
-      createAdvancedFinalizeArgs({
+      {
+        flow: "advanced",
+        opts: {
+          acceptRisk: true,
+          authChoice: "skip",
+          installDaemon: false,
+          skipHealth: true,
+          skipUi: false,
+        },
+        baseConfig: {},
         nextConfig: {
           channels: {
             feishu: {},
@@ -589,13 +599,27 @@ describe("finalizeSetupWizard", () => {
             },
           },
         },
+        workspaceDir: "/tmp",
+        settings: {
+          port: 18789,
+          bind: "loopback",
+          authMode: "token",
+          gatewayToken: undefined,
+          tailscaleMode: "off",
+          tailscaleResetOnExit: false,
+        },
         prompter,
         runtime,
-      }),
+      },
     );
 
+    const tokenNoteIndex = note.mock.calls.findIndex((call) => call[1] === "Token");
+    const scanNoteIndex = note.mock.calls.findIndex((call) => call[1] === "Feishu scan-and-code");
     expect(progressUpdate).toHaveBeenCalledWith("Waiting for Feishu bot startup…");
     expect(progressStop).toHaveBeenCalledWith("Feishu scan-and-code ready.");
+    expect(tokenNoteIndex).toBeGreaterThanOrEqual(0);
+    expect(scanNoteIndex).toBeGreaterThan(tokenNoteIndex);
+    expect(note.mock.invocationCallOrder[scanNoteIndex]).toBeLessThan(select.mock.invocationCallOrder[0]);
     expect(note).toHaveBeenCalledWith(
       "Gateway and Feishu are ready. Scan the bot, then send the one-time code in a direct message.",
       "Feishu scan-and-code",

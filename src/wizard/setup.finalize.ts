@@ -394,12 +394,6 @@ export async function finalizeSetupWizard(
     }
   }
 
-  await waitForFeishuScanAndCodeReady({
-    cfg: nextConfig,
-    runtime,
-    prompter,
-  });
-
   const controlUiEnabled =
     nextConfig.gateway?.controlUi?.enabled ?? baseConfig.gateway?.controlUi?.enabled ?? true;
   if (!opts.skipUi && controlUiEnabled) {
@@ -491,6 +485,15 @@ export async function finalizeSetupWizard(
   let seededInBackground = false;
   let hatchChoice: "tui" | "web" | "later" | null = null;
   let launchedTui = false;
+  const shouldDisplayFeishuScanBeforeHatch = !opts.skipUi && gatewayProbe.ok;
+
+  if (!shouldDisplayFeishuScanBeforeHatch) {
+    await waitForFeishuScanAndCodeReady({
+      cfg: nextConfig,
+      runtime,
+      prompter,
+    });
+  }
 
   if (!opts.skipUi && gatewayProbe.ok) {
     if (hasBootstrap) {
@@ -517,6 +520,12 @@ export async function finalizeSetupWizard(
       ].join("\n"),
       "Token",
     );
+
+    await waitForFeishuScanAndCodeReady({
+      cfg: nextConfig,
+      runtime,
+      prompter,
+    });
 
     hatchChoice = await prompter.select({
       message: "How do you want to hatch your bot?",
