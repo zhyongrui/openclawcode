@@ -113,7 +113,7 @@ describe("feishu setup wizard", () => {
         if (message === "Enter Feishu App ID") {
           return "cli_from_prompt";
         }
-        if (message === "输入要绑定的飞书邮箱") {
+        if (message === "Enter your Feishu work email") {
           return initialValue ?? "owner@example.com";
         }
         if (message === "Group chat allowlist (chat_ids)") {
@@ -124,7 +124,7 @@ describe("feishu setup wizard", () => {
     );
     const select = vi.fn(
       async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-        if (message === "OpenClaw Code 飞书绑定方式") {
+        if (message === "How should we find you on Feishu?") {
           return "email";
         }
         if (message === "Feishu connection mode") {
@@ -167,16 +167,18 @@ describe("feishu setup wizard", () => {
       });
 
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("已检测到 openclawcode 的飞书联系方式直绑配置。"),
-        "绑定飞书操作员",
+        expect.stringContaining("OpenClaw will use this contact to find you on Feishu."),
+        "Find you on Feishu",
       );
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("邮箱: owner@example.com"),
-        "绑定飞书操作员",
+        expect.stringContaining("Work email: owner@example.com"),
+        "Find you on Feishu",
       );
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("当前已不再提供二维码绑定。"),
-        "绑定飞书操作员",
+        expect.stringContaining(
+          "After startup, OpenClaw will look up your open_id and send the first welcome message.",
+        ),
+        "Find you on Feishu",
       );
     } finally {
       if (previousStateDir === undefined) {
@@ -201,7 +203,7 @@ describe("feishu setup wizard", () => {
         if (message === "Enter Feishu App ID") {
           return "cli_from_prompt";
         }
-        if (message === "输入要绑定的飞书邮箱") {
+        if (message === "Enter your Feishu work email") {
           return initialValue ?? "owner@example.com";
         }
         if (message === "Group chat allowlist (chat_ids)") {
@@ -212,7 +214,7 @@ describe("feishu setup wizard", () => {
     );
     const select = vi.fn(
       async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-        if (message === "OpenClaw Code 飞书绑定方式") {
+        if (message === "How should we find you on Feishu?") {
           return "email";
         }
         if (message === "Feishu connection mode") {
@@ -257,6 +259,7 @@ describe("feishu setup wizard", () => {
                   openclawcode?: {
                     config?: {
                       feishuOperatorBinding?: {
+                        mode?: string;
                         email?: string;
                       };
                     };
@@ -265,13 +268,16 @@ describe("feishu setup wizard", () => {
               };
             };
           }
-        ).cfg?.plugins?.entries?.openclawcode?.config?.feishuOperatorBinding,
+      ).cfg?.plugins?.entries?.openclawcode?.config?.feishuOperatorBinding,
       ).toEqual({
+        mode: "email",
         email: "owner@example.com",
       });
       expect(note).toHaveBeenCalledWith(
-        expect.stringContaining("OpenClaw 启动后会自动查询该用户的 open_id"),
-        "绑定飞书操作员",
+        expect.stringContaining(
+          "After startup, OpenClaw will look up your open_id and send the first welcome message.",
+        ),
+        "Find you on Feishu",
       );
     } finally {
       if (previousStateDir === undefined) {
@@ -282,7 +288,7 @@ describe("feishu setup wizard", () => {
     }
   });
 
-  it("allows skipping direct binding and explains qr binding is no longer offered", async () => {
+  it("stores delayed scan mode without prompting for email or mobile", async () => {
     const note = vi.fn(async () => {});
     const text = vi
       .fn()
@@ -291,8 +297,8 @@ describe("feishu setup wizard", () => {
       .mockResolvedValueOnce("oc_group_1");
     const select = vi.fn(
       async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-        if (message === "OpenClaw Code 飞书绑定方式") {
-          return "skip";
+        if (message === "How should we find you on Feishu?") {
+          return "scan";
         }
         if (message === "Feishu connection mode") {
           return "websocket";
@@ -334,7 +340,9 @@ describe("feishu setup wizard", () => {
               entries?: {
                 openclawcode?: {
                   config?: {
-                    feishuOperatorBinding?: unknown;
+                    feishuOperatorBinding?: {
+                      mode?: string;
+                    };
                   };
                 };
               };
@@ -342,10 +350,18 @@ describe("feishu setup wizard", () => {
           };
         }
       ).cfg?.plugins?.entries?.openclawcode?.config?.feishuOperatorBinding,
-    ).toBeUndefined();
+    ).toEqual({
+      mode: "scan",
+    });
     expect(note).toHaveBeenCalledWith(
-      expect.stringContaining("OpenClaw Code 已不再提供二维码绑定。"),
-      "绑定飞书操作员",
+      expect.stringContaining(
+        "OpenClaw will wait until startup before showing the Feishu bot QR code and one-time code.",
+      ),
+      "Find you on Feishu",
+    );
+    expect(note).toHaveBeenCalledWith(
+      expect.stringContaining("This wizard will not show the QR code too early."),
+      "Find you on Feishu",
     );
   });
 
@@ -368,7 +384,7 @@ describe("feishu setup wizard", () => {
       .mockResolvedValueOnce("oc_group_1");
     const select = vi.fn(
       async ({ message, initialValue }: { message: string; initialValue?: string }) => {
-        if (message === "OpenClaw Code 飞书绑定方式") {
+        if (message === "How should we find you on Feishu?") {
           return "skip";
         }
         if (message === "Feishu connection mode") {
@@ -404,7 +420,7 @@ describe("feishu setup wizard", () => {
         runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
       });
 
-      expect(note).not.toHaveBeenCalledWith(expect.any(String), "绑定飞书操作员");
+      expect(note).not.toHaveBeenCalledWith(expect.any(String), "Find you on Feishu");
     } finally {
       if (previousStateDir === undefined) {
         delete process.env.OPENCLAW_STATE_DIR;

@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/routing";
+import qrcode from "qrcode-terminal";
 import { formatCliCommand } from "../../src/cli/command-format.js";
 import { readRequestBodyWithLimit } from "../../src/infra/http-body.js";
 import {
@@ -103,8 +104,18 @@ import {
   readProjectWorkItemInventory,
   writeProjectWorkItemInventory,
 } from "../../src/openclawcode/work-items.js";
-import { setPreferredOperatorChatTarget } from "../../src/operator-chat-targets/store.js";
+import {
+  buildFeishuBotOpenUrl,
+  claimPendingFeishuOperatorScanCode,
+  ensurePendingFeishuOperatorScanCode,
+  getPendingFeishuOperatorScanCode,
+} from "../../src/operator-chat-targets/feishu-scan-code.js";
+import {
+  getPreferredOperatorChatTarget,
+  setPreferredOperatorChatTarget,
+} from "../../src/operator-chat-targets/store.js";
 import { addChannelAllowFromStoreEntry } from "../../src/pairing/pairing-store.js";
+import { defaultRuntime } from "../../src/runtime.js";
 import {
   buildOnboardingRepoNameSuggestions,
   createOnboardingRepositoryViaGh,
@@ -120,7 +131,9 @@ import {
   type ResolvedOnboardingGitHubToken,
 } from "../../src/wizard/setup.code.js";
 import type { ClawdbotConfig } from "../feishu/runtime-api.js";
+import { inspectFeishuCredentials } from "../feishu/src/accounts.js";
 import { resolveFeishuUserOpenIdByContact } from "../feishu/src/contact-user-id.js";
+import type { FeishuConfig } from "../feishu/src/types.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
 const DEFAULT_RUN_TIMEOUT_MS = 30 * 60_000;
@@ -6434,6 +6447,141 @@ async function maybeAutoBindConfiguredFeishuOperator(params: {
   }
 }
 
+function renderQrAscii(data: string): Promise<string> {
+  return new Promise((resolve) => {
+    qrcode.generate(data, { small: true }, (output: string) => {
+      resolve(output);
+    });
+  });
+}
+
+async function announcePendingFeishuOperatorScanCode(params: {
+  api: OpenClawPluginApi;
+  code: string;
+}): Promise<void> {
+  const feishuCfg = params.api.config.channels?.feishu as FeishuConfig | undefined;
+  const creds = inspectFeishuCredentials(feishuCfg);
+  if (!creds?.appId) {
+    params.api.logger.warn(
+      "openclawcode could not render the delayed Feishu scan flow because channels.feishu.appId is unavailable",
+    );
+    return;
+  }
+
+  const botUrl = buildFeishuBotOpenUrl({
+    appId: creds.appId,
+    domain: creds.domain,
+  });
+  const lines = [
+    "Feishu scan-and-code fallback is ready.",
+    `Send this one-time code to the Feishu bot in a direct message: ${params.code}`,
+    `Bot link: ${botUrl}`,
+  ];
+  params.api.logger.info(lines.join("\n"));
+
+  if (!process.stdout.isTTY) {
+    return;
+  }
+
+  const qrAscii = await renderQrAscii(botUrl);
+  defaultRuntime.writeStdout(
+    [
+      "",
+      "Feishu scan-and-code fallback",
+      "Scan the bot QR code, then send the one-time code in a direct message.",
+      `Code: ${params.code}`,
+      "",
+      qrAscii.trimEnd(),
+      "",
+      `Bot link: ${botUrl}`,
+      "",
+    ].join("\n"),
+  );
+}
+
+async function maybePrepareDelayedFeishuOperatorScanCode(params: {
+  api: OpenClawPluginApi;
+  bindingConfig?: OpenClawCodeFeishuOperatorBindingConfig;
+}): Promise<void> {
+  const bindingConfig = params.bindingConfig;
+  if (bindingConfig?.mode !== "scan") {
+    return;
+  }
+  const accountId = bindingConfig.accountId?.trim() || DEFAULT_ACCOUNT_ID;
+  const stateDir = params.api.runtime.state.resolveStateDir();
+  const existingTarget = await getPreferredOperatorChatTarget({
+    stateDir,
+    channel: "feishu",
+    accountId,
+  });
+  if (existingTarget) {
+    return;
+  }
+
+  const pending =
+    (await getPendingFeishuOperatorScanCode({
+      stateDir,
+      accountId,
+    })) ??
+    (await ensurePendingFeishuOperatorScanCode({
+      stateDir,
+      accountId,
+    }));
+  await announcePendingFeishuOperatorScanCode({
+    api: params.api,
+    code: pending.code,
+  });
+}
+
+async function maybeClaimDelayedFeishuOperatorScanCode(params: {
+  api: OpenClawPluginApi;
+  store: OpenClawCodeChatopsStore;
+  bindingConfig?: OpenClawCodeFeishuOperatorBindingConfig;
+  event: {
+    channel?: string;
+    accountId?: string;
+    senderId?: string;
+    content: string;
+    isGroup: boolean;
+  };
+}): Promise<boolean> {
+  const bindingConfig = params.bindingConfig;
+  if (bindingConfig?.mode !== "scan") {
+    return false;
+  }
+  if (params.event.channel !== "feishu" || params.event.isGroup) {
+    return false;
+  }
+  const senderId = params.event.senderId?.trim();
+  if (!senderId) {
+    return false;
+  }
+
+  const accountId =
+    params.event.accountId?.trim() || bindingConfig.accountId?.trim() || DEFAULT_ACCOUNT_ID;
+  const stateDir = params.api.runtime.state.resolveStateDir();
+  const claim = await claimPendingFeishuOperatorScanCode({
+    stateDir,
+    accountId,
+    code: params.event.content,
+    openId: senderId,
+  });
+  if (claim.status !== "claimed") {
+    return false;
+  }
+
+  await finalizeFeishuOperatorBinding({
+    api: params.api,
+    store: params.store,
+    openId: senderId,
+    accountId,
+    source: "feishu-scan-code",
+    sendWelcomeMessage: bindingConfig.sendWelcomeMessage,
+    continueSetup: false,
+  });
+  return true;
+}
+
 async function sendIssueNotification(params: {
   api: OpenClawPluginApi;
   store: OpenClawCodeChatopsStore;
@@ -10851,6 +10999,23 @@ export default {
       },
     });
 
+    api.registerHook("inbound_claim", async (event) => {
+      const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
+      const claimed = await maybeClaimDelayedFeishuOperatorScanCode({
+        api,
+        store,
+        bindingConfig: pluginConfig.feishuOperatorBinding,
+        event: {
+          channel: event.channel,
+          accountId: event.accountId,
+          senderId: event.senderId,
+          content: event.content,
+          isGroup: event.isGroup,
+        },
+      });
+      return claimed ? { handled: true } : undefined;
+    });
+
     api.registerService({
       id: "openclawcode-runner",
       start: async () => {
@@ -10868,6 +11033,10 @@ export default {
         });
         workerActive = false;
         runnerReady = true;
+        await maybePrepareDelayedFeishuOperatorScanCode({
+          api,
+          bindingConfig: pluginConfig.feishuOperatorBinding,
+        });
         pollTimer = setInterval(() => {
           const currentPluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
           void processPendingSetupSessions(api, store).catch(() => undefined);

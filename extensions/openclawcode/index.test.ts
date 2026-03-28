@@ -28,9 +28,13 @@ import {
   getPreferredOperatorChatTarget,
   setPreferredOperatorChatTarget,
 } from "../../src/operator-chat-targets/store.js";
+import { getPendingFeishuOperatorScanCode } from "../../src/operator-chat-targets/feishu-scan-code.js";
 import { readChannelAllowFromStore } from "../../src/pairing/pairing-store.js";
 import type {
   OpenClawPluginCommandDefinition,
+  PluginHookInboundClaimEvent,
+  PluginHookInboundClaimResult,
+  PluginHookInboundClaimContext,
   OpenClawPluginService,
 } from "../../src/plugins/types.js";
 import { createMockServerResponse } from "../../src/test-utils/mock-http-response.js";
@@ -81,6 +85,13 @@ function createApi(params: {
   runtime: OpenClawPluginApi["runtime"];
   runCommandWithTimeout: ReturnType<typeof vi.fn>;
   registerCommand: (command: OpenClawPluginCommandDefinition) => void;
+  registerHook: (
+    events: string | string[],
+    handler: (
+      event: PluginHookInboundClaimEvent,
+      ctx: PluginHookInboundClaimContext,
+    ) => Promise<PluginHookInboundClaimResult | void> | PluginHookInboundClaimResult | void,
+  ) => void;
   registerHttpRoute: (params: {
     path: string;
     auth: "plugin" | "gateway";
@@ -101,7 +112,7 @@ function createApi(params: {
     runtime: params.runtime,
     logger: { info() {}, warn() {}, error() {} },
     registerTool() {},
-    registerHook() {},
+    registerHook: params.registerHook,
     registerHttpRoute: params.registerHttpRoute,
     registerChannel() {},
     registerGatewayMethod() {},
@@ -481,6 +492,13 @@ async function registerPluginFixture(params?: {
   const repoRoot =
     params?.repoRoot ?? (await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-plugin-repo-")));
   const commands = new Map<string, OpenClawPluginCommandDefinition>();
+  const hooks = new Map<
+    string,
+    (
+      event: PluginHookInboundClaimEvent,
+      ctx: PluginHookInboundClaimContext,
+    ) => Promise<PluginHookInboundClaimResult | void> | PluginHookInboundClaimResult | void
+  >();
   const runCommandWithTimeout = vi.fn();
   const runtime = createPluginRuntimeMock({
     state: {
@@ -544,6 +562,11 @@ async function registerPluginFixture(params?: {
       registerCommand(command) {
         commands.set(command.name, command);
       },
+      registerHook(events, handler) {
+        for (const event of Array.isArray(events) ? events : [events]) {
+          hooks.set(event, handler);
+        }
+      },
       registerHttpRoute(params) {
         routes.push(params);
         if (params.path === "/plugins/openclawcode/github") {
@@ -563,6 +586,7 @@ async function registerPluginFixture(params?: {
     pluginConfig,
     store: OpenClawCodeChatopsStore.fromStateDir(stateDir),
     commands,
+    hooks,
     route,
     routes,
     service,
@@ -4998,6 +5022,144 @@ describe("openclawcode extension", () => {
           }),
         );
       });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("creates a delayed Feishu scan code only after service start", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-scan-ready-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      config: {
+        channels: {
+          feishu: {
+            appId: "cli_scan_ready",
+            appSecret: "secret-value",
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        feishuOperatorBinding: {
+          mode: "scan",
+        },
+      },
+    });
+
+    try {
+      expect(
+        await getPendingFeishuOperatorScanCode({
+          stateDir: fixture.stateDir,
+          accountId: "default",
+        }),
+      ).toBeUndefined();
+
+      await fixture.service?.start({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      expect(mocked.resolveFeishuUserOpenIdByContact).not.toHaveBeenCalled();
+      await expect(
+        getPendingFeishuOperatorScanCode({
+          stateDir: fixture.stateDir,
+          accountId: "default",
+        }),
+      ).resolves.toMatchObject({
+        accountId: "default",
+        code: expect.stringMatching(/^[A-Z2-9]{6}$/),
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("claims a delayed Feishu scan code from an inbound DM and binds the sender", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-scan-claim-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      config: {
+        channels: {
+          feishu: {
+            appId: "cli_scan_claim",
+            appSecret: "secret-value",
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        feishuOperatorBinding: {
+          mode: "scan",
+        },
+      },
+    });
+
+    try {
+      await fixture.service?.start({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      const pending = await getPendingFeishuOperatorScanCode({
+        stateDir: fixture.stateDir,
+        accountId: "default",
+      });
+      const handler = fixture.hooks.get("inbound_claim");
+
+      expect(pending).toBeDefined();
+      expect(handler).toBeTypeOf("function");
+
+      await expect(
+        handler?.(
+          {
+            channel: "feishu",
+            accountId: "default",
+            senderId: "ou_scan_user",
+            content: pending?.code ?? "",
+            isGroup: false,
+          } as PluginHookInboundClaimEvent,
+          {
+            channelId: "feishu",
+            accountId: "default",
+            conversationId: "user:ou_scan_user",
+            senderId: "ou_scan_user",
+            messageId: "om_scan_claim",
+          },
+        ),
+      ).resolves.toEqual({ handled: true });
+
+      await expect(
+        getPreferredOperatorChatTarget({
+          stateDir: fixture.stateDir,
+          channel: "feishu",
+        }),
+      ).resolves.toMatchObject({
+        channel: "feishu",
+        target: "user:ou_scan_user",
+        source: "feishu-scan-code",
+      });
+      await expect(
+        readChannelAllowFromStore("feishu", { OPENCLAW_STATE_DIR: fixture.stateDir }, "default"),
+      ).resolves.toContain("ou_scan_user");
+      await expect(
+        getPendingFeishuOperatorScanCode({
+          stateDir: fixture.stateDir,
+          accountId: "default",
+        }),
+      ).resolves.toBeUndefined();
+      expect(mocked.runMessageAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "send",
+          params: expect.objectContaining({
+            channel: "feishu",
+            to: "user:ou_scan_user",
+            message: expect.stringContaining("我已经完成飞书绑定"),
+          }),
+        }),
+      );
     } finally {
       await cleanupPluginFixture(fixture);
     }

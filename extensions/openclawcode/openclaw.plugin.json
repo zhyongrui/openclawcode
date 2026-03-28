@@ -18,6 +18,7 @@
         "additionalProperties": false,
         "properties": {
           "accountId": { "type": "string" },
+          "mode": { "type": "string", "enum": ["email", "mobile", "scan"] },
           "email": { "type": "string" },
           "mobile": { "type": "string" },
           "sendWelcomeMessage": { "type": "boolean" }
@@ -81,7 +82,7 @@
     },
     "feishuOperatorBinding": {
       "label": "Feishu Operator Binding",
-      "help": "Optional fixed Feishu operator contact for automatic open_id lookup and proactive DM binding."
+      "help": "Optional Feishu operator discovery settings for contact lookup or delayed scan-and-code fallback."
     }
   }
 }

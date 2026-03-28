@@ -65,7 +65,14 @@ function hasOpenClawCodePluginEntry(cfg: OpenClawConfig): boolean {
 function resolveConfiguredFeishuOperatorContactBinding(params: {
   cfg: OpenClawConfig;
   accountId: string;
-}): { accountId?: string; email?: string; mobile?: string } | undefined {
+}):
+  | {
+      accountId?: string;
+      mode: "email" | "mobile" | "scan";
+      email?: string;
+      mobile?: string;
+    }
+  | undefined {
   const binding = (
     params.cfg.plugins?.entries?.openclawcode as
       | { config?: { feishuOperatorBinding?: Record<string, unknown> } }
@@ -78,13 +85,20 @@ function resolveConfiguredFeishuOperatorContactBinding(params: {
   if (accountId && accountId !== params.accountId) {
     return undefined;
   }
+  const mode =
+    normalizeString(binding.mode) === "scan"
+      ? "scan"
+      : normalizeString(binding.mode) === "mobile"
+        ? "mobile"
+        : "email";
   const email = normalizeString(binding.email);
   const mobile = normalizeString(binding.mobile);
-  if (!email && !mobile) {
+  if (!email && !mobile && mode !== "scan") {
     return undefined;
   }
   return {
     accountId,
+    mode: email ? "email" : mobile ? "mobile" : mode,
     email,
     mobile,
   };
@@ -94,6 +108,7 @@ function patchOpenClawCodeFeishuOperatorContactBinding(params: {
   cfg: OpenClawConfig;
   binding?: {
     accountId?: string;
+    mode?: "email" | "mobile" | "scan";
     email?: string;
     mobile?: string;
   };
@@ -117,6 +132,7 @@ function patchOpenClawCodeFeishuOperatorContactBinding(params: {
   if (params.binding) {
     existingConfig.feishuOperatorBinding = {
       ...(params.binding.accountId ? { accountId: params.binding.accountId } : {}),
+      ...(params.binding.mode ? { mode: params.binding.mode } : {}),
       ...(params.binding.email ? { email: params.binding.email } : {}),
       ...(params.binding.mobile ? { mobile: params.binding.mobile } : {}),
     };
@@ -153,14 +169,15 @@ async function promptFeishuOperatorContactBinding(params: {
     accountId: params.accountId,
   });
   const bindingMode = (await params.prompter.select({
-    message: "OpenClaw Code 飞书绑定方式",
+    message: "How should we find you on Feishu?",
     options: [
-      { value: "email", label: "邮箱（推荐）" },
-      { value: "mobile", label: "手机号" },
-      { value: "skip", label: "暂不绑定" },
+      { value: "email", label: "Work email (Recommended)" },
+      { value: "mobile", label: "Mobile number" },
+      { value: "scan", label: "Scan bot and send code" },
+      { value: "skip", label: "Skip for now" },
     ],
-    initialValue: existing?.email ? "email" : existing?.mobile ? "mobile" : "email",
-  })) as "email" | "mobile" | "skip";
+    initialValue: existing?.mode ?? (existing?.email ? "email" : existing?.mobile ? "mobile" : "email"),
+  })) as "email" | "mobile" | "scan" | "skip";
 
   if (bindingMode === "skip") {
     return patchOpenClawCodeFeishuOperatorContactBinding({
@@ -169,7 +186,18 @@ async function promptFeishuOperatorContactBinding(params: {
     });
   }
 
-  const message = bindingMode === "email" ? "输入要绑定的飞书邮箱" : "输入要绑定的飞书手机号";
+  if (bindingMode === "scan") {
+    return patchOpenClawCodeFeishuOperatorContactBinding({
+      cfg: params.cfg,
+      binding: {
+        ...(params.accountId !== DEFAULT_ACCOUNT_ID ? { accountId: params.accountId } : {}),
+        mode: "scan",
+      },
+    });
+  }
+
+  const message =
+    bindingMode === "email" ? "Enter your Feishu work email" : "Enter your Feishu mobile number";
   const initialValue = bindingMode === "email" ? existing?.email : existing?.mobile;
   const value = String(
     await params.prompter.text({
@@ -183,6 +211,7 @@ async function promptFeishuOperatorContactBinding(params: {
     cfg: params.cfg,
     binding: {
       ...(params.accountId !== DEFAULT_ACCOUNT_ID ? { accountId: params.accountId } : {}),
+      mode: bindingMode,
       ...(bindingMode === "email" ? { email: value } : { mobile: value }),
     },
   });
@@ -205,27 +234,37 @@ async function noteFeishuOperatorBinding(params: {
     accountId: params.accountId,
   });
   if (configuredContactBinding) {
-    const contactLabel = configuredContactBinding.email
-      ? `邮箱: ${configuredContactBinding.email}`
-      : `手机号: ${configuredContactBinding.mobile}`;
+    if (configuredContactBinding.mode === "scan") {
+      await params.prompter.note(
+        [
+          "OpenClaw will wait until startup before showing the Feishu bot QR code and one-time code.",
+          "This wizard will not show the QR code too early.",
+          "Once Gateway and Feishu are ready, scan the bot and send the code to finish setup.",
+        ].join("\n"),
+        "Find you on Feishu",
+      );
+      return;
+    }
+    const contactLabel =
+      configuredContactBinding.mode === "email"
+        ? `Work email: ${configuredContactBinding.email}`
+        : `Mobile number: ${configuredContactBinding.mobile}`;
     await params.prompter.note(
       [
-        "已检测到 openclawcode 的飞书联系方式直绑配置。",
+        "OpenClaw will use this contact to find you on Feishu.",
         contactLabel,
-        "当前已不再提供二维码绑定。",
-        "OpenClaw 启动后会自动查询该用户的 open_id，完成绑定，并主动发送欢迎消息。",
+        "After startup, OpenClaw will look up your open_id and send the first welcome message.",
       ].join("\n"),
-      "绑定飞书操作员",
+      "Find you on Feishu",
     );
     return;
   }
   await params.prompter.note(
     [
-      "当前未配置 openclawcode 的飞书联系方式直绑。",
-      "OpenClaw Code 已不再提供二维码绑定。",
-      "如果你希望 OpenClaw 主动给操作员发送欢迎消息和后续通知，请重新运行配置并填写飞书邮箱或手机号。",
+      "OpenClaw does not yet know how to find you on Feishu.",
+      "If you want it to send the first welcome message and later notifications, rerun setup and provide your work email, mobile number, or choose scan bot and send code.",
     ].join("\n"),
-    "绑定飞书操作员",
+    "Find you on Feishu",
   );
 }
 
@@ -296,7 +335,7 @@ async function noteFeishuCredentialHelp(
       "1) Go to Feishu Open Platform (open.feishu.cn)",
       "2) Create a self-built app",
       "3) Get App ID and App Secret from Credentials page",
-      "4) Enable required permissions: im:message, im:chat, contact:user.base:readonly",
+      "4) Enable required permissions: im:message, im:chat, contact:user.base:readonly, contact:user.id:readonly",
       "5) Publish the app or add it to a test group",
       "Tip: you can also set FEISHU_APP_ID / FEISHU_APP_SECRET env vars.",
       `Docs: ${formatDocsLink("/channels/feishu", "feishu")}`,
