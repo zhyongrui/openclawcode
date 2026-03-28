@@ -193,6 +193,8 @@ const {
   mockEnsureConfiguredBindingRouteReady,
   mockResolveBoundConversation,
   mockTouchBinding,
+  mockHookRunnerHasHooks,
+  mockHookRunnerRunInboundClaim,
 } = vi.hoisted(() => ({
   mockCreateFeishuReplyDispatcher: vi.fn(() => ({
     dispatcher: createReplyDispatcher(),
@@ -228,6 +230,8 @@ const {
   ),
   mockResolveBoundConversation: vi.fn(() => null as BoundConversation),
   mockTouchBinding: vi.fn(),
+  mockHookRunnerHasHooks: vi.fn(() => false),
+  mockHookRunnerRunInboundClaim: vi.fn(async () => undefined),
 }));
 
 vi.mock("./reply-dispatcher.js", () => ({
@@ -289,6 +293,13 @@ vi.mock("../../../src/infra/outbound/session-binding-service.js", () => ({
   }),
 }));
 
+vi.mock("../../../src/plugins/hook-runner-global.js", () => ({
+  getGlobalHookRunner: () => ({
+    hasHooks: mockHookRunnerHasHooks,
+    runInboundClaim: mockHookRunnerRunInboundClaim,
+  }),
+}));
+
 async function dispatchMessage(params: { cfg: ClawdbotConfig; event: FeishuMessageEvent }) {
   const runtime = createRuntimeEnv();
   await handleFeishuMessage({
@@ -315,6 +326,8 @@ describe("handleFeishuMessage ACP routing", () => {
     mockEnsureConfiguredBindingRouteReady.mockReset().mockResolvedValue({ ok: true });
     mockResolveBoundConversation.mockReset().mockReturnValue(null);
     mockTouchBinding.mockReset();
+    mockHookRunnerHasHooks.mockReset().mockReturnValue(false);
+    mockHookRunnerRunInboundClaim.mockReset().mockResolvedValue(undefined);
     mockResolveAgentRoute.mockReset().mockReturnValue({
       ...buildDefaultResolveRoute(),
       sessionKey: "agent:main:feishu:direct:ou_sender_1",
@@ -994,6 +1007,60 @@ describe("handleFeishuMessage command authorization", () => {
         accountId: "default",
       }),
     );
+    expect(mockFinalizeInboundContext).not.toHaveBeenCalled();
+    expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
+  });
+
+  it("skips the default pairing reply when an inbound claim handles the unauthorized DM", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(false);
+    mockReadAllowFromStore.mockResolvedValue([]);
+    mockHookRunnerHasHooks.mockReturnValue(true);
+    mockHookRunnerRunInboundClaim.mockResolvedValue({ handled: true });
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "pairing",
+          allowFrom: [],
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-scan-user",
+        },
+      },
+      message: {
+        message_id: "msg-claimed-flow",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "ABC123" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockHookRunnerRunInboundClaim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "feishu",
+        accountId: "default",
+        conversationId: "oc-dm",
+        senderId: "ou-scan-user",
+        content: "ABC123",
+        isGroup: false,
+      }),
+      expect.objectContaining({
+        channelId: "feishu",
+        accountId: "default",
+        conversationId: "oc-dm",
+        senderId: "ou-scan-user",
+      }),
+    );
+    expect(mockUpsertPairingRequest).not.toHaveBeenCalled();
+    expect(mockSendMessageFeishu).not.toHaveBeenCalled();
     expect(mockFinalizeInboundContext).not.toHaveBeenCalled();
     expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
   });

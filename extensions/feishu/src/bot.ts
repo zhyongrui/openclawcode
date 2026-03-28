@@ -31,6 +31,7 @@ import {
   buildPairingCommandRetryReply,
   buildPairingReply,
 } from "../../../src/pairing/pairing-messages.js";
+import { getGlobalHookRunner } from "../../../src/plugins/hook-runner-global.js";
 import { resolveFeishuRuntimeAccount } from "./accounts.js";
 import {
   checkBotMentioned,
@@ -587,6 +588,39 @@ export async function handleFeishuMessage(params: {
 
     if (isDirect && dmPolicy !== "open" && !dmAllowed && !bypassPairingForConfiguredSetup) {
       if (dmPolicy === "pairing") {
+        const hookRunner = getGlobalHookRunner();
+        if (hookRunner?.hasHooks("inbound_claim")) {
+          const claimResult = await hookRunner.runInboundClaim(
+            {
+              content: ctx.content,
+              body: ctx.content,
+              channel: "feishu",
+              accountId: account.accountId,
+              conversationId: ctx.chatId,
+              senderId: ctx.senderOpenId,
+              senderName: ctx.senderName,
+              threadId: ctx.threadId,
+              messageId: ctx.messageId,
+              isGroup: false,
+              commandAuthorized: shouldComputeCommandAuthorized ? false : undefined,
+              wasMentioned: ctx.mentionedBot,
+            },
+            {
+              channelId: "feishu",
+              accountId: account.accountId,
+              conversationId: ctx.chatId,
+              senderId: ctx.senderOpenId,
+              messageId: ctx.messageId,
+            },
+          );
+          if (claimResult?.handled) {
+            log(
+              `feishu[${account.accountId}]: inbound claim handled unauthorized DM from ${ctx.senderOpenId}`,
+            );
+            return;
+          }
+        }
+
         const senderIdLine = `Your Feishu user id: ${ctx.senderOpenId}`;
         const pairingResult = await pairing.upsertPairingRequest({
           id: ctx.senderOpenId,
