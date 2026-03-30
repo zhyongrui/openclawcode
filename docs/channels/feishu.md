@@ -73,6 +73,87 @@ Choose **Feishu**, then enter the App ID and App Secret.
 
 ---
 
+## openclawcode operator binding
+
+When the bundled `openclawcode` plugin is enabled, Feishu operator binding can
+be configured in three ways:
+
+- work email
+- mobile number
+- scan the bot and send a setup code
+
+Email and mobile are the preferred operator-discovery paths. Scan-code binding
+remains a fallback for environments where the operator cannot be resolved from
+contact data.
+
+After the operator is resolved to a Feishu `open_id`, OpenClaw should:
+
+1. persist the preferred operator target
+2. add the operator to the Feishu DM allowlist when pairing mode requires it
+3. optionally send exactly one proactive welcome message
+
+### Welcome-message dedupe design
+
+The proactive welcome message must be treated as a side effect of binding, not
+as part of the binding transaction itself. Binding success must not depend on
+whether the welcome message send succeeds.
+
+To avoid repeated greetings after restarts, retries, or mixed binding paths
+(email first, scan later), the welcome send should be guarded by a durable
+receipt store keyed by:
+
+- `channel`
+- `accountId`
+- `operatorTarget` such as `user:ou_xxx`
+- `templateId` such as `openclawcode.feishu.operator-welcome.v1`
+
+The binding source must not be part of the dedupe key. The same operator should
+not receive multiple "first welcome" messages just because the system learned
+their identity through a different path later.
+
+Each receipt should record:
+
+- `status`: `sending | sent | failed | unknown`
+- `source`
+- `firstAttemptAt`
+- `lastAttemptAt`
+- `sentAt`
+- `messageId`
+- `attemptCount`
+- `lastError`
+
+Recommended status rules:
+
+- `sent`: never auto-send this template again for the same operator target
+- `failed`: retry conservatively with backoff
+- `unknown`: assume the message may already have been delivered; do not
+  auto-retry
+
+`unknown` is important for crash safety. If the process dies after calling the
+send API but before persisting success, OpenClaw should prefer a possible missed
+greeting over a likely duplicate greeting.
+
+### Concurrency and retries
+
+Welcome receipts should be protected by the same kind of file-locking discipline
+used for other durable JSON state. This prevents duplicate sends when:
+
+- startup auto-binding is running
+- a scan-code claim arrives at the same time
+- multiple retries race after a transient Feishu error
+
+Only explicit `failed` states should be retried automatically, with conservative
+backoff. `unknown` should require manual intervention or an explicit resend
+action.
+
+### Migration rule
+
+Do not backfill welcome messages for historical bindings when the receipt store
+is introduced. Existing operator bindings should be treated as already adopted.
+Only new binding events should trigger the proactive welcome flow.
+
+---
+
 ## Step 1: Create a Feishu app
 
 ### 1. Open Feishu Open Platform
