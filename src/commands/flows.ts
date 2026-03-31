@@ -53,6 +53,7 @@ function formatFlowRows(flows: FlowRecord[], rich: boolean) {
   const header = [
     "Flow".padEnd(ID_PAD),
     "Shape".padEnd(SHAPE_PAD),
+    "Origin".padEnd(16),
     "Status".padEnd(STATUS_PAD),
     "Owner".padEnd(24),
     "Tasks".padEnd(14),
@@ -66,6 +67,7 @@ function formatFlowRows(flows: FlowRecord[], rich: boolean) {
       [
         shortToken(flow.flowId).padEnd(ID_PAD),
         flow.shape.padEnd(SHAPE_PAD),
+        truncate(flow.originKind?.replaceAll("_", " ") || "n/a", 16).padEnd(16),
         formatFlowStatusCell(flow.status, rich),
         truncate(flow.ownerSessionKey, 24).padEnd(24),
         counts.padEnd(14),
@@ -162,6 +164,8 @@ export async function flowsShowCommand(
     "Flow:",
     `flowId: ${flow.flowId}`,
     `shape: ${flow.shape}`,
+    `originKind: ${flow.originKind ?? "n/a"}`,
+    `originSessionKey: ${flow.originSessionKey ?? "n/a"}`,
     `status: ${flow.status}`,
     `notify: ${flow.notifyPolicy}`,
     `ownerSessionKey: ${flow.ownerSessionKey}`,

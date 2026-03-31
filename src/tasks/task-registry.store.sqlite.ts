@@ -9,6 +9,8 @@ import type { TaskDeliveryState, TaskRecord } from "./task-registry.types.js";
 type TaskRegistryRow = {
   task_id: string;
   runtime: TaskRecord["runtime"];
+  origin_kind: TaskRecord["originKind"] | null;
+  origin_session_key: string | null;
   source_id: string | null;
   requester_session_key: string;
   parent_flow_id: string | null;
@@ -90,6 +92,8 @@ function rowToTaskRecord(row: TaskRegistryRow): TaskRecord {
   return {
     taskId: row.task_id,
     runtime: row.runtime,
+    ...(row.origin_kind ? { originKind: row.origin_kind } : {}),
+    ...(row.origin_session_key ? { originSessionKey: row.origin_session_key } : {}),
     ...(row.source_id ? { sourceId: row.source_id } : {}),
     requesterSessionKey: row.requester_session_key,
     ...(row.parent_flow_id ? { parentFlowId: row.parent_flow_id } : {}),
@@ -128,6 +132,8 @@ function bindTaskRecord(record: TaskRecord) {
   return {
     task_id: record.taskId,
     runtime: record.runtime,
+    origin_kind: record.originKind ?? null,
+    origin_session_key: record.originSessionKey ?? null,
     source_id: record.sourceId ?? null,
     requester_session_key: record.requesterSessionKey,
     parent_flow_id: record.parentFlowId ?? null,
@@ -166,6 +172,8 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
       SELECT
         task_id,
         runtime,
+        origin_kind,
+        origin_session_key,
         source_id,
         requester_session_key,
         parent_flow_id,
@@ -202,6 +210,8 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
       INSERT INTO task_runs (
         task_id,
         runtime,
+        origin_kind,
+        origin_session_key,
         source_id,
         requester_session_key,
         parent_flow_id,
@@ -226,6 +236,8 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
       ) VALUES (
         @task_id,
         @runtime,
+        @origin_kind,
+        @origin_session_key,
         @source_id,
         @requester_session_key,
         @parent_flow_id,
@@ -250,6 +262,8 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
       )
       ON CONFLICT(task_id) DO UPDATE SET
         runtime = excluded.runtime,
+        origin_kind = excluded.origin_kind,
+        origin_session_key = excluded.origin_session_key,
         source_id = excluded.source_id,
         requester_session_key = excluded.requester_session_key,
         parent_flow_id = excluded.parent_flow_id,
@@ -295,6 +309,8 @@ function ensureSchema(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS task_runs (
       task_id TEXT PRIMARY KEY,
       runtime TEXT NOT NULL,
+      origin_kind TEXT,
+      origin_session_key TEXT,
       source_id TEXT,
       requester_session_key TEXT NOT NULL,
       parent_flow_id TEXT,
@@ -326,6 +342,8 @@ function ensureSchema(db: DatabaseSync) {
     );
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_task_runs_run_id ON task_runs(run_id);`);
+  ensureColumn(db, "task_runs", "origin_kind", "TEXT");
+  ensureColumn(db, "task_runs", "origin_session_key", "TEXT");
   ensureColumn(db, "task_runs", "parent_flow_id", "TEXT");
   db.exec(`CREATE INDEX IF NOT EXISTS idx_task_runs_status ON task_runs(status);`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_task_runs_runtime_status ON task_runs(runtime, status);`);

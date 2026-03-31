@@ -1,5 +1,5 @@
 import type { DeliveryContext } from "../utils/delivery-context.js";
-import type { TaskNotifyPolicy } from "./task-registry.types.js";
+import type { TaskNotifyPolicy, TaskOriginKind } from "./task-registry.types.js";
 
 export type FlowShape = "single_task" | "linear";
 
@@ -16,6 +16,8 @@ export type FlowStatus =
 export type FlowRecord = {
   flowId: string;
   shape: FlowShape;
+  originKind?: TaskOriginKind;
+  originSessionKey?: string;
   ownerSessionKey: string;
   requesterOrigin?: DeliveryContext;
   status: FlowStatus;

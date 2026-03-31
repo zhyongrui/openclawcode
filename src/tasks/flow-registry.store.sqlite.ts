@@ -9,6 +9,8 @@ import type { FlowRecord, FlowShape } from "./flow-registry.types.js";
 type FlowRegistryRow = {
   flow_id: string;
   shape: FlowShape | null;
+  origin_kind: FlowRecord["originKind"] | null;
+  origin_session_key: string | null;
   owner_session_key: string;
   requester_origin_json: string | null;
   status: FlowRecord["status"];
@@ -68,6 +70,8 @@ function rowToFlowRecord(row: FlowRegistryRow): FlowRecord {
   return {
     flowId: row.flow_id,
     shape: row.shape === "linear" ? "linear" : "single_task",
+    ...(row.origin_kind ? { originKind: row.origin_kind } : {}),
+    ...(row.origin_session_key ? { originSessionKey: row.origin_session_key } : {}),
     ownerSessionKey: row.owner_session_key,
     ...(requesterOrigin ? { requesterOrigin } : {}),
     status: row.status,
@@ -86,6 +90,8 @@ function bindFlowRecord(record: FlowRecord) {
   return {
     flow_id: record.flowId,
     shape: record.shape,
+    origin_kind: record.originKind ?? null,
+    origin_session_key: record.originSessionKey ?? null,
     owner_session_key: record.ownerSessionKey,
     requester_origin_json: serializeJson(record.requesterOrigin),
     status: record.status,
@@ -106,6 +112,8 @@ function createStatements(db: DatabaseSync): FlowRegistryStatements {
       SELECT
         flow_id,
         shape,
+        origin_kind,
+        origin_session_key,
         owner_session_key,
         requester_origin_json,
         status,
@@ -124,6 +132,8 @@ function createStatements(db: DatabaseSync): FlowRegistryStatements {
       INSERT INTO flow_runs (
         flow_id,
         shape,
+        origin_kind,
+        origin_session_key,
         owner_session_key,
         requester_origin_json,
         status,
@@ -138,6 +148,8 @@ function createStatements(db: DatabaseSync): FlowRegistryStatements {
       ) VALUES (
         @flow_id,
         @shape,
+        @origin_kind,
+        @origin_session_key,
         @owner_session_key,
         @requester_origin_json,
         @status,
@@ -152,6 +164,8 @@ function createStatements(db: DatabaseSync): FlowRegistryStatements {
       )
       ON CONFLICT(flow_id) DO UPDATE SET
         shape = excluded.shape,
+        origin_kind = excluded.origin_kind,
+        origin_session_key = excluded.origin_session_key,
         owner_session_key = excluded.owner_session_key,
         requester_origin_json = excluded.requester_origin_json,
         status = excluded.status,
@@ -174,6 +188,8 @@ function ensureSchema(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS flow_runs (
       flow_id TEXT PRIMARY KEY,
       shape TEXT NOT NULL,
+      origin_kind TEXT,
+      origin_session_key TEXT,
       owner_session_key TEXT NOT NULL,
       requester_origin_json TEXT,
       status TEXT NOT NULL,
@@ -188,6 +204,8 @@ function ensureSchema(db: DatabaseSync) {
     );
   `);
   ensureColumn(db, "flow_runs", "shape", "TEXT");
+  ensureColumn(db, "flow_runs", "origin_kind", "TEXT");
+  ensureColumn(db, "flow_runs", "origin_session_key", "TEXT");
   ensureColumn(db, "flow_runs", "blocked_task_id", "TEXT");
   ensureColumn(db, "flow_runs", "blocked_summary", "TEXT");
   db.exec(`CREATE INDEX IF NOT EXISTS idx_flow_runs_status ON flow_runs(status);`);

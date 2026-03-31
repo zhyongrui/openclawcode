@@ -41,6 +41,8 @@ const {
 const flowFixture = {
   flowId: "flow-12345678",
   shape: "linear",
+  originKind: "detached_session",
+  originSessionKey: "agent:main:main",
   ownerSessionKey: "agent:main:main",
   status: "waiting",
   notifyPolicy: "done_only",
@@ -110,6 +112,7 @@ describe("flows commands", () => {
 
     expect(runtimeLogs[0]).toContain("Flows: 1");
     expect(runtimeLogs[1]).toContain("Flow pressure: 0 active · 0 blocked · 1 total");
+    expect(runtimeLogs.join("\n")).toContain("detached session");
     expect(runtimeLogs.join("\n")).toContain("Process related PRs");
     expect(runtimeLogs.join("\n")).toContain("1 active/2 total");
   });
@@ -121,6 +124,8 @@ describe("flows commands", () => {
     await flowsShowCommand({ lookup: "flow-12345678" }, runtime);
 
     expect(runtimeLogs.join("\n")).toContain("shape: linear");
+    expect(runtimeLogs.join("\n")).toContain("originKind: detached_session");
+    expect(runtimeLogs.join("\n")).toContain("originSessionKey: agent:main:main");
     expect(runtimeLogs.join("\n")).toContain("currentStep: wait_for");
     expect(runtimeLogs.join("\n")).toContain("tasks: 2 total · 1 active · 0 issues");
     expect(runtimeLogs.join("\n")).toContain("task-12345678 running run-12345678 Review PR");

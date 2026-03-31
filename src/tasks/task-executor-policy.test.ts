@@ -37,11 +37,11 @@ describe("task-executor-policy", () => {
 
   it("formats terminal, followup, and progress messages", () => {
     const blockedTask = createTask({
+      originKind: "detached_session",
       status: "succeeded",
       terminalOutcome: "blocked",
       terminalSummary: "Needs login.",
       runId: "run-1234567890",
-      label: "ACP import",
     });
     const progressEvent: TaskEventRecord = {
       at: 10,
@@ -50,13 +50,13 @@ describe("task-executor-policy", () => {
     };
 
     expect(formatTaskTerminalMessage(blockedTask)).toBe(
-      "Background task blocked: ACP import (run run-1234). Needs login.",
+      "Background task blocked: Detached ACP session (run run-1234). Needs login.",
     );
     expect(formatTaskBlockedFollowupMessage(blockedTask)).toBe(
-      "Task needs follow-up: ACP import (run run-1234). Needs login.",
+      "Task needs follow-up: Detached ACP session (run run-1234). Needs login.",
     );
     expect(formatTaskStateChangeMessage(blockedTask, progressEvent)).toBe(
-      "Background task update: ACP import. No output for 60s.",
+      "Background task update: Detached ACP session. No output for 60s.",
     );
   });
 

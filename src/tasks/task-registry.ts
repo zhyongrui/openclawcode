@@ -373,6 +373,8 @@ function mergeExistingTaskForCreate(
   existing: TaskRecord,
   params: {
     requesterOrigin?: TaskDeliveryState["requesterOrigin"];
+    originKind?: TaskRecord["originKind"];
+    originSessionKey?: string;
     sourceId?: string;
     parentFlowId?: string;
     parentTaskId?: string;
@@ -396,6 +398,12 @@ function mergeExistingTaskForCreate(
   }
   if (params.sourceId?.trim() && !existing.sourceId?.trim()) {
     patch.sourceId = params.sourceId.trim();
+  }
+  if (params.originKind && !existing.originKind) {
+    patch.originKind = params.originKind;
+  }
+  if (params.originSessionKey?.trim() && !existing.originSessionKey?.trim()) {
+    patch.originSessionKey = params.originSessionKey.trim();
   }
   if (params.parentFlowId?.trim() && !existing.parentFlowId?.trim()) {
     patch.parentFlowId = params.parentFlowId.trim();
@@ -970,6 +978,8 @@ function ensureListener() {
 
 export function createTaskRecord(params: {
   runtime: TaskRuntime;
+  originKind?: TaskRecord["originKind"];
+  originSessionKey?: string;
   sourceId?: string;
   requesterSessionKey: string;
   requesterOrigin?: TaskDeliveryState["requesterOrigin"];
@@ -1009,6 +1019,8 @@ export function createTaskRecord(params: {
   const record: TaskRecord = {
     taskId,
     runtime: params.runtime,
+    originKind: params.originKind,
+    originSessionKey: params.originSessionKey?.trim() || undefined,
     sourceId: params.sourceId?.trim() || undefined,
     requesterSessionKey: params.requesterSessionKey,
     parentFlowId: params.parentFlowId?.trim() || undefined,

@@ -68,6 +68,7 @@ function formatTaskRows(tasks: TaskRecord[], rich: boolean) {
   const header = [
     "Task".padEnd(ID_PAD),
     "Kind".padEnd(RUNTIME_PAD),
+    "Origin".padEnd(16),
     "Status".padEnd(STATUS_PAD),
     "Delivery".padEnd(DELIVERY_PAD),
     "Run".padEnd(RUN_PAD),
@@ -86,6 +87,7 @@ function formatTaskRows(tasks: TaskRecord[], rich: boolean) {
     const line = [
       shortToken(task.taskId).padEnd(ID_PAD),
       task.runtime.padEnd(RUNTIME_PAD),
+      truncate(task.originKind?.replaceAll("_", " ") || "n/a", 16).padEnd(16),
       formatTaskStatusCell(task.status, rich),
       task.deliveryStatus.padEnd(DELIVERY_PAD),
       shortToken(task.runId, RUN_PAD).padEnd(RUN_PAD),
@@ -226,6 +228,8 @@ export async function tasksShowCommand(
     "Background task:",
     `taskId: ${task.taskId}`,
     `kind: ${task.runtime}`,
+    `originKind: ${task.originKind ?? "n/a"}`,
+    `originSessionKey: ${task.originSessionKey ?? "n/a"}`,
     `sourceId: ${task.sourceId ?? "n/a"}`,
     `status: ${task.status}`,
     `result: ${task.terminalOutcome ?? "n/a"}`,

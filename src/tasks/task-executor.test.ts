@@ -159,6 +159,8 @@ describe("task-executor", () => {
     await withTaskExecutorStateDir(async () => {
       const created = createRunningTaskRun({
         runtime: "subagent",
+        originKind: "detached_session",
+        originSessionKey: "agent:main:main",
         requesterSessionKey: "agent:main:main",
         childSessionKey: "agent:codex:subagent:child",
         runId: "run-executor-flow",
@@ -170,6 +172,8 @@ describe("task-executor", () => {
       expect(created.parentFlowId).toEqual(expect.any(String));
       expect(getFlowById(created.parentFlowId!)).toMatchObject({
         flowId: created.parentFlowId,
+        originKind: "detached_session",
+        originSessionKey: "agent:main:main",
         ownerSessionKey: "agent:main:main",
         status: "running",
         goal: "Write summary",

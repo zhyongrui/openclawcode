@@ -10,6 +10,8 @@ function createStoredFlow(): FlowRecord {
   return {
     flowId: "flow-restored",
     shape: "linear",
+    originKind: "detached_session",
+    originSessionKey: "agent:main:main",
     ownerSessionKey: "agent:main:main",
     status: "blocked",
     notifyPolicy: "done_only",
@@ -90,6 +92,8 @@ describe("flow-registry store runtime", () => {
       resetFlowRegistryForTests();
 
       const created = createFlowRecord({
+        originKind: "detached_session",
+        originSessionKey: "agent:main:main",
         ownerSessionKey: "agent:main:main",
         goal: "Persisted flow",
         status: "waiting",
@@ -101,6 +105,8 @@ describe("flow-registry store runtime", () => {
       expect(getFlowById(created.flowId)).toMatchObject({
         flowId: created.flowId,
         shape: "linear",
+        originKind: "detached_session",
+        originSessionKey: "agent:main:main",
         status: "waiting",
         currentStep: "ask_user",
       });

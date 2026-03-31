@@ -77,6 +77,8 @@ const {
 const taskFixture = {
   taskId: "task-12345678",
   runtime: "acp",
+  originKind: "detached_session",
+  originSessionKey: "agent:main:main",
   sourceId: "run-12345678",
   requesterSessionKey: "agent:main:main",
   childSessionKey: "agent:codex:acp:child",
@@ -166,6 +168,7 @@ describe("tasks commands", () => {
 
     expect(runtimeLogs[0]).toContain("Background tasks: 1");
     expect(runtimeLogs[1]).toContain("Task pressure: 0 queued · 1 running · 0 issues");
+    expect(runtimeLogs.join("\n")).toContain("detached session");
     expect(runtimeLogs.join("\n")).toContain("No output for 60s. It may be waiting for input.");
   });
 
@@ -175,6 +178,8 @@ describe("tasks commands", () => {
     await tasksShowCommand({ lookup: "run-12345678" }, runtime);
 
     expect(runtimeLogs.join("\n")).toContain("notify: state_changes");
+    expect(runtimeLogs.join("\n")).toContain("originKind: detached_session");
+    expect(runtimeLogs.join("\n")).toContain("originSessionKey: agent:main:main");
     expect(runtimeLogs.join("\n")).toContain(
       "progressSummary: No output for 60s. It may be waiting for input.",
     );

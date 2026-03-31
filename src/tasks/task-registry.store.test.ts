@@ -16,6 +16,8 @@ function createStoredTask(): TaskRecord {
   return {
     taskId: "task-restored",
     runtime: "acp",
+    originKind: "detached_session",
+    originSessionKey: "agent:main:main",
     sourceId: "run-restored",
     requesterSessionKey: "agent:main:main",
     childSessionKey: "agent:codex:acp:restored",
@@ -141,6 +143,8 @@ describe("task-registry store runtime", () => {
   it("persists parent flow linkage on task records", () => {
     const created = createTaskRecord({
       runtime: "acp",
+      originKind: "detached_session",
+      originSessionKey: "agent:main:main",
       requesterSessionKey: "agent:main:main",
       parentFlowId: "flow-123",
       runId: "run-linked",
@@ -153,6 +157,8 @@ describe("task-registry store runtime", () => {
 
     expect(findTaskByRunId("run-linked")).toMatchObject({
       taskId: created.taskId,
+      originKind: "detached_session",
+      originSessionKey: "agent:main:main",
       parentFlowId: "flow-123",
       task: "Linked task",
     });

@@ -81,6 +81,8 @@ function ensureSingleTaskFlow(params: {
 
 export function createQueuedTaskRun(params: {
   runtime: TaskRuntime;
+  originKind?: TaskRecord["originKind"];
+  originSessionKey?: string;
   sourceId?: string;
   requesterSessionKey: string;
   requesterOrigin?: TaskDeliveryState["requesterOrigin"];
@@ -341,6 +343,8 @@ export async function cancelFlowById(params: {
 
 export function createRunningTaskRun(params: {
   runtime: TaskRuntime;
+  originKind?: TaskRecord["originKind"];
+  originSessionKey?: string;
   sourceId?: string;
   requesterSessionKey: string;
   requesterOrigin?: TaskDeliveryState["requesterOrigin"];

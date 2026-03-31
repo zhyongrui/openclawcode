@@ -1,6 +1,7 @@
 import type { DeliveryContext } from "../utils/delivery-context.js";
 
 export type TaskRuntime = "subagent" | "acp" | "cli" | "cron";
+export type TaskOriginKind = "detached_session" | "spawned_task";
 
 export type TaskStatus =
   | "queued"
@@ -52,6 +53,8 @@ export type TaskDeliveryState = {
 export type TaskRecord = {
   taskId: string;
   runtime: TaskRuntime;
+  originKind?: TaskOriginKind;
+  originSessionKey?: string;
   sourceId?: string;
   requesterSessionKey: string;
   parentFlowId?: string;

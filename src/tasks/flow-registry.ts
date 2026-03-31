@@ -119,6 +119,8 @@ function persistFlowDelete(flowId: string) {
 
 export function createFlowRecord(params: {
   shape?: FlowShape;
+  originKind?: FlowRecord["originKind"];
+  originSessionKey?: string;
   ownerSessionKey: string;
   requesterOrigin?: FlowRecord["requesterOrigin"];
   status?: FlowStatus;
@@ -136,6 +138,8 @@ export function createFlowRecord(params: {
   const record: FlowRecord = {
     flowId: crypto.randomUUID(),
     shape: ensureFlowShape(params.shape),
+    originKind: params.originKind,
+    originSessionKey: params.originSessionKey?.trim() || undefined,
     ownerSessionKey: params.ownerSessionKey,
     ...(params.requesterOrigin ? { requesterOrigin: { ...params.requesterOrigin } } : {}),
     status: params.status ?? "queued",
@@ -156,6 +160,8 @@ export function createFlowRecord(params: {
 export function createFlowForTask(params: {
   task: Pick<
     TaskRecord,
+    | "originKind"
+    | "originSessionKey"
     | "requesterSessionKey"
     | "taskId"
     | "notifyPolicy"
@@ -183,6 +189,8 @@ export function createFlowForTask(params: {
     : undefined;
   return createFlowRecord({
     shape: "single_task",
+    originKind: params.task.originKind,
+    originSessionKey: params.task.originSessionKey?.trim() || undefined,
     ownerSessionKey: params.task.requesterSessionKey,
     requesterOrigin: params.requesterOrigin,
     status: terminalFlowStatus,

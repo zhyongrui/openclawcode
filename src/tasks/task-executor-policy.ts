@@ -14,7 +14,9 @@ function resolveTaskDisplayTitle(task: TaskRecord): string {
   return (
     task.label?.trim() ||
     (task.runtime === "acp"
-      ? "ACP background task"
+      ? task.originKind === "detached_session"
+        ? "Detached ACP session"
+        : "ACP background task"
       : task.runtime === "subagent"
         ? "Subagent task"
         : task.task.trim() || "Background task")
