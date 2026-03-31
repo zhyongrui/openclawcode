@@ -31,6 +31,10 @@ import { resolveOpenClawCodePluginConfig } from "../../../src/integrations/openc
 import {
   claimPendingFeishuOperatorScanCode,
 } from "../../../src/operator-chat-targets/feishu-scan-code.js";
+import {
+  hasFeishuOperatorWelcomeReceipt,
+  markFeishuOperatorWelcomeReceiptSent,
+} from "../../../src/operator-chat-targets/feishu-welcome-receipts.js";
 import { setPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 import { isBindPendingNotifyTarget } from "../../../src/openclawcode/operator-chat-targets.js";
 import { addChannelAllowFromStoreEntry } from "../../../src/pairing/pairing-store.js";
@@ -298,7 +302,7 @@ async function maybeHandleConfiguredOpenClawCodeFeishuScan(params: {
       return { status: claim.status };
     }
 
-    const binding = await setPreferredOperatorChatTarget({
+    await setPreferredOperatorChatTarget({
       stateDir,
       channel: "feishu",
       accountId,
@@ -315,12 +319,25 @@ async function maybeHandleConfiguredOpenClawCodeFeishuScan(params: {
         OPENCLAW_STATE_DIR: stateDir,
       },
     });
-    if ((bindingConfig.sendWelcomeMessage ?? true) && binding.status !== "existing") {
+    if (
+      (bindingConfig.sendWelcomeMessage ?? true) &&
+      !(await hasFeishuOperatorWelcomeReceipt({
+        stateDir,
+        accountId,
+        openId: params.senderOpenId,
+      }))
+    ) {
       await sendMessageFeishu({
         cfg: params.cfg,
         to: `chat:${params.chatId}`,
         text: buildOpenClawCodeFeishuScanWelcomeMessage(),
         accountId,
+      });
+      await markFeishuOperatorWelcomeReceiptSent({
+        stateDir,
+        accountId,
+        openId: params.senderOpenId,
+        source: "feishu-scan-code",
       });
     }
     return { status: "claimed" };

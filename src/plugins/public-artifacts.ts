@@ -63,6 +63,11 @@ export const BUNDLED_RUNTIME_SIDECAR_BASENAMES = assertUniqueValues(
 );
 
 export const GUARDED_EXTENSION_PUBLIC_SURFACE_BASENAMES = assertUniqueValues(
-  [...BUNDLED_RUNTIME_SIDECAR_BASENAMES, ...EXTRA_GUARDED_EXTENSION_PUBLIC_SURFACE_BASENAMES],
+  [
+    ...BUNDLED_RUNTIME_SIDECAR_BASENAMES,
+    ...EXTRA_GUARDED_EXTENSION_PUBLIC_SURFACE_BASENAMES.filter(
+      (basename) => !BUNDLED_RUNTIME_SIDECAR_BASENAMES.includes(basename),
+    ),
+  ],
   "guarded extension public surface basename",
 );

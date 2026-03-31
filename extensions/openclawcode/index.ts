@@ -113,6 +113,10 @@ import {
   summarizeFeishuOperatorScanCodeMessage,
 } from "../../src/operator-chat-targets/feishu-scan-code.js";
 import {
+  hasFeishuOperatorWelcomeReceipt,
+  markFeishuOperatorWelcomeReceiptSent,
+} from "../../src/operator-chat-targets/feishu-welcome-receipts.js";
+import {
   getPreferredOperatorChatTarget,
   setPreferredOperatorChatTarget,
 } from "../../src/operator-chat-targets/store.js";
@@ -235,6 +239,15 @@ function resolveChannelDmPolicy(
   }
   const dmPolicy = (channelConfig as { dmPolicy?: unknown }).dmPolicy;
   return typeof dmPolicy === "string" && dmPolicy.trim() ? dmPolicy.trim() : undefined;
+}
+
+function resolvePluginStateDir(api: OpenClawPluginApi): string {
+  const runtimeState = api.runtime as { state?: { resolveStateDir?: () => string } } | undefined;
+  const runtimeResolveStateDir = runtimeState?.state?.resolveStateDir;
+  if (typeof runtimeResolveStateDir === "function") {
+    return runtimeResolveStateDir();
+  }
+  return resolveStateDir(process.env, os.homedir);
 }
 
 function resolvePairingSenderIdFromNotifyTarget(target: string): string | undefined {
@@ -6363,7 +6376,7 @@ async function finalizeFeishuOperatorBinding(params: {
     return;
   }
   const target = `user:${openId}`;
-  const bindingResult = await setPreferredOperatorChatTarget({
+  await setPreferredOperatorChatTarget({
     stateDir,
     channel: "feishu",
     accountId,
@@ -6380,13 +6393,26 @@ async function finalizeFeishuOperatorBinding(params: {
       OPENCLAW_STATE_DIR: stateDir,
     },
   });
-  if ((params.sendWelcomeMessage ?? true) && bindingResult.status !== "existing") {
+  if (
+    (params.sendWelcomeMessage ?? true) &&
+    !(await hasFeishuOperatorWelcomeReceipt({
+      stateDir,
+      accountId,
+      openId,
+    }))
+  ) {
     try {
       await sendText({
         api: params.api,
         channel: "feishu",
         target,
         text: buildFeishuOperatorBindingWelcomeMessage(),
+      });
+      await markFeishuOperatorWelcomeReceiptSent({
+        stateDir,
+        accountId,
+        openId,
+        source: params.source,
       });
     } catch (error) {
       params.api.logger.warn(
@@ -7547,7 +7573,7 @@ export default {
   name: "OpenClawCode",
   description: "GitHub issue chatops adapter for the openclawcode workflow.",
   register(api: OpenClawPluginApi) {
-    const store = OpenClawCodeChatopsStore.fromStateDir(api.runtime.state.resolveStateDir());
+    const store = OpenClawCodeChatopsStore.fromStateDir(resolvePluginStateDir(api));
     const registerOpenClawCodeCommand = (command: OpenClawPluginCommandDefinition): void => {
       api.registerCommand(command);
       if (!command.name.startsWith("occode-")) {

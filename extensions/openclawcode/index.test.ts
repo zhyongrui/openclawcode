@@ -29,6 +29,10 @@ import {
   setPreferredOperatorChatTarget,
 } from "../../src/operator-chat-targets/store.js";
 import { getPendingFeishuOperatorScanCode } from "../../src/operator-chat-targets/feishu-scan-code.js";
+import {
+  getFeishuOperatorWelcomeReceipt,
+  markFeishuOperatorWelcomeReceiptSent,
+} from "../../src/operator-chat-targets/feishu-welcome-receipts.js";
 import { readChannelAllowFromStore } from "../../src/pairing/pairing-store.js";
 import type {
   OpenClawPluginCommandDefinition,
@@ -5009,6 +5013,16 @@ describe("openclawcode extension", () => {
             }),
           }),
         );
+        await expect(
+          getFeishuOperatorWelcomeReceipt({
+            stateDir: fixture.stateDir,
+            accountId: "default",
+            openId: "ou_owner_contact",
+          }),
+        ).resolves.toMatchObject({
+          openId: "ou_owner_contact",
+          source: "feishu-contact-binding",
+        });
         expect(mocked.runMessageAction).toHaveBeenCalledWith(
           expect.objectContaining({
             action: "send",
@@ -5018,6 +5032,89 @@ describe("openclawcode extension", () => {
               message: expect.stringContaining(
                 "OpenClaw Code setup is waiting for GitHub approval.",
               ),
+            }),
+          }),
+        );
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("retries the configured feishu welcome when the target already exists but no receipt was recorded", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-contact-retry-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      pluginConfigOverride: {
+        feishuOperatorBinding: {
+          email: "owner@example.com",
+        },
+      },
+    });
+    mocked.resolveFeishuUserOpenIdByContact.mockResolvedValue({
+      openId: "ou_owner_contact",
+      matchedBy: "email",
+      matchedValue: "owner@example.com",
+    });
+
+    try {
+      await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
+        await setPreferredOperatorChatTarget({
+          stateDir: fixture.stateDir,
+          channel: "feishu",
+          target: "user:ou_owner_contact",
+          source: "feishu-contact-binding",
+          replace: true,
+        });
+
+        mocked.runMessageAction.mockClear();
+        await fixture.service?.start({
+          config: {},
+          stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_owner_contact",
+              message: expect.stringContaining("我已经完成飞书绑定"),
+            }),
+          }),
+        );
+
+        await expect(
+          getFeishuOperatorWelcomeReceipt({
+            stateDir: fixture.stateDir,
+            accountId: "default",
+            openId: "ou_owner_contact",
+          }),
+        ).resolves.toMatchObject({
+          openId: "ou_owner_contact",
+        });
+
+        mocked.runMessageAction.mockClear();
+        await markFeishuOperatorWelcomeReceiptSent({
+          stateDir: fixture.stateDir,
+          accountId: "default",
+          openId: "ou_owner_contact",
+          source: "feishu-contact-binding",
+        });
+        await fixture.service?.start({
+          config: {},
+          stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        expect(mocked.runMessageAction).not.toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_owner_contact",
+              message: expect.stringContaining("我已经完成飞书绑定"),
             }),
           }),
         );
