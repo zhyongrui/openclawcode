@@ -32,6 +32,40 @@ export type EffectiveToolInventoryResult = {
   agentId: string;
   profile: string;
   groups: EffectiveToolInventoryGroup[];
+  assembly: EffectiveToolAssembly;
+};
+
+export type EffectiveToolAssemblyCounts = {
+  total: number;
+  core: number;
+  plugin: number;
+  channel: number;
+};
+
+export type EffectiveToolAssemblyContext = {
+  messageProvider?: string;
+  modelProvider?: string;
+  modelId?: string;
+  replyToMode?: "off" | "first" | "all";
+  senderIsOwner: boolean;
+};
+
+export type EffectiveToolAssemblyFlags = {
+  allowGatewaySubagentBinding: boolean;
+  requireExplicitMessageTarget: boolean;
+  disableMessageTool: boolean;
+};
+
+export type EffectiveToolAssembly = {
+  counts: EffectiveToolAssemblyCounts;
+  context: EffectiveToolAssemblyContext;
+  flags: EffectiveToolAssemblyFlags;
+};
+
+export type EffectiveToolSurfaceResult = EffectiveToolInventoryResult & {
+  workspaceDir: string;
+  agentDir: string;
+  tools: AnyAgentTool[];
 };
 
 export type ResolveEffectiveToolInventoryParams = {
@@ -59,6 +93,7 @@ export type ResolveEffectiveToolInventoryParams = {
   modelHasVision?: boolean;
   requireExplicitMessageTarget?: boolean;
   disableMessageTool?: boolean;
+  allowGatewaySubagentBinding?: boolean;
 };
 
 function resolveEffectiveToolLabel(tool: AnyAgentTool): string {
@@ -121,6 +156,84 @@ function disambiguateLabels(entries: EffectiveToolInventoryEntry[]): EffectiveTo
   });
 }
 
+function buildEffectiveToolInventoryGroups(
+  effectiveTools: AnyAgentTool[],
+): EffectiveToolInventoryGroup[] {
+  const entries = disambiguateLabels(
+    effectiveTools
+      .map((tool) => {
+        const source = resolveEffectiveToolSource(tool);
+        return {
+          id: tool.name,
+          label: resolveEffectiveToolLabel(tool),
+          description: summarizeToolDescription(tool),
+          rawDescription: resolveRawToolDescription(tool) || summarizeToolDescription(tool),
+          ...source,
+        } satisfies EffectiveToolInventoryEntry;
+      })
+      .toSorted((a, b) => a.label.localeCompare(b.label)),
+  );
+  const groupsBySource = new Map<EffectiveToolSource, EffectiveToolInventoryEntry[]>();
+  for (const entry of entries) {
+    const tools = groupsBySource.get(entry.source) ?? [];
+    tools.push(entry);
+    groupsBySource.set(entry.source, tools);
+  }
+
+  return (["core", "plugin", "channel"] as const)
+    .map((source) => {
+      const tools = groupsBySource.get(source);
+      if (!tools || tools.length === 0) {
+        return null;
+      }
+      return {
+        id: source,
+        label: groupLabel(source),
+        source,
+        tools,
+      } satisfies EffectiveToolInventoryGroup;
+    })
+    .filter((group): group is EffectiveToolInventoryGroup => group !== null);
+}
+
+function buildEffectiveToolAssembly(params: {
+  groups: EffectiveToolInventoryGroup[];
+  messageProvider?: string;
+  modelProvider?: string;
+  modelId?: string;
+  replyToMode?: "off" | "first" | "all";
+  senderIsOwner?: boolean;
+  requireExplicitMessageTarget?: boolean;
+  disableMessageTool?: boolean;
+  allowGatewaySubagentBinding?: boolean;
+}): EffectiveToolAssembly {
+  const counts: EffectiveToolAssemblyCounts = {
+    total: 0,
+    core: 0,
+    plugin: 0,
+    channel: 0,
+  };
+  for (const group of params.groups) {
+    counts[group.source] += group.tools.length;
+    counts.total += group.tools.length;
+  }
+  return {
+    counts,
+    context: {
+      ...(params.messageProvider?.trim() ? { messageProvider: params.messageProvider.trim() } : {}),
+      ...(params.modelProvider?.trim() ? { modelProvider: params.modelProvider.trim() } : {}),
+      ...(params.modelId?.trim() ? { modelId: params.modelId.trim() } : {}),
+      ...(params.replyToMode ? { replyToMode: params.replyToMode } : {}),
+      senderIsOwner: params.senderIsOwner === true,
+    },
+    flags: {
+      allowGatewaySubagentBinding: params.allowGatewaySubagentBinding !== false,
+      requireExplicitMessageTarget: params.requireExplicitMessageTarget === true,
+      disableMessageTool: params.disableMessageTool === true,
+    },
+  };
+}
+
 function resolveEffectiveModelCompat(params: {
   cfg: OpenClawConfig;
   agentDir: string;
@@ -139,9 +252,9 @@ function resolveEffectiveModelCompat(params: {
   }
 }
 
-export function resolveEffectiveToolInventory(
+export function resolveEffectiveToolSurface(
   params: ResolveEffectiveToolInventoryParams,
-): EffectiveToolInventoryResult {
+): EffectiveToolSurfaceResult {
   const agentId =
     params.agentId?.trim() ||
     resolveSessionAgentId({ sessionKey: params.sessionKey, config: params.cfg });
@@ -177,7 +290,7 @@ export function resolveEffectiveToolInventory(
     groupChannel: params.groupChannel ?? undefined,
     groupSpace: params.groupSpace ?? undefined,
     replyToMode: params.replyToMode,
-    allowGatewaySubagentBinding: true,
+    allowGatewaySubagentBinding: params.allowGatewaySubagentBinding !== false,
     modelHasVision: params.modelHasVision,
     requireExplicitMessageTarget: params.requireExplicitMessageTarget,
     disableMessageTool: params.disableMessageTool,
@@ -190,42 +303,30 @@ export function resolveEffectiveToolInventory(
     modelId: params.modelId,
   });
   const profile = effectivePolicy.providerProfile ?? effectivePolicy.profile ?? "full";
+  const groups = buildEffectiveToolInventoryGroups(effectiveTools);
+  const assembly = buildEffectiveToolAssembly({
+    groups,
+    messageProvider: params.messageProvider,
+    modelProvider: params.modelProvider,
+    modelId: params.modelId,
+    replyToMode: params.replyToMode,
+    senderIsOwner: params.senderIsOwner,
+    requireExplicitMessageTarget: params.requireExplicitMessageTarget,
+    disableMessageTool: params.disableMessageTool,
+    allowGatewaySubagentBinding: params.allowGatewaySubagentBinding,
+  });
 
-  const entries = disambiguateLabels(
-    effectiveTools
-      .map((tool) => {
-        const source = resolveEffectiveToolSource(tool);
-        return {
-          id: tool.name,
-          label: resolveEffectiveToolLabel(tool),
-          description: summarizeToolDescription(tool),
-          rawDescription: resolveRawToolDescription(tool) || summarizeToolDescription(tool),
-          ...source,
-        } satisfies EffectiveToolInventoryEntry;
-      })
-      .toSorted((a, b) => a.label.localeCompare(b.label)),
-  );
-  const groupsBySource = new Map<EffectiveToolSource, EffectiveToolInventoryEntry[]>();
-  for (const entry of entries) {
-    const tools = groupsBySource.get(entry.source) ?? [];
-    tools.push(entry);
-    groupsBySource.set(entry.source, tools);
-  }
+  return { agentId, workspaceDir, agentDir, tools: effectiveTools, profile, groups, assembly };
+}
 
-  const groups = (["core", "plugin", "channel"] as const)
-    .map((source) => {
-      const tools = groupsBySource.get(source);
-      if (!tools || tools.length === 0) {
-        return null;
-      }
-      return {
-        id: source,
-        label: groupLabel(source),
-        source,
-        tools,
-      } satisfies EffectiveToolInventoryGroup;
-    })
-    .filter((group): group is EffectiveToolInventoryGroup => group !== null);
-
-  return { agentId, profile, groups };
+export function resolveEffectiveToolInventory(
+  params: ResolveEffectiveToolInventoryParams,
+): EffectiveToolInventoryResult {
+  const surface = resolveEffectiveToolSurface(params);
+  return {
+    agentId: surface.agentId,
+    profile: surface.profile,
+    groups: surface.groups,
+    assembly: surface.assembly,
+  };
 }

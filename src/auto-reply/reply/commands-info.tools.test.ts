@@ -6,6 +6,26 @@ async function loadToolsHarness(options?: {
   resolveTools?: () => {
     agentId: string;
     profile: string;
+    assembly: {
+      counts: {
+        total: number;
+        core: number;
+        plugin: number;
+        channel: number;
+      };
+      context: {
+        messageProvider?: string;
+        modelProvider?: string;
+        modelId?: string;
+        replyToMode?: "off" | "first" | "all";
+        senderIsOwner: boolean;
+      };
+      flags: {
+        allowGatewaySubagentBinding: boolean;
+        requireExplicitMessageTarget: boolean;
+        disableMessageTool: boolean;
+      };
+    };
     groups: Array<{
       id: "core" | "plugin" | "channel";
       label: string;
@@ -38,6 +58,26 @@ async function loadToolsHarness(options?: {
         (() => ({
           agentId: "main",
           profile: "coding",
+          assembly: {
+            counts: {
+              total: 2,
+              core: 1,
+              plugin: 1,
+              channel: 0,
+            },
+            context: {
+              messageProvider: "telegram",
+              modelProvider: "openai",
+              modelId: "gpt-4.1",
+              replyToMode: "all" as const,
+              senderIsOwner: false,
+            },
+            flags: {
+              allowGatewaySubagentBinding: true,
+              requireExplicitMessageTarget: false,
+              disableMessageTool: false,
+            },
+          },
           groups: [
             {
               id: "core" as const,
@@ -122,6 +162,9 @@ describe("handleToolsCommand", () => {
 
     expect(result?.reply?.text).toContain("Available tools");
     expect(result?.reply?.text).toContain("Profile: coding");
+    expect(result?.reply?.text).toContain(
+      "Runtime: 2 total | 1 built-in | 1 plugin | 0 channel | channel=telegram | model=openai/gpt-4.1 | reply=all",
+    );
     expect(result?.reply?.text).toContain("Built-in tools");
     expect(result?.reply?.text).toContain("exec");
     expect(result?.reply?.text).toContain("Connected tools");
@@ -186,6 +229,7 @@ describe("handleToolsCommand", () => {
 
     expect(result?.reply?.text).toContain("What this agent can use right now:");
     expect(result?.reply?.text).toContain("Profile: coding");
+    expect(result?.reply?.text).toContain("Runtime: 2 total | 1 built-in | 1 plugin | 0 channel");
     expect(result?.reply?.text).toContain("Exec - Run shell commands");
     expect(result?.reply?.text).toContain("Docs Lookup - Search internal documentation");
   });

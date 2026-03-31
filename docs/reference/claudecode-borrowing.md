@@ -151,6 +151,39 @@ Expected benefit:
 
 Judgment: high-value to adapt.
 
+### Implementation status
+
+The first tool-surface adaptation slice is now in place in `openclawcode`.
+
+Implemented:
+
+- `resolveEffectiveToolSurface(...)` now assembles the runtime tool surface in
+  one place before projecting it into the existing inventory view
+- the effective tool result now includes `assembly` metadata describing:
+  - counts by source (`core`, `plugin`, `channel`, `total`)
+  - runtime context (`messageProvider`, `modelProvider`, `modelId`,
+    `replyToMode`, `senderIsOwner`)
+  - runtime flags (`allowGatewaySubagentBinding`,
+    `requireExplicitMessageTarget`, `disableMessageTool`)
+- the gateway `tools.effective` schema now exposes that runtime assembly data
+  to callers instead of only returning grouped tool names
+- `/tools` output now shows a compact runtime summary line so operators can see
+  which channel/model/profile context produced the current tool surface
+- the coding-tool assembly path now consistently honors the
+  `allowGatewaySubagentBinding` runtime switch during surface resolution
+
+Not implemented yet:
+
+- a dedicated operator UI for tool-source diffs across sessions or agents
+- rollout/preset management beyond the current policy- and profile-driven
+  assembly
+- a richer "why this tool is absent" explanation surface for denied or gated
+  capabilities
+
+This keeps the adaptation narrow and verifiable: establish one concrete
+runtime-assembly boundary first, then layer stronger rollout and comparison UX
+on top of it.
+
 ---
 
 ## 2. Backgrounding the current session
@@ -209,6 +242,33 @@ Expected benefit:
 - a clearer path toward "continue working while the previous thing finishes"
 
 Judgment: very high-value to adapt.
+
+### Implementation status
+
+The first adaptation slice is now in place in `openclawcode`.
+
+Implemented:
+
+- `TaskRecord` and `FlowRecord` now carry `originKind` and
+  `originSessionKey`
+- ACP-created detached/background runs stamp themselves as
+  `originKind: "detached_session"`
+- task and flow persistence stores preserve that metadata
+- operator-facing `tasks` and `flows` commands now show origin metadata
+- detached ACP runs now render with a clearer default label,
+  `"Detached ACP session"`
+
+Not implemented yet:
+
+- a top-level "background this current foreground session" user command
+- session transcript handoff and recovery UX matching ClaudeCode's
+  `LocalMainSessionTask` pattern
+- completion-routing behavior that depends on whether a detached task was
+  later reattached
+
+This keeps the first step deliberately narrow: make detached-session provenance
+durable and inspectable first, then build the foreground-to-background
+interaction on top of that stable substrate.
 
 ---
 
@@ -433,6 +493,273 @@ cares about, but it is also a warning sign.
 `openclawcode` should not grow a similarly oversized global state hub unless
 there is no better boundary available.
 
+---
+
+## 7. Kairos assistant mode
+
+### ClaudeCode
+
+`Kairos` is not just a flag. In the visible snapshot it acts like an
+assistant-mode policy bundle layered across several subsystems:
+
+- main-thread activation and trust gating in `ClaudeCode/src/main.tsx`
+- cron scheduling and durable reminder behavior in
+  `ClaudeCode/src/tools/ScheduleCronTool/prompt.ts`
+- fire-and-forget slash-command execution in
+  `ClaudeCode/src/utils/processUserInput/processSlashCommand.tsx`
+- background bash budgeting and responsiveness hints in
+  `ClaudeCode/src/tools/BashTool/BashTool.tsx`
+
+What matters is the product shape:
+
+- long-running work is pushed off the foreground path
+- scheduled/proactive work can continue without blocking the operator
+- completion is routed back into the main conversation loop
+- "assistant mode" changes runtime behavior coherently instead of as a bag of
+  unrelated toggles
+
+### openclawcode
+
+`openclawcode` already has several ingredients that overlap with this:
+
+- durable tasks and flows
+- cron and gateway control surfaces
+- chat-native workflow delivery
+- blueprint/work-item/workflow orchestration
+
+What it does not yet present as clearly is a single operator-facing mode that
+means:
+
+- keep making progress in the background
+- schedule or defer follow-up work safely
+- re-surface results through one consistent inbox/status path
+
+### Recommendation
+
+Borrow the assistant-mode product contract, not the feature-flag plumbing.
+
+Concrete direction:
+
+- define an `openclawcode` "autonomous execution mode" above existing tasks,
+  flows, and cron
+- let that mode opt into background-first execution for long-running work
+- route all deferred completions back through the existing operator status and
+  notification surfaces
+- keep the policy explicit and inspectable instead of scattering it across
+  unrelated booleans
+
+Do not borrow:
+
+- ClaudeCode's GrowthBook/feature-gate wiring
+- hidden environment-variable behavior as a primary control plane
+- any assumption that assistant mode should live in one giant bootstrap path
+
+Expected benefit:
+
+- clearer autonomous-product behavior
+- better responsiveness under long-running or scheduled work
+- a cleaner path from blueprint-first orchestration to "keep going unless a
+  human intervenes"
+
+Judgment: high-value to adapt at the product-policy layer.
+
+### Claim review
+
+The broad takeaway is directionally right, but several headline claims are too
+loose unless they are tightened to what the snapshot actually shows.
+
+What the code clearly supports:
+
+- `Kairos` is a real assistant-mode concept with explicit activation and
+  trust-gating in `ClaudeCode/src/main.tsx`
+- autonomous/proactive prompting is real:
+  - the model is told it will receive `<tick>` prompts
+  - it is told to use `Sleep` when idle
+  - it is told to stay responsive while continuing background work
+- assistant-mode bash auto-backgrounding is real:
+  - `ClaudeCode/src/tools/BashTool/BashTool.tsx` sets an
+    `ASSISTANT_BLOCKING_BUDGET_MS` of `15_000`
+  - commands exceeding that budget can be moved to the background
+- memory consolidation is real:
+  - `autoDream` exists
+  - it runs as a forked/backgrounded agent
+  - default thresholds are `24` hours and `5` sessions
+- `MEMORY.md` line/byte caps are real:
+  - `ClaudeCode/src/memdir/memdir.ts` sets `MAX_ENTRYPOINT_LINES = 200`
+  - the system truncates overlong entrypoints when loading them
+- assistant-mode or Kairos-gated tools for user-facing output are real at the
+  registration layer:
+  - `SendUserFileTool`
+  - `PushNotificationTool`
+  - `SubscribePRTool`
+
+What is overstated or needs caution:
+
+- "7x24 always-on AI Jarvis" is an interpretation, not a literal guarantee in
+  the visible code. The snapshot shows autonomous/proactive loops and
+  scheduling primitives, but not enough host/service infrastructure to prove a
+  universal always-on deployment model by itself.
+- "the system gives it a heartbeat and it decides whether to act" is mostly
+  fair, but the visible prompt contract is `<tick>`-driven proactive behavior,
+  not a single standalone daemon design document.
+- "it will optimize your code while you sleep" overreaches. The prompt
+  explicitly says the first wake-up should greet the user and ask what to work
+  on, not start changing code unprompted.
+- "it maintains a 200-line MEMORY.md" is directionally right but imprecise:
+  the code enforces a 200-line load cap and separately describes nightly
+  distillation from append-only logs into `MEMORY.md` and topic files.
+- "it has three tools that can proactively message the user" is only partially
+  verified from this snapshot. Tool registration is visible, but the actual
+  tool implementations are not present in the uploaded tree, so exact behavior
+  should not be overstated from registration alone.
+
+Borrowing conclusion for `openclawcode`:
+
+- borrow the explicit autonomous-mode contract
+- borrow the tick/sleep/background-budget interaction model
+- borrow memory-maintenance as a bounded background task
+- do not borrow the exaggerated product narrative without matching operator
+  controls, trust boundaries, and observability
+
+---
+
+## 8. Multi-agent coordination and swarm model
+
+### ClaudeCode
+
+The strongest part of the snapshot is not merely "multiple agents exist." It is
+that the system defines explicit coordination rules across:
+
+- a coordinator role in `ClaudeCode/src/coordinator/coordinatorMode.ts`
+- in-process subagent identity and isolation in
+  `ClaudeCode/src/utils/agentContext.ts`
+- in-process teammate execution in
+  `ClaudeCode/src/utils/swarm/inProcessRunner.ts`
+- permission bridging in
+  `ClaudeCode/src/utils/swarm/permissionSync.ts`
+- multiple backends for teammates in
+  `ClaudeCode/src/utils/swarm/backends/*`
+- file-backed team state in
+  `ClaudeCode/src/utils/swarm/teamHelpers.ts`
+
+The high-value ideas are:
+
+- coordinator vs worker separation is explicit
+- delegation discipline is encoded in prompts and tool filtering
+- concurrent workers have isolated identity and attribution
+- permission prompts are bridged back to the leader instead of becoming
+  ungoverned worker side effects
+- the system distinguishes cheap in-process workers from heavier pane/process
+  teammates
+
+### openclawcode
+
+`openclawcode` is already directionally aligned at the product level:
+
+- planner/coder/reviewer/verifier role routing already exists in docs and
+  workflow artifacts
+- subagent runtime, task registry, flow registry, and channel delivery already
+  exist
+- multi-agent isolation at the gateway/agent level is stronger than the
+  ClaudeCode swarm snapshot
+
+The main missing piece is not "spawn more agents." It is a firmer orchestration
+contract for:
+
+- when to fan out research
+- when writes must serialize
+- how role outputs are handed back to a coordinator
+- how approvals and delivery stay centralized while workers remain isolated
+
+### Recommendation
+
+Borrow the orchestration contract, not the swarm shell.
+
+Concrete direction:
+
+- add a first-class coordinator/worker execution policy for `openclawcode`
+  workflows
+- encode role-specific fan-out rules:
+  - planner/research can parallelize
+  - code edits serialize by write scope
+  - verifier stays independent from builder reasoning
+- carry worker identity and lineage through task/flow artifacts
+- centralize approvals, operator messaging, and policy decisions at the
+  coordinator layer
+- prefer the existing durable task/flow model over tmux-pane or ad hoc team
+  file orchestration
+
+Do not borrow:
+
+- tmux/iTerm-specific swarm UX as a core dependency
+- file-based team membership as the primary execution substrate
+- a second parallel orchestration stack beside `openclawcode` workflows
+
+Expected benefit:
+
+- better parallelism without losing operator control
+- clearer separation of planner/coder/verifier responsibilities
+- a realistic path to the intended blueprint-first multi-agent product
+
+Judgment: very high-value to adapt conceptually, low-value to transplant
+literally.
+
+### Claim review
+
+The multi-agent interpretation is substantially correct, and the strongest
+evidence is in the coordinator prompt plus the teammate/subagent execution
+stack.
+
+What the code clearly supports:
+
+- `Coordinator Mode` is explicit and prompt-driven in
+  `ClaudeCode/src/coordinator/coordinatorMode.ts`
+- the system defines a concrete four-part work shape:
+  - research
+  - synthesis
+  - implementation
+  - verification
+- the prompt explicitly says:
+  - workers are async
+  - independent work should be launched concurrently
+  - "Parallelism is your superpower"
+- worker identity and isolation are explicit:
+  - subagent identity uses AsyncLocalStorage in
+    `ClaudeCode/src/utils/agentContext.ts`
+  - teammates can run in-process or via pane/process backends
+- permission escalation from workers back to the leader is explicit in
+  `ClaudeCode/src/utils/swarm/permissionSync.ts`
+- remote long-horizon planning is real:
+  - `ultraplan` launches a remote session
+  - the visible timeout constant is `30 * 60 * 1000`
+  - the poller watches remote session state and feeds results back into the
+    local session
+
+What is overstated or needs caution:
+
+- "AI指挥 AI 干活" is fair as shorthand, but the snapshot shows an
+  operator-supervised orchestration model, not an unconstrained autonomous
+  swarm.
+- `ULTRAPLAN` is not just "think very hard for 30 minutes." The visible code
+  shows a remote planning session with approval/polling/teleport behavior and
+  specific browser-session workflow, not a generic deep-thought black box.
+- "project manager + development team one-body" is directionally useful as a
+  metaphor, but the implementation is still heavily mediated by tool policy,
+  prompt rules, and leader-controlled approvals.
+
+Borrowing conclusion for `openclawcode`:
+
+- borrow the explicit coordinator/worker contract
+- borrow the phase discipline:
+  - parallel research
+  - coordinator synthesis
+  - scoped implementation
+  - independent verification
+- borrow lineage and permission-bridge concepts
+- borrow remote deep-planning as a specialized capability only if it reuses
+  `openclawcode`'s existing task/flow/runtime substrate
+- do not borrow tmux/team-file swarm mechanics as the core execution model
+
 ## Direct code lifts
 
 Do not directly transplant code from the uploaded `ClaudeCode/src` snapshot.
@@ -453,12 +780,14 @@ Reasons:
 - foreground session -> background task UX
 - tool-pool assembly and visibility
 - bridge and remote-control subsystem boundaries
+- coordinator/worker orchestration rules
 
 ## Tier 2: should borrow selectively
 
 - history ergonomics
 - detached session resume presentation
 - operator-facing ability/mode presentation
+- assistant-mode policy bundling
 
 ## Tier 3: should mostly ignore
 
@@ -525,6 +854,41 @@ Target in `openclawcode`:
 - current-session-first recall
 - better handling of large pasted payload references
 
+## E. Add an explicit coordinator execution layer
+
+Target in `openclawcode`:
+
+- one orchestration surface that owns fan-out, role routing, approval routing,
+  and worker-result synthesis
+
+Reuse:
+
+- role-routing artifacts
+- task and flow registries
+- existing planner/coder/verifier workflow stages
+
+Do not add:
+
+- tmux-backed team state as a product dependency
+- a second worker/task abstraction unrelated to workflow runs
+
+## F. Add an autonomous-mode policy bundle
+
+Target in `openclawcode`:
+
+- one explicit mode that turns on background-first execution, deferred result
+  delivery, and safe scheduled follow-up behavior
+
+Reuse:
+
+- cron
+- task/flow delivery
+- operator inbox and status views
+
+Do not add:
+
+- hidden feature-flag-only behavior with weak operator visibility
+
 ---
 
 ## Final judgment
@@ -537,6 +901,9 @@ The strongest borrowable ideas are:
 - make active capabilities easier to assemble and inspect
 - let the operator background the current session as a first-class workflow
 - make remote and bridge lifecycles more explicit subsystems
+- make coordinator/worker orchestration rules explicit
+- bundle autonomous/background behavior into a visible mode instead of
+  scattered toggles
 
 The strongest reason not to over-borrow is that `openclawcode` is already ahead
 in the two hardest foundations:
@@ -549,4 +916,3 @@ The right strategy is therefore:
 1. keep `openclawcode`'s foundation
 2. borrow `ClaudeCode`'s operator ergonomics
 3. avoid direct implementation transplants
-

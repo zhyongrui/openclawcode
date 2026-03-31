@@ -22,6 +22,22 @@ vi.mock("../../agents/tools-effective-inventory.js", () => ({
   resolveEffectiveToolInventory: vi.fn(() => ({
     agentId: "main",
     profile: "coding",
+    assembly: {
+      counts: {
+        total: 1,
+        core: 1,
+        plugin: 0,
+        channel: 0,
+      },
+      context: {
+        senderIsOwner: false,
+      },
+      flags: {
+        allowGatewaySubagentBinding: true,
+        requireExplicitMessageTarget: false,
+        disableMessageTool: false,
+      },
+    },
     groups: [
       {
         id: "core",
@@ -170,6 +186,14 @@ describe("tools.effective handler", () => {
     expect(call?.[1]).toMatchObject({
       agentId: "main",
       profile: "coding",
+      assembly: {
+        counts: {
+          total: 1,
+          core: 1,
+          plugin: 0,
+          channel: 0,
+        },
+      },
       groups: [
         {
           id: "core",

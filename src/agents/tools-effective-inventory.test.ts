@@ -112,6 +112,22 @@ describe("resolveEffectiveToolInventory", () => {
           ],
         },
       ],
+      assembly: {
+        counts: {
+          total: 3,
+          core: 1,
+          plugin: 1,
+          channel: 1,
+        },
+        context: {
+          senderIsOwner: false,
+        },
+        flags: {
+          allowGatewaySubagentBinding: true,
+          requireExplicitMessageTarget: false,
+          disableMessageTool: false,
+        },
+      },
     });
   });
 
@@ -131,6 +147,7 @@ describe("resolveEffectiveToolInventory", () => {
     const labels = result.groups.flatMap((group) => group.tools.map((tool) => tool.label));
 
     expect(labels).toEqual(["Lookup (docs)", "Lookup (jira)"]);
+    expect(result.assembly.counts.plugin).toBe(2);
   });
 
   it("prefers displaySummary over raw description", async () => {
@@ -185,6 +202,7 @@ describe("resolveEffectiveToolInventory", () => {
     const result = resolveEffectiveToolInventory({ cfg: {} });
 
     expect(result.profile).toBe("coding");
+    expect(result.assembly.context.senderIsOwner).toBe(false);
   });
 
   it("passes resolved model compat into effective tool creation", async () => {
@@ -209,5 +227,44 @@ describe("resolveEffectiveToolInventory", () => {
         modelCompat: { supportsTools: true, supportsNativeWebSearch: true },
       }),
     );
+  });
+
+  it("surfaces effective runtime context flags in the assembly metadata", async () => {
+    const { resolveEffectiveToolInventory } = await loadHarness({
+      tools: [{ name: "exec", label: "Exec", description: "Run shell commands" }],
+    });
+
+    const result = resolveEffectiveToolInventory({
+      cfg: {},
+      messageProvider: "telegram",
+      modelProvider: "openai",
+      modelId: "gpt-5.4",
+      replyToMode: "first",
+      senderIsOwner: true,
+      requireExplicitMessageTarget: true,
+      disableMessageTool: true,
+      allowGatewaySubagentBinding: false,
+    });
+
+    expect(result.assembly).toEqual({
+      counts: {
+        total: 1,
+        core: 1,
+        plugin: 0,
+        channel: 0,
+      },
+      context: {
+        messageProvider: "telegram",
+        modelProvider: "openai",
+        modelId: "gpt-5.4",
+        replyToMode: "first",
+        senderIsOwner: true,
+      },
+      flags: {
+        allowGatewaySubagentBinding: false,
+        requireExplicitMessageTarget: true,
+        disableMessageTool: true,
+      },
+    });
   });
 });

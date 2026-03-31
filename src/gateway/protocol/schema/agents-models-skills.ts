@@ -332,11 +332,53 @@ export const ToolsEffectiveGroupSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const ToolsEffectiveAssemblyCountsSchema = Type.Object(
+  {
+    total: Type.Integer({ minimum: 0 }),
+    core: Type.Integer({ minimum: 0 }),
+    plugin: Type.Integer({ minimum: 0 }),
+    channel: Type.Integer({ minimum: 0 }),
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsEffectiveAssemblyContextSchema = Type.Object(
+  {
+    messageProvider: Type.Optional(NonEmptyString),
+    modelProvider: Type.Optional(NonEmptyString),
+    modelId: Type.Optional(NonEmptyString),
+    replyToMode: Type.Optional(
+      Type.Union([Type.Literal("off"), Type.Literal("first"), Type.Literal("all")]),
+    ),
+    senderIsOwner: Type.Boolean(),
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsEffectiveAssemblyFlagsSchema = Type.Object(
+  {
+    allowGatewaySubagentBinding: Type.Boolean(),
+    requireExplicitMessageTarget: Type.Boolean(),
+    disableMessageTool: Type.Boolean(),
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsEffectiveAssemblySchema = Type.Object(
+  {
+    counts: ToolsEffectiveAssemblyCountsSchema,
+    context: ToolsEffectiveAssemblyContextSchema,
+    flags: ToolsEffectiveAssemblyFlagsSchema,
+  },
+  { additionalProperties: false },
+);
+
 export const ToolsEffectiveResultSchema = Type.Object(
   {
     agentId: NonEmptyString,
     profile: NonEmptyString,
     groups: Type.Array(ToolsEffectiveGroupSchema),
+    assembly: ToolsEffectiveAssemblySchema,
   },
   { additionalProperties: false },
 );

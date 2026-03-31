@@ -21,6 +21,20 @@ describe("tools product copy", () => {
     const text = buildToolsMessage({
       agentId: "main",
       profile: "coding",
+      assembly: {
+        counts: { total: 3, core: 2, plugin: 1, channel: 0 },
+        context: {
+          messageProvider: "telegram",
+          modelProvider: "openai",
+          modelId: "gpt-5.4",
+          senderIsOwner: false,
+        },
+        flags: {
+          allowGatewaySubagentBinding: true,
+          requireExplicitMessageTarget: false,
+          disableMessageTool: false,
+        },
+      },
       groups: [
         {
           id: "core",
@@ -63,6 +77,7 @@ describe("tools product copy", () => {
 
     expect(text).toContain("Available tools");
     expect(text).toContain("Profile: coding");
+    expect(text).toContain("Runtime: 3 total | 2 built-in | 1 plugin | 0 channel | channel=telegram | model=openai/gpt-5.4");
     expect(text).toContain("Built-in tools");
     expect(text).toContain("exec, web_search");
     expect(text).toContain("Connected tools");
@@ -76,6 +91,19 @@ describe("tools product copy", () => {
       {
         agentId: "main",
         profile: "minimal",
+        assembly: {
+          counts: { total: 1, core: 1, plugin: 0, channel: 0 },
+          context: {
+            messageProvider: "discord",
+            replyToMode: "first",
+            senderIsOwner: true,
+          },
+          flags: {
+            allowGatewaySubagentBinding: true,
+            requireExplicitMessageTarget: false,
+            disableMessageTool: false,
+          },
+        },
         groups: [
           {
             id: "core",
@@ -98,6 +126,9 @@ describe("tools product copy", () => {
 
     expect(text).toContain("What this agent can use right now:");
     expect(text).toContain("Profile: minimal");
+    expect(text).toContain(
+      "Runtime: 1 total | 1 built-in | 0 plugin | 0 channel | channel=discord | reply=first | owner=yes",
+    );
     expect(text).toContain("Exec - Run shell commands");
     expect(text).toContain("Tool availability depends on this agent's configuration.");
     expect(text).not.toContain("unavailable right now");
@@ -108,6 +139,15 @@ describe("tools product copy", () => {
       {
         agentId: "main",
         profile: "coding",
+        assembly: {
+          counts: { total: 1, core: 1, plugin: 0, channel: 0 },
+          context: { senderIsOwner: false },
+          flags: {
+            allowGatewaySubagentBinding: true,
+            requireExplicitMessageTarget: false,
+            disableMessageTool: false,
+          },
+        },
         groups: [
           {
             id: "core",
@@ -139,6 +179,15 @@ describe("tools product copy", () => {
       buildToolsMessage({
         agentId: "main",
         profile: "full",
+        assembly: {
+          counts: { total: 0, core: 0, plugin: 0, channel: 0 },
+          context: { senderIsOwner: false },
+          flags: {
+            allowGatewaySubagentBinding: true,
+            requireExplicitMessageTarget: false,
+            disableMessageTool: false,
+          },
+        },
         groups: [],
       }),
     ).toBe("No tools are available for this agent right now.\n\nProfile: full");

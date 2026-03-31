@@ -942,6 +942,31 @@ function formatVerboseToolDescription(tool: ToolsMessageItem): string {
   });
 }
 
+function buildToolSurfaceSummary(result: EffectiveToolInventoryResult): string {
+  const parts = [
+    `${result.assembly.counts.total} total`,
+    `${result.assembly.counts.core} built-in`,
+    `${result.assembly.counts.plugin} plugin`,
+    `${result.assembly.counts.channel} channel`,
+  ];
+  const context = result.assembly.context;
+  if (context.messageProvider) {
+    parts.push(`channel=${context.messageProvider}`);
+  }
+  if (context.modelProvider && context.modelId) {
+    parts.push(`model=${context.modelProvider}/${context.modelId}`);
+  } else if (context.modelId) {
+    parts.push(`model=${context.modelId}`);
+  }
+  if (context.replyToMode) {
+    parts.push(`reply=${context.replyToMode}`);
+  }
+  if (context.senderIsOwner) {
+    parts.push("owner=yes");
+  }
+  return parts.join(" | ");
+}
+
 export function buildToolsMessage(
   result: EffectiveToolInventoryResult,
   options?: { verbose?: boolean },
@@ -974,8 +999,14 @@ export function buildToolsMessage(
 
   const verbose = options?.verbose === true;
   const lines = verbose
-    ? ["Available tools", "", `Profile: ${result.profile}`, "What this agent can use right now:"]
-    : ["Available tools", "", `Profile: ${result.profile}`];
+    ? [
+        "Available tools",
+        "",
+        `Profile: ${result.profile}`,
+        `Runtime: ${buildToolSurfaceSummary(result)}`,
+        "What this agent can use right now:",
+      ]
+    : ["Available tools", "", `Profile: ${result.profile}`, `Runtime: ${buildToolSurfaceSummary(result)}`];
 
   for (const group of groups) {
     lines.push("", group.label);
