@@ -11,6 +11,10 @@ title: OpenAI Codex Borrowing Notes
 This document records what is worth borrowing from the `openai/codex`
 repository into `openclawcode`, and what is not worth copying.
 
+Execution tracking for the combined borrowing work now lives in:
+
+- [Borrowing delivery plan](/openclawcode/borrowing-delivery-plan)
+
 The goal is not code transplant. The goal is to identify design choices,
 operator-facing patterns, and subsystem boundaries that can improve
 `openclawcode` without regressing its stronger existing platform pieces.
@@ -142,6 +146,21 @@ Expected benefit:
 
 Judgment: very high-value to adapt.
 
+### Implementation status
+
+Completed in the current delivery wave:
+
+- one authoritative workspace-guidance contract now lives in
+  [Workspace guidance contract](/reference/workspace-guidance-contract)
+- the contract now states recognized bootstrap filenames, fallback behavior,
+  session-type loading differences, and the current non-feature boundary around
+  nested automatic directory precedence
+
+Not implemented yet:
+
+- user-facing config for fallback filenames and fixed injection byte caps
+- richer subagent inheritance controls
+
 ---
 
 ## 2. Sandbox selection and transformation boundaries
@@ -204,6 +223,20 @@ Expected benefit:
 
 Judgment: high-value to adapt.
 
+### Implementation status
+
+Completed in the current delivery wave:
+
+- one transport-neutral contract doc now lives in
+  [Sandbox and escalation contract](/reference/sandbox-escalation-contract)
+- the contract defines an "effective execution request" model and separates
+  policy resolution from backend-specific launch transformation
+
+Not implemented yet:
+
+- converging more execution call sites onto one shared internal request type
+- fully uniform operator-facing typing for `run` / `approval_required` / `deny`
+
 ---
 
 ## 3. Shell escalation protocol
@@ -261,6 +294,20 @@ Expected benefit:
 - less ambiguity between "blocked", "needs approval", and "rerun elsewhere"
 
 Judgment: medium-to-high value to adapt.
+
+### Implementation status
+
+Completed in the current delivery wave:
+
+- the sandbox/escalation contract now explicitly defines three escalation
+  outcomes: `run`, `approval_required`, and `deny`
+- the role of `systemRunPlan` as the canonical node-host approval payload is
+  now documented in one place
+
+Not implemented yet:
+
+- a fully transport-neutral runtime object shared across all execution paths
+- reviewer-role expansion beyond human-final approval
 
 ---
 

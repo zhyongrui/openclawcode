@@ -34,6 +34,18 @@ describe("tools product copy", () => {
           requireExplicitMessageTarget: false,
           disableMessageTool: false,
         },
+        notes: [
+          {
+            id: "profile-gated",
+            severity: "info",
+            message: 'Tool profile "coding" may hide capabilities that are available in fuller profiles.',
+          },
+          {
+            id: "owner-only-hidden",
+            severity: "info",
+            message: "Owner-only tools are hidden because the current caller is not an owner.",
+          },
+        ],
       },
       groups: [
         {
@@ -78,6 +90,9 @@ describe("tools product copy", () => {
     expect(text).toContain("Available tools");
     expect(text).toContain("Profile: coding");
     expect(text).toContain("Runtime: 3 total | 2 built-in | 1 plugin | 0 channel | channel=telegram | model=openai/gpt-5.4");
+    expect(text).toContain(
+      'Restrictions: Tool profile "coding" may hide capabilities that are available in fuller profiles. | Owner-only tools are hidden because the current caller is not an owner.',
+    );
     expect(text).toContain("Built-in tools");
     expect(text).toContain("exec, web_search");
     expect(text).toContain("Connected tools");
@@ -103,6 +118,14 @@ describe("tools product copy", () => {
             requireExplicitMessageTarget: false,
             disableMessageTool: false,
           },
+          notes: [
+            {
+              id: "profile-gated",
+              severity: "info",
+              message:
+                'Tool profile "minimal" may hide capabilities that are available in fuller profiles.',
+            },
+          ],
         },
         groups: [
           {
@@ -129,6 +152,9 @@ describe("tools product copy", () => {
     expect(text).toContain(
       "Runtime: 1 total | 1 built-in | 0 plugin | 0 channel | channel=discord | reply=first | owner=yes",
     );
+    expect(text).toContain(
+      'Restrictions: Tool profile "minimal" may hide capabilities that are available in fuller profiles.',
+    );
     expect(text).toContain("Exec - Run shell commands");
     expect(text).toContain("Tool availability depends on this agent's configuration.");
     expect(text).not.toContain("unavailable right now");
@@ -147,6 +173,19 @@ describe("tools product copy", () => {
             requireExplicitMessageTarget: false,
             disableMessageTool: false,
           },
+          notes: [
+            {
+              id: "profile-gated",
+              severity: "info",
+              message:
+                'Tool profile "coding" may hide capabilities that are available in fuller profiles.',
+            },
+            {
+              id: "owner-only-hidden",
+              severity: "info",
+              message: "Owner-only tools are hidden because the current caller is not an owner.",
+            },
+          ],
         },
         groups: [
           {
@@ -182,14 +221,23 @@ describe("tools product copy", () => {
         assembly: {
           counts: { total: 0, core: 0, plugin: 0, channel: 0 },
           context: { senderIsOwner: false },
-          flags: {
-            allowGatewaySubagentBinding: true,
-            requireExplicitMessageTarget: false,
-            disableMessageTool: false,
-          },
+        flags: {
+          allowGatewaySubagentBinding: true,
+          requireExplicitMessageTarget: false,
+          disableMessageTool: false,
         },
-        groups: [],
-      }),
-    ).toBe("No tools are available for this agent right now.\n\nProfile: full");
+        notes: [
+          {
+            id: "owner-only-hidden",
+            severity: "info",
+            message: "Owner-only tools are hidden because the current caller is not an owner.",
+          },
+        ],
+      },
+      groups: [],
+    }),
+    ).toBe(
+      "No tools are available for this agent right now.\n\nProfile: full\nRestrictions: Owner-only tools are hidden because the current caller is not an owner.",
+    );
   });
 });

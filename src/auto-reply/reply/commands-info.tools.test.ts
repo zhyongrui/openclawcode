@@ -25,6 +25,11 @@ async function loadToolsHarness(options?: {
         requireExplicitMessageTarget: boolean;
         disableMessageTool: boolean;
       };
+      notes: Array<{
+        id: string;
+        severity: "info" | "warn";
+        message: string;
+      }>;
     };
     groups: Array<{
       id: "core" | "plugin" | "channel";
@@ -77,6 +82,19 @@ async function loadToolsHarness(options?: {
               requireExplicitMessageTarget: false,
               disableMessageTool: false,
             },
+            notes: [
+              {
+                id: "profile-gated",
+                severity: "info" as const,
+                message:
+                  'Tool profile "coding" may hide capabilities that are available in fuller profiles.',
+              },
+              {
+                id: "owner-only-hidden",
+                severity: "info" as const,
+                message: "Owner-only tools are hidden because the current caller is not an owner.",
+              },
+            ],
           },
           groups: [
             {
@@ -164,6 +182,9 @@ describe("handleToolsCommand", () => {
     expect(result?.reply?.text).toContain("Profile: coding");
     expect(result?.reply?.text).toContain(
       "Runtime: 2 total | 1 built-in | 1 plugin | 0 channel | channel=telegram | model=openai/gpt-4.1 | reply=all",
+    );
+    expect(result?.reply?.text).toContain(
+      'Restrictions: Tool profile "coding" may hide capabilities that are available in fuller profiles. | Owner-only tools are hidden because the current caller is not an owner.',
     );
     expect(result?.reply?.text).toContain("Built-in tools");
     expect(result?.reply?.text).toContain("exec");

@@ -127,6 +127,13 @@ describe("resolveEffectiveToolInventory", () => {
           requireExplicitMessageTarget: false,
           disableMessageTool: false,
         },
+        notes: [
+          {
+            id: "owner-only-hidden",
+            severity: "info",
+            message: "Owner-only tools are hidden because the current caller is not an owner.",
+          },
+        ],
       },
     });
   });
@@ -265,6 +272,24 @@ describe("resolveEffectiveToolInventory", () => {
         requireExplicitMessageTarget: true,
         disableMessageTool: true,
       },
+      notes: [
+        {
+          id: "message-target-required",
+          severity: "info",
+          message:
+            "Message-send tools require an explicit target in this runtime; implicit last-route sends are disabled.",
+        },
+        {
+          id: "message-tool-disabled",
+          severity: "warn",
+          message: "The message tool is disabled for this runtime, so direct outbound sends are unavailable.",
+        },
+        {
+          id: "gateway-subagent-binding-disabled",
+          severity: "info",
+          message: "Gateway subagent binding is disabled for this runtime, so subagent handoff helpers are restricted.",
+        },
+      ],
     });
   });
 });

@@ -12,6 +12,10 @@ This document records what is worth borrowing from the uploaded
 `/home/zyr/pros/ClaudeCode` source snapshot into `openclawcode`, and what is
 not worth copying.
 
+Execution tracking for the combined borrowing work now lives in:
+
+- [Borrowing delivery plan](/openclawcode/borrowing-delivery-plan)
+
 The goal is not code transplant. The goal is to identify product patterns,
 interaction models, and subsystem boundaries that can improve `openclawcode`
 without regressing its stronger platform pieces.
@@ -171,14 +175,16 @@ Implemented:
   which channel/model/profile context produced the current tool surface
 - the coding-tool assembly path now consistently honors the
   `allowGatewaySubagentBinding` runtime switch during surface resolution
+- `tools.effective` and `/tools` now also expose structured restriction notes
+  for active runtime gating such as profile-based hiding, owner-only tool
+  suppression, explicit-target-only messaging, disabled message tools, and
+  disabled gateway-subagent binding
 
 Not implemented yet:
 
 - a dedicated operator UI for tool-source diffs across sessions or agents
 - rollout/preset management beyond the current policy- and profile-driven
   assembly
-- a richer "why this tool is absent" explanation surface for denied or gated
-  capabilities
 
 This keeps the adaptation narrow and verifiable: establish one concrete
 runtime-assembly boundary first, then layer stronger rollout and comparison UX

@@ -967,6 +967,14 @@ function buildToolSurfaceSummary(result: EffectiveToolInventoryResult): string {
   return parts.join(" | ");
 }
 
+function buildToolAvailabilityNotesLine(result: EffectiveToolInventoryResult): string | undefined {
+  const notes = result.assembly.notes;
+  if (!Array.isArray(notes) || notes.length === 0) {
+    return undefined;
+  }
+  return `Restrictions: ${notes.map((note) => note.message).join(" | ")}`;
+}
+
 export function buildToolsMessage(
   result: EffectiveToolInventoryResult,
   options?: { verbose?: boolean },
@@ -993,6 +1001,9 @@ export function buildToolsMessage(
       "No tools are available for this agent right now.",
       "",
       `Profile: ${result.profile}`,
+      ...(buildToolAvailabilityNotesLine(result)
+        ? [buildToolAvailabilityNotesLine(result)!]
+        : []),
     ];
     return lines.join("\n");
   }
@@ -1004,9 +1015,20 @@ export function buildToolsMessage(
         "",
         `Profile: ${result.profile}`,
         `Runtime: ${buildToolSurfaceSummary(result)}`,
+        ...(buildToolAvailabilityNotesLine(result)
+          ? [buildToolAvailabilityNotesLine(result)!]
+          : []),
         "What this agent can use right now:",
       ]
-    : ["Available tools", "", `Profile: ${result.profile}`, `Runtime: ${buildToolSurfaceSummary(result)}`];
+    : [
+        "Available tools",
+        "",
+        `Profile: ${result.profile}`,
+        `Runtime: ${buildToolSurfaceSummary(result)}`,
+        ...(buildToolAvailabilityNotesLine(result)
+          ? [buildToolAvailabilityNotesLine(result)!]
+          : []),
+      ];
 
   for (const group of groups) {
     lines.push("", group.label);

@@ -364,11 +364,21 @@ export const ToolsEffectiveAssemblyFlagsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const ToolsEffectiveAssemblyNoteSchema = Type.Object(
+  {
+    id: NonEmptyString,
+    severity: Type.Union([Type.Literal("info"), Type.Literal("warn")]),
+    message: NonEmptyString,
+  },
+  { additionalProperties: false },
+);
+
 export const ToolsEffectiveAssemblySchema = Type.Object(
   {
     counts: ToolsEffectiveAssemblyCountsSchema,
     context: ToolsEffectiveAssemblyContextSchema,
     flags: ToolsEffectiveAssemblyFlagsSchema,
+    notes: Type.Array(ToolsEffectiveAssemblyNoteSchema),
   },
   { additionalProperties: false },
 );

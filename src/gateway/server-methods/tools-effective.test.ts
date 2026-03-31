@@ -37,6 +37,13 @@ vi.mock("../../agents/tools-effective-inventory.js", () => ({
         requireExplicitMessageTarget: false,
         disableMessageTool: false,
       },
+      notes: [
+        {
+          id: "owner-only-hidden",
+          severity: "info",
+          message: "Owner-only tools are hidden because the current caller is not an owner.",
+        },
+      ],
     },
     groups: [
       {
@@ -193,6 +200,13 @@ describe("tools.effective handler", () => {
           plugin: 0,
           channel: 0,
         },
+        notes: [
+          {
+            id: "owner-only-hidden",
+            severity: "info",
+            message: "Owner-only tools are hidden because the current caller is not an owner.",
+          },
+        ],
       },
       groups: [
         {

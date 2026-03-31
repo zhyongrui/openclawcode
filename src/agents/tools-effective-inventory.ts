@@ -56,10 +56,17 @@ export type EffectiveToolAssemblyFlags = {
   disableMessageTool: boolean;
 };
 
+export type EffectiveToolAvailabilityNote = {
+  id: string;
+  severity: "info" | "warn";
+  message: string;
+};
+
 export type EffectiveToolAssembly = {
   counts: EffectiveToolAssemblyCounts;
   context: EffectiveToolAssemblyContext;
   flags: EffectiveToolAssemblyFlags;
+  notes: EffectiveToolAvailabilityNote[];
 };
 
 export type EffectiveToolSurfaceResult = EffectiveToolInventoryResult & {
@@ -197,6 +204,7 @@ function buildEffectiveToolInventoryGroups(
 }
 
 function buildEffectiveToolAssembly(params: {
+  profile: string;
   groups: EffectiveToolInventoryGroup[];
   messageProvider?: string;
   modelProvider?: string;
@@ -217,6 +225,43 @@ function buildEffectiveToolAssembly(params: {
     counts[group.source] += group.tools.length;
     counts.total += group.tools.length;
   }
+  const notes: EffectiveToolAvailabilityNote[] = [];
+  if (params.profile !== "full") {
+    notes.push({
+      id: "profile-gated",
+      severity: "info",
+      message: `Tool profile "${params.profile}" may hide capabilities that are available in fuller profiles.`,
+    });
+  }
+  if (params.senderIsOwner !== true) {
+    notes.push({
+      id: "owner-only-hidden",
+      severity: "info",
+      message: "Owner-only tools are hidden because the current caller is not an owner.",
+    });
+  }
+  if (params.requireExplicitMessageTarget === true) {
+    notes.push({
+      id: "message-target-required",
+      severity: "info",
+      message: "Message-send tools require an explicit target in this runtime; implicit last-route sends are disabled.",
+    });
+  }
+  if (params.disableMessageTool === true) {
+    notes.push({
+      id: "message-tool-disabled",
+      severity: "warn",
+      message: "The message tool is disabled for this runtime, so direct outbound sends are unavailable.",
+    });
+  }
+  if (params.allowGatewaySubagentBinding === false) {
+    notes.push({
+      id: "gateway-subagent-binding-disabled",
+      severity: "info",
+      message: "Gateway subagent binding is disabled for this runtime, so subagent handoff helpers are restricted.",
+    });
+  }
+
   return {
     counts,
     context: {
@@ -231,6 +276,7 @@ function buildEffectiveToolAssembly(params: {
       requireExplicitMessageTarget: params.requireExplicitMessageTarget === true,
       disableMessageTool: params.disableMessageTool === true,
     },
+    notes,
   };
 }
 
@@ -305,6 +351,7 @@ export function resolveEffectiveToolSurface(
   const profile = effectivePolicy.providerProfile ?? effectivePolicy.profile ?? "full";
   const groups = buildEffectiveToolInventoryGroups(effectiveTools);
   const assembly = buildEffectiveToolAssembly({
+    profile,
     groups,
     messageProvider: params.messageProvider,
     modelProvider: params.modelProvider,
