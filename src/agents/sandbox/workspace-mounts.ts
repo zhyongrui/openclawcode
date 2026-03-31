@@ -4,12 +4,22 @@ import { isPathInside } from "../../infra/path-guards.js";
 import { SANDBOX_AGENT_WORKSPACE_MOUNT } from "./constants.js";
 import type { SandboxWorkspaceAccess } from "./types.js";
 
+export const SANDBOX_MOUNT_FORMAT_VERSION = 2;
+
 function mainWorkspaceMountSuffix(access: SandboxWorkspaceAccess): "" | ":ro" {
   return access === "rw" ? "" : ":ro";
 }
 
 function agentWorkspaceMountSuffix(access: SandboxWorkspaceAccess): "" | ":ro" {
   return access === "ro" ? ":ro" : "";
+}
+
+function formatManagedWorkspaceBind(params: {
+  hostPath: string;
+  containerPath: string;
+  readOnly: boolean;
+}): string {
+  return `${params.hostPath}:${params.containerPath}:${params.readOnly ? "ro,z" : "z"}`;
 }
 
 function mountSuffix(access: SandboxWorkspaceAccess): "" | ":ro" {
@@ -64,12 +74,20 @@ export function resolveWorkspaceMounts(params: {
   workspaceAccess: SandboxWorkspaceAccess;
 }): string[] {
   const mounts = [
-    `${params.workspaceDir}:${params.workdir}${mainWorkspaceMountSuffix(params.workspaceAccess)}`,
+    formatManagedWorkspaceBind({
+      hostPath: params.workspaceDir,
+      containerPath: params.workdir,
+      readOnly: params.workspaceAccess !== "rw",
+    }),
   ];
 
   if (params.workspaceAccess !== "none" && params.workspaceDir !== params.agentWorkspaceDir) {
     mounts.push(
-      `${params.agentWorkspaceDir}:${SANDBOX_AGENT_WORKSPACE_MOUNT}${agentWorkspaceMountSuffix(params.workspaceAccess)}`,
+      formatManagedWorkspaceBind({
+        hostPath: params.agentWorkspaceDir,
+        containerPath: SANDBOX_AGENT_WORKSPACE_MOUNT,
+        readOnly: params.workspaceAccess === "ro",
+      }),
     );
   }
 

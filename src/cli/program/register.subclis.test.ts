@@ -25,7 +25,10 @@ const configModule = vi.hoisted(() => ({
 
 vi.mock("../acp-cli.js", () => ({ registerAcpCli }));
 vi.mock("../nodes-cli.js", () => ({ registerNodesCli }));
-vi.mock("../../config/config.js", () => configModule);
+vi.mock("../../config/config.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../config/config.js")>()),
+  ...configModule,
+}));
 
 const {
   awaitPendingSubCliRegistrations,
