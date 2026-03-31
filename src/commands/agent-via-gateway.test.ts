@@ -107,6 +107,31 @@ describe("agentCliCommand", () => {
     });
   });
 
+  it("returns immediately in background mode and prints wait/resume hints", async () => {
+    await withTempStore(async () => {
+      vi.mocked(callGateway).mockResolvedValue({
+        runId: "run-bg-1",
+        status: "accepted",
+        acceptedAt: 1,
+        sessionId: "sess-bg-1",
+        sessionKey: "agent:main:main",
+      });
+
+      await agentCliCommand({ message: "hi", to: "+1555", background: true }, runtime);
+
+      expect(callGateway).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(callGateway).mock.calls[0]?.[0]).toMatchObject({
+        expectFinal: false,
+      });
+      expect(runtime.log).toHaveBeenCalledWith("Accepted background agent run.");
+      expect(runtime.log).toHaveBeenCalledWith("runId: run-bg-1");
+      expect(runtime.log).toHaveBeenCalledWith("sessionId: sess-bg-1");
+      expect(runtime.log).toHaveBeenCalledWith(
+        'resume: openclaw agent --session-id sess-bg-1 --message "Continue from the latest background task state."',
+      );
+    });
+  });
+
   it("falls back to embedded agent when gateway fails", async () => {
     await withTempStore(async () => {
       vi.mocked(callGateway).mockRejectedValue(new Error("gateway not connected"));
@@ -117,6 +142,18 @@ describe("agentCliCommand", () => {
       expect(callGateway).toHaveBeenCalledTimes(1);
       expect(agentCommand).toHaveBeenCalledTimes(1);
       expect(runtime.log).toHaveBeenCalledWith("local");
+    });
+  });
+
+  it("does not fall back to embedded agent for background mode", async () => {
+    await withTempStore(async () => {
+      vi.mocked(callGateway).mockRejectedValue(new Error("gateway not connected"));
+
+      await expect(
+        agentCliCommand({ message: "hi", to: "+1555", background: true }, runtime),
+      ).rejects.toThrow("gateway not connected");
+
+      expect(agentCommand).not.toHaveBeenCalled();
     });
   });
 
@@ -153,6 +190,30 @@ describe("agentCliCommand", () => {
       expect(vi.mocked(agentCommand).mock.calls[0]?.[0]).not.toMatchObject({
         cleanupBundleMcpOnRunEnd: true,
       });
+    });
+  });
+
+  it("supports explicit session keys", async () => {
+    await withTempStore(async () => {
+      mockGatewaySuccessReply();
+
+      await agentCliCommand({ message: "hi", sessionKey: "agent:main:main" }, runtime);
+
+      expect(callGateway).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({
+            sessionKey: "agent:main:main",
+          }),
+        }),
+      );
+    });
+  });
+
+  it("rejects local background mode", async () => {
+    await withTempStore(async () => {
+      await expect(
+        agentCliCommand({ message: "hi", to: "+1555", local: true, background: true }, runtime),
+      ).rejects.toThrow("--background is only supported when using the gateway");
     });
   });
 });

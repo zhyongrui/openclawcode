@@ -551,6 +551,29 @@ describe("gateway agent handler", () => {
     });
   });
 
+  it("returns resolved session identity in the accepted response", async () => {
+    primeMainAgentRun({ sessionId: "sess-main-accepted" });
+
+    const respond = await invokeAgent({
+      message: "background me",
+      sessionKey: "agent:main:main",
+      idempotencyKey: "test-accepted-session-metadata",
+    });
+
+    expect(respond).toHaveBeenCalledWith(
+      true,
+      expect.objectContaining({
+        runId: "test-accepted-session-metadata",
+        status: "accepted",
+        sessionId: "sess-main-accepted",
+        sessionKey: "agent:main:main",
+        acceptedAt: expect.any(Number),
+      }),
+      undefined,
+      { runId: "test-accepted-session-metadata" },
+    );
+  });
+
   it("includes live session setting metadata in agent send events", async () => {
     mockMainSessionEntry({
       sessionId: "sess-main",

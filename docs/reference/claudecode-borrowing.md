@@ -257,10 +257,18 @@ Implemented:
 - operator-facing `tasks` and `flows` commands now show origin metadata
 - detached ACP runs now render with a clearer default label,
   `"Detached ACP session"`
+- `openclaw agent` now accepts `--background` for gateway-backed runs and
+  returns immediately after the accepted ack instead of blocking for the final
+  reply
+- the immediate ack now includes the resolved `sessionId`/`sessionKey`, and
+  the CLI prints concrete wait/resume commands
+- the CLI now also exposes explicit `--session-key <key>` targeting so those
+  resume hints are directly executable
 
 Not implemented yet:
 
-- a top-level "background this current foreground session" user command
+- a richer "background my currently interactive TUI/Control-UI turn" affordance
+  beyond the CLI entrypoint
 - session transcript handoff and recovery UX matching ClaudeCode's
   `LocalMainSessionTask` pattern
 - completion-routing behavior that depends on whether a detached task was
@@ -383,13 +391,15 @@ Implemented:
 - `flows show` now groups linked child sessions and prints the same resume
   hints instead of forcing operators to inspect task internals or session
   stores manually
+- gateway-backed `openclaw agent --background` now uses the same stable session
+  identity in its accepted response, so operators can wait or resume a run
+  without separately inspecting task or session stores
 
 Not implemented yet:
 
 - current-session-first history browsing or project-local history views
 - a first-class reattach UI beyond CLI inspection surfaces
-- a "background this session now" operator action that directly creates the
-  detached session being resumed later
+- richer UI affordances that expose the same wait/resume flow outside the CLI
 
 This keeps the scope narrow: detached sessions are now easier to continue once
 they exist, while the actual foreground-to-background handoff flow remains a

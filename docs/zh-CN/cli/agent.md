@@ -26,5 +26,12 @@ x-i18n:
 openclaw agent --to +15555550123 --message "status update" --deliver
 openclaw agent --agent ops --message "Summarize logs"
 openclaw agent --session-id 1234 --message "Summarize inbox" --thinking medium
+openclaw agent --session-key agent:main:main --message "Continue from the latest background task state."
+openclaw agent --agent ops --message "Investigate flaky tests" --background
 openclaw agent --agent ops --message "Generate report" --deliver --reply-channel slack --reply-to "#reports"
 ```
+
+## 说明
+
+- `--background` 仅支持通过 Gateway 网关执行的运行。命令会在收到 accepted 确认后立即返回，并打印 `agent.wait` 与会话恢复命令。
+- 当你需要直接命中或恢复一个稳定会话键时，可使用 `--session-key <key>`，而不是依赖 `--to` 或 `--session-id` 路由。

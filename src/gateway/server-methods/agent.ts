@@ -766,6 +766,8 @@ export const agentHandlers: GatewayRequestHandlers = {
       runId,
       status: "accepted" as const,
       acceptedAt: Date.now(),
+      ...(resolvedSessionId ? { sessionId: resolvedSessionId } : {}),
+      ...(resolvedSessionKey ? { sessionKey: resolvedSessionKey } : {}),
     };
     // Store an in-flight ack so retries do not spawn a second run.
     setGatewayDedupeEntry({

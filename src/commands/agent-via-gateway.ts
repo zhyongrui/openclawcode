@@ -28,6 +28,9 @@ type GatewayAgentResponse = {
   runId?: string;
   status?: string;
   summary?: string;
+  acceptedAt?: number;
+  sessionId?: string;
+  sessionKey?: string;
   result?: AgentGatewayResult;
 };
 
@@ -38,6 +41,8 @@ export type AgentCliOpts = {
   agent?: string;
   to?: string;
   sessionId?: string;
+  sessionKey?: string;
+  background?: boolean;
   thinking?: string;
   verbose?: string;
   json?: boolean;
@@ -85,13 +90,54 @@ function formatPayloadForLog(payload: {
   return lines.join("\n").trimEnd();
 }
 
+function quoteCliArg(value: string): string {
+  if (/^[A-Za-z0-9_./:@=-]+$/.test(value)) {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
+function logAcceptedBackgroundRun(
+  runtime: RuntimeEnv,
+  params: {
+    runId?: string;
+    sessionId?: string;
+    sessionKey?: string;
+  },
+) {
+  runtime.log("Accepted background agent run.");
+  if (params.runId) {
+    runtime.log(`runId: ${params.runId}`);
+  }
+  if (params.sessionKey) {
+    runtime.log(`sessionKey: ${params.sessionKey}`);
+  }
+  if (params.sessionId) {
+    runtime.log(`sessionId: ${params.sessionId}`);
+  }
+  if (params.runId) {
+    runtime.log(
+      `wait: ${formatCliCommand(`openclaw gateway call agent.wait --run-id ${quoteCliArg(params.runId)}`)}`,
+    );
+  }
+  if (params.sessionId) {
+    runtime.log(
+      `resume: ${formatCliCommand(`openclaw agent --session-id ${quoteCliArg(params.sessionId)} --message ${quoteCliArg("Continue from the latest background task state.")}`)}`,
+    );
+  } else if (params.sessionKey) {
+    runtime.log(
+      `resume: ${formatCliCommand(`openclaw agent --session-key ${quoteCliArg(params.sessionKey)} --message ${quoteCliArg("Continue from the latest background task state.")}`)}`,
+    );
+  }
+}
+
 export async function agentViaGatewayCommand(opts: AgentCliOpts, runtime: RuntimeEnv) {
   const body = (opts.message ?? "").trim();
   if (!body) {
     throw new Error("Message (--message) is required");
   }
-  if (!opts.to && !opts.sessionId && !opts.agent) {
-    throw new Error("Pass --to <E.164>, --session-id, or --agent to choose a session");
+  if (!opts.to && !opts.sessionId && !opts.sessionKey && !opts.agent) {
+    throw new Error("Pass --to <E.164>, --session-id, --session-key, or --agent to choose a session");
   }
 
   const cfg = loadConfig();
@@ -116,6 +162,7 @@ export async function agentViaGatewayCommand(opts: AgentCliOpts, runtime: Runtim
     agentId,
     to: opts.to,
     sessionId: opts.sessionId,
+    sessionKey: opts.sessionKey,
   }).sessionKey;
 
   const channel = normalizeMessageChannel(opts.channel);
@@ -123,7 +170,7 @@ export async function agentViaGatewayCommand(opts: AgentCliOpts, runtime: Runtim
 
   const response = await withProgress(
     {
-      label: "Waiting for agent reply…",
+      label: opts.background ? "Starting background agent run…" : "Waiting for agent reply…",
       indeterminate: true,
       enabled: opts.json !== true,
     },
@@ -148,7 +195,7 @@ export async function agentViaGatewayCommand(opts: AgentCliOpts, runtime: Runtim
           extraSystemPrompt: opts.extraSystemPrompt,
           idempotencyKey,
         },
-        expectFinal: true,
+        expectFinal: opts.background !== true,
         timeoutMs: gatewayTimeoutMs,
         clientName: GATEWAY_CLIENT_NAMES.CLI,
         mode: GATEWAY_CLIENT_MODES.CLI,
@@ -157,6 +204,15 @@ export async function agentViaGatewayCommand(opts: AgentCliOpts, runtime: Runtim
 
   if (opts.json) {
     writeRuntimeJson(runtime, response);
+    return response;
+  }
+
+  if (opts.background) {
+    logAcceptedBackgroundRun(runtime, {
+      runId: response?.runId,
+      sessionId: response?.sessionId ?? opts.sessionId,
+      sessionKey: response?.sessionKey ?? sessionKey,
+    });
     return response;
   }
 
@@ -186,12 +242,18 @@ export async function agentCliCommand(opts: AgentCliOpts, runtime: RuntimeEnv, d
     cleanupBundleMcpOnRunEnd: opts.local === true,
   };
   if (opts.local === true) {
+    if (opts.background) {
+      throw new Error("--background is only supported when using the gateway");
+    }
     return await agentCommand(localOpts, runtime, deps);
   }
 
   try {
     return await agentViaGatewayCommand(opts, runtime);
   } catch (err) {
+    if (opts.background) {
+      throw err;
+    }
     runtime.error?.(`Gateway agent failed; falling back to embedded: ${String(err)}`);
     return await agentCommand(localOpts, runtime, deps);
   }
