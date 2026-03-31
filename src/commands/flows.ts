@@ -1,6 +1,7 @@
 import { loadConfig } from "../config/config.js";
 import { info } from "../globals.js";
 import type { RuntimeEnv } from "../runtime.js";
+import { formatBackgroundChildSessionGroupLines } from "./background-session-resume.js";
 import { getFlowById, listFlowRecords, resolveFlowForLookupToken } from "../tasks/flow-registry.js";
 import type { FlowRecord, FlowStatus } from "../tasks/flow-registry.types.js";
 import { cancelFlowById, getFlowTaskSummary } from "../tasks/task-executor.js";
@@ -190,6 +191,12 @@ export async function flowsShowCommand(
     runtime.log(
       `- ${task.taskId} ${task.status} ${task.runId ?? "n/a"} ${task.label ?? task.task}`,
     );
+  }
+  for (const line of formatBackgroundChildSessionGroupLines({
+    cfg: loadConfig(),
+    sessionKeys: tasks.map((task) => task.childSessionKey),
+  })) {
+    runtime.log(line);
   }
 }
 

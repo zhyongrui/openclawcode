@@ -364,6 +364,37 @@ This is especially useful if `openclawcode` keeps growing:
 
 Judgment: medium value to adapt.
 
+### Implementation status
+
+The first detached-session resume-presentation slice is now in place in
+`openclawcode`.
+
+Implemented:
+
+- `tasks show` now renders explicit resume metadata for `childSessionKey`
+  sessions when a background task spawned a resumable child session
+- resume presentation now includes:
+  - the stable `resumeSessionKey`
+  - the stored `resumeSessionId` when available
+  - a concrete `openclaw agent --session-id/--session-key ...` continuation
+    command
+  - ACP-native resume hints such as `codex resume ...` when the child session
+    has ACP identity metadata
+- `flows show` now groups linked child sessions and prints the same resume
+  hints instead of forcing operators to inspect task internals or session
+  stores manually
+
+Not implemented yet:
+
+- current-session-first history browsing or project-local history views
+- a first-class reattach UI beyond CLI inspection surfaces
+- a "background this session now" operator action that directly creates the
+  detached session being resumed later
+
+This keeps the scope narrow: detached sessions are now easier to continue once
+they exist, while the actual foreground-to-background handoff flow remains a
+separate next step.
+
 ---
 
 ## 5. Bridge and remote-control boundaries

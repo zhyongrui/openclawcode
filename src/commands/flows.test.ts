@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   getFlowTaskSummaryMock: vi.fn(),
   cancelFlowByIdMock: vi.fn(),
   loadConfigMock: vi.fn(() => ({ loaded: true })),
+  formatBackgroundChildSessionGroupLinesMock: vi.fn(),
 }));
 
 vi.mock("../tasks/flow-registry.js", () => ({
@@ -29,6 +30,11 @@ vi.mock("../tasks/task-executor.js", () => ({
 
 vi.mock("../config/config.js", () => ({
   loadConfig: () => mocks.loadConfigMock(),
+}));
+
+vi.mock("./background-session-resume.js", () => ({
+  formatBackgroundChildSessionGroupLines: (...args: unknown[]) =>
+    mocks.formatBackgroundChildSessionGroupLinesMock(...args),
 }));
 
 const {
@@ -98,6 +104,7 @@ describe("flows commands", () => {
     mocks.getFlowByIdMock.mockReturnValue(undefined);
     mocks.listTasksForFlowIdMock.mockReturnValue([]);
     mocks.getFlowTaskSummaryMock.mockReturnValue(taskSummaryFixture);
+    mocks.formatBackgroundChildSessionGroupLinesMock.mockReturnValue([]);
     mocks.cancelFlowByIdMock.mockResolvedValue({
       found: false,
       cancelled: false,
@@ -120,6 +127,12 @@ describe("flows commands", () => {
   it("shows one flow with linked tasks", async () => {
     mocks.resolveFlowForLookupTokenMock.mockReturnValue(flowFixture);
     mocks.listTasksForFlowIdMock.mockReturnValue([taskFixture]);
+    mocks.formatBackgroundChildSessionGroupLinesMock.mockReturnValue([
+      "Child sessions:",
+      "- agent:codex:acp:child",
+      "  resumeSessionId: session-child-1",
+      "  resumeWith: openclaw agent --session-id session-child-1 --message \"Continue\"",
+    ]);
 
     await flowsShowCommand({ lookup: "flow-12345678" }, runtime);
 
@@ -129,6 +142,12 @@ describe("flows commands", () => {
     expect(runtimeLogs.join("\n")).toContain("currentStep: wait_for");
     expect(runtimeLogs.join("\n")).toContain("tasks: 2 total · 1 active · 0 issues");
     expect(runtimeLogs.join("\n")).toContain("task-12345678 running run-12345678 Review PR");
+    expect(runtimeLogs.join("\n")).toContain("Child sessions:");
+    expect(runtimeLogs.join("\n")).toContain("resumeSessionId: session-child-1");
+    expect(mocks.formatBackgroundChildSessionGroupLinesMock).toHaveBeenCalledWith({
+      cfg: { loaded: true },
+      sessionKeys: ["agent:codex:acp:child"],
+    });
   });
 
   it("cancels a flow and reports the updated state", async () => {

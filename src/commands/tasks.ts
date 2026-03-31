@@ -1,6 +1,7 @@
 import { loadConfig } from "../config/config.js";
 import { info } from "../globals.js";
 import type { RuntimeEnv } from "../runtime.js";
+import { formatBackgroundSessionResumeLines } from "./background-session-resume.js";
 import {
   listTaskAuditFindings,
   summarizeTaskAuditFindings,
@@ -250,6 +251,10 @@ export async function tasksShowCommand(
     ...(task.error ? [`error: ${task.error}`] : []),
     ...(task.progressSummary ? [`progressSummary: ${task.progressSummary}`] : []),
     ...(task.terminalSummary ? [`terminalSummary: ${task.terminalSummary}`] : []),
+    ...formatBackgroundSessionResumeLines({
+      cfg: loadConfig(),
+      sessionKey: task.childSessionKey,
+    }),
   ];
   for (const line of lines) {
     runtime.log(line);

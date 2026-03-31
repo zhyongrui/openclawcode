@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   cancelTaskByIdMock: vi.fn(),
   getTaskByIdMock: vi.fn(),
   loadConfigMock: vi.fn(() => ({ loaded: true })),
+  formatBackgroundSessionResumeLinesMock: vi.fn(),
 }));
 
 const reconcileInspectableTasksMock = mocks.reconcileInspectableTasksMock;
@@ -36,6 +37,7 @@ const updateTaskNotifyPolicyByIdMock = mocks.updateTaskNotifyPolicyByIdMock;
 const cancelTaskByIdMock = mocks.cancelTaskByIdMock;
 const getTaskByIdMock = mocks.getTaskByIdMock;
 const loadConfigMock = mocks.loadConfigMock;
+const formatBackgroundSessionResumeLinesMock = mocks.formatBackgroundSessionResumeLinesMock;
 
 vi.mock("../tasks/task-registry.reconcile.js", () => ({
   reconcileInspectableTasks: (...args: unknown[]) => reconcileInspectableTasksMock(...args),
@@ -65,6 +67,11 @@ vi.mock("../tasks/task-registry.js", () => ({
 
 vi.mock("../config/config.js", () => ({
   loadConfig: () => loadConfigMock(),
+}));
+
+vi.mock("./background-session-resume.js", () => ({
+  formatBackgroundSessionResumeLines: (...args: unknown[]) =>
+    formatBackgroundSessionResumeLinesMock(...args),
 }));
 
 const {
@@ -159,6 +166,7 @@ describe("tasks commands", () => {
     updateTaskNotifyPolicyByIdMock.mockReturnValue(undefined);
     cancelTaskByIdMock.mockResolvedValue({ found: false, cancelled: false, reason: "missing" });
     getTaskByIdMock.mockReturnValue(undefined);
+    formatBackgroundSessionResumeLinesMock.mockReturnValue([]);
   });
 
   it("lists task rows with progress summary fallback", async () => {
@@ -174,6 +182,10 @@ describe("tasks commands", () => {
 
   it("shows detailed task fields including notify and recent events", async () => {
     reconcileTaskLookupTokenMock.mockReturnValue(taskFixture);
+    formatBackgroundSessionResumeLinesMock.mockReturnValue([
+      "resumeSessionKey: agent:codex:acp:child",
+      'resumeWith: openclaw agent --session-key "agent:codex:acp:child" --message "Continue"',
+    ]);
 
     await tasksShowCommand({ lookup: "run-12345678" }, runtime);
 
@@ -183,6 +195,12 @@ describe("tasks commands", () => {
     expect(runtimeLogs.join("\n")).toContain(
       "progressSummary: No output for 60s. It may be waiting for input.",
     );
+    expect(runtimeLogs.join("\n")).toContain("resumeSessionKey: agent:codex:acp:child");
+    expect(runtimeLogs.join("\n")).toContain('resumeWith: openclaw agent --session-key "agent:codex:acp:child" --message "Continue"');
+    expect(formatBackgroundSessionResumeLinesMock).toHaveBeenCalledWith({
+      cfg: { loaded: true },
+      sessionKey: "agent:codex:acp:child",
+    });
   });
 
   it("updates notify policy for an existing task", async () => {
