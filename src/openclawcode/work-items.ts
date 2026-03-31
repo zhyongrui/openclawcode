@@ -1,13 +1,20 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { resolveStateDir } from "../config/paths.js";
 import {
   inspectProjectBlueprintClarifications,
   readProjectBlueprintDocument,
   type ProjectBlueprintRoleAssignments,
   type ProjectBlueprintStatus,
 } from "./blueprint.js";
+import type { WorkflowStage } from "./contracts/index.js";
+import { resolveGitHubRepoFromGit } from "./github/index.js";
 import { buildProjectWorkItemIssueMarkers } from "./issue-materialization.js";
+import {
+  readOpenClawCodeOperatorStatusSnapshot,
+} from "./operator-status.js";
+import type { OpenClawCodeIssueStatusSnapshot } from "../integrations/openclaw-plugin/store.js";
 
 export const PROJECT_WORK_ITEM_SCHEMA_VERSION = 1;
 export const PROJECT_WORK_ITEM_STATUSES = [
@@ -575,6 +582,133 @@ export function resolveProjectWorkItemInventoryPath(repoRootInput: string): stri
   return path.join(path.resolve(repoRootInput), ".openclawcode", "work-items.json");
 }
 
+type ProjectTrackedIssueState = {
+  currentIssueNumber: number | null;
+  queuedIssueNumbers: Set<number>;
+  snapshotsByIssueNumber: Map<number, OpenClawCodeIssueStatusSnapshot>;
+};
+
+function resolveTrackedIssueSnapshotStatus(stage: WorkflowStage): ProjectWorkItemStatus | null {
+  switch (stage) {
+    case "intake":
+    case "planning":
+    case "awaiting-plan-approval":
+      return "queued";
+    case "building":
+    case "draft-pr-opened":
+    case "verifying":
+    case "ready-for-human-review":
+      return "in-progress";
+    case "changes-requested":
+    case "escalated":
+    case "failed":
+      return "blocked";
+    case "completed-without-changes":
+    case "merged":
+      return "completed";
+    default:
+      return null;
+  }
+}
+
+function reconcileProjectedIssueLink(params: {
+  projection: ProjectWorkItemGitHubProjection;
+  trackedIssueState: ProjectTrackedIssueState | null;
+}): ProjectWorkItemGitHubProjection {
+  const current = params.projection.current;
+  if (!current) {
+    return params.projection;
+  }
+  const snapshot = params.trackedIssueState?.snapshotsByIssueNumber.get(current.issueNumber);
+  const nextIssueState =
+    snapshot?.stage === "merged" || snapshot?.stage === "completed-without-changes"
+      ? "closed"
+      : current.issueState;
+  if (nextIssueState === current.issueState) {
+    return params.projection;
+  }
+  const nextCurrent = {
+    ...current,
+    issueState: nextIssueState,
+  };
+  return {
+    current: nextCurrent,
+    history: params.projection.history.map((entry) =>
+      entry.issueNumber === nextCurrent.issueNumber
+        ? { ...entry, issueState: nextIssueState }
+        : entry,
+    ),
+  };
+}
+
+function resolveProjectedWorkItemStatus(params: {
+  previous: ProjectWorkItem | undefined;
+  fallback: ProjectWorkItemStatus;
+  githubIssue: ProjectWorkItemGitHubProjection;
+  trackedIssueState: ProjectTrackedIssueState | null;
+}): ProjectWorkItemStatus {
+  if (params.previous?.status === "canceled" || params.previous?.status === "superseded") {
+    return params.previous.status;
+  }
+  const currentIssueNumber = params.githubIssue.current?.issueNumber ?? null;
+  if (currentIssueNumber != null) {
+    if (params.trackedIssueState?.currentIssueNumber === currentIssueNumber) {
+      return "in-progress";
+    }
+    if (params.trackedIssueState?.queuedIssueNumbers.has(currentIssueNumber)) {
+      return "queued";
+    }
+    const snapshot = params.trackedIssueState?.snapshotsByIssueNumber.get(currentIssueNumber);
+    if (snapshot) {
+      const resolved = resolveTrackedIssueSnapshotStatus(snapshot.stage);
+      if (resolved) {
+        return resolved;
+      }
+    }
+    if (params.githubIssue.current?.issueState === "closed") {
+      return "completed";
+    }
+  }
+  if (params.previous?.status === "completed") {
+    return "completed";
+  }
+  return params.fallback;
+}
+
+async function resolveProjectTrackedIssueState(
+  repoRoot: string,
+): Promise<ProjectTrackedIssueState | null> {
+  const repo = await resolveGitHubRepoFromGit(repoRoot).catch(() => null);
+  if (!repo) {
+    return null;
+  }
+  const operatorSnapshot = await readOpenClawCodeOperatorStatusSnapshot(resolveStateDir()).catch(
+    () => null,
+  );
+  if (!operatorSnapshot) {
+    return null;
+  }
+  const repoKey = `${repo.owner}/${repo.repo}`.toLowerCase();
+  const currentIssueNumber =
+    operatorSnapshot.currentRun &&
+    `${operatorSnapshot.currentRun.request.owner}/${operatorSnapshot.currentRun.request.repo}`.toLowerCase() ===
+      repoKey
+      ? operatorSnapshot.currentRun.request.issueNumber
+      : null;
+  const snapshotsByIssueNumber = new Map<number, OpenClawCodeIssueStatusSnapshot>();
+  for (const snapshot of operatorSnapshot.issueSnapshots) {
+    if (`${snapshot.owner}/${snapshot.repo}`.toLowerCase() !== repoKey) {
+      continue;
+    }
+    snapshotsByIssueNumber.set(snapshot.issueNumber, snapshot);
+  }
+  return {
+    currentIssueNumber,
+    queuedIssueNumbers: new Set<number>(),
+    snapshotsByIssueNumber,
+  };
+}
+
 export async function deriveProjectWorkItemInventory(
   repoRootInput: string,
 ): Promise<ProjectWorkItemInventory> {
@@ -646,6 +780,7 @@ export async function deriveProjectWorkItemInventory(
   }
 
   const generatedAt = new Date().toISOString();
+  const trackedIssueState = await resolveProjectTrackedIssueState(repoRoot);
   const previousByFingerprint = new Map(previousItems.map((item) => [item.fingerprint, item]));
   const matchedFingerprints = new Set<string>();
   const usedIds = new Set(previousItems.map((item) => item.id));
@@ -673,11 +808,19 @@ export async function deriveProjectWorkItemInventory(
         preferredIndex: index + 1,
         usedIds,
       });
-    const githubIssue = previous?.githubIssue ?? emptyProjectWorkItemGitHubProjection();
+    const githubIssue = reconcileProjectedIssueLink({
+      projection: previous?.githubIssue ?? emptyProjectWorkItemGitHubProjection(),
+      trackedIssueState,
+    });
     return {
       id,
       kind: "planned" as const,
-      status: preserveProjectWorkItemStatus(previous, "planned"),
+      status: resolveProjectedWorkItemStatus({
+        previous,
+        fallback: "planned",
+        githubIssue,
+        trackedIssueState,
+      }),
       class: workItemClass,
       executionMode,
       fingerprint,
@@ -716,7 +859,24 @@ export async function deriveProjectWorkItemInventory(
       blueprintPath: blueprint.blueprintPath,
       providerRoleAssignments: blueprint.providerRoleAssignments,
     }));
-  const preservedDiscovered = previousItems.filter((item) => item.kind === "discovered");
+  const preservedDiscovered = previousItems
+    .filter((item) => item.kind === "discovered")
+    .map((item) => {
+      const githubIssue = reconcileProjectedIssueLink({
+        projection: item.githubIssue,
+        trackedIssueState,
+      });
+      return {
+        ...item,
+        status: resolveProjectedWorkItemStatus({
+          previous: item,
+          fallback: item.status === "blocked" ? "blocked" : "planned",
+          githubIssue,
+          trackedIssueState,
+        }),
+        githubIssue,
+      };
+    });
   const workItems = [...activeWorkItems, ...preservedDiscovered, ...supersededWorkItems];
 
   const blockerList = [...blockers].toSorted();

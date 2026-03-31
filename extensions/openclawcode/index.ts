@@ -70,7 +70,12 @@ import {
   readProjectNextWorkSelection,
   writeProjectNextWorkSelection,
 } from "../../src/openclawcode/next-work.js";
-import { resolveConcreteChatNotifyTarget } from "../../src/openclawcode/operator-chat-targets.js";
+import {
+  isBindPendingNotifyTarget,
+  isCliOnlyNotifyTarget,
+  isConcreteChatNotifyTarget,
+  resolveConcreteChatNotifyTarget,
+} from "../../src/openclawcode/operator-chat-targets.js";
 import { deriveRepoPreCodeDisciplineSummary } from "../../src/openclawcode/operator-status.js";
 import { readOpenClawCodeOperatorStatusSnapshot } from "../../src/openclawcode/operator-status.js";
 import { buildOpenClawCodePolicySnapshot } from "../../src/openclawcode/policy.js";
@@ -402,12 +407,19 @@ function buildChatSetupFailedMessage(params: {
   retryCommand?: string;
   needsOperatorAction?: boolean;
 }): string {
+  const needsExplicitBootstrapTestCommands =
+    params.step === "bootstrap" &&
+    /Unable to infer test commands/i.test(params.reason) &&
+    /Pass --test explicitly/i.test(params.reason);
   return [
     "OpenClaw Code setup hit a recoverable failure.",
     params.step ? `Failed step: ${params.step}` : undefined,
     `Reason: ${params.reason}`,
     params.repoKey ? `Selected repo: ${params.repoKey}` : undefined,
     params.logTail ? `Recent gh output:\n${params.logTail}` : undefined,
+    needsExplicitBootstrapTestCommands
+      ? "Next: send /occode-test <command> to save one or more safe test commands for this setup session."
+      : undefined,
     params.retryCommand ? `Retry: ${params.retryCommand}` : "Retry: /occode-setup-retry",
     params.needsOperatorAction
       ? "Operator action: fix the host-side problem first, then retry."
@@ -418,6 +430,20 @@ function buildChatSetupFailedMessage(params: {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function parseSetupBootstrapTestCommands(commandBody: string): string[] {
+  const body = extractMultilineCommandBody({
+    commandBody,
+    commandName: "occode-test",
+  });
+  if (!body) {
+    return [];
+  }
+  return body
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 type ChatSetupSession = NonNullable<
@@ -1491,6 +1517,18 @@ async function ensureChatSetupRepoBinding(params: {
       notifyTarget: params.session.notifyTarget,
     };
   }
+  if (isPlaceholderNotificationDestination(current)) {
+    await params.store.setRepoBinding({
+      repoKey: params.session.repoKey,
+      notifyChannel: params.session.notifyChannel,
+      notifyTarget: params.session.notifyTarget,
+    });
+    return {
+      status: "bound",
+      notifyChannel: params.session.notifyChannel,
+      notifyTarget: params.session.notifyTarget,
+    };
+  }
   if (
     current.notifyChannel === params.session.notifyChannel &&
     current.notifyTarget === params.session.notifyTarget
@@ -1506,6 +1544,65 @@ async function ensureChatSetupRepoBinding(params: {
     notifyChannel: current.notifyChannel,
     notifyTarget: current.notifyTarget,
   };
+}
+
+function isPlaceholderNotificationChannel(channel: string | undefined): boolean {
+  const normalized = channel?.trim().toLowerCase() ?? "";
+  return normalized === "" || normalized === "bootstrap" || normalized === "unknown";
+}
+
+function isPlaceholderNotificationDestination(
+  destination:
+    | {
+        notifyChannel?: string;
+        notifyTarget?: string;
+      }
+    | undefined,
+): boolean {
+  if (!destination) {
+    return true;
+  }
+  return (
+    isPlaceholderNotificationChannel(destination.notifyChannel) ||
+    !isConcreteChatNotifyTarget(destination.notifyTarget) ||
+    isCliOnlyNotifyTarget(destination.notifyTarget) ||
+    isBindPendingNotifyTarget(destination.notifyTarget)
+  );
+}
+
+async function upgradePlaceholderRepoBindingFromCommand(params: {
+  store: OpenClawCodeChatopsStore;
+  repoKey: string;
+  channel: string | undefined;
+  target: string | undefined;
+}): Promise<
+  | {
+      notifyChannel: string;
+      notifyTarget: string;
+    }
+  | undefined
+> {
+  const channel = params.channel?.trim();
+  const target = params.target?.trim();
+  if (
+    !channel ||
+    !target ||
+    isPlaceholderNotificationDestination({
+      notifyChannel: channel,
+      notifyTarget: target,
+    })
+  ) {
+    return undefined;
+  }
+  const current = await params.store.getRepoBinding(params.repoKey);
+  if (current && !isPlaceholderNotificationDestination(current)) {
+    return current;
+  }
+  return params.store.setRepoBinding({
+    repoKey: params.repoKey,
+    notifyChannel: channel,
+    notifyTarget: target,
+  });
 }
 
 function resolveChatSetupStageAfterAuth(session: ChatSetupSession): ChatSetupSession["stage"] {
@@ -1840,6 +1937,12 @@ async function completeChatSetupBootstrap(params: {
   try {
     payload = await runOnboardingOpenClawCodeBootstrap({
       repo: params.session.repoKey,
+      bootstrapOpts:
+        params.session.bootstrapTestCommands && params.session.bootstrapTestCommands.length > 0
+          ? {
+              test: params.session.bootstrapTestCommands,
+            }
+          : undefined,
     });
   } catch (error) {
     const failed = {
@@ -3879,21 +3982,48 @@ async function enqueueInteractiveIssueIntake(params: {
     channel: string;
     target: string;
   };
+  action?: "start" | "rerun";
   status: string;
 }): Promise<Awaited<ReturnType<OpenClawCodeChatopsStore["promotePendingApprovalToQueue"]>>> {
-  return await params.store.promotePendingApprovalToQueue({
-    issueKey: formatIssueKey(params.issue),
-    request: buildRunRequestFromCommand({
-      command: {
-        action: "start",
-        issue: {
-          owner: params.issue.owner,
-          repo: params.issue.repo,
-          number: params.issue.number,
+  const issueKey = formatIssueKey(params.issue);
+  const snapshot =
+    params.action === "rerun" ? await params.store.getStatusSnapshot(issueKey) : undefined;
+  const request = snapshot
+    ? buildRunRequestFromCommand({
+        command: {
+          action: "rerun",
+          issue: {
+            owner: params.issue.owner,
+            repo: params.issue.repo,
+            number: params.issue.number,
+          },
         },
-      },
-      config: params.repoConfig,
-    }),
+        config: params.repoConfig,
+        rerunContext: {
+          reason: resolveRerunReason(snapshot),
+          requestedAt: new Date().toISOString(),
+          priorRunId: snapshot.runId,
+          priorStage: snapshot.stage,
+          reviewDecision: snapshot.latestReviewDecision,
+          reviewSubmittedAt: snapshot.latestReviewSubmittedAt,
+          reviewSummary: snapshot.latestReviewSummary,
+          reviewUrl: snapshot.latestReviewUrl,
+        },
+      })
+    : buildRunRequestFromCommand({
+        command: {
+          action: "start",
+          issue: {
+            owner: params.issue.owner,
+            repo: params.issue.repo,
+            number: params.issue.number,
+          },
+        },
+        config: params.repoConfig,
+      });
+  return await params.store.promotePendingApprovalToQueue({
+    issueKey,
+    request,
     fallbackNotifyChannel: params.destination.channel,
     fallbackNotifyTarget: params.destination.target,
     status: params.status,
@@ -3912,6 +4042,7 @@ async function queueOrGateIssueExecution(params: {
     channel: string;
     target: string;
   };
+  action?: "start" | "rerun";
   queuedStatus: string;
   gatedStatus?: string;
 }): Promise<
@@ -3954,6 +4085,7 @@ async function queueOrGateIssueExecution(params: {
     repoConfig: params.repoConfig,
     issue: params.issue,
     destination: params.destination,
+    action: params.action,
     status: params.queuedStatus,
   });
   if (!queuedRun) {
@@ -3963,6 +4095,81 @@ async function queueOrGateIssueExecution(params: {
     outcome: "queued",
     queuedRun,
   };
+}
+
+async function maybeAutoAdvanceRepoAutopilot(params: {
+  api: OpenClawPluginApi;
+  store: OpenClawCodeChatopsStore;
+  repoConfig: OpenClawCodeChatopsRepoConfig;
+  binding?: Awaited<ReturnType<OpenClawCodeChatopsStore["getRepoBinding"]>>;
+  reason: string;
+}): Promise<void> {
+  if (params.repoConfig.triggerMode !== "auto") {
+    return;
+  }
+  try {
+    const operatorSnapshot = await readOpenClawCodeOperatorStatusSnapshot(
+      params.api.runtime.state.resolveStateDir(),
+    ).catch(() => undefined);
+    const destination = resolveNotificationDestination({
+      repoConfig: params.repoConfig,
+      binding: params.binding,
+    });
+    const artifact = await runProjectAutonomousLoop({
+      repoRoot: params.repoConfig.repoRoot,
+      repo: {
+        owner: params.repoConfig.owner,
+        repo: params.repoConfig.repo,
+      },
+      operatorSnapshot,
+      readOperatorSnapshot: async () =>
+        await readOpenClawCodeOperatorStatusSnapshot(
+          params.api.runtime.state.resolveStateDir(),
+        ).catch(() => undefined),
+      queueIssue: async ({ issueNumber, issueAction }) => {
+        const queued = await queueOrGateIssueExecution({
+          store: params.store,
+          repoConfig: params.repoConfig,
+          issue: {
+            owner: params.repoConfig.owner,
+            repo: params.repoConfig.repo,
+            number: issueNumber,
+          },
+          destination,
+          action: issueAction,
+          queuedStatus:
+            issueAction === "rerun"
+              ? `Queued rerun automatically after ${params.reason}.`
+              : `Queued automatically after ${params.reason}.`,
+          gatedStatus: "Awaiting execution-start gate approval.",
+        });
+        if (queued.outcome === "queued") {
+          return {
+            outcome: "queued" as const,
+            issueKey: queued.queuedRun.issueKey,
+          };
+        }
+        if (queued.outcome === "gated") {
+          return {
+            outcome: "gated" as const,
+            issueKey: `${params.repoConfig.owner}/${params.repoConfig.repo}#${issueNumber}`,
+          };
+        }
+        return {
+          outcome: "already-tracked" as const,
+          issueKey: `${params.repoConfig.owner}/${params.repoConfig.repo}#${issueNumber}`,
+        };
+      },
+      maxIterations: 1,
+    });
+    if (artifact.status === "materialized-and-queued") {
+      kickQueueDrain(params.api, params.store);
+    }
+  } catch (error) {
+    params.api.logger.warn(
+      `openclawcode automatic repo advancement failed for ${params.repoConfig.owner}/${params.repoConfig.repo} after ${params.reason}: ${String(error)}`,
+    );
+  }
 }
 
 async function createAndHandleChatIntakeIssue(params: {
@@ -5944,6 +6151,13 @@ async function maybeAutoMergeApprovedSnapshot(params: {
       target: destination.target,
       text: mergedSnapshot.status,
     }).catch(() => undefined);
+    await maybeAutoAdvanceRepoAutopilot({
+      api: params.api,
+      store: params.store,
+      repoConfig: params.repoConfig,
+      binding: params.binding,
+      reason: `${mergedSnapshot.issueKey} merged`,
+    });
     return {
       handled: true,
       merged: true,
@@ -6306,6 +6520,21 @@ async function sendText(params: {
   });
 }
 
+async function sendTextBestEffort(params: {
+  api: OpenClawPluginApi;
+  channel: string;
+  target: string;
+  text: string;
+}): Promise<void> {
+  try {
+    await sendText(params);
+  } catch (error) {
+    params.api.logger.warn(
+      `openclawcode notification failed for ${params.channel}:${params.target}: ${String(error)}`,
+    );
+  }
+}
+
 function scheduleNotification(params: {
   api: OpenClawPluginApi;
   channel: string;
@@ -6642,15 +6871,33 @@ function resolveNotificationDestination(params: {
   channel: string;
   target: string;
 } {
+  const candidates = [
+    params.snapshot
+      ? { channel: params.snapshot.notifyChannel, target: params.snapshot.notifyTarget }
+      : undefined,
+    params.binding
+      ? { channel: params.binding.notifyChannel, target: params.binding.notifyTarget }
+      : undefined,
+    { channel: params.repoConfig.notifyChannel, target: params.repoConfig.notifyTarget },
+  ].filter(
+    (
+      entry,
+    ): entry is {
+      channel: string;
+      target: string;
+    } => Boolean(entry),
+  );
+  const resolved =
+    candidates.find(
+      (entry) =>
+        !isPlaceholderNotificationDestination({
+          notifyChannel: entry.channel,
+          notifyTarget: entry.target,
+        }),
+    ) ?? candidates[0];
   return {
-    channel:
-      params.snapshot?.notifyChannel ??
-      params.binding?.notifyChannel ??
-      params.repoConfig.notifyChannel,
-    target:
-      params.snapshot?.notifyTarget ??
-      params.binding?.notifyTarget ??
-      params.repoConfig.notifyTarget,
+    channel: resolved?.channel ?? params.repoConfig.notifyChannel,
+    target: resolved?.target ?? params.repoConfig.notifyTarget,
   };
 }
 
@@ -7078,6 +7325,15 @@ async function handlePullRequestWebhookEvent(params: {
       `openclawcode notification failed for ${destination.channel}:${destination.target}: ${String(error)}`,
     );
   }
+  if (applied.snapshot.stage === "merged") {
+    await maybeAutoAdvanceRepoAutopilot({
+      api: params.api,
+      store: params.store,
+      repoConfig: params.repoConfig,
+      binding: params.binding,
+      reason: `${applied.snapshot.issueKey} merged`,
+    });
+  }
   return await params.respondJson({
     accepted: true,
     reason: applied.reason,
@@ -7420,7 +7676,7 @@ async function processNextQueuedRun(
   const startedAt = new Date().toISOString();
   try {
     if (resumedProviderPause) {
-      await sendText({
+      await sendTextBestEffort({
         api,
         channel: next.notifyChannel,
         target: next.notifyTarget,
@@ -7430,7 +7686,7 @@ async function processNextQueuedRun(
         }),
       });
     }
-    await sendText({
+    await sendTextBestEffort({
       api,
       channel: next.notifyChannel,
       target: next.notifyTarget,
@@ -7529,6 +7785,20 @@ async function processNextQueuedRun(
       store,
       issueKey: next.issueKey,
     });
+    if (run.stage === "completed-without-changes") {
+      await maybeAutoAdvanceRepoAutopilot({
+        api,
+        store,
+        repoConfig: buildRepoConfigFromRunRequest(next.request),
+        binding: await store.getRepoBinding(
+          formatRepoKey({
+            owner: next.request.owner,
+            repo: next.request.repo,
+          }),
+        ),
+        reason: `${next.issueKey} completed-without-changes`,
+      });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const recovered = await recoverTrackedRunStatus({
@@ -8240,8 +8510,22 @@ export default {
           repo: command.issue.repo,
           number: command.issue.number,
         });
+        const repoKey = formatRepoKey(command.issue);
+        const currentNotifyTarget = resolveCommandNotifyTarget(ctx) || ctx.senderId?.trim();
+        const existingBinding = await store.getRepoBinding(repoKey);
+        const binding =
+          (await upgradePlaceholderRepoBindingFromCommand({
+            store,
+            repoKey,
+            channel: ctx.channel?.trim(),
+            target: currentNotifyTarget,
+          })) ?? existingBinding;
         const currentStatus = await store.getStatus(issueKey);
         const pendingApproval = await store.getPendingApproval(issueKey);
+        const pendingDestinationIsPlaceholder = isPlaceholderNotificationDestination({
+          notifyChannel: pendingApproval?.notifyChannel,
+          notifyTarget: pendingApproval?.notifyTarget,
+        });
         if (await store.isQueuedOrRunning(issueKey)) {
           return { text: `${issueKey} is already in progress.\n${currentStatus ?? "Queued."}` };
         }
@@ -8252,11 +8536,13 @@ export default {
             issue: command.issue,
             destination: {
               channel:
-                pendingApproval?.notifyChannel ?? ctx.channel?.trim() ?? repoConfig.notifyChannel,
+                !pendingDestinationIsPlaceholder && pendingApproval?.notifyChannel
+                  ? pendingApproval.notifyChannel
+                  : ctx.channel?.trim() || binding?.notifyChannel || repoConfig.notifyChannel,
               target:
-                resolveCommandNotifyTarget(ctx) ||
-                ctx.senderId?.trim() ||
-                pendingApproval?.notifyTarget ||
+                currentNotifyTarget ||
+                (!pendingDestinationIsPlaceholder ? pendingApproval?.notifyTarget : undefined) ||
+                binding?.notifyTarget ||
                 repoConfig.notifyTarget,
             },
           });
@@ -8275,15 +8561,19 @@ export default {
           command,
           config: repoConfig,
         });
+        const notifyChannel =
+          !pendingDestinationIsPlaceholder && pendingApproval?.notifyChannel
+            ? pendingApproval.notifyChannel
+            : ctx.channel?.trim() || binding?.notifyChannel || repoConfig.notifyChannel;
         const notifyTarget =
-          resolveCommandNotifyTarget(ctx) ||
-          ctx.senderId?.trim() ||
-          pendingApproval?.notifyTarget ||
+          currentNotifyTarget ||
+          (!pendingDestinationIsPlaceholder ? pendingApproval?.notifyTarget : undefined) ||
+          binding?.notifyTarget ||
           repoConfig.notifyTarget;
         const queuedRun = await store.promotePendingApprovalToQueue({
           issueKey,
           request,
-          fallbackNotifyChannel: pendingApproval?.notifyChannel ?? repoConfig.notifyChannel,
+          fallbackNotifyChannel: notifyChannel,
           fallbackNotifyTarget: notifyTarget,
           status: pendingApproval ? "Approved in chat and queued." : "Queued.",
         });
@@ -8332,8 +8622,22 @@ export default {
           repo: command.issue.repo,
           number: command.issue.number,
         });
+        const repoKey = formatRepoKey(command.issue);
+        const currentNotifyTarget = resolveCommandNotifyTarget(ctx) || ctx.senderId?.trim();
+        const existingBinding = await store.getRepoBinding(repoKey);
+        const binding =
+          (await upgradePlaceholderRepoBindingFromCommand({
+            store,
+            repoKey,
+            channel: ctx.channel?.trim(),
+            target: currentNotifyTarget,
+          })) ?? existingBinding;
         const currentStatus = await store.getStatus(issueKey);
         const pendingApproval = await store.getPendingApproval(issueKey);
+        const pendingDestinationIsPlaceholder = isPlaceholderNotificationDestination({
+          notifyChannel: pendingApproval?.notifyChannel,
+          notifyTarget: pendingApproval?.notifyTarget,
+        });
         if (await store.isQueuedOrRunning(issueKey)) {
           return { text: `${issueKey} is already in progress.\n${currentStatus ?? "Queued."}` };
         }
@@ -8344,11 +8648,13 @@ export default {
             issue: command.issue,
             destination: {
               channel:
-                pendingApproval?.notifyChannel ?? ctx.channel?.trim() ?? repoConfig.notifyChannel,
+                !pendingDestinationIsPlaceholder && pendingApproval?.notifyChannel
+                  ? pendingApproval.notifyChannel
+                  : ctx.channel?.trim() || binding?.notifyChannel || repoConfig.notifyChannel,
               target:
-                resolveCommandNotifyTarget(ctx) ||
-                ctx.senderId?.trim() ||
-                pendingApproval?.notifyTarget ||
+                currentNotifyTarget ||
+                (!pendingDestinationIsPlaceholder ? pendingApproval?.notifyTarget : undefined) ||
+                binding?.notifyTarget ||
                 repoConfig.notifyTarget,
             },
           });
@@ -8367,19 +8673,23 @@ export default {
           command,
           config: repoConfig,
           suitabilityOverride: {
-            actor: resolveCommandNotifyTarget(ctx) || ctx.senderId?.trim(),
+            actor: currentNotifyTarget,
             reason: "Chat operator approved a suitability override for this run.",
           },
         });
+        const notifyChannel =
+          !pendingDestinationIsPlaceholder && pendingApproval?.notifyChannel
+            ? pendingApproval.notifyChannel
+            : ctx.channel?.trim() || binding?.notifyChannel || repoConfig.notifyChannel;
         const notifyTarget =
-          resolveCommandNotifyTarget(ctx) ||
-          ctx.senderId?.trim() ||
-          pendingApproval?.notifyTarget ||
+          currentNotifyTarget ||
+          (!pendingDestinationIsPlaceholder ? pendingApproval?.notifyTarget : undefined) ||
+          binding?.notifyTarget ||
           repoConfig.notifyTarget;
         const queuedRun = await store.promotePendingApprovalToQueue({
           issueKey,
           request,
-          fallbackNotifyChannel: pendingApproval?.notifyChannel ?? repoConfig.notifyChannel,
+          fallbackNotifyChannel: notifyChannel,
           fallbackNotifyTarget: notifyTarget,
           status: pendingApproval
             ? "Suitability override approved in chat and queued."
@@ -9598,6 +9908,7 @@ export default {
             (await store.getStatus(issueKey)) ?? `Awaiting chat approval for ${issueKey}.`;
         } else {
           if (currentSnapshot) {
+            statusText = currentSnapshot.status;
             try {
               const synced = await syncIssueSnapshotFromGitHub({
                 snapshot: currentSnapshot,
@@ -9823,6 +10134,53 @@ export default {
             promotionReceipt,
             rollbackReceipt,
           }),
+        };
+      },
+    });
+
+    registerOpenClawCodeCommand({
+      name: "occode-test",
+      description: "Save one or more bootstrap test commands for the active setup session.",
+      acceptsArgs: true,
+      handler: async (ctx) => {
+        const notifyTarget = resolveCommandNotifyTarget(ctx);
+        if (!notifyTarget) {
+          return {
+            text: "This setup flow needs a concrete chat target. Start it from a direct or bound chat.",
+          };
+        }
+        const existing = await store.getSetupSession({
+          notifyChannel: ctx.channel,
+          notifyTarget,
+        });
+        if (!existing) {
+          return {
+            text: "No active openclawcode setup session for this chat. Start with /occode-setup.",
+          };
+        }
+        const testCommands = parseSetupBootstrapTestCommands(ctx.commandBody);
+        if (testCommands.length === 0) {
+          return {
+            text:
+              "Usage: /occode-test <command>\n" +
+              "Or send multiple lines to save more than one test command for this setup session.",
+          };
+        }
+        const updated = {
+          ...existing,
+          bootstrapTestCommands: testCommands,
+          updatedAt: new Date().toISOString(),
+        };
+        await store.upsertSetupSession(updated);
+        return {
+          text: [
+            "Saved bootstrap test commands for this setup session.",
+            existing.repoKey ? `Selected repo: ${existing.repoKey}` : undefined,
+            `Commands: ${testCommands.join(" | ")}`,
+            "Next: /occode-setup-retry",
+          ]
+            .filter(Boolean)
+            .join("\n"),
         };
       },
     });
@@ -10658,12 +11016,19 @@ export default {
             text: `No openclawcode repo config found for ${repo.owner}/${repo.repo}.`,
           };
         }
+        const repoKey = formatRepoKey(repo);
         const notifyTarget = resolveCommandNotifyTarget(ctx);
         if (!notifyTarget) {
           return {
             text: "This command needs a concrete chat target so any queued run can post updates here.",
           };
         }
+        await upgradePlaceholderRepoBindingFromCommand({
+          store,
+          repoKey,
+          channel: ctx.channel,
+          target: notifyTarget,
+        });
 
         const result = await materializeAndHandleNextWorkIssue({
           store,
@@ -10793,49 +11158,59 @@ export default {
             await readOpenClawCodeOperatorStatusSnapshot(api.runtime.state.resolveStateDir()).catch(
               () => undefined,
             ),
-          queueIssue:
-            notifyTarget == null
-              ? undefined
-              : async ({ issueNumber }) => {
-                  const queued = await queueOrGateIssueExecution({
-                    store,
+          queueIssue: async ({ issueNumber, issueAction }) => {
+            const binding = await store.getRepoBinding(formatRepoKey(parsed.repo));
+            const destination =
+              notifyTarget == null
+                ? resolveNotificationDestination({
                     repoConfig,
-                    issue: {
-                      owner: repoConfig.owner,
-                      repo: repoConfig.repo,
-                      number: issueNumber,
-                    },
-                    destination: {
-                      channel: ctx.channel,
-                      target: notifyTarget,
-                    },
-                    queuedStatus:
-                      parsed.action === "repeat"
-                        ? "Queued from /occode-autopilot repeat."
-                        : "Queued from /occode-autopilot once.",
-                    gatedStatus: "Awaiting execution-start gate approval.",
-                  });
-                  if (queued.outcome === "queued") {
-                    kickQueueDrain(api, store);
-                    return {
-                      outcome: "queued" as const,
-                      issueKey: queued.queuedRun.issueKey,
-                    };
-                  }
-                  if (queued.outcome === "gated") {
-                    return {
-                      outcome: "gated" as const,
-                      issueKey: `${repoConfig.owner}/${repoConfig.repo}#${issueNumber}`,
-                    };
-                  }
-                  return {
-                    outcome: "already-tracked" as const,
-                    issueKey:
-                      queued.outcome === "already-tracked"
-                        ? `${repoConfig.owner}/${repoConfig.repo}#${issueNumber}`
-                        : null,
+                    binding,
+                  })
+                : {
+                    channel: binding?.notifyChannel || ctx.channel || repoConfig.notifyChannel,
+                    target: binding?.notifyTarget || notifyTarget,
                   };
-                },
+            const queued = await queueOrGateIssueExecution({
+              store,
+              repoConfig,
+              issue: {
+                owner: repoConfig.owner,
+                repo: repoConfig.repo,
+                number: issueNumber,
+              },
+              destination,
+              action: issueAction,
+              queuedStatus:
+                issueAction === "rerun"
+                  ? parsed.action === "repeat"
+                    ? "Queued rerun from /occode-autopilot repeat."
+                    : "Queued rerun from /occode-autopilot once."
+                  : parsed.action === "repeat"
+                    ? "Queued from /occode-autopilot repeat."
+                    : "Queued from /occode-autopilot once.",
+              gatedStatus: "Awaiting execution-start gate approval.",
+            });
+            if (queued.outcome === "queued") {
+              kickQueueDrain(api, store);
+              return {
+                outcome: "queued" as const,
+                issueKey: queued.queuedRun.issueKey,
+              };
+            }
+            if (queued.outcome === "gated") {
+              return {
+                outcome: "gated" as const,
+                issueKey: `${repoConfig.owner}/${repoConfig.repo}#${issueNumber}`,
+              };
+            }
+            return {
+              outcome: "already-tracked" as const,
+              issueKey:
+                queued.outcome === "already-tracked"
+                  ? `${repoConfig.owner}/${repoConfig.repo}#${issueNumber}`
+                  : null,
+            };
+          },
           maxIterations: parsed.action === "repeat" ? parsed.iterations : 1,
         });
         return {
