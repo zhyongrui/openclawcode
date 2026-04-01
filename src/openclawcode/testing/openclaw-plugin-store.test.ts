@@ -923,7 +923,7 @@ describe("OpenClawCodeChatopsStore", () => {
         lastNotificationTarget: "chat:primary",
         lastNotificationStatus: "sent",
       });
-      expect(snapshot?.lastNotificationAt).toMatch(/^2026-03-\d{2}T/);
+      expect(snapshot?.lastNotificationAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
       expect(
         await fixture.store.findStatusSnapshotByPullRequest({
           owner: "zhyongrui",

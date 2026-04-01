@@ -3,13 +3,17 @@ import { info } from "../globals.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { formatBackgroundSessionResumeLines } from "./background-session-resume.js";
 import {
+  cancelTaskById,
+  getTaskById,
+  updateTaskNotifyPolicyById,
+} from "../tasks/runtime-internal.js";
+import {
   listTaskAuditFindings,
   summarizeTaskAuditFindings,
   type TaskAuditCode,
   type TaskAuditFinding,
   type TaskAuditSeverity,
 } from "../tasks/task-registry.audit.js";
-import { cancelTaskById, getTaskById, updateTaskNotifyPolicyById } from "../tasks/task-registry.js";
 import {
   getInspectableTaskAuditSummary,
   getInspectableTaskRegistrySummary,
@@ -236,7 +240,7 @@ export async function tasksShowCommand(
     `result: ${task.terminalOutcome ?? "n/a"}`,
     `delivery: ${task.deliveryStatus}`,
     `notify: ${task.notifyPolicy}`,
-    `requesterSessionKey: ${task.requesterSessionKey}`,
+    `ownerKey: ${task.ownerKey}`,
     `childSessionKey: ${task.childSessionKey ?? "n/a"}`,
     `parentTaskId: ${task.parentTaskId ?? "n/a"}`,
     `agentId: ${task.agentId ?? "n/a"}`,
