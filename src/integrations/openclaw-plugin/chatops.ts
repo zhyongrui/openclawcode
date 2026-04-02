@@ -1,5 +1,10 @@
 import path from "node:path";
 import process from "node:process";
+import {
+  buildLocalizedOpenClawCodeCommand,
+  formatOpenClawCodeCommandWithAliases,
+  resolveOpenClawCodeCanonicalCommandName,
+} from "../../openclawcode/chat-command-localization.js";
 import type {
   IssueRef,
   WorkflowFailureDiagnostics,
@@ -418,13 +423,6 @@ export function buildIssueApprovalMessage(params: {
       : config.mergeOnApprove
         ? "Open PR, verify, and auto-merge when policy allows"
         : "Open PR and stop for review";
-  const formatChatCommandWithAlias = (command: string) => {
-    if (!command.startsWith("/occode-")) {
-      return command;
-    }
-    const alias = command.replace(/^\/occode-/, "/occ-");
-    return `${command} (alias ${alias})`;
-  };
 
   return [
     "openclawcode has a new GitHub issue ready for a decision.",
@@ -433,9 +431,11 @@ export function buildIssueApprovalMessage(params: {
     `Labels: ${labels}`,
     `Planned flow: ${publicationMode}`,
     "Reply with one command:",
-    formatChatCommandWithAlias(`/occode-start ${issueKey}`),
-    formatChatCommandWithAlias(`/occode-skip ${issueKey}`),
-    formatChatCommandWithAlias(`/occode-status ${issueKey}`),
+    formatOpenClawCodeCommandWithAliases(`/occode-start ${issueKey}`) ??
+      `/occode-start ${issueKey}`,
+    formatOpenClawCodeCommandWithAliases(`/occode-skip ${issueKey}`) ?? `/occode-skip ${issueKey}`,
+    formatOpenClawCodeCommandWithAliases(`/occode-status ${issueKey}`) ??
+      `/occode-status ${issueKey}`,
   ].join("\n");
 }
 
@@ -448,6 +448,7 @@ export function buildIssueEscalationMessage(params: {
   const issueKey = formatIssueKey(issue);
   const reasonLines = reasons.map((entry) => `- ${entry}`);
   const statusCommand = `/occode-status ${issueKey}`;
+  const localizedStatusCommand = buildLocalizedOpenClawCodeCommand(statusCommand);
   return [
     "openclawcode escalated a new GitHub issue before chat approval.",
     `Issue: ${issueKey}`,
@@ -456,16 +457,33 @@ export function buildIssueEscalationMessage(params: {
     "Reasons:",
     ...reasonLines,
     "Use /occode-status (alias /occ-status) to inspect the tracked status if you later decide to handle it manually.",
-    `${statusCommand} (alias ${statusCommand.replace(/^\/occode-/, "/occ-")})`,
+    localizedStatusCommand
+      ? `${formatOpenClawCodeCommandWithAliases(statusCommand)}`
+      : `${statusCommand} (alias ${statusCommand.replace(/^\/occode-/, "/occ-")})`,
   ].join("\n");
 }
 
 function parseCommandAction(input: string): OpenClawCodeChatopsCommand["action"] | null {
-  const match = /^\/oc(?:code|c)-(start|rerun|skip|status)\b/i.exec(input.trim());
-  if (!match) {
+  const trimmed = input.trim().normalize("NFKC");
+  if (!trimmed.startsWith("/")) {
     return null;
   }
-  return match[1].toLowerCase() as OpenClawCodeChatopsCommand["action"];
+  const body = trimmed.slice(1);
+  const firstSeparator = body.search(/[\s:]/u);
+  const rawCommandName = firstSeparator === -1 ? body : body.slice(0, firstSeparator);
+  const canonicalName = resolveOpenClawCodeCanonicalCommandName(rawCommandName);
+  switch (canonicalName) {
+    case "occode-start":
+      return "start";
+    case "occode-rerun":
+      return "rerun";
+    case "occode-skip":
+      return "skip";
+    case "occode-status":
+      return "status";
+    default:
+      return null;
+  }
 }
 
 function parseIssueReference(
@@ -538,7 +556,13 @@ export function parseChatopsCommand(
     return null;
   }
 
-  const args = input.trim().replace(/^\/oc(?:code|c)-(start|rerun|skip|status)\s*/i, "");
+  const trimmed = input.trim().normalize("NFKC");
+  const body = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+  const firstSeparator = body.search(/[\s:]/u);
+  let args = firstSeparator === -1 ? "" : body.slice(firstSeparator).trimStart();
+  if (args.startsWith(":")) {
+    args = args.slice(1).trimStart();
+  }
   const issue = parseIssueReference(args, defaults);
   if (!issue) {
     return null;
@@ -1079,55 +1103,68 @@ function formatHandoffStatus(run: WorkflowRun): string | undefined {
 export function buildRunStatusMessage(run: WorkflowRun): string {
   const lines = [
     `openclawcode status for ${formatIssueKey(run.issue)}`,
+    `openclawcode 状态：${formatIssueKey(run.issue)}`,
     `Stage: ${formatStageLabel(run.stage)}`,
+    `阶段: ${formatStageLabel(run.stage)}`,
     `Summary: ${resolveRunSummary(run)}`,
+    `摘要: ${resolveRunSummary(run)}`,
   ];
 
   if (run.suitability?.decision) {
     lines.push(`Suitability: ${run.suitability.decision}`);
+    lines.push(`适配性: ${run.suitability.decision}`);
   }
 
   if (run.suitability?.summary) {
     lines.push(`Suitability summary: ${run.suitability.summary}`);
+    lines.push(`适配性摘要: ${run.suitability.summary}`);
   }
 
   const blueprintStatus = formatBlueprintStatus(run);
   if (blueprintStatus) {
     lines.push(`Blueprint: ${blueprintStatus}`);
+    lines.push(`蓝图: ${blueprintStatus}`);
   }
 
   const roleRoutingStatus = formatRoleRoutingStatus(run);
   if (roleRoutingStatus) {
     lines.push(`Role routing: ${roleRoutingStatus}`);
+    lines.push(`角色路由: ${roleRoutingStatus}`);
   }
 
   const stageGateStatus = formatStageGateStatus(run);
   if (stageGateStatus) {
     lines.push(`Stage gates: ${stageGateStatus}`);
+    lines.push(`阶段门: ${stageGateStatus}`);
   }
 
   const runtimeRoutingStatus = formatRuntimeRoutingStatus(run);
   if (runtimeRoutingStatus) {
     lines.push(`Runtime routing: ${runtimeRoutingStatus}`);
+    lines.push(`运行时路由: ${runtimeRoutingStatus}`);
   }
 
   const handoffStatus = formatHandoffStatus(run);
   if (handoffStatus) {
     lines.push(`Handoffs: ${handoffStatus}`);
+    lines.push(`交接: ${handoffStatus}`);
   }
 
   lines.push(...buildWorkflowFailureDiagnosticLines({ diagnostics: run.failureDiagnostics }));
 
   if (run.draftPullRequest?.url) {
     lines.push(`PR: ${run.draftPullRequest.url}`);
+    lines.push(`PR 链接: ${run.draftPullRequest.url}`);
   }
 
   if (run.verificationReport?.decision) {
     lines.push(`Verification: ${run.verificationReport.decision}`);
+    lines.push(`验证: ${run.verificationReport.decision}`);
   }
 
   if (run.buildResult?.changedFiles.length) {
     lines.push(`Changed files: ${run.buildResult.changedFiles.join(", ")}`);
+    lines.push(`变更文件: ${run.buildResult.changedFiles.join(", ")}`);
   }
 
   return lines.join("\n");

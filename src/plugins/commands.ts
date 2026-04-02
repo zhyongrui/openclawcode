@@ -74,10 +74,14 @@ export function matchPluginCommand(
     return null;
   }
 
-  // Extract command name and args
-  const spaceIndex = trimmed.indexOf(" ");
-  const commandName = spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex);
-  const args = spaceIndex === -1 ? undefined : trimmed.slice(spaceIndex + 1).trim();
+  const body = trimmed.slice(1);
+  const firstSeparator = body.search(/[\s:]/u);
+  const commandName = `/${firstSeparator === -1 ? body : body.slice(0, firstSeparator)}`;
+  let remainder = firstSeparator === -1 ? "" : body.slice(firstSeparator).trimStart();
+  if (remainder.startsWith(":")) {
+    remainder = remainder.slice(1).trimStart();
+  }
+  const args = remainder.trim() || undefined;
 
   const key = commandName.toLowerCase();
   const command =

@@ -187,6 +187,7 @@ describe("openclawcode chatops run request plumbing", () => {
       accountId: "ops",
       email: "owner@example.com",
       mobile: undefined,
+      mode: "email",
       sendWelcomeMessage: false,
     });
   });

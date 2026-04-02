@@ -182,7 +182,7 @@ export function wrapEditToolWithRecovery(
       try {
         const result = await base.execute(toolCallId, params, signal, onUpdate);
 
-        if (!absolutePath || newText === undefined) {
+        if (!absolutePath || edits.length === 0) {
           return result;
         }
 
@@ -192,8 +192,7 @@ export function wrapEditToolWithRecovery(
           didEditLikelyApply({
             originalContent,
             currentContent,
-            oldText,
-            newText,
+            edits,
           })
         ) {
           return result;

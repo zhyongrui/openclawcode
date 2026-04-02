@@ -24,15 +24,15 @@ import {
   readProjectWorkItemInventory,
   writeProjectWorkItemInventory,
 } from "../../src/openclawcode/work-items.js";
-import {
-  getPreferredOperatorChatTarget,
-  setPreferredOperatorChatTarget,
-} from "../../src/operator-chat-targets/store.js";
 import { getPendingFeishuOperatorScanCode } from "../../src/operator-chat-targets/feishu-scan-code.js";
 import {
   getFeishuOperatorWelcomeReceipt,
   markFeishuOperatorWelcomeReceiptSent,
 } from "../../src/operator-chat-targets/feishu-welcome-receipts.js";
+import {
+  getPreferredOperatorChatTarget,
+  setPreferredOperatorChatTarget,
+} from "../../src/operator-chat-targets/store.js";
 import { readChannelAllowFromStore } from "../../src/pairing/pairing-store.js";
 import type {
   OpenClawPluginCommandDefinition,
@@ -9117,10 +9117,22 @@ describe("openclawcode extension", () => {
         args: "",
         config: {},
       });
+      expect(fixture.commands.get("occode-progress")?.textAliases).toEqual(["进度", "项目进度"]);
+      expect(fixture.commands.get("occ-progress")?.textAliases).toEqual([]);
+      expect(fixture.commands.get("occode-autopilot")?.textAliases).toEqual([
+        "自动开发",
+        "自动驾驶",
+      ]);
+      expect(fixture.commands.get("occ-autopilot")?.textAliases).toEqual([]);
       expect(progressResult?.text).toContain("openclawcode progress for zhyongrui/openclawcode");
+      expect(progressResult?.text).toContain("openclawcode 项目进度：zhyongrui/openclawcode");
       expect(progressResult?.text).toContain("Next work: ready-to-execute");
+      expect(progressResult?.text).toContain("下一项工作: ready-to-execute");
       expect(progressResult?.text).toContain(
         "Active workstream: Workstream 1/1 | Show project progress in chat.",
+      );
+      expect(progressResult?.text).toContain(
+        "当前工作流: Workstream 1/1 | Show project progress in chat.",
       );
       expect(progressResult?.text).toContain("Execution mode: feature");
       expect(progressResult?.text).toContain(
@@ -9148,6 +9160,7 @@ describe("openclawcode extension", () => {
         "Operator program links: blueprint=PROJECT-BLUEPRINT.md | workItems=.openclawcode/work-items.json | stageGates=.openclawcode/stage-gates.json",
       );
       expect(progressResult?.text).toContain("Next: /occode-materialize zhyongrui/openclawcode");
+      expect(progressResult?.text).toContain("下一步: /物化: zhyongrui/openclawcode");
 
       const offResult = await fixture.commands.get("occode-autopilot")?.handler({
         channel: "telegram",
@@ -9285,15 +9298,20 @@ describe("openclawcode extension", () => {
         config: {},
       });
       expect(onceResult?.text).toContain("Status: blocked");
+      expect(onceResult?.text).toContain("状态: blocked");
       expect(onceResult?.text).toContain("Next-work gate: execution-start");
       expect(onceResult?.text).toContain(
         "Active workstream: Workstream 1/1 | Refactor chat progress formatting into a dedicated presenter.",
+      );
+      expect(onceResult?.text).toContain(
+        "当前工作流: Workstream 1/1 | Refactor chat progress formatting into a dedicated presenter.",
       );
       expect(onceResult?.text).toContain("Execution mode: refactor");
       expect(onceResult?.text).toContain(
         "Primary blocker: Selected refactor slice requires explicit execution-start approval: Refactor chat progress formatting into a dedicated presenter.",
       );
       expect(onceResult?.text).toContain(`Next: /occode-gates zhyongrui/openclawcode`);
+      expect(onceResult?.text).toContain(`下一步: /阶段门: zhyongrui/openclawcode`);
     } finally {
       await cleanupPluginFixture(fixture);
     }
@@ -9534,16 +9552,26 @@ describe("openclawcode extension", () => {
       });
 
       expect(result?.text).toContain("Mode: repeat");
+      expect(result?.text).toContain("模式: repeat");
       expect(result?.text).toContain("Status: blocked");
+      expect(result?.text).toContain("状态: blocked");
       expect(result?.text).toContain("Iterations: 2/2");
+      expect(result?.text).toContain("迭代: 2/2");
       expect(result?.text).toContain(
         "Active workstream: Workstream 1/1 | Run a bounded repeat autopilot loop from chat.",
+      );
+      expect(result?.text).toContain(
+        "当前工作流: Workstream 1/1 | Run a bounded repeat autopilot loop from chat.",
       );
       expect(result?.text).toContain("Operator: queued=1 | currentRun=no | pause=no");
       expect(result?.text).toContain("Stop reason: A run is already queued for this repository.");
       expect(result?.text).toContain(`Next: /occode-progress zhyongrui/openclawcode`);
+      expect(result?.text).toContain(`下一步: /进度: zhyongrui/openclawcode`);
       expect(result?.text).toContain(
         "- iteration 1: materialized-and-queued | ready-to-execute | #88 | zhyongrui/openclawcode#88 | message=Queued zhyongrui/openclawcode#88 after issue materialization. | workstream=Workstream 1/1 | Run a bounded repeat autopilot loop from chat.",
+      );
+      expect(result?.text).toContain(
+        "- 迭代 1: materialized-and-queued | ready-to-execute | #88 | zhyongrui/openclawcode#88 | message=Queued zhyongrui/openclawcode#88 after issue materialization. | workstream=Workstream 1/1 | Run a bounded repeat autopilot loop from chat.",
       );
       expect(result?.text).toContain(
         "- iteration 2: blocked | ready-to-execute | #88 | stop=A run is already queued for this repository. | workstream=Workstream 1/1 | Run a bounded repeat autopilot loop from chat.",

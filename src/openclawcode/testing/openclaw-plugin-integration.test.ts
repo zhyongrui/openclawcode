@@ -402,6 +402,27 @@ describe("openclaw plugin integration helpers", () => {
         number: 46,
       },
     });
+    expect(
+      parseChatopsCommand("/状态: #47", {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+      }),
+    ).toEqual({
+      action: "status",
+      issue: {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        number: 47,
+      },
+    });
+    expect(parseChatopsCommand("/开始开发 zhyongrui/openclawcode#48")).toEqual({
+      action: "start",
+      issue: {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        number: 48,
+      },
+    });
   });
 
   it("derives a stable run request from a start command", () => {
@@ -484,8 +505,11 @@ describe("openclaw plugin integration helpers", () => {
     const message = buildRunStatusMessage(createRun());
 
     expect(message).toContain("zhyongrui/openclawcode#34");
+    expect(message).toContain("openclawcode 状态：zhyongrui/openclawcode#34");
     expect(message).toContain("Stage: Merged");
+    expect(message).toContain("阶段: Merged");
     expect(message).toContain("Suitability: auto-run");
+    expect(message).toContain("适配性: auto-run");
     expect(message).toContain(
       "Suitability summary: Suitability accepted for autonomous execution. Issue stays within command-layer scope.",
     );
@@ -497,6 +521,9 @@ describe("openclaw plugin integration helpers", () => {
     );
     expect(message).toContain(
       "Stage gates: blocked=0, needsHuman=1, goal=ready, projection=ready, execution=ready, merge=needs-human-decision",
+    );
+    expect(message).toContain(
+      "阶段门: blocked=0, needsHuman=1, goal=ready, projection=ready, execution=ready, merge=needs-human-decision",
     );
     expect(message).toContain(
       "Runtime routing: coder=codex-coder | adapter=codex | source=adapter-env || verifier=verifier-steered | adapter=claude-code | source=stage-steering",

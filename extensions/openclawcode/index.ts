@@ -59,6 +59,11 @@ import {
   updateProjectBlueprintProviderRole,
   updateProjectBlueprintStatus,
 } from "../../src/openclawcode/blueprint.js";
+import {
+  buildLocalizedOpenClawCodeCommand,
+  formatOpenClawCodeCommandWithAliases,
+  getOpenClawCodeTextAliases,
+} from "../../src/openclawcode/chat-command-localization.js";
 import type { GitHubIssueClient } from "../../src/openclawcode/github/index.js";
 import { GitHubRestClient } from "../../src/openclawcode/github/index.js";
 import {
@@ -5518,17 +5523,23 @@ function buildStageGateSummaryMessage(params: {
   artifact: Awaited<ReturnType<typeof readProjectStageGateArtifact>>;
 }): string {
   const lines = [`openclawcode stage gates for ${formatRepoKey(params.repo)}`];
+  lines.push(`openclawcode 阶段门：${formatRepoKey(params.repo)}`);
 
   if (!params.artifact.blueprintExists) {
     lines.push("Blueprint: missing");
+    lines.push("蓝图: missing");
     return lines.join("\n");
   }
 
   if (params.artifact.blueprintRevisionId) {
     lines.push(`Blueprint revision: ${params.artifact.blueprintRevisionId}`);
+    lines.push(`蓝图版本: ${params.artifact.blueprintRevisionId}`);
   }
   lines.push(
     `Gate counts: blocked=${params.artifact.blockedGateCount} | needsHuman=${params.artifact.needsHumanDecisionCount} | total=${params.artifact.gateCount}`,
+  );
+  lines.push(
+    `阶段门统计: blocked=${params.artifact.blockedGateCount} | needsHuman=${params.artifact.needsHumanDecisionCount} | total=${params.artifact.gateCount}`,
   );
 
   for (const gate of params.artifact.gates) {
@@ -5558,39 +5569,60 @@ function buildNextWorkSummaryMessage(params: {
   selection: Awaited<ReturnType<typeof readProjectNextWorkSelection>>;
 }): string {
   const lines = [`openclawcode next work for ${formatRepoKey(params.repo)}`];
+  lines.push(`openclawcode 下一项工作：${formatRepoKey(params.repo)}`);
 
   if (!params.selection.blueprintExists) {
     lines.push("Blueprint: missing");
+    lines.push("蓝图: missing");
     return lines.join("\n");
   }
 
   if (params.selection.blueprintRevisionId) {
     lines.push(`Blueprint revision: ${params.selection.blueprintRevisionId}`);
+    lines.push(`蓝图版本: ${params.selection.blueprintRevisionId}`);
   }
   lines.push(`Decision: ${params.selection.decision}`);
+  lines.push(`决策: ${params.selection.decision}`);
   lines.push(
     `Autonomous continuation: ${params.selection.canContinueAutonomously ? "ready" : "blocked"}`,
   );
+  lines.push(`自动推进: ${params.selection.canContinueAutonomously ? "ready" : "blocked"}`);
   lines.push(
     `Signals: clarifications=${params.selection.clarificationQuestionCount} | discovery=${params.selection.discoveryEvidenceCount} | workItems=${params.selection.workItemCount} | blockedGates=${params.selection.blockedGateCount} | needsHuman=${params.selection.needsHumanDecisionCount} | unresolvedRoles=${params.selection.unresolvedRoleCount}`,
   );
+  lines.push(
+    `信号: clarifications=${params.selection.clarificationQuestionCount} | discovery=${params.selection.discoveryEvidenceCount} | workItems=${params.selection.workItemCount} | blockedGates=${params.selection.blockedGateCount} | needsHuman=${params.selection.needsHumanDecisionCount} | unresolvedRoles=${params.selection.unresolvedRoleCount}`,
+  );
   if (params.selection.blockingGateId) {
     lines.push(`Blocking gate: ${params.selection.blockingGateId}`);
+    lines.push(`阻塞关卡: ${params.selection.blockingGateId}`);
   }
   if (params.selection.selectedWorkItem) {
     lines.push(
       `Selected: ${params.selection.selectedWorkItem.title} | ${params.selection.selectedWorkItem.selectedFrom} | ${params.selection.selectedWorkItem.kind}`,
     );
+    lines.push(
+      `已选工作项: ${params.selection.selectedWorkItem.title} | ${params.selection.selectedWorkItem.selectedFrom} | ${params.selection.selectedWorkItem.kind}`,
+    );
     lines.push(`Execution mode: ${params.selection.selectedWorkItem.executionMode}`);
+    lines.push(`执行模式: ${params.selection.selectedWorkItem.executionMode}`);
     lines.push(`Issue draft: ${params.selection.selectedWorkItem.githubIssueDraftTitle}`);
+    lines.push(`Issue 草稿: ${params.selection.selectedWorkItem.githubIssueDraftTitle}`);
   }
   if (params.selection.selectedReason) {
     lines.push(`Reason: ${params.selection.selectedReason}`);
+    lines.push(`原因: ${params.selection.selectedReason}`);
   }
   if (params.selection.decision === "ready-to-execute") {
     lines.push(
       `Use /occode-materialize ${formatRepoKey(params.repo)} to create or reuse the execution issue.`,
     );
+    const localizedCommand = buildLocalizedOpenClawCodeCommand(
+      `/occode-materialize ${formatRepoKey(params.repo)}`,
+    );
+    if (localizedCommand) {
+      lines.push(`使用 ${localizedCommand} 来创建或复用执行 issue。`);
+    }
   }
   for (const blocker of params.selection.blockers.slice(0, 3)) {
     lines.push(`- blocker: ${blocker}`);
@@ -5607,16 +5639,22 @@ function buildIssueMaterializationSummaryMessage(params: {
   artifact: Awaited<ReturnType<typeof readProjectIssueMaterializationArtifact>>;
 }): string {
   const lines = [`openclawcode issue materialization for ${formatRepoKey(params.repo)}`];
+  lines.push(`openclawcode 任务物化：${formatRepoKey(params.repo)}`);
   lines.push(`Decision: ${params.artifact.nextWorkDecision}`);
+  lines.push(`决策: ${params.artifact.nextWorkDecision}`);
   lines.push(`Outcome: ${params.artifact.outcome}`);
+  lines.push(`结果: ${params.artifact.outcome}`);
   if (params.artifact.blockingGateId) {
     lines.push(`Blocking gate: ${params.artifact.blockingGateId}`);
+    lines.push(`阻塞关卡: ${params.artifact.blockingGateId}`);
   }
   if (params.artifact.selectedWorkItemId) {
     lines.push(`Selected work item: ${params.artifact.selectedWorkItemId}`);
+    lines.push(`已选工作项: ${params.artifact.selectedWorkItemId}`);
   }
   if (params.artifact.selectedWorkItemExecutionMode) {
     lines.push(`Execution mode: ${params.artifact.selectedWorkItemExecutionMode}`);
+    lines.push(`执行模式: ${params.artifact.selectedWorkItemExecutionMode}`);
     switch (params.artifact.selectedWorkItemExecutionMode) {
       case "bugfix":
         lines.push(
@@ -5641,15 +5679,26 @@ function buildIssueMaterializationSummaryMessage(params: {
     }
   }
   if (params.artifact.selectedIssueNumber != null) {
+    const firstRunCommand =
+      formatOpenClawCodeCommandWithAliases(
+        `/occode-start ${formatRepoKey(params.repo)}#${params.artifact.selectedIssueNumber}`,
+      ) ?? `/occode-start ${formatRepoKey(params.repo)}#${params.artifact.selectedIssueNumber}`;
     lines.push(
       `Selected issue: #${params.artifact.selectedIssueNumber} | ${params.artifact.selectedIssueTitle ?? "untitled"}`,
+    );
+    lines.push(
+      `已选 Issue: #${params.artifact.selectedIssueNumber} | ${params.artifact.selectedIssueTitle ?? "untitled"}`,
     );
     if (params.artifact.selectedIssueUrl) {
       lines.push(params.artifact.selectedIssueUrl);
     }
-    lines.push(
-      `Use /occode-start ${formatRepoKey(params.repo)}#${params.artifact.selectedIssueNumber} for the first run.`,
+    lines.push(`Use ${firstRunCommand} for the first run.`);
+    const localizedCommand = buildLocalizedOpenClawCodeCommand(
+      `/occode-start ${formatRepoKey(params.repo)}#${params.artifact.selectedIssueNumber}`,
     );
+    if (localizedCommand) {
+      lines.push(`首次执行可使用 ${localizedCommand}。`);
+    }
   }
   for (const blocker of params.artifact.blockers.slice(0, 3)) {
     lines.push(`- blocker: ${blocker}`);
@@ -5665,83 +5714,126 @@ function buildProjectProgressSummaryMessage(params: {
   artifact: Awaited<ReturnType<typeof readProjectProgressArtifact>>;
 }): string {
   const lines = [`openclawcode progress for ${formatRepoKey(params.repo)}`];
+  lines.push(`openclawcode 项目进度：${formatRepoKey(params.repo)}`);
   lines.push(
     `Blueprint: ${params.artifact.blueprintStatus ?? "unknown"} | ${params.artifact.blueprintRevisionId ?? "unknown"}`,
   );
+  lines.push(
+    `蓝图: ${params.artifact.blueprintStatus ?? "unknown"} | ${params.artifact.blueprintRevisionId ?? "unknown"}`,
+  );
   lines.push(`Next work: ${params.artifact.nextWorkDecision}`);
+  lines.push(`下一项工作: ${params.artifact.nextWorkDecision}`);
   lines.push(
     `Signals: workItems=${params.artifact.workItemCount} | unresolvedRoles=${params.artifact.unresolvedRoleCount} | blockedGates=${params.artifact.blockedGateCount} | needsHuman=${params.artifact.needsHumanDecisionCount}`,
   );
+  lines.push(
+    `信号: workItems=${params.artifact.workItemCount} | unresolvedRoles=${params.artifact.unresolvedRoleCount} | blockedGates=${params.artifact.blockedGateCount} | needsHuman=${params.artifact.needsHumanDecisionCount}`,
+  );
   if (params.artifact.nextWorkBlockingGateId) {
     lines.push(`Next-work gate: ${params.artifact.nextWorkBlockingGateId}`);
+    lines.push(`下一项关卡: ${params.artifact.nextWorkBlockingGateId}`);
   }
   if (params.artifact.activeWorkstreamSummary) {
     lines.push(`Active workstream: ${params.artifact.activeWorkstreamSummary}`);
+    lines.push(`当前工作流: ${params.artifact.activeWorkstreamSummary}`);
   }
   if (params.artifact.selectedWorkItemTitle) {
     lines.push(`Selected work item: ${params.artifact.selectedWorkItemTitle}`);
+    lines.push(`已选工作项: ${params.artifact.selectedWorkItemTitle}`);
   }
   if (params.artifact.selectedWorkItemExecutionMode) {
     lines.push(`Execution mode: ${params.artifact.selectedWorkItemExecutionMode}`);
+    lines.push(`执行模式: ${params.artifact.selectedWorkItemExecutionMode}`);
   }
   if (params.artifact.selectedIssueNumber != null) {
     lines.push(
       `Selected issue: #${params.artifact.selectedIssueNumber} | ${params.artifact.selectedIssueTitle ?? "untitled"}`,
     );
+    lines.push(
+      `已选 Issue: #${params.artifact.selectedIssueNumber} | ${params.artifact.selectedIssueTitle ?? "untitled"}`,
+    );
   }
   if (params.artifact.nextWorkPrimaryBlocker) {
     lines.push(`Primary blocker: ${params.artifact.nextWorkPrimaryBlocker}`);
+    lines.push(`主要阻塞项: ${params.artifact.nextWorkPrimaryBlocker}`);
   }
   if (params.artifact.roleRouteSummary.length > 0) {
     lines.push(`Roles: ${params.artifact.roleRouteSummary.join(", ")}`);
+    lines.push(`角色: ${params.artifact.roleRouteSummary.join(", ")}`);
   }
   lines.push(
     `Operator: binding=${params.artifact.operator.bindingPresent ? "yes" : "no"} | pending=${params.artifact.operator.pendingApprovalCount} | queued=${params.artifact.operator.queuedRunCount} | current=${params.artifact.operator.currentRunCount} | pause=${params.artifact.operator.providerPauseActive ? "yes" : "no"}`,
   );
   lines.push(
+    `操作器: binding=${params.artifact.operator.bindingPresent ? "yes" : "no"} | pending=${params.artifact.operator.pendingApprovalCount} | queued=${params.artifact.operator.queuedRunCount} | current=${params.artifact.operator.currentRunCount} | pause=${params.artifact.operator.providerPauseActive ? "yes" : "no"}`,
+  );
+  lines.push(
     `Operator program: available=${params.artifact.operatorProgram.available ? "yes" : "no"} | mutableSurface=${params.artifact.operatorProgram.mutableSurfaceMode ?? "unset"} | proof=${params.artifact.operatorProgram.requireOneExecutableProof ? "required" : "optional"} | attemptLedger=${params.artifact.operatorProgram.attemptLedgerRequired ? "required" : "optional"} | nextAction=${params.artifact.operatorProgram.nextActionCode ?? "none"}`,
+  );
+  lines.push(
+    `操作器程序: available=${params.artifact.operatorProgram.available ? "yes" : "no"} | mutableSurface=${params.artifact.operatorProgram.mutableSurfaceMode ?? "unset"} | proof=${params.artifact.operatorProgram.requireOneExecutableProof ? "required" : "optional"} | attemptLedger=${params.artifact.operatorProgram.attemptLedgerRequired ? "required" : "optional"} | nextAction=${params.artifact.operatorProgram.nextActionCode ?? "none"}`,
   );
   if (params.artifact.operatorProgram.title || params.artifact.operatorProgram.updatedAt) {
     lines.push(
       `Operator program meta: ${params.artifact.operatorProgram.title ?? "untitled"}${params.artifact.operatorProgram.updatedAt ? ` | updated=${params.artifact.operatorProgram.updatedAt}` : ""}`,
     );
+    lines.push(
+      `操作器程序元信息: ${params.artifact.operatorProgram.title ?? "untitled"}${params.artifact.operatorProgram.updatedAt ? ` | updated=${params.artifact.operatorProgram.updatedAt}` : ""}`,
+    );
   }
   if (params.artifact.operatorProgram.summary) {
     lines.push(`Operator program summary: ${params.artifact.operatorProgram.summary}`);
+    lines.push(`操作器程序摘要: ${params.artifact.operatorProgram.summary}`);
   }
   lines.push(
     `Operator program scope: paths=${params.artifact.operatorProgram.mutableSurfacePathCount} | allowlist=${params.artifact.operatorProgram.mutableSurfacePathsPresent ? "yes" : "no"} | simplify=${params.artifact.operatorProgram.simplificationBias ? "yes" : "no"}`,
+  );
+  lines.push(
+    `操作器程序范围: paths=${params.artifact.operatorProgram.mutableSurfacePathCount} | allowlist=${params.artifact.operatorProgram.mutableSurfacePathsPresent ? "yes" : "no"} | simplify=${params.artifact.operatorProgram.simplificationBias ? "yes" : "no"}`,
   );
   if (params.artifact.operatorProgram.validationBudgetSummary) {
     lines.push(
       `Operator program budget: ${params.artifact.operatorProgram.validationBudgetSummary}`,
     );
+    lines.push(`操作器程序预算: ${params.artifact.operatorProgram.validationBudgetSummary}`);
   }
   lines.push(
     `Operator program criteria: keep=${params.artifact.operatorProgram.keepCriteriaCount} | discard=${params.artifact.operatorProgram.discardCriteriaCount} | retry=${params.artifact.operatorProgram.retryCriteriaCount}`,
+  );
+  lines.push(
+    `操作器程序准则: keep=${params.artifact.operatorProgram.keepCriteriaCount} | discard=${params.artifact.operatorProgram.discardCriteriaCount} | retry=${params.artifact.operatorProgram.retryCriteriaCount}`,
   );
   if (params.artifact.operatorProgram.advancementRuleSummary) {
     lines.push(
       `Operator program advancement: ${params.artifact.operatorProgram.advancementRuleSummary}`,
     );
+    lines.push(`操作器程序推进: ${params.artifact.operatorProgram.advancementRuleSummary}`);
   }
   if (params.artifact.operatorProgram.nextActionSummary) {
     lines.push(`Operator program next: ${params.artifact.operatorProgram.nextActionSummary}`);
+    lines.push(`操作器程序下一步: ${params.artifact.operatorProgram.nextActionSummary}`);
   }
   lines.push(
     `Operator program links: blueprint=${params.artifact.operatorProgram.linkedBlueprintPath} | workItems=${params.artifact.operatorProgram.linkedWorkItemsPath} | stageGates=${params.artifact.operatorProgram.linkedStageGatesPath}`,
   );
+  lines.push(
+    `操作器程序链接: blueprint=${params.artifact.operatorProgram.linkedBlueprintPath} | workItems=${params.artifact.operatorProgram.linkedWorkItemsPath} | stageGates=${params.artifact.operatorProgram.linkedStageGatesPath}`,
+  );
   if (params.artifact.operator.currentRunIssueKey) {
     lines.push(`Current run: ${params.artifact.operator.currentRunIssueKey}`);
+    lines.push(`当前运行: ${params.artifact.operator.currentRunIssueKey}`);
   }
   if (params.artifact.operator.currentRunStage) {
     lines.push(`Current run stage: ${params.artifact.operator.currentRunStage}`);
+    lines.push(`当前运行阶段: ${params.artifact.operator.currentRunStage}`);
   }
   if (params.artifact.operator.currentRunBranchName) {
     lines.push(`Current run branch: ${params.artifact.operator.currentRunBranchName}`);
+    lines.push(`当前运行分支: ${params.artifact.operator.currentRunBranchName}`);
   }
   if (params.artifact.operator.currentRunPullRequestNumber != null) {
     lines.push(`Current run PR: #${params.artifact.operator.currentRunPullRequestNumber}`);
+    lines.push(`当前运行 PR: #${params.artifact.operator.currentRunPullRequestNumber}`);
   }
   const nextSuggestedCommand =
     params.artifact.nextSuggestedChatCommand ??
@@ -5751,6 +5843,10 @@ function buildProjectProgressSummaryMessage(params: {
     });
   if (nextSuggestedCommand) {
     lines.push(`Next: ${nextSuggestedCommand}`);
+    const localizedCommand = buildLocalizedOpenClawCodeCommand(nextSuggestedCommand);
+    if (localizedCommand) {
+      lines.push(`下一步: ${localizedCommand}`);
+    }
   }
   return lines.join("\n");
 }
@@ -5760,57 +5856,82 @@ function buildAutonomousLoopSummaryMessage(params: {
   artifact: Awaited<ReturnType<typeof readProjectAutonomousLoopArtifact>>;
 }): string {
   const lines = [`openclawcode autopilot for ${formatRepoKey(params.repo)}`];
+  lines.push(`openclawcode 自动开发：${formatRepoKey(params.repo)}`);
   lines.push(`Mode: ${params.artifact.mode}`);
+  lines.push(`模式: ${params.artifact.mode}`);
   lines.push(`Status: ${params.artifact.status}`);
+  lines.push(`状态: ${params.artifact.status}`);
   lines.push(`Enabled: ${params.artifact.enabled ? "yes" : "no"}`);
+  lines.push(`启用: ${params.artifact.enabled ? "yes" : "no"}`);
   lines.push(
     `Iterations: ${params.artifact.completedIterationCount}/${params.artifact.requestedIterationCount}`,
   );
+  lines.push(
+    `迭代: ${params.artifact.completedIterationCount}/${params.artifact.requestedIterationCount}`,
+  );
   lines.push(`Next work: ${params.artifact.nextWorkDecision}`);
+  lines.push(`下一项工作: ${params.artifact.nextWorkDecision}`);
   if (params.artifact.nextWorkBlockingGateId) {
     lines.push(`Next-work gate: ${params.artifact.nextWorkBlockingGateId}`);
+    lines.push(`下一项关卡: ${params.artifact.nextWorkBlockingGateId}`);
   }
   if (params.artifact.activeWorkstreamSummary) {
     lines.push(`Active workstream: ${params.artifact.activeWorkstreamSummary}`);
+    lines.push(`当前工作流: ${params.artifact.activeWorkstreamSummary}`);
   }
   lines.push(
     `Operator: queued=${params.artifact.queuedRunCount} | currentRun=${params.artifact.currentRunPresent ? "yes" : "no"} | pause=${params.artifact.providerPauseActive ? "yes" : "no"}`,
   );
+  lines.push(
+    `操作器: queued=${params.artifact.queuedRunCount} | currentRun=${params.artifact.currentRunPresent ? "yes" : "no"} | pause=${params.artifact.providerPauseActive ? "yes" : "no"}`,
+  );
   if (params.artifact.selectedWorkItemId) {
     lines.push(`Selected work item: ${params.artifact.selectedWorkItemId}`);
+    lines.push(`已选工作项: ${params.artifact.selectedWorkItemId}`);
   }
   if (params.artifact.selectedWorkItemExecutionMode) {
     lines.push(`Execution mode: ${params.artifact.selectedWorkItemExecutionMode}`);
+    lines.push(`执行模式: ${params.artifact.selectedWorkItemExecutionMode}`);
   }
   if (params.artifact.roleRouteSummary.length > 0) {
     lines.push(`Roles: ${params.artifact.roleRouteSummary.join(", ")}`);
+    lines.push(`角色: ${params.artifact.roleRouteSummary.join(", ")}`);
   }
   if (params.artifact.selectedIssueNumber != null) {
     lines.push(`Selected issue: #${params.artifact.selectedIssueNumber}`);
+    lines.push(`已选 Issue: #${params.artifact.selectedIssueNumber}`);
   }
   if (params.artifact.queuedIssueKey) {
     lines.push(`Queued issue: ${params.artifact.queuedIssueKey}`);
+    lines.push(`已排队 Issue: ${params.artifact.queuedIssueKey}`);
   }
   if (params.artifact.currentRunIssueKey) {
     lines.push(`Current run: ${params.artifact.currentRunIssueKey}`);
+    lines.push(`当前运行: ${params.artifact.currentRunIssueKey}`);
   }
   if (params.artifact.currentRunStage) {
     lines.push(`Current run stage: ${params.artifact.currentRunStage}`);
+    lines.push(`当前运行阶段: ${params.artifact.currentRunStage}`);
   }
   if (params.artifact.currentRunBranchName) {
     lines.push(`Current run branch: ${params.artifact.currentRunBranchName}`);
+    lines.push(`当前运行分支: ${params.artifact.currentRunBranchName}`);
   }
   if (params.artifact.currentRunPullRequestNumber != null) {
     lines.push(`Current run PR: #${params.artifact.currentRunPullRequestNumber}`);
+    lines.push(`当前运行 PR: #${params.artifact.currentRunPullRequestNumber}`);
   }
   if (params.artifact.stopReason) {
     lines.push(`Stop reason: ${params.artifact.stopReason}`);
+    lines.push(`停止原因: ${params.artifact.stopReason}`);
   }
   if (params.artifact.nextWorkPrimaryBlocker) {
     lines.push(`Primary blocker: ${params.artifact.nextWorkPrimaryBlocker}`);
+    lines.push(`主要阻塞项: ${params.artifact.nextWorkPrimaryBlocker}`);
   }
   if (params.artifact.message) {
     lines.push(`Message: ${params.artifact.message}`);
+    lines.push(`消息: ${params.artifact.message}`);
   }
   const nextSuggestedCommand =
     params.artifact.nextSuggestedChatCommand ??
@@ -5820,6 +5941,10 @@ function buildAutonomousLoopSummaryMessage(params: {
     });
   if (nextSuggestedCommand) {
     lines.push(`Next: ${nextSuggestedCommand}`);
+    const localizedCommand = buildLocalizedOpenClawCodeCommand(nextSuggestedCommand);
+    if (localizedCommand) {
+      lines.push(`下一步: ${localizedCommand}`);
+    }
   }
   for (const iteration of params.artifact.iterations.slice(0, 3)) {
     const iterationParts = [
@@ -5832,6 +5957,7 @@ function buildAutonomousLoopSummaryMessage(params: {
       iteration.activeWorkstreamSummary ? `workstream=${iteration.activeWorkstreamSummary}` : null,
     ].filter((part): part is string => Boolean(part));
     lines.push(`- iteration ${iteration.iteration}: ${iterationParts.join(" | ")}`);
+    lines.push(`- 迭代 ${iteration.iteration}: ${iterationParts.join(" | ")}`);
   }
   return lines.join("\n");
 }
@@ -5847,7 +5973,17 @@ function parseAutopilotArgs(params: { args: string; defaults: { owner?: string; 
     .split(/\s+/)
     .map((token) => token.trim())
     .filter(Boolean);
-  const actionToken = (tokens[0] ?? "status").toLowerCase();
+  const normalizedActionToken = (tokens[0] ?? "status").toLowerCase();
+  const actionToken =
+    normalizedActionToken === "单次"
+      ? "once"
+      : normalizedActionToken === "重复"
+        ? "repeat"
+        : normalizedActionToken === "状态"
+          ? "status"
+          : normalizedActionToken === "关闭"
+            ? "off"
+            : normalizedActionToken;
   if (
     actionToken !== "once" &&
     actionToken !== "repeat" &&
@@ -7853,6 +7989,7 @@ export default {
       api.registerCommand({
         ...command,
         name: aliasName,
+        textAliases: [],
         handler: async (ctx) =>
           await command.handler({
             ...ctx,
@@ -8481,6 +8618,7 @@ export default {
 
     registerOpenClawCodeCommand({
       name: "occode-start",
+      textAliases: getOpenClawCodeTextAliases("occode-start"),
       description: "Queue an openclawcode issue run.",
       acceptsArgs: true,
       handler: async (ctx) => {
@@ -8711,6 +8849,7 @@ export default {
 
     registerOpenClawCodeCommand({
       name: "occode-rerun",
+      textAliases: getOpenClawCodeTextAliases("occode-rerun"),
       description: "Queue an explicit rerun for a tracked openclawcode issue.",
       acceptsArgs: true,
       handler: async (ctx) => {
@@ -9873,6 +10012,7 @@ export default {
 
     registerOpenClawCodeCommand({
       name: "occode-status",
+      textAliases: getOpenClawCodeTextAliases("occode-status"),
       description: "Show the latest known openclawcode issue status.",
       acceptsArgs: true,
       handler: async (ctx) => {
@@ -10720,6 +10860,7 @@ export default {
 
     registerOpenClawCodeCommand({
       name: "occode-route-set",
+      textAliases: getOpenClawCodeTextAliases("occode-route-set"),
       description: "Update one provider-role assignment for an openclawcode repo from chat.",
       acceptsArgs: true,
       handler: async (ctx) => {
@@ -10914,6 +11055,7 @@ export default {
 
     registerOpenClawCodeCommand({
       name: "occode-gates",
+      textAliases: getOpenClawCodeTextAliases("occode-gates"),
       description: "Show the current blueprint stage-gate state for an openclawcode repo.",
       acceptsArgs: true,
       handler: async (ctx) => {
@@ -10993,6 +11135,7 @@ export default {
 
     registerOpenClawCodeCommand({
       name: "occode-materialize",
+      textAliases: getOpenClawCodeTextAliases("occode-materialize"),
       description: "Create or reuse the GitHub issue for the selected blueprint-backed work item.",
       acceptsArgs: true,
       handler: async (ctx) => {
@@ -11049,6 +11192,7 @@ export default {
 
     registerOpenClawCodeCommand({
       name: "occode-progress",
+      textAliases: getOpenClawCodeTextAliases("occode-progress"),
       description:
         "Show the current blueprint-aware project progress summary for an openclawcode repo.",
       acceptsArgs: true,
@@ -11098,6 +11242,7 @@ export default {
 
     registerOpenClawCodeCommand({
       name: "occode-autopilot",
+      textAliases: getOpenClawCodeTextAliases("occode-autopilot"),
       description:
         "Run, inspect, or disable one autonomous blueprint-backed progress loop for an openclawcode repo.",
       acceptsArgs: true,
@@ -11224,6 +11369,7 @@ export default {
 
     registerOpenClawCodeCommand({
       name: "occode-gate-decide",
+      textAliases: getOpenClawCodeTextAliases("occode-gate-decide"),
       description: "Record a blueprint stage-gate decision from chat for an openclawcode repo.",
       acceptsArgs: true,
       handler: async (ctx) => {
@@ -11325,6 +11471,7 @@ export default {
 
     registerOpenClawCodeCommand({
       name: "occode-skip",
+      textAliases: getOpenClawCodeTextAliases("occode-skip"),
       description: "Remove a queued openclawcode issue run before execution starts.",
       acceptsArgs: true,
       handler: async (ctx) => {

@@ -1398,6 +1398,8 @@ export type PluginCommandHandler = (
 export type OpenClawPluginCommandDefinition = {
   /** Command name without leading slash (e.g., "tts") */
   name: string;
+  /** Optional text-only aliases matched on chat surfaces. */
+  textAliases?: string[];
   /**
    * Optional native-command aliases for slash/menu surfaces.
    * `default` applies to all native providers unless a provider-specific

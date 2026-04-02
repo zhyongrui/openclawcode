@@ -11,7 +11,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/acpx",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw ACP runtime backend via acpx",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -148,7 +148,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "discovery.js"],
     packageName: "@openclaw/amazon-bedrock-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Amazon Bedrock provider plugin",
     packageManifest: {
       bundle: {
@@ -163,7 +163,29 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       configSchema: {
         type: "object",
         additionalProperties: false,
-        properties: {},
+        properties: {
+          guardrail: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              guardrailIdentifier: {
+                type: "string",
+              },
+              guardrailVersion: {
+                type: "string",
+              },
+              streamProcessingMode: {
+                type: "string",
+                enum: ["sync", "async"],
+              },
+              trace: {
+                type: "string",
+                enum: ["enabled", "disabled", "enabled_full"],
+              },
+            },
+            required: ["guardrailIdentifier", "guardrailVersion"],
+          },
+        },
       },
     },
   },
@@ -182,7 +204,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "media-understanding-provider.js",
     ],
     packageName: "@openclaw/anthropic-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Anthropic provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -250,7 +272,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "provider-catalog.js", "region.js"],
     packageName: "@openclaw/anthropic-vertex-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Anthropic Vertex provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -280,7 +302,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "channel-config-api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/bluebubbles",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw BlueBubbles channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -301,7 +323,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/bluebubbles",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       release: {
         publishToNpm: true,
@@ -832,7 +854,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["web-search-provider.js"],
     packageName: "@openclaw/brave-plugin",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Brave plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -888,7 +910,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["browser-runtime-api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/browser-plugin",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw browser tool plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -912,7 +934,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "models.js", "provider-catalog.js"],
     packageName: "@openclaw/byteplus-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw BytePlus provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -955,7 +977,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/chutes-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Chutes.ai provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -1009,7 +1031,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js"],
     packageName: "@openclaw/cloudflare-ai-gateway-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Cloudflare AI Gateway provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -1054,7 +1076,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/copilot-proxy",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Copilot Proxy provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -1092,7 +1114,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["audio.js", "media-understanding-provider.js"],
     packageName: "@openclaw/deepgram-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Deepgram media-understanding provider",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -1118,7 +1140,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/deepseek-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw DeepSeek provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -1191,7 +1213,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js"],
     packageName: "@openclaw/diagnostics-otel",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw diagnostics OpenTelemetry exporter",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -1215,9 +1237,10 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       source: "./index.ts",
       built: "index.js",
     },
-    publicSurfaceArtifacts: ["api.js"],
+    publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/diffs",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw diff viewer plugin",
     packageManifest: {
       bundle: {
@@ -1361,13 +1384,11 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
                 type: "number",
                 minimum: 1,
                 maximum: 4,
-                default: 2,
               },
               fileMaxWidth: {
                 type: "number",
                 minimum: 640,
                 maximum: 2400,
-                default: 960,
               },
               imageFormat: {
                 type: "string",
@@ -1429,7 +1450,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     ],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/discord",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Discord channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -1448,7 +1469,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/discord",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       bundle: {
         stageRuntimeDependencies: true,
@@ -4083,6 +4104,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
             token: {
               label: "Discord Bot Token",
               help: "Discord bot token used for gateway and REST API authentication for this provider account. Keep this secret out of committed config and rotate immediately after any leak.",
+              sensitive: true,
             },
           },
           label: "Discord",
@@ -4100,7 +4122,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["web-search-provider.js"],
     packageName: "@openclaw/duckduckgo-plugin",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw DuckDuckGo plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -4150,7 +4172,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["speech-provider.js", "tts.js"],
     packageName: "@openclaw/elevenlabs-speech",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw ElevenLabs speech plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -4176,7 +4198,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["web-search-provider.js"],
     packageName: "@openclaw/exa-plugin",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Exa plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -4223,7 +4245,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["image-generation-provider.js", "onboard.js"],
     packageName: "@openclaw/fal-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw fal provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -4272,10 +4294,10 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       source: "./setup-entry.ts",
       built: "setup-entry.js",
     },
-    publicSurfaceArtifacts: ["api.js", "runtime-api.js", "setup-api.js"],
+    publicSurfaceArtifacts: ["api.js", "runtime-api.js", "session-key-api.js", "setup-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/feishu",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Feishu/Lark channel plugin (community maintained by @m1heng)",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -4294,7 +4316,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/feishu",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       bundle: {
         stageRuntimeDependencies: true,
@@ -5436,7 +5458,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["web-search-provider.js"],
     packageName: "@openclaw/firecrawl-plugin",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Firecrawl plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -5498,7 +5520,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "usage.js",
     ],
     packageName: "@openclaw/github-copilot-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw GitHub Copilot provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -5557,7 +5579,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     ],
     runtimeSidecarArtifacts: ["oauth.runtime.js", "runtime-api.js"],
     packageName: "@openclaw/google-plugin",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Google plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -5647,7 +5669,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "channel-config-api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/googlechat",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Google Chat channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -5668,7 +5690,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/googlechat",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
     },
     manifest: {
@@ -6468,7 +6490,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["media-understanding-provider.js"],
     packageName: "@openclaw/groq-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Groq media-understanding provider",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -6494,7 +6516,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/huggingface-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Hugging Face provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -6543,7 +6565,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "channel-config-api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/imessage",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw iMessage channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -6594,12 +6616,12 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "channel-config-api.js"],
     packageName: "@openclaw/irc",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw IRC channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
       install: {
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       setupEntry: "./setup-entry.ts",
       channel: {
@@ -6650,7 +6672,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "shared.js",
     ],
     packageName: "@openclaw/kilocode-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Kilo Gateway provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -6694,7 +6716,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/kimi-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Kimi provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -6743,7 +6765,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js", "setup-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/line",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw LINE channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -6763,7 +6785,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/line",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
     },
     manifest: {
@@ -7063,7 +7085,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/litellm-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw LiteLLM provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -7107,7 +7129,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js"],
     packageName: "@openclaw/llm-task",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw JSON-only LLM task plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -7156,7 +7178,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/lobster",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "Lobster workflow tool plugin (typed pipelines + resumable approvals)",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -7195,7 +7217,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     ],
     runtimeSidecarArtifacts: ["runtime-api.js", "thread-bindings-runtime.js"],
     packageName: "@openclaw/matrix",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Matrix channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -7213,7 +7235,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/matrix",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       releaseChecks: {
         rootDependencyMirrorAllowlist: [
@@ -7513,6 +7535,11 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
               mediaMaxMb: {
                 type: "number",
               },
+              historyLimit: {
+                type: "integer",
+                minimum: 0,
+                maximum: 9007199254740991,
+              },
               autoJoin: {
                 type: "string",
                 enum: ["always", "allowlist", "off"],
@@ -7565,6 +7592,10 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
                         },
                       ],
                     },
+                  },
+                  threadReplies: {
+                    type: "string",
+                    enum: ["off", "inbound", "always"],
                   },
                 },
                 additionalProperties: false,
@@ -7777,7 +7808,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/mattermost",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Mattermost channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -7794,7 +7825,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/mattermost",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
     },
     manifest: {
@@ -8393,7 +8424,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/memory-core",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw core memory search plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -8418,14 +8449,14 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "config.js", "lancedb-runtime.js"],
     runtimeSidecarArtifacts: ["lancedb-runtime.js"],
     packageName: "@openclaw/memory-lancedb",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw LanceDB-backed long-term memory plugin with auto-recall/capture",
     packageManifest: {
       extensions: ["./index.ts"],
       install: {
         npmSpec: "@openclaw/memory-lancedb",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       release: {
         publishToNpm: true,
@@ -8529,7 +8560,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["speech-provider.js", "tts.js"],
     packageName: "@openclaw/microsoft-speech",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Microsoft speech plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -8564,7 +8595,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     ],
     runtimeSidecarArtifacts: ["shared-runtime.js"],
     packageName: "@openclaw/microsoft-foundry",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Microsoft Foundry provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -8625,7 +8656,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     ],
     runtimeSidecarArtifacts: ["oauth.runtime.js"],
     packageName: "@openclaw/minimax-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw MiniMax provider and OAuth plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -8718,7 +8749,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "provider-catalog.js",
     ],
     packageName: "@openclaw/mistral-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Mistral provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -8770,7 +8801,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "provider-catalog.js",
     ],
     packageName: "@openclaw/modelstudio-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Model Studio provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -8862,7 +8893,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "web-search-provider.js",
     ],
     packageName: "@openclaw/moonshot-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Moonshot provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -8958,7 +8989,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "channel-config-api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/msteams",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Microsoft Teams channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -8976,7 +9007,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/msteams",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       release: {
         publishToNpm: true,
@@ -9448,7 +9479,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/nextcloud-talk",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Nextcloud Talk channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -9467,7 +9498,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/nextcloud-talk",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       release: {
         publishToNpm: true,
@@ -10173,7 +10204,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js", "setup-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/nostr",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Nostr channel plugin for NIP-04 encrypted DMs",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10191,7 +10222,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/nostr",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       release: {
         publishToNpm: true,
@@ -10231,7 +10262,70 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
                 additionalProperties: false,
               },
               privateKey: {
-                type: "string",
+                anyOf: [
+                  {
+                    type: "string",
+                  },
+                  {
+                    oneOf: [
+                      {
+                        type: "object",
+                        properties: {
+                          source: {
+                            type: "string",
+                            const: "env",
+                          },
+                          provider: {
+                            type: "string",
+                            pattern: "^[a-z][a-z0-9_-]{0,63}$",
+                          },
+                          id: {
+                            type: "string",
+                            pattern: "^[A-Z][A-Z0-9_]{0,127}$",
+                          },
+                        },
+                        required: ["source", "provider", "id"],
+                        additionalProperties: false,
+                      },
+                      {
+                        type: "object",
+                        properties: {
+                          source: {
+                            type: "string",
+                            const: "file",
+                          },
+                          provider: {
+                            type: "string",
+                            pattern: "^[a-z][a-z0-9_-]{0,63}$",
+                          },
+                          id: {
+                            type: "string",
+                          },
+                        },
+                        required: ["source", "provider", "id"],
+                        additionalProperties: false,
+                      },
+                      {
+                        type: "object",
+                        properties: {
+                          source: {
+                            type: "string",
+                            const: "exec",
+                          },
+                          provider: {
+                            type: "string",
+                            pattern: "^[a-z][a-z0-9_-]{0,63}$",
+                          },
+                          id: {
+                            type: "string",
+                          },
+                        },
+                        required: ["source", "provider", "id"],
+                        additionalProperties: false,
+                      },
+                    ],
+                  },
+                ],
               },
               relays: {
                 type: "array",
@@ -10310,7 +10404,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "provider-catalog.js"],
     packageName: "@openclaw/nvidia-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw NVIDIA provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10339,7 +10433,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/ollama-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Ollama provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10380,7 +10474,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/open-prose",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenProse VM skill pack plugin (slash command + telemetry).",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10421,7 +10515,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     ],
     runtimeSidecarArtifacts: ["openai-codex-provider.runtime.js"],
     packageName: "@openclaw/openai-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw OpenAI provider plugins",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10614,7 +10708,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "onboard.js"],
     packageName: "@openclaw/opencode-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw OpenCode Zen provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10657,7 +10751,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "onboard.js"],
     packageName: "@openclaw/opencode-go-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw OpenCode Go provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10705,7 +10799,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "provider-catalog.js",
     ],
     packageName: "@openclaw/openrouter-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw OpenRouter provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10750,7 +10844,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       built: "index.js",
     },
     packageName: "@openclaw/openshell-sandbox",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw OpenShell sandbox backend",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10881,7 +10975,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["web-search-provider.js"],
     packageName: "@openclaw/perplexity-plugin",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Perplexity plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10964,7 +11058,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/qianfan-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Qianfan provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -10999,6 +11093,523 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
   },
   {
+    dirName: "qqbot",
+    idHint: "qqbot",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
+    },
+    publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/qqbot",
+    packageVersion: "2026.4.1",
+    packageDescription: "OpenClaw QQ Bot channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "qqbot",
+        label: "QQ Bot",
+        selectionLabel: "QQ Bot (Official API)",
+        detailLabel: "QQ Bot",
+        docsPath: "/channels/qqbot",
+        docsLabel: "qqbot",
+        blurb: "connect to QQ via official QQ Bot API with group chat and direct message support.",
+        systemImage: "bubble.left.and.bubble.right",
+      },
+      install: {
+        npmSpec: "@openclaw/qqbot",
+        localPath: "extensions/qqbot",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.1",
+      },
+      bundle: {
+        stageRuntimeDependencies: true,
+      },
+      release: {
+        publishToNpm: true,
+      },
+    },
+    manifest: {
+      id: "qqbot",
+      channels: ["qqbot"],
+      skills: ["./skills"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        $defs: {
+          audioFormatPolicy: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              sttDirectFormats: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              uploadDirectFormats: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              transcodeEnabled: {
+                type: "boolean",
+              },
+            },
+          },
+          speechQueryParams: {
+            type: "object",
+            additionalProperties: {
+              type: "string",
+            },
+          },
+          tts: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              provider: {
+                type: "string",
+              },
+              baseUrl: {
+                type: "string",
+              },
+              apiKey: {
+                type: "string",
+              },
+              model: {
+                type: "string",
+              },
+              voice: {
+                type: "string",
+              },
+              authStyle: {
+                type: "string",
+                enum: ["bearer", "api-key"],
+              },
+              queryParams: {
+                $ref: "#/$defs/speechQueryParams",
+              },
+              speed: {
+                type: "number",
+              },
+            },
+          },
+          stt: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              provider: {
+                type: "string",
+              },
+              baseUrl: {
+                type: "string",
+              },
+              apiKey: {
+                type: "string",
+              },
+              model: {
+                type: "string",
+              },
+            },
+          },
+          secretRef: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              source: {
+                type: "string",
+                enum: ["env", "file", "exec"],
+              },
+              provider: {
+                type: "string",
+              },
+              id: {
+                type: "string",
+              },
+            },
+            required: ["source", "provider", "id"],
+          },
+          secretInput: {
+            anyOf: [
+              {
+                type: "string",
+                minLength: 1,
+              },
+              {
+                $ref: "#/$defs/secretRef",
+              },
+            ],
+          },
+          account: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              name: {
+                type: "string",
+              },
+              appId: {
+                type: "string",
+              },
+              clientSecret: {
+                $ref: "#/$defs/secretInput",
+              },
+              clientSecretFile: {
+                type: "string",
+              },
+              allowFrom: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              systemPrompt: {
+                type: "string",
+              },
+              markdownSupport: {
+                type: "boolean",
+              },
+              voiceDirectUploadFormats: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              audioFormatPolicy: {
+                $ref: "#/$defs/audioFormatPolicy",
+              },
+              urlDirectUpload: {
+                type: "boolean",
+              },
+              upgradeUrl: {
+                type: "string",
+              },
+              upgradeMode: {
+                type: "string",
+                enum: ["doc", "hot-reload"],
+              },
+            },
+          },
+        },
+        properties: {
+          enabled: {
+            type: "boolean",
+          },
+          name: {
+            type: "string",
+          },
+          appId: {
+            type: "string",
+          },
+          clientSecret: {
+            $ref: "#/$defs/secretInput",
+          },
+          clientSecretFile: {
+            type: "string",
+          },
+          allowFrom: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+          systemPrompt: {
+            type: "string",
+          },
+          markdownSupport: {
+            type: "boolean",
+          },
+          voiceDirectUploadFormats: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+          audioFormatPolicy: {
+            $ref: "#/$defs/audioFormatPolicy",
+          },
+          tts: {
+            $ref: "#/$defs/tts",
+          },
+          stt: {
+            $ref: "#/$defs/stt",
+          },
+          urlDirectUpload: {
+            type: "boolean",
+          },
+          upgradeUrl: {
+            type: "string",
+          },
+          upgradeMode: {
+            type: "string",
+            enum: ["doc", "hot-reload"],
+          },
+          accounts: {
+            type: "object",
+            additionalProperties: {
+              $ref: "#/$defs/account",
+            },
+          },
+          defaultAccount: {
+            type: "string",
+          },
+        },
+      },
+      channelConfigs: {
+        qqbot: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            $defs: {
+              audioFormatPolicy: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  sttDirectFormats: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                    },
+                  },
+                  uploadDirectFormats: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                    },
+                  },
+                  transcodeEnabled: {
+                    type: "boolean",
+                  },
+                },
+              },
+              speechQueryParams: {
+                type: "object",
+                additionalProperties: {
+                  type: "string",
+                },
+              },
+              tts: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  enabled: {
+                    type: "boolean",
+                  },
+                  provider: {
+                    type: "string",
+                  },
+                  baseUrl: {
+                    type: "string",
+                  },
+                  apiKey: {
+                    type: "string",
+                  },
+                  model: {
+                    type: "string",
+                  },
+                  voice: {
+                    type: "string",
+                  },
+                  authStyle: {
+                    type: "string",
+                    enum: ["bearer", "api-key"],
+                  },
+                  queryParams: {
+                    $ref: "#/$defs/speechQueryParams",
+                  },
+                  speed: {
+                    type: "number",
+                  },
+                },
+              },
+              stt: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  enabled: {
+                    type: "boolean",
+                  },
+                  provider: {
+                    type: "string",
+                  },
+                  baseUrl: {
+                    type: "string",
+                  },
+                  apiKey: {
+                    type: "string",
+                  },
+                  model: {
+                    type: "string",
+                  },
+                },
+              },
+              secretRef: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  source: {
+                    type: "string",
+                    enum: ["env", "file", "exec"],
+                  },
+                  provider: {
+                    type: "string",
+                  },
+                  id: {
+                    type: "string",
+                  },
+                },
+                required: ["source", "provider", "id"],
+              },
+              secretInput: {
+                anyOf: [
+                  {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  {
+                    $ref: "#/$defs/secretRef",
+                  },
+                ],
+              },
+              account: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  enabled: {
+                    type: "boolean",
+                  },
+                  name: {
+                    type: "string",
+                  },
+                  appId: {
+                    type: "string",
+                  },
+                  clientSecret: {
+                    $ref: "#/$defs/secretInput",
+                  },
+                  clientSecretFile: {
+                    type: "string",
+                  },
+                  allowFrom: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                    },
+                  },
+                  systemPrompt: {
+                    type: "string",
+                  },
+                  markdownSupport: {
+                    type: "boolean",
+                  },
+                  voiceDirectUploadFormats: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                    },
+                  },
+                  audioFormatPolicy: {
+                    $ref: "#/$defs/audioFormatPolicy",
+                  },
+                  urlDirectUpload: {
+                    type: "boolean",
+                  },
+                  upgradeUrl: {
+                    type: "string",
+                  },
+                  upgradeMode: {
+                    type: "string",
+                    enum: ["doc", "hot-reload"],
+                  },
+                },
+              },
+            },
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              name: {
+                type: "string",
+              },
+              appId: {
+                type: "string",
+              },
+              clientSecret: {
+                $ref: "#/$defs/secretInput",
+              },
+              clientSecretFile: {
+                type: "string",
+              },
+              allowFrom: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              systemPrompt: {
+                type: "string",
+              },
+              markdownSupport: {
+                type: "boolean",
+              },
+              voiceDirectUploadFormats: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              audioFormatPolicy: {
+                $ref: "#/$defs/audioFormatPolicy",
+              },
+              tts: {
+                $ref: "#/$defs/tts",
+              },
+              stt: {
+                $ref: "#/$defs/stt",
+              },
+              urlDirectUpload: {
+                type: "boolean",
+              },
+              upgradeUrl: {
+                type: "string",
+              },
+              upgradeMode: {
+                type: "string",
+                enum: ["doc", "hot-reload"],
+              },
+              accounts: {
+                type: "object",
+                additionalProperties: {
+                  $ref: "#/$defs/account",
+                },
+              },
+              defaultAccount: {
+                type: "string",
+              },
+            },
+          },
+          label: "QQ Bot",
+          description:
+            "connect to QQ via official QQ Bot API with group chat and direct message support.",
+        },
+      },
+    },
+  },
+  {
     dirName: "sglang",
     idHint: "sglang",
     source: {
@@ -11007,7 +11618,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "defaults.js", "models.js"],
     packageName: "@openclaw/sglang-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw SGLang provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11057,7 +11668,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     ],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/signal",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Signal channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11109,7 +11720,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "channel-config-api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/slack",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Slack channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11163,7 +11774,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["setup-api.js"],
     packageName: "@openclaw/synology-chat",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "Synology Chat channel plugin for OpenClaw",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11180,7 +11791,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/synology-chat",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
     },
     manifest: {
@@ -11213,7 +11824,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/synthetic-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Synthetic provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11276,7 +11887,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["web-search-provider.js"],
     packageName: "@openclaw/tavily-plugin",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Tavily plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11339,11 +11950,12 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "api.js",
       "channel-config-api.js",
       "runtime-api.js",
+      "session-key-api.js",
       "update-offset-runtime-api.js",
     ],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/telegram",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Telegram channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11442,7 +12054,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js", "setup-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/tlon",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Tlon/Urbit channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11460,7 +12072,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/tlon",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
     },
     manifest: {
@@ -11648,7 +12260,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/together-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Together provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11692,12 +12304,12 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/twitch",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Twitch channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
       install: {
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       channel: {
         id: "twitch",
@@ -11738,7 +12350,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/venice-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Venice provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11781,7 +12393,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/vercel-ai-gateway-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Vercel AI Gateway provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11824,7 +12436,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "defaults.js", "models.js"],
     packageName: "@openclaw/vllm-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw vLLM provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -11865,12 +12477,12 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js", "runtime-entry.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/voice-call",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw voice-call plugin",
     packageManifest: {
       extensions: ["./index.ts"],
       install: {
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       release: {
         publishToNpm: true,
@@ -11982,33 +12594,33 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
           help: "Deep-merges with messages.tts (Microsoft is ignored for calls).",
           advanced: true,
         },
-        "tts.openai.model": {
+        "tts.providers.openai.model": {
           label: "OpenAI TTS Model",
           advanced: true,
         },
-        "tts.openai.voice": {
+        "tts.providers.openai.voice": {
           label: "OpenAI TTS Voice",
           advanced: true,
         },
-        "tts.openai.apiKey": {
+        "tts.providers.openai.apiKey": {
           label: "OpenAI API Key",
           sensitive: true,
           advanced: true,
         },
-        "tts.elevenlabs.modelId": {
+        "tts.providers.elevenlabs.modelId": {
           label: "ElevenLabs Model ID",
           advanced: true,
         },
-        "tts.elevenlabs.voiceId": {
+        "tts.providers.elevenlabs.voiceId": {
           label: "ElevenLabs Voice ID",
           advanced: true,
         },
-        "tts.elevenlabs.apiKey": {
+        "tts.providers.elevenlabs.apiKey": {
           label: "ElevenLabs API Key",
           sensitive: true,
           advanced: true,
         },
-        "tts.elevenlabs.baseUrl": {
+        "tts.providers.elevenlabs.baseUrl": {
           label: "ElevenLabs Base URL",
           advanced: true,
         },
@@ -12333,127 +12945,179 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
                   },
                 },
               },
-              elevenlabs: {
+              providers: {
                 type: "object",
-                additionalProperties: false,
                 properties: {
-                  apiKey: {
-                    type: "string",
-                  },
-                  baseUrl: {
-                    type: "string",
-                  },
-                  voiceId: {
-                    type: "string",
-                  },
-                  modelId: {
-                    type: "string",
-                  },
-                  seed: {
-                    type: "integer",
-                    minimum: 0,
-                    maximum: 4294967295,
-                  },
-                  applyTextNormalization: {
-                    type: "string",
-                    enum: ["auto", "on", "off"],
-                  },
-                  languageCode: {
-                    type: "string",
-                  },
-                  voiceSettings: {
+                  openai: {
                     type: "object",
                     additionalProperties: false,
                     properties: {
-                      stability: {
-                        type: "number",
-                        minimum: 0,
-                        maximum: 1,
+                      apiKey: {
+                        type: "string",
                       },
-                      similarityBoost: {
-                        type: "number",
-                        minimum: 0,
-                        maximum: 1,
+                      baseUrl: {
+                        type: "string",
                       },
-                      style: {
-                        type: "number",
-                        minimum: 0,
-                        maximum: 1,
+                      model: {
+                        type: "string",
                       },
-                      useSpeakerBoost: {
-                        type: "boolean",
+                      voice: {
+                        type: "string",
                       },
                       speed: {
                         type: "number",
-                        minimum: 0.5,
-                        maximum: 2,
+                        minimum: 0.25,
+                        maximum: 4,
+                      },
+                      instructions: {
+                        type: "string",
+                      },
+                    },
+                  },
+                  elevenlabs: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      apiKey: {
+                        type: "string",
+                      },
+                      baseUrl: {
+                        type: "string",
+                      },
+                      voiceId: {
+                        type: "string",
+                      },
+                      modelId: {
+                        type: "string",
+                      },
+                      seed: {
+                        type: "integer",
+                        minimum: 0,
+                        maximum: 4294967295,
+                      },
+                      applyTextNormalization: {
+                        type: "string",
+                        enum: ["auto", "on", "off"],
+                      },
+                      languageCode: {
+                        type: "string",
+                      },
+                      voiceSettings: {
+                        type: "object",
+                        additionalProperties: false,
+                        properties: {
+                          stability: {
+                            type: "number",
+                            minimum: 0,
+                            maximum: 1,
+                          },
+                          similarityBoost: {
+                            type: "number",
+                            minimum: 0,
+                            maximum: 1,
+                          },
+                          style: {
+                            type: "number",
+                            minimum: 0,
+                            maximum: 1,
+                          },
+                          useSpeakerBoost: {
+                            type: "boolean",
+                          },
+                          speed: {
+                            type: "number",
+                            minimum: 0.5,
+                            maximum: 2,
+                          },
+                        },
+                      },
+                    },
+                  },
+                  microsoft: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      enabled: {
+                        type: "boolean",
+                      },
+                      voice: {
+                        type: "string",
+                      },
+                      lang: {
+                        type: "string",
+                      },
+                      outputFormat: {
+                        type: "string",
+                      },
+                      pitch: {
+                        type: "string",
+                      },
+                      rate: {
+                        type: "string",
+                      },
+                      volume: {
+                        type: "string",
+                      },
+                      saveSubtitles: {
+                        type: "boolean",
+                      },
+                      proxy: {
+                        type: "string",
+                      },
+                      timeoutMs: {
+                        type: "integer",
+                        minimum: 1000,
+                        maximum: 120000,
+                      },
+                    },
+                  },
+                  edge: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      enabled: {
+                        type: "boolean",
+                      },
+                      voice: {
+                        type: "string",
+                      },
+                      lang: {
+                        type: "string",
+                      },
+                      outputFormat: {
+                        type: "string",
+                      },
+                      pitch: {
+                        type: "string",
+                      },
+                      rate: {
+                        type: "string",
+                      },
+                      volume: {
+                        type: "string",
+                      },
+                      saveSubtitles: {
+                        type: "boolean",
+                      },
+                      proxy: {
+                        type: "string",
+                      },
+                      timeoutMs: {
+                        type: "integer",
+                        minimum: 1000,
+                        maximum: 120000,
                       },
                     },
                   },
                 },
-              },
-              openai: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  apiKey: {
-                    type: "string",
+                additionalProperties: {
+                  type: "object",
+                  properties: {
+                    apiKey: {
+                      type: "string",
+                    },
                   },
-                  baseUrl: {
-                    type: "string",
-                  },
-                  model: {
-                    type: "string",
-                  },
-                  voice: {
-                    type: "string",
-                  },
-                  speed: {
-                    type: "number",
-                    minimum: 0.25,
-                    maximum: 4,
-                  },
-                  instructions: {
-                    type: "string",
-                  },
-                },
-              },
-              edge: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  enabled: {
-                    type: "boolean",
-                  },
-                  voice: {
-                    type: "string",
-                  },
-                  lang: {
-                    type: "string",
-                  },
-                  outputFormat: {
-                    type: "string",
-                  },
-                  pitch: {
-                    type: "string",
-                  },
-                  rate: {
-                    type: "string",
-                  },
-                  volume: {
-                    type: "string",
-                  },
-                  saveSubtitles: {
-                    type: "boolean",
-                  },
-                  proxy: {
-                    type: "string",
-                  },
-                  timeoutMs: {
-                    type: "integer",
-                    minimum: 1000,
-                    maximum: 120000,
-                  },
+                  additionalProperties: true,
                 },
               },
               prefsPath: {
@@ -12496,7 +13160,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "models.js", "provider-catalog.js"],
     packageName: "@openclaw/volcengine-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Volcengine provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -12554,7 +13218,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     ],
     runtimeSidecarArtifacts: ["action-runtime.runtime.js", "runtime-api.js"],
     packageName: "@openclaw/whatsapp",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw WhatsApp channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -12572,7 +13236,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/whatsapp",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       release: {
         publishToNpm: true,
@@ -13166,7 +13830,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "x-search.js",
     ],
     packageName: "@openclaw/xai-plugin",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw xAI plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -13278,7 +13942,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     },
     publicSurfaceArtifacts: ["api.js", "onboard.js", "provider-catalog.js"],
     packageName: "@openclaw/xiaomi-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Xiaomi provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -13329,7 +13993,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     ],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/zai-provider",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Z.AI provider plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -13436,7 +14100,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/zalo",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Zalo channel plugin",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -13455,7 +14119,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/zalo",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       release: {
         publishToNpm: true,
@@ -13911,7 +14575,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
     publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
     runtimeSidecarArtifacts: ["runtime-api.js"],
     packageName: "@openclaw/zalouser",
-    packageVersion: "2026.3.30",
+    packageVersion: "2026.4.1",
     packageDescription: "OpenClaw Zalo Personal Account plugin via native zca-js integration",
     packageManifest: {
       extensions: ["./index.ts"],
@@ -13930,7 +14594,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       install: {
         npmSpec: "@openclaw/zalouser",
         defaultChoice: "npm",
-        minHostVersion: ">=2026.3.30",
+        minHostVersion: ">=2026.4.1",
       },
       release: {
         publishToNpm: true,

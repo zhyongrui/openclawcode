@@ -25,6 +25,20 @@ export type CommandRegistrationResult = {
   error?: string;
 };
 
+function validateTextAlias(alias: string): string | null {
+  const trimmed = alias.trim().replace(/^\//, "");
+  if (!trimmed) {
+    return "Command alias cannot be empty";
+  }
+  if (/^[a-z][a-z0-9_-]*$/.test(trimmed)) {
+    return validateCommandName(trimmed);
+  }
+  if (!/^[^\s/:：]+$/u.test(trimmed)) {
+    return "Command alias must not contain whitespace or colon characters";
+  }
+  return null;
+}
+
 export function validateCommandName(name: string): string | null {
   const trimmed = name.trim().toLowerCase();
 
@@ -103,6 +117,15 @@ export function validatePluginCommandDefinition(
   if (nameError) {
     return nameError;
   }
+  for (const alias of command.textAliases ?? []) {
+    if (typeof alias !== "string") {
+      return "Command text aliases must be strings";
+    }
+    const aliasError = validateTextAlias(alias);
+    if (aliasError) {
+      return `Text command alias "${alias}" invalid: ${aliasError}`;
+    }
+  }
   for (const [label, alias] of Object.entries(command.nativeNames ?? {})) {
     if (typeof alias !== "string") {
       continue;
@@ -126,6 +149,9 @@ export function listPluginInvocationKeys(command: OpenClawPluginCommandDefinitio
   };
 
   push(command.name);
+  for (const alias of command.textAliases ?? []) {
+    push(alias.replace(/^\//, ""));
+  }
   push(command.nativeNames?.default);
   push(command.nativeNames?.telegram);
   push(command.nativeNames?.discord);
@@ -154,6 +180,9 @@ export function registerPluginCommand(
     ...command,
     name,
     description,
+    textAliases: (command.textAliases ?? [])
+      .map((alias) => alias.trim().replace(/^\//, ""))
+      .filter(Boolean),
   };
   const invocationKeys = listPluginInvocationKeys(normalizedCommand);
   const key = `/${name.toLowerCase()}`;

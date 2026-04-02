@@ -226,6 +226,26 @@ describe("registerPluginCommand", () => {
     expect(__testing.normalizePluginCommandBody("\ufeff／occode-setup")).toBe("/occode-setup");
   });
 
+  it("matches Unicode text aliases with optional colon separators", () => {
+    const result = registerPluginCommand("demo-plugin", {
+      name: "occode-progress",
+      textAliases: ["进度", "项目进度"],
+      description: "Show progress",
+      acceptsArgs: true,
+      handler: async () => ({ text: "ok" }),
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(matchPluginCommand("/进度: zhyongrui/openclawcode")).toMatchObject({
+      command: expect.objectContaining({ name: "occode-progress", pluginId: "demo-plugin" }),
+      args: "zhyongrui/openclawcode",
+    });
+    expect(matchPluginCommand("/项目进度 zhyongrui/openclawcode")).toMatchObject({
+      command: expect.objectContaining({ name: "occode-progress", pluginId: "demo-plugin" }),
+      args: "zhyongrui/openclawcode",
+    });
+  });
+
   it.each(["/talkvoice now", "/discordvoice now"] as const)(
     "matches provider-specific native alias %s back to the canonical command",
     (commandBody) => {

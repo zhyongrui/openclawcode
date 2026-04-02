@@ -291,7 +291,7 @@ describe("edit tool recovery hardening", () => {
     });
   });
 
-  it("returns success when upstream throws but file has newText and no longer has oldText", async () => {
+  it("rethrows when upstream throws and the file was already in the requested end state", async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-edit-recovery-"));
     const filePath = path.join(tmpDir, "MEMORY.md");
     const oldText = "# Memory";
@@ -299,14 +299,9 @@ describe("edit tool recovery hardening", () => {
     await fs.writeFile(filePath, `\n\n${newText}\n`, "utf-8");
 
     const tool = createHostWorkspaceEditTool(tmpDir);
-    const result = await tool.execute("call-1", { path: filePath, oldText, newText }, undefined);
-
-    expect(result).toBeDefined();
-    const content = Array.isArray((result as { content?: unknown }).content)
-      ? (result as { content: Array<{ type?: string; text?: string }> }).content
-      : [];
-    const textBlock = content.find((block) => block?.type === "text" && typeof block.text === "string");
-    expect(textBlock?.text).toContain("Successfully replaced text");
+    await expect(
+      tool.execute("call-1", { path: filePath, oldText, newText }, undefined),
+    ).rejects.toThrow("Simulated post-write failure");
   });
 
   it("rethrows when file on disk does not contain newText", async () => {
@@ -361,6 +356,30 @@ describe("edit tool recovery hardening", () => {
       tool.execute(
         "call-1",
         { file_path: filePath, old_string: "old text", new_string: "new text" },
+        undefined,
+      ),
+    ).rejects.toThrow(/Edit verification failed/);
+    await expect(fs.readFile(filePath, "utf-8")).resolves.toBe(original);
+  });
+
+  it("verifies and restores multi-edit success payloads instead of trusting corrupted disk state", async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-edit-recovery-"));
+    const filePath = path.join(tmpDir, "corrupt-success-multi.md");
+    const original = "alpha beta gamma delta\n";
+    await fs.writeFile(filePath, original, "utf-8");
+    mocks.executeMode = "corrupt-success";
+
+    const tool = createHostWorkspaceEditTool(tmpDir);
+    await expect(
+      tool.execute(
+        "call-1",
+        {
+          path: filePath,
+          edits: [
+            { oldText: "alpha", newText: "ALPHA" },
+            { oldText: "delta", newText: "DELTA" },
+          ],
+        },
         undefined,
       ),
     ).rejects.toThrow(/Edit verification failed/);
