@@ -21,6 +21,7 @@ import {
   openclawCodePolicyShowCommand,
   openclawCodeRepoPlanCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
+  openclawCodeWorkflowHistoryShowCommand,
   openclawCodeBlueprintSetSectionCommand,
   openclawCodeBlueprintSetProviderRoleCommand,
   openclawCodeRoleRoutingRefreshCommand,
@@ -5263,6 +5264,13 @@ describe("openclawCodeRunCommand", () => {
           command: "openclaw code operator-program-show",
           capabilities: expect.arrayContaining(["operator-program.inspect"]),
         }),
+        expect.objectContaining({
+          command: "openclaw code workflow-history-show",
+          capabilities: expect.arrayContaining([
+            "history.project-local",
+            "history.current-session-first",
+          ]),
+        }),
       ]),
       workflowArtifacts: expect.arrayContaining([
         expect.objectContaining({
@@ -5273,6 +5281,9 @@ describe("openclawCodeRunCommand", () => {
         }),
         expect.objectContaining({
           path: "openclaw code operator-status-snapshot-show --json",
+        }),
+        expect.objectContaining({
+          path: ".openclawcode/workflow-history.json",
         }),
       ]),
       runtimeRoles: expect.arrayContaining([
@@ -5286,6 +5297,177 @@ describe("openclawCodeRunCommand", () => {
         }),
       ]),
     });
+  });
+
+  it("shows repo-local workflow history with the current issue first", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-workflow-history-"));
+    const stateDir = await mkdtemp(path.join(os.tmpdir(), "openclawcode-workflow-history-state-"));
+    const runsDir = path.join(repoRoot, ".openclawcode", "runs");
+    const store = OpenClawCodeChatopsStore.fromStateDir(stateDir);
+    await mkdir(runsDir, { recursive: true });
+
+    await writeFile(
+      path.join(runsDir, "run-105.json"),
+      `${JSON.stringify(
+        createRun({
+          id: "run-105",
+          issue: {
+            owner: "openclaw",
+            repo: "openclawcode",
+            number: 105,
+            title: "Current issue",
+            body: "Current issue body",
+          },
+          updatedAt: "2026-04-02T10:00:00.000Z",
+          history: ["Planning completed", "Verification approved for human review"],
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await writeFile(
+      path.join(runsDir, "run-106.json"),
+      `${JSON.stringify(
+        createRun({
+          id: "run-106",
+          issue: {
+            owner: "openclaw",
+            repo: "openclawcode",
+            number: 106,
+            title: "Earlier issue",
+            body: "Earlier issue body",
+          },
+          updatedAt: "2026-04-02T09:00:00.000Z",
+          history: [
+            "Planning completed",
+            "Requested rerun",
+            "Verification approved for human review",
+          ],
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+    await writeFile(
+      path.join(runsDir, "run-200.json"),
+      `${JSON.stringify(
+        createRun({
+          id: "run-200",
+          issue: {
+            owner: "openclaw",
+            repo: "other-repo",
+            number: 200,
+            title: "Other repo issue",
+            body: "Other repo issue body",
+          },
+          updatedAt: "2026-04-02T11:00:00.000Z",
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    await store.enqueue(
+      {
+        issueKey: "openclaw/openclawcode#105",
+        notifyChannel: "telegram",
+        notifyTarget: "chat:primary",
+        request: {
+          owner: "openclaw",
+          repo: "openclawcode",
+          issueNumber: 105,
+          repoRoot,
+          baseBranch: "main",
+          branchName: "openclawcode/issue-105",
+          builderAgent: "codex-main",
+          verifierAgent: "claude-main",
+          testCommands: ["pnpm test"],
+          openPullRequest: true,
+          mergeOnApprove: false,
+        },
+      },
+      "Queued current issue.",
+    );
+    await store.startNext("Running current issue.");
+    await store.setStatusSnapshot({
+      issueKey: "openclaw/openclawcode#105",
+      status: "openclawcode status for openclaw/openclawcode#105\nStage: Ready For Human Review",
+      stage: "ready-for-human-review",
+      runId: "run-105",
+      updatedAt: "2026-04-02T10:05:00.000Z",
+      owner: "openclaw",
+      repo: "openclawcode",
+      issueNumber: 105,
+      branchName: "openclawcode/issue-105",
+      pullRequestNumber: 205,
+      pullRequestUrl: "https://github.com/openclaw/openclawcode/pull/205",
+      qualityGateStatus: "warn",
+      qualityGateSummary: "1 missing coverage item",
+      loopHealthStatus: "warn",
+      loopHealthSummary: "high prompt footprint",
+    });
+    await store.setStatusSnapshot({
+      issueKey: "openclaw/openclawcode#106",
+      status: "openclawcode status for openclaw/openclawcode#106\nStage: Changes Requested",
+      stage: "changes-requested",
+      runId: "run-106",
+      updatedAt: "2026-04-02T09:30:00.000Z",
+      owner: "openclaw",
+      repo: "openclawcode",
+      issueNumber: 106,
+      branchName: "openclawcode/issue-106",
+      rerunReason: "Address review feedback",
+    });
+
+    runtime.log.mockClear();
+    await openclawCodeWorkflowHistoryShowCommand(
+      {
+        owner: "openclaw",
+        repo: "openclawcode",
+        repoRoot,
+        stateDir,
+        limit: 5,
+        json: true,
+      },
+      runtime,
+    );
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload).toMatchObject({
+      repoKey: "openclaw/openclawcode",
+      projectScoped: true,
+      currentIssueKey: "openclaw/openclawcode#105",
+      currentSessionEntryCount: 1,
+      entryCount: 2,
+      sourceCounts: {
+        currentRun: 1,
+        issueSnapshot: 1,
+        workflowRun: 0,
+      },
+    });
+    expect(payload.entries[0]).toMatchObject({
+      issueKey: "openclaw/openclawcode#105",
+      source: "current-run",
+      currentSessionFirst: true,
+      runId: "run-105",
+      historyEventCount: 2,
+      historyTail: ["Planning completed", "Verification approved for human review"],
+    });
+    expect(payload.entries[1]).toMatchObject({
+      issueKey: "openclaw/openclawcode#106",
+      source: "issue-snapshot",
+      currentSessionFirst: false,
+      runId: "run-106",
+      rerunReason: "Address review feedback",
+    });
+    expect(
+      payload.entries.some(
+        (entry: { issueKey: string }) => entry.issueKey === "openclaw/other-repo#200",
+      ),
+    ).toBe(false);
   });
 
   it("reports a stable operator status snapshot for tracked queue and status state", async () => {

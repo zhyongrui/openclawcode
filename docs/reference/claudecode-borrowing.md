@@ -336,6 +336,31 @@ Expected benefit:
 
 Judgment: medium-high value to adapt.
 
+### Implementation status
+
+The first history-focused adaptation slice is now in place in `openclawcode`.
+
+Implemented:
+
+- `.openclawcode/workflow-history.json` as a stable repo-local history artifact
+- `openclaw code workflow-history-show` to refresh and inspect that artifact
+- project-scoped history filtering for the active repository
+- current-session-first ordering when the operator snapshot identifies the
+  active issue
+- bounded `historyTail` summaries plus durable run artifact paths instead of
+  replaying the entire run history inline
+
+Not implemented yet:
+
+- durable large-paste or image-reference indirection comparable to
+  `ClaudeCode/src/history.ts`
+- richer TUI or control-surface history affordances
+- a sharper split between transcript replay storage and command-history storage
+
+This keeps the borrowing slice narrow and testable: first expose a stable
+project-local history view backed by existing run and operator state, then
+layer richer paste and transcript UX on top.
+
 ---
 
 ## 4. Stable server session index and detached session resume

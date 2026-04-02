@@ -71,6 +71,7 @@ import {
   readProjectRollbackReceiptArtifact,
   readProjectRollbackSuggestionArtifact,
   readProjectStageGateArtifact,
+  readProjectWorkflowHistoryArtifact,
   readProjectAutonomousLoopArtifact,
   deriveWorkflowQualityGate,
   deriveWorkflowPreCodeDiscipline,
@@ -96,6 +97,7 @@ import {
   writeProjectNextWorkSelection,
   writeProjectWorkItemInventory,
   writeProjectWorkItemInventoryWithDiscoveredItems,
+  writeProjectWorkflowHistoryArtifact,
   runProjectAutonomousLoop,
   buildOpenClawCodePolicySnapshot,
   resolveAutoMergeDisposition,
@@ -424,6 +426,15 @@ export interface OpenClawCodeRollbackReceiptShowOpts {
 
 export interface OpenClawCodeOperatorStatusSnapshotShowOpts {
   stateDir?: string;
+  json?: boolean;
+}
+
+export interface OpenClawCodeWorkflowHistoryShowOpts {
+  owner?: string;
+  repo?: string;
+  repoRoot?: string;
+  stateDir?: string;
+  limit?: number;
   json?: boolean;
 }
 
@@ -2211,6 +2222,31 @@ function logProjectRuntimeSteeringArtifact(params: {
   for (const override of artifact.overrides) {
     runtime.log(
       `- ${override.stageId}: role=${override.roleId} adapter=${override.adapterId ?? "unchanged"} agent=${override.agentId ?? "runner-default"} actor=${override.actor ?? "unknown"} updated=${override.updatedAt}${override.note ? ` | note=${override.note}` : ""}`,
+    );
+  }
+}
+
+function logProjectWorkflowHistoryArtifact(params: {
+  artifact: Awaited<ReturnType<typeof readProjectWorkflowHistoryArtifact>>;
+  runtime: RuntimeEnv;
+  json?: boolean;
+}): void {
+  const { artifact, runtime } = params;
+  if (params.json) {
+    runtime.log(JSON.stringify(artifact, null, 2));
+    return;
+  }
+
+  runtime.log(`Repo root: ${artifact.repoRoot}`);
+  runtime.log(`Workflow-history path: ${artifact.artifactPath}`);
+  runtime.log(`Exists: ${artifact.exists ? "yes" : "no"}`);
+  runtime.log(`Generated at: ${artifact.generatedAt ?? "not yet generated"}`);
+  runtime.log(`Repo key: ${artifact.repoKey ?? "not scoped"}`);
+  runtime.log(`Current issue: ${artifact.currentIssueKey ?? "none"}`);
+  runtime.log(`Entries: ${artifact.entryCount}`);
+  for (const entry of artifact.entries) {
+    runtime.log(
+      `- ${entry.issueKey}: ${entry.stage ?? "unknown"} | source=${entry.source} | current=${entry.currentSessionFirst ? "yes" : "no"} | updated=${entry.updatedAt ?? "unknown"}${entry.historyTail.length > 0 ? ` | tail=${entry.historyTail.join(" ; ")}` : ""}`,
     );
   }
 }
@@ -5243,6 +5279,33 @@ export async function openclawCodeOperatorStatusSnapshotShowCommand(
   const snapshot = await readOpenClawCodeOperatorStatusSnapshot(stateDir);
   logOpenClawCodeOperatorStatusSnapshot({
     snapshot,
+    runtime,
+    json: Boolean(opts.json),
+  });
+}
+
+export async function openclawCodeWorkflowHistoryShowCommand(
+  opts: OpenClawCodeWorkflowHistoryShowOpts,
+  runtime: RuntimeEnv,
+): Promise<void> {
+  const repoRoot = path.resolve(opts.repoRoot ?? process.cwd());
+  const repoRef = await resolveRepoRef({
+    owner: opts.owner,
+    repo: opts.repo,
+    repoRoot,
+  });
+  const stateDir = resolveOperatorStateDir(opts.stateDir);
+  const operatorSnapshot = await readOpenClawCodeOperatorStatusSnapshot(stateDir).catch(
+    () => undefined,
+  );
+  const artifact = await writeProjectWorkflowHistoryArtifact({
+    repoRoot,
+    repo: repoRef,
+    operatorSnapshot,
+    limit: opts.limit,
+  });
+  logProjectWorkflowHistoryArtifact({
+    artifact,
     runtime,
     json: Boolean(opts.json),
   });

@@ -66,7 +66,7 @@ Staged next:
 
 ### 3. History and session-local operator UX
 
-Status: `staged`
+Status: `current wave`
 
 Current substrate already exists:
 
@@ -74,11 +74,18 @@ Current substrate already exists:
 - session inspection
 - detached-session resume metadata
 
+Completed in this wave:
+
+- repo-local workflow history artifact at `.openclawcode/workflow-history.json`
+- `openclaw code workflow-history-show` for project-scoped history inspection
+- current-session-first ordering driven by the operator snapshot when available
+- bounded run-history tails with durable run artifact references instead of
+  replaying full histories
+
 Staged next:
 
-- current-session-first history views
-- project-local history filters
 - durable large-paste references rather than eager inline replay
+- richer non-CLI history and transcript handoff affordances
 
 ### 4. Detached-session identity and resume discipline
 
@@ -187,6 +194,7 @@ Staged next:
 - [x] Publish an authoritative workspace-guidance contract.
 - [x] Publish an authoritative sandbox and escalation contract.
 - [x] Sync the borrowing notes and dev log to reflect the new shipped slices.
+- [x] Ship the first repo-local workflow history slice for ClaudeCode borrowing.
 
 ## Explicit non-goals
 

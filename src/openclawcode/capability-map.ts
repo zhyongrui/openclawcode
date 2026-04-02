@@ -135,6 +135,13 @@ const CLI_COMMANDS: OpenClawCodeCapabilityMapCommand[] = [
     capabilities: ["operator-status.json", "repo.incident-learning", "queue.summary"],
   },
   {
+    id: "cli.workflow-history",
+    surface: "cli",
+    command: "openclaw code workflow-history-show",
+    summary: "Show the repo-local workflow history with current-session-first ordering.",
+    capabilities: ["history.project-local", "history.current-session-first", "run.history-tail"],
+  },
+  {
     id: "cli.policy",
     surface: "cli",
     command: "openclaw code policy-show",
@@ -276,6 +283,13 @@ const WORKFLOW_ARTIFACTS: OpenClawCodeCapabilityMapArtifact[] = [
     summary: "Stable operator queue and snapshot contract behind chat-visible status.",
     producers: ["openclaw chatops state"],
     consumers: ["/occode-status", "/occode-inbox", "external automation"],
+  },
+  {
+    id: "artifact.workflow-history",
+    path: ".openclawcode/workflow-history.json",
+    summary: "Repo-local workflow history artifact with current-session-first ordering and bounded run tails.",
+    producers: ["openclaw code workflow-history-show"],
+    consumers: ["operator review", "repo-local history inspection"],
   },
 ];
 

@@ -22,6 +22,7 @@ import {
   openclawCodeOperatorProgramInitCommand,
   openclawCodeOperatorProgramShowCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
+  openclawCodeWorkflowHistoryShowCommand,
   openclawCodePolicyShowCommand,
   openclawCodePromotionGateRefreshCommand,
   openclawCodePromotionGateShowCommand,
@@ -171,6 +172,10 @@ ${formatHelpExamples([
   [
     "openclaw code operator-status-snapshot-show --json",
     "Inspect the stable machine-readable operator state snapshot behind chat-visible status.",
+  ],
+  [
+    "openclaw code workflow-history-show --json",
+    "Inspect the repo-local workflow history with current-session-first ordering.",
   ],
   [
     "openclaw code capability-map-show --json",
@@ -973,6 +978,35 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
         await openclawCodeOperatorStatusSnapshotShowCommand(
           {
             stateDir: opts.stateDir as string | undefined,
+            json: Boolean(opts.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  code
+    .command("workflow-history-show")
+    .description("Show the repo-local workflow history artifact")
+    .option("--owner <owner>", "GitHub repository owner")
+    .option("--repo <repo>", "GitHub repository name")
+    .option("--repo-root <dir>", "Local repository root")
+    .option(
+      "--state-dir <dir>",
+      "OpenClaw state dir (defaults to OPENCLAW_STATE_DIR or ~/.openclaw)",
+    )
+    .option("--limit <count>", "Maximum number of history entries to emit")
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        await openclawCodeWorkflowHistoryShowCommand(
+          {
+            owner: opts.owner as string | undefined,
+            repo: opts.repo as string | undefined,
+            repoRoot: opts.repoRoot as string | undefined,
+            stateDir: opts.stateDir as string | undefined,
+            limit:
+              opts.limit == null ? undefined : Number.parseInt(String(opts.limit), 10),
             json: Boolean(opts.json),
           },
           defaultRuntime,
