@@ -114,6 +114,8 @@ Completed in this wave:
 - `tasks list` now reuses that detached-session lifecycle language for
   child-session rows, so the task ledger and session ledger speak the same
   operator-facing state model
+- `flows list` now reuses the same detached-session lifecycle language, so all
+  three detached triage ledgers line up before drilling into detail views
 
 Staged next:
 

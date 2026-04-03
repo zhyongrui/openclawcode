@@ -1,9 +1,15 @@
 import { loadConfig } from "../config/config.js";
 import { info } from "../globals.js";
+import { parseAgentSessionKey } from "../routing/session-key.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { listTasksForFlowId } from "../tasks/runtime-internal.js";
 import { cancelFlowById, getFlowTaskSummary } from "../tasks/task-executor.js";
 import type { TaskFlowRecord, TaskFlowStatus } from "../tasks/task-flow-registry.types.js";
+import {
+  formatSessionLifecycleStatusLabel,
+  inspectDetachedSessionLifecycle,
+  type SessionLifecycleAssessment,
+} from "./sessions.js";
 import {
   getTaskFlowById,
   listTaskFlowRecords,
@@ -17,6 +23,11 @@ const STATUS_PAD = 10;
 const MODE_PAD = 14;
 const REV_PAD = 6;
 const CTRL_PAD = 20;
+const SESSION_PAD = 16;
+
+type FlowListRow = TaskFlowRecord & {
+  detachedLifecycle?: SessionLifecycleAssessment | null;
+};
 
 function truncate(value: string, maxChars: number) {
   if (value.length <= maxChars) {
@@ -64,11 +75,37 @@ function formatFlowStatusCell(status: TaskFlowStatus, rich: boolean) {
   return theme.muted(padded);
 }
 
-function formatFlowRows(flows: TaskFlowRecord[], rich: boolean) {
+function formatFlowSessionLifecycleCell(
+  lifecycle: SessionLifecycleAssessment | null | undefined,
+  rich: boolean,
+) {
+  const label = lifecycle
+    ? formatSessionLifecycleStatusLabel(lifecycle.status).padEnd(SESSION_PAD)
+    : "n/a".padEnd(SESSION_PAD);
+  if (!rich || !lifecycle) {
+    return label;
+  }
+  if (lifecycle.status === "blocked_detached" || lifecycle.status === "missing_transcript") {
+    return theme.warn(label);
+  }
+  if (lifecycle.status === "running_detached") {
+    return theme.accentBright(label);
+  }
+  if (lifecycle.status === "aborted_last_run") {
+    return theme.error(label);
+  }
+  if (lifecycle.status === "waiting_detached" || lifecycle.status === "resumable") {
+    return theme.success(label);
+  }
+  return theme.muted(label);
+}
+
+function formatFlowRows(flows: FlowListRow[], rich: boolean) {
   const header = [
     "TaskFlow".padEnd(ID_PAD),
     "Mode".padEnd(MODE_PAD),
     "Status".padEnd(STATUS_PAD),
+    "Session".padEnd(SESSION_PAD),
     "Rev".padEnd(REV_PAD),
     "Controller".padEnd(CTRL_PAD),
     "Tasks".padEnd(14),
@@ -83,6 +120,7 @@ function formatFlowRows(flows: TaskFlowRecord[], rich: boolean) {
         shortToken(flow.flowId).padEnd(ID_PAD),
         flow.syncMode.padEnd(MODE_PAD),
         formatFlowStatusCell(flow.status, rich),
+        formatFlowSessionLifecycleCell(flow.detachedLifecycle, rich),
         String(flow.revision).padEnd(REV_PAD),
         safeFlowDisplayText(flow.controllerId, CTRL_PAD).padEnd(CTRL_PAD),
         counts.padEnd(14),
@@ -139,6 +177,7 @@ export async function flowsListCommand(
   opts: { json?: boolean; status?: string },
   runtime: RuntimeEnv,
 ) {
+  const cfg = loadConfig();
   const statusFilter = opts.status?.trim();
   const flows = listTaskFlowRecords().filter((flow) => {
     if (statusFilter && flow.status !== statusFilter) {
@@ -146,14 +185,23 @@ export async function flowsListCommand(
     }
     return true;
   });
+  const rows: FlowListRow[] = flows.map((flow) => ({
+    ...flow,
+    detachedLifecycle: parseAgentSessionKey(flow.ownerKey)
+      ? (inspectDetachedSessionLifecycle({
+          cfg,
+          sessionKey: flow.ownerKey,
+        })?.lifecycle ?? null)
+      : null,
+  }));
 
   if (opts.json) {
     runtime.log(
       JSON.stringify(
         {
-          count: flows.length,
+          count: rows.length,
           status: statusFilter ?? null,
-          flows: flows.map((flow) => ({
+          flows: rows.map((flow) => ({
             ...flow,
             tasks: listTasksForFlowId(flow.flowId),
             taskSummary: getFlowTaskSummary(flow.flowId),
@@ -166,17 +214,17 @@ export async function flowsListCommand(
     return;
   }
 
-  runtime.log(info(`TaskFlows: ${flows.length}`));
+  runtime.log(info(`TaskFlows: ${rows.length}`));
   runtime.log(info(`TaskFlow pressure: ${formatFlowListSummary(flows)}`));
   if (statusFilter) {
     runtime.log(info(`Status filter: ${statusFilter}`));
   }
-  if (flows.length === 0) {
+  if (rows.length === 0) {
     runtime.log("No TaskFlows found.");
     return;
   }
   const rich = isRich();
-  for (const line of formatFlowRows(flows, rich)) {
+  for (const line of formatFlowRows(rows, rich)) {
     runtime.log(line);
   }
 }

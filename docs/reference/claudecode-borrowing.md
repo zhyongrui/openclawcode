@@ -289,6 +289,8 @@ Implemented:
 - `openclaw tasks list` now also carries detached child-session lifecycle state,
   so operators can triage detached work from either the task ledger or the
   session ledger with the same status vocabulary
+- `openclaw flows list` now carries the same detached-session lifecycle state,
+  so TaskFlow triage uses the same vocabulary as tasks and sessions
 
 Not implemented yet:
 
