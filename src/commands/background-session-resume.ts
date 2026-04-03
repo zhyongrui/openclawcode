@@ -28,6 +28,7 @@ export type BackgroundSessionResumeDetail = {
   sessionKey: string;
   sessionId?: string;
   agentId?: string;
+  continueWith: string;
   resumeWith: string;
   acpDetailLines: string[];
 };
@@ -65,6 +66,12 @@ function buildResumeWithCommand(params: {
   );
 }
 
+function buildContinueWithCommand(sessionKey: string): string {
+  return formatCliCommand(
+    `openclaw sessions continue ${quoteCliArg(sessionKey)} --message ${quoteCliArg(RESUME_MESSAGE)}`,
+  );
+}
+
 export function describeBackgroundSessionResume(params: {
   cfg: OpenClawConfig;
   sessionKey?: string;
@@ -89,6 +96,7 @@ export function describeBackgroundSessionResume(params: {
     ...((parseAgentSessionKey(sessionKey)?.agentId ?? resolved.target?.agentId)
       ? { agentId: parseAgentSessionKey(sessionKey)?.agentId ?? resolved.target?.agentId }
       : {}),
+    continueWith: buildContinueWithCommand(sessionKey),
     resumeWith: buildResumeWithCommand({
       sessionKey,
       entry: resolved.entry,
@@ -126,6 +134,7 @@ export function formatBackgroundSessionResumeLines(params: {
   if (detail.agentId) {
     lines.push(`${indent}resumeAgent: ${detail.agentId}`);
   }
+  lines.push(`${indent}continueWith: ${detail.continueWith}`);
   lines.push(`${indent}resumeWith: ${detail.resumeWith}`);
   for (const line of detail.acpDetailLines) {
     lines.push(`${indent}${line}`);

@@ -70,6 +70,7 @@ describe("background session resume helpers", () => {
       "resumeSessionKey: agent:coder:acp:child",
       "resumeSessionId: sess-child-123",
       "resumeAgent: coder",
+      'continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       'resumeWith: openclaw agent --session-id sess-child-123 --message "Continue from the latest background task state."',
       "agent session id: inner-123",
       "resume in Codex CLI: `codex resume inner-123` (continues this conversation).",
@@ -86,6 +87,8 @@ describe("background session resume helpers", () => {
       sessionKey: "agent:coder:acp:child",
       sessionId: "sess-child-123",
       agentId: "coder",
+      continueWith:
+        'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       resumeWith:
         'openclaw agent --session-id sess-child-123 --message "Continue from the latest background task state."',
       acpDetailLines: [
@@ -112,11 +115,13 @@ describe("background session resume helpers", () => {
       "- agent:coder:acp:child",
       "  resumeSessionId: sess-child-123",
       "  resumeAgent: coder",
+      '  continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       '  resumeWith: openclaw agent --session-id sess-child-123 --message "Continue from the latest background task state."',
       "  agent session id: inner-123",
       "  resume in Codex CLI: `codex resume inner-123` (continues this conversation).",
       "- agent:main:missing",
       "  resumeAgent: main",
+      '  continueWith: openclaw sessions continue agent:main:missing --message "Continue from the latest background task state."',
       '  resumeWith: openclaw agent --session-key agent:main:missing --message "Continue from the latest background task state."',
     ]);
   });

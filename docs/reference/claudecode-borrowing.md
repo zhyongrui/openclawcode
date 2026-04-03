@@ -278,6 +278,11 @@ Implemented:
 - `openclaw sessions continue <lookup> --message ...` now resolves the same
   detached/background session lookup and forwards a direct continue turn without
   forcing the operator to rewrite the resume command manually
+- detached-session resume surfaces now also print a first-class
+  `openclaw sessions continue ...` command, so operators can use the new
+  higher-level continuation path from tasks/flows/session inspection output
+- `openclaw sessions show <lookup>` now also classifies lifecycle state such as
+  waiting, blocked, missing transcript, or plain resumable
 
 Not implemented yet:
 

@@ -136,6 +136,10 @@ describe("sessionsShowCommand", () => {
       lookup: string;
       resolvedBy: string;
       agentId: string;
+      lifecycle: {
+        status: string;
+        summary: string;
+      };
       session: {
         key: string;
         sessionId: string;
@@ -154,6 +158,9 @@ describe("sessionsShowCommand", () => {
       lookup: "sess-child-123",
       resolvedBy: "session_id",
       agentId: "coder",
+      lifecycle: {
+        status: "waiting_detached",
+      },
       session: {
         key: "agent:coder:acp:child",
         sessionId: "sess-child-123",
@@ -178,9 +185,53 @@ describe("sessionsShowCommand", () => {
     });
     expect(payload.resumeLines).toContain("resumeSessionKey: agent:coder:acp:child");
     expect(payload.resumeLines).toContain("resumeSessionId: sess-child-123");
+    expect(payload.resumeLines).toContain(
+      'continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+    );
     expect(payload.resumeLines.some((line) => line.includes("openclaw agent --session-id"))).toBe(
       true,
     );
+  });
+
+  it("classifies a session with a missing transcript as missing_transcript", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-sessions-show-missing-"));
+    tempDirs.push(root);
+    const store = path.join(root, "sessions.json");
+    fs.writeFileSync(
+      store,
+      JSON.stringify(
+        {
+          "agent:main:main": {
+            sessionId: "sess-missing-123",
+            updatedAt: Date.now() - 5 * 60_000,
+            sessionFile: path.join(root, "missing.jsonl"),
+            abortedLastRun: true,
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const { runtime, logs } = makeRuntime();
+    await sessionsShowCommand(
+      {
+        lookup: "agent:main:main",
+        store,
+        json: true,
+      },
+      runtime,
+    );
+
+    const payload = JSON.parse(logs[0] ?? "{}") as {
+      lifecycle: { status: string; summary: string };
+      session: { transcriptExists: boolean };
+    };
+
+    expect(payload.session.transcriptExists).toBe(false);
+    expect(payload.lifecycle.status).toBe("missing_transcript");
+    expect(payload.lifecycle.summary).toContain("Transcript file is missing");
   });
 
   it("fails with candidate details when the session-id lookup is ambiguous", async () => {

@@ -21,6 +21,7 @@ import { type RuntimeEnv, writeRuntimeJson } from "../runtime.js";
 import { isRich, theme } from "../terminal/theme.js";
 import { agentCliCommand } from "./agent-via-gateway.js";
 import {
+  type BackgroundSessionResumeDetail,
   describeBackgroundSessionResume,
   formatBackgroundSessionResumeLines,
 } from "./background-session-resume.js";
@@ -70,6 +71,23 @@ type ResolvedSessionLookup =
     };
 
 type FoundSessionLookup = Extract<ResolvedSessionLookup, { kind: "found" }>;
+type SessionLifecycleStatus =
+  | "missing_transcript"
+  | "blocked_detached"
+  | "waiting_detached"
+  | "running_detached"
+  | "aborted_last_run"
+  | "resumable";
+
+type SessionLifecycleAssessment = {
+  status: SessionLifecycleStatus;
+  summary: string;
+  resumeAvailable: boolean;
+  activeTaskCount: number;
+  activeFlowCount: number;
+  waitingFlowCount: number;
+  blockedFlowCount: number;
+};
 
 const formatKTokens = (value: number) => `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1)}k`;
 
@@ -202,6 +220,89 @@ function formatSessionLookupCandidates(matches: SessionLookupMatch[]): string[] 
   );
 }
 
+function buildSessionLifecycleAssessment(params: {
+  row: SessionRow;
+  transcriptExists: boolean;
+  relatedTasks: ReturnType<typeof listTasksForRelatedSessionKey>;
+  relatedTaskFlows: ReturnType<typeof listTaskFlowsForOwnerKey>;
+  resumeDetail?: BackgroundSessionResumeDetail;
+}): SessionLifecycleAssessment {
+  const activeTaskCount = params.relatedTasks.filter(
+    (task) => task.status === "queued" || task.status === "running",
+  ).length;
+  const activeFlowCount = params.relatedTaskFlows.filter(
+    (flow) => flow.status === "queued" || flow.status === "running",
+  ).length;
+  const waitingFlowCount = params.relatedTaskFlows.filter((flow) => flow.status === "waiting").length;
+  const blockedFlowCount = params.relatedTaskFlows.filter((flow) => flow.status === "blocked").length;
+  const resumeAvailable = Boolean(params.resumeDetail);
+
+  if (!params.transcriptExists) {
+    return {
+      status: "missing_transcript",
+      summary: "Transcript file is missing; continue must rely on stored session identity.",
+      resumeAvailable,
+      activeTaskCount,
+      activeFlowCount,
+      waitingFlowCount,
+      blockedFlowCount,
+    };
+  }
+  if (blockedFlowCount > 0) {
+    return {
+      status: "blocked_detached",
+      summary: "Detached TaskFlow is blocked and waiting for operator follow-up.",
+      resumeAvailable,
+      activeTaskCount,
+      activeFlowCount,
+      waitingFlowCount,
+      blockedFlowCount,
+    };
+  }
+  if (waitingFlowCount > 0) {
+    return {
+      status: "waiting_detached",
+      summary: "Detached TaskFlow is waiting for the next continuation turn.",
+      resumeAvailable,
+      activeTaskCount,
+      activeFlowCount,
+      waitingFlowCount,
+      blockedFlowCount,
+    };
+  }
+  if (activeTaskCount > 0 || activeFlowCount > 0) {
+    return {
+      status: "running_detached",
+      summary: "Detached work is still active.",
+      resumeAvailable,
+      activeTaskCount,
+      activeFlowCount,
+      waitingFlowCount,
+      blockedFlowCount,
+    };
+  }
+  if (params.row.abortedLastRun === true) {
+    return {
+      status: "aborted_last_run",
+      summary: "The last recorded run aborted, but the session still has resumable identity.",
+      resumeAvailable,
+      activeTaskCount,
+      activeFlowCount,
+      waitingFlowCount,
+      blockedFlowCount,
+    };
+  }
+  return {
+    status: "resumable",
+    summary: "Session transcript and resume metadata are available for another turn.",
+    resumeAvailable,
+    activeTaskCount,
+    activeFlowCount,
+    waitingFlowCount,
+    blockedFlowCount,
+  };
+}
+
 function resolveSessionLookupOrExit(params: {
   lookup: string;
   targets: SessionStoreTarget[];
@@ -240,6 +341,7 @@ function buildSessionShowPayload(params: {
   transcriptExists: boolean;
   relatedTasks: ReturnType<typeof listTasksForRelatedSessionKey>;
   relatedTaskFlows: ReturnType<typeof listTaskFlowsForOwnerKey>;
+  lifecycle: SessionLifecycleAssessment;
   resumeLines: string[];
 }) {
   const { match, row, model } = params;
@@ -278,6 +380,7 @@ function buildSessionShowPayload(params: {
     },
     relatedTaskCount: params.relatedTasks.length,
     relatedTaskFlowCount: params.relatedTaskFlows.length,
+    lifecycle: params.lifecycle,
     relatedTasks: params.relatedTasks.map((task) => ({
       taskId: task.taskId,
       runtime: task.runtime,
@@ -506,11 +609,24 @@ export async function sessionsShowCommand(
   const transcriptExists = fs.existsSync(transcriptPath);
   const relatedTasks = listTasksForRelatedSessionKey(match.sessionKey);
   const relatedTaskFlows = listTaskFlowsForOwnerKey(match.sessionKey);
+  const resumeDetail = describeBackgroundSessionResume({
+    cfg,
+    sessionKey: match.sessionKey,
+    entry: match.entry,
+    target: match.target,
+  });
   const resumeLines = formatBackgroundSessionResumeLines({
     cfg,
     sessionKey: match.sessionKey,
     entry: match.entry,
     target: match.target,
+  });
+  const lifecycle = buildSessionLifecycleAssessment({
+    row,
+    transcriptExists,
+    relatedTasks,
+    relatedTaskFlows,
+    resumeDetail,
   });
   const payload = buildSessionShowPayload({
     lookup,
@@ -523,6 +639,7 @@ export async function sessionsShowCommand(
     transcriptExists,
     relatedTasks,
     relatedTaskFlows,
+    lifecycle,
     resumeLines,
   });
 
@@ -547,6 +664,8 @@ export async function sessionsShowCommand(
   );
   runtime.log(`transcript: ${transcriptPath}`);
   runtime.log(`transcriptExists: ${transcriptExists ? "yes" : "no"}`);
+  runtime.log(`lifecycle: ${lifecycle.status}`);
+  runtime.log(`lifecycleSummary: ${lifecycle.summary}`);
   runtime.log(`relatedTasks: ${relatedTasks.length}`);
   runtime.log(`relatedTaskFlows: ${relatedTaskFlows.length}`);
   if (relatedTasks.length > 0) {
@@ -565,12 +684,6 @@ export async function sessionsShowCommand(
       );
     }
   }
-  const resumeDetail = describeBackgroundSessionResume({
-    cfg,
-    sessionKey: match.sessionKey,
-    entry: match.entry,
-    target: match.target,
-  });
   if (resumeDetail) {
     runtime.log("Resume:");
     for (const line of resumeLines) {

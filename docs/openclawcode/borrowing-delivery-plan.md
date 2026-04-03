@@ -106,6 +106,9 @@ Completed in this wave:
   surfacing
 - transcript path/existence, related tasks, related TaskFlows, and resume hints
   gathered in one place for detached-session inspection
+- `sessions show` now classifies the detached-session lifecycle state
+  (`running`, `waiting`, `blocked`, `missing transcript`, `resumable`) instead
+  of leaving the operator to infer it from raw task/flow rows
 
 Staged next:
 
