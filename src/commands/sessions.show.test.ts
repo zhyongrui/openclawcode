@@ -151,6 +151,11 @@ describe("sessionsShowCommand", () => {
       relatedTaskFlowCount: number;
       relatedTasks: Array<{ runId: string | null; originKind: string | null }>;
       relatedTaskFlows: Array<{ controllerId: string | null; status: string }>;
+      resume?: {
+        sessionKey: string;
+        sessionId?: string;
+        continueWith: string;
+      } | null;
       resumeLines: string[];
     };
 
@@ -182,6 +187,12 @@ describe("sessionsShowCommand", () => {
           status: "waiting",
         },
       ],
+      resume: {
+        sessionKey: "agent:coder:acp:child",
+        sessionId: "sess-child-123",
+        continueWith:
+          'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+      },
     });
     expect(payload.resumeLines).toContain("resumeSessionKey: agent:coder:acp:child");
     expect(payload.resumeLines).toContain("resumeSessionId: sess-child-123");

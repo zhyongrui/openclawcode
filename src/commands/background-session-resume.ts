@@ -142,10 +142,10 @@ export function formatBackgroundSessionResumeLines(params: {
   return lines;
 }
 
-export function formatBackgroundChildSessionGroupLines(params: {
+export function describeBackgroundChildSessions(params: {
   cfg: OpenClawConfig;
   sessionKeys: Iterable<string | undefined>;
-}): string[] {
+}): BackgroundSessionResumeDetail[] {
   const uniqueKeys = Array.from(
     new Set(
       Array.from(params.sessionKeys, (value) => value?.trim()).filter(
@@ -153,15 +153,29 @@ export function formatBackgroundChildSessionGroupLines(params: {
       ),
     ),
   );
-  if (uniqueKeys.length === 0) {
+  return uniqueKeys.flatMap((sessionKey) => {
+    const detail = describeBackgroundSessionResume({
+      cfg: params.cfg,
+      sessionKey,
+    });
+    return detail ? [detail] : [];
+  });
+}
+
+export function formatBackgroundChildSessionGroupLines(params: {
+  cfg: OpenClawConfig;
+  sessionKeys: Iterable<string | undefined>;
+}): string[] {
+  const childSessions = describeBackgroundChildSessions(params);
+  if (childSessions.length === 0) {
     return [];
   }
   const lines = ["Child sessions:"];
-  for (const sessionKey of uniqueKeys) {
-    lines.push(`- ${sessionKey}`);
+  for (const childSession of childSessions) {
+    lines.push(`- ${childSession.sessionKey}`);
     const detailLines = formatBackgroundSessionResumeLines({
       cfg: params.cfg,
-      sessionKey,
+      sessionKey: childSession.sessionKey,
       indent: "  ",
     }).filter((line) => !line.startsWith("  resumeSessionKey: "));
     lines.push(...detailLines);

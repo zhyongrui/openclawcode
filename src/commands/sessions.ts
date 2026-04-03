@@ -557,6 +557,7 @@ function buildSessionShowPayload(params: {
   relatedTasks: ReturnType<typeof listTasksForRelatedSessionKey>;
   relatedTaskFlows: ReturnType<typeof listTaskFlowsForOwnerKey>;
   lifecycle: SessionLifecycleAssessment;
+  resumeDetail?: BackgroundSessionResumeDetail;
   resumeLines: string[];
 }) {
   const { match, row, model } = params;
@@ -624,6 +625,7 @@ function buildSessionShowPayload(params: {
       endedAt: flow.endedAt ?? null,
       revision: flow.revision,
     })),
+    resume: params.resumeDetail ?? null,
     resumeLines: params.resumeLines,
   };
 }
@@ -847,6 +849,7 @@ export async function sessionsShowCommand(
     relatedTasks,
     relatedTaskFlows,
     lifecycle,
+    resumeDetail,
     resumeLines,
   });
 

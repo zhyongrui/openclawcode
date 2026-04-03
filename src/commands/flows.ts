@@ -5,7 +5,10 @@ import type { RuntimeEnv } from "../runtime.js";
 import { listTasksForFlowId } from "../tasks/runtime-internal.js";
 import { cancelFlowById, getFlowTaskSummary } from "../tasks/task-executor.js";
 import type { TaskFlowRecord, TaskFlowStatus } from "../tasks/task-flow-registry.types.js";
-import { formatBackgroundChildSessionGroupLines } from "./background-session-resume.js";
+import {
+  describeBackgroundChildSessions,
+  formatBackgroundChildSessionGroupLines,
+} from "./background-session-resume.js";
 import {
   formatSessionLifecycleStatusLabel,
   inspectDetachedSessionLifecycle,
@@ -254,6 +257,10 @@ export async function flowsShowCommand(
     cfg,
     sessionKeys: tasks.map((task) => task.childSessionKey),
   });
+  const childSessions = describeBackgroundChildSessions({
+    cfg,
+    sessionKeys: tasks.map((task) => task.childSessionKey),
+  });
 
   if (opts.json) {
     runtime.log(
@@ -261,6 +268,7 @@ export async function flowsShowCommand(
         {
           ...flow,
           detachedLifecycle,
+          childSessions,
           tasks,
           taskSummary,
         },

@@ -294,6 +294,9 @@ Implemented:
 - `openclaw tasks show` and `openclaw flows show` now surface that detached
   session lifecycle state in the detail view too, so operators do not have to
   switch to `sessions show` just to classify what state a detached run is in
+- `openclaw sessions show`, `openclaw tasks show`, and `openclaw flows show`
+  now also expose structured resume metadata in JSON, so UI/automation callers
+  can reuse the same handoff data without scraping text lines
 
 Not implemented yet:
 

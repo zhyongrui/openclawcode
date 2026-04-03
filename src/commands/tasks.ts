@@ -1,7 +1,10 @@
 import { loadConfig } from "../config/config.js";
 import { info } from "../globals.js";
 import type { RuntimeEnv } from "../runtime.js";
-import { formatBackgroundSessionResumeLines } from "./background-session-resume.js";
+import {
+  describeBackgroundSessionResume,
+  formatBackgroundSessionResumeLines,
+} from "./background-session-resume.js";
 import {
   formatSessionLifecycleStatusLabel,
   inspectDetachedSessionLifecycle,
@@ -373,6 +376,10 @@ export async function tasksShowCommand(
         sessionKey: task.childSessionKey,
       })?.lifecycle ?? null)
     : null;
+  const sessionResume = describeBackgroundSessionResume({
+    cfg,
+    sessionKey: task.childSessionKey,
+  });
 
   if (opts.json) {
     runtime.log(
@@ -380,6 +387,7 @@ export async function tasksShowCommand(
         {
           ...task,
           sessionLifecycle,
+          sessionResume: sessionResume ?? null,
         },
         null,
         2,

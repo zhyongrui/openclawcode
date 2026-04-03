@@ -119,6 +119,8 @@ Completed in this wave:
 - `tasks show` and `flows show` now surface the same detached-session
   lifecycle state in their detail views, so operators keep the same state model
   after drilling in from list triage
+- detached-session detail views now also expose structured resume metadata in
+  JSON payloads, so scripts and operator UIs do not have to parse raw help text
 
 Staged next:
 

@@ -160,6 +160,11 @@ describe("flowsShowCommand detached session lifecycle", () => {
         status: string;
         waitingFlowCount: number;
       } | null;
+      childSessions?: Array<{
+        sessionKey: string;
+        sessionId?: string;
+        continueWith: string;
+      }>;
     };
 
     expect(payload).toMatchObject({
@@ -168,6 +173,13 @@ describe("flowsShowCommand detached session lifecycle", () => {
         status: "missing_transcript",
         waitingFlowCount: 1,
       },
+      childSessions: [
+        {
+          sessionKey: "agent:coder:acp:child",
+          continueWith:
+            'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+        },
+      ],
     });
   });
 });

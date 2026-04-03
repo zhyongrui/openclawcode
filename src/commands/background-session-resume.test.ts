@@ -17,6 +17,7 @@ vi.mock("../acp/runtime/session-identifiers.js", () => ({
 }));
 
 import {
+  describeBackgroundChildSessions,
   describeBackgroundSessionResume,
   formatBackgroundChildSessionGroupLines,
   formatBackgroundSessionResumeLines,
@@ -123,6 +124,42 @@ describe("background session resume helpers", () => {
       "  resumeAgent: main",
       '  continueWith: openclaw sessions continue agent:main:missing --message "Continue from the latest background task state."',
       '  resumeWith: openclaw agent --session-key agent:main:missing --message "Continue from the latest background task state."',
+    ]);
+  });
+
+  it("describes grouped child sessions as structured resume details", () => {
+    const childSessions = describeBackgroundChildSessions({
+      cfg: {} as never,
+      sessionKeys: [
+        "agent:coder:acp:child",
+        "agent:coder:acp:child",
+        "agent:main:missing",
+      ],
+    });
+
+    expect(childSessions).toEqual([
+      {
+        sessionKey: "agent:coder:acp:child",
+        sessionId: "sess-child-123",
+        agentId: "coder",
+        continueWith:
+          'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+        resumeWith:
+          'openclaw agent --session-id sess-child-123 --message "Continue from the latest background task state."',
+        acpDetailLines: [
+          "agent session id: inner-123",
+          "resume in Codex CLI: `codex resume inner-123` (continues this conversation).",
+        ],
+      },
+      {
+        sessionKey: "agent:main:missing",
+        agentId: "main",
+        continueWith:
+          'openclaw sessions continue agent:main:missing --message "Continue from the latest background task state."',
+        resumeWith:
+          'openclaw agent --session-key agent:main:missing --message "Continue from the latest background task state."',
+        acpDetailLines: [],
+      },
     ]);
   });
 });
