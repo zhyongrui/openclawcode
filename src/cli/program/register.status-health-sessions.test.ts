@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   statusCommand: vi.fn(),
   healthCommand: vi.fn(),
   sessionsCommand: vi.fn(),
+  sessionsShowCommand: vi.fn(),
   sessionsCleanupCommand: vi.fn(),
   tasksListCommand: vi.fn(),
   tasksAuditCommand: vi.fn(),
@@ -27,6 +28,7 @@ const mocks = vi.hoisted(() => ({
 const statusCommand = mocks.statusCommand;
 const healthCommand = mocks.healthCommand;
 const sessionsCommand = mocks.sessionsCommand;
+const sessionsShowCommand = mocks.sessionsShowCommand;
 const sessionsCleanupCommand = mocks.sessionsCleanupCommand;
 const tasksListCommand = mocks.tasksListCommand;
 const tasksAuditCommand = mocks.tasksAuditCommand;
@@ -50,6 +52,7 @@ vi.mock("../../commands/health.js", () => ({
 
 vi.mock("../../commands/sessions.js", () => ({
   sessionsCommand: mocks.sessionsCommand,
+  sessionsShowCommand: mocks.sessionsShowCommand,
 }));
 
 vi.mock("../../commands/sessions-cleanup.js", () => ({
@@ -92,6 +95,7 @@ describe("registerStatusHealthSessionsCommands", () => {
     statusCommand.mockResolvedValue(undefined);
     healthCommand.mockResolvedValue(undefined);
     sessionsCommand.mockResolvedValue(undefined);
+    sessionsShowCommand.mockResolvedValue(undefined);
     sessionsCleanupCommand.mockResolvedValue(undefined);
     tasksListCommand.mockResolvedValue(undefined);
     tasksAuditCommand.mockResolvedValue(undefined);
@@ -232,6 +236,28 @@ describe("registerStatusHealthSessionsCommands", () => {
         enforce: true,
         fixMissing: true,
         activeKey: "agent:main:main",
+        json: true,
+      }),
+      runtime,
+    );
+  });
+
+  it("runs sessions show subcommand with forwarded options", async () => {
+    await runCli([
+      "sessions",
+      "--all-agents",
+      "show",
+      "sess-123",
+      "--agent",
+      "work",
+      "--json",
+    ]);
+
+    expect(sessionsShowCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lookup: "sess-123",
+        agent: "work",
+        allAgents: true,
         json: true,
       }),
       runtime,

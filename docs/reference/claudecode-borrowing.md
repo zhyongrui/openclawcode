@@ -270,6 +270,11 @@ Implemented:
   the CLI prints concrete wait/resume commands
 - the CLI now also exposes explicit `--session-key <key>` targeting so those
   resume hints are directly executable
+- `openclaw sessions show <lookup>` now resolves a detached/background session
+  by session key or session id and surfaces:
+  - transcript path and existence
+  - linked background tasks and TaskFlows
+  - concrete resume hints in one operator-facing view
 
 Not implemented yet:
 

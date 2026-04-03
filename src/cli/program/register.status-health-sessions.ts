@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { flowsCancelCommand, flowsListCommand, flowsShowCommand } from "../../commands/flows.js";
 import { healthCommand } from "../../commands/health.js";
 import { sessionsCleanupCommand } from "../../commands/sessions-cleanup.js";
-import { sessionsCommand } from "../../commands/sessions.js";
+import { sessionsCommand, sessionsShowCommand } from "../../commands/sessions.js";
 import { statusCommand } from "../../commands/status.js";
 import {
   tasksAuditCommand,
@@ -163,6 +163,48 @@ export function registerStatusHealthSessionsCommands(program: Command) {
       );
     });
   sessionsCmd.enablePositionalOptions();
+
+  sessionsCmd
+    .command("show <lookup>")
+    .description("Show one session with transcript, task, TaskFlow, and resume detail")
+    .option("--store <path>", "Path to session store (default: resolved from config)")
+    .option("--agent <id>", "Agent id to inspect (default: configured default agent)")
+    .option("--all-agents", "Search across all configured agents", false)
+    .option("--json", "Output JSON", false)
+    .addHelpText(
+      "after",
+      () =>
+        `\n${theme.heading("Examples:")}\n${formatHelpExamples([
+          ["openclaw sessions show main", "Show one session by session key."],
+          ["openclaw sessions show abc123 --agent work", "Resolve and show one session by session id."],
+          [
+            "openclaw sessions --all-agents show abc123 --json",
+            "Resolve one session across agent stores and emit JSON.",
+          ],
+        ])}`,
+    )
+    .action(async (lookup, opts, command) => {
+      const parentOpts = command.parent?.opts() as
+        | {
+            store?: string;
+            agent?: string;
+            allAgents?: boolean;
+            json?: boolean;
+          }
+        | undefined;
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        await sessionsShowCommand(
+          {
+            lookup,
+            store: (opts.store as string | undefined) ?? parentOpts?.store,
+            agent: (opts.agent as string | undefined) ?? parentOpts?.agent,
+            allAgents: Boolean(opts.allAgents || parentOpts?.allAgents),
+            json: Boolean(opts.json || parentOpts?.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
 
   sessionsCmd
     .command("cleanup")

@@ -7,6 +7,7 @@ import {
   type SessionStoreTarget,
 } from "../config/sessions.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { parseAgentSessionKey } from "../routing/session-key.js";
 
 const RESUME_MESSAGE = "Continue from the latest background task state.";
 
@@ -21,6 +22,14 @@ type ResolvedBackgroundSession = {
   sessionKey: string;
   entry?: SessionEntry;
   target?: SessionStoreTarget;
+};
+
+export type BackgroundSessionResumeDetail = {
+  sessionKey: string;
+  sessionId?: string;
+  agentId?: string;
+  resumeWith: string;
+  acpDetailLines: string[];
 };
 
 function resolveBackgroundSessionEntry(
@@ -56,38 +65,70 @@ function buildResumeWithCommand(params: {
   );
 }
 
+export function describeBackgroundSessionResume(params: {
+  cfg: OpenClawConfig;
+  sessionKey?: string;
+  entry?: SessionEntry;
+  target?: SessionStoreTarget;
+}): BackgroundSessionResumeDetail | undefined {
+  const sessionKey = params.sessionKey?.trim();
+  if (!sessionKey) {
+    return undefined;
+  }
+  const resolved =
+    params.entry || params.target
+      ? {
+          sessionKey,
+          entry: params.entry,
+          target: params.target,
+        }
+      : resolveBackgroundSessionEntry(params.cfg, sessionKey);
+  return {
+    sessionKey,
+    ...(resolved.entry?.sessionId?.trim() ? { sessionId: resolved.entry.sessionId.trim() } : {}),
+    ...((parseAgentSessionKey(sessionKey)?.agentId ?? resolved.target?.agentId)
+      ? { agentId: parseAgentSessionKey(sessionKey)?.agentId ?? resolved.target?.agentId }
+      : {}),
+    resumeWith: buildResumeWithCommand({
+      sessionKey,
+      entry: resolved.entry,
+    }),
+    acpDetailLines: resolved.entry?.acp
+      ? resolveAcpThreadSessionDetailLines({
+          sessionKey,
+          meta: resolved.entry.acp,
+        })
+      : [],
+  };
+}
+
 export function formatBackgroundSessionResumeLines(params: {
   cfg: OpenClawConfig;
   sessionKey?: string;
+  entry?: SessionEntry;
+  target?: SessionStoreTarget;
   indent?: string;
 }): string[] {
-  const sessionKey = params.sessionKey?.trim();
-  if (!sessionKey) {
+  const detail = describeBackgroundSessionResume({
+    cfg: params.cfg,
+    sessionKey: params.sessionKey,
+    entry: params.entry,
+    target: params.target,
+  });
+  if (!detail) {
     return [];
   }
   const indent = params.indent ?? "";
-  const resolved = resolveBackgroundSessionEntry(params.cfg, sessionKey);
-  const lines = [`${indent}resumeSessionKey: ${sessionKey}`];
-  const sessionId = resolved.entry?.sessionId?.trim();
-  if (sessionId) {
-    lines.push(`${indent}resumeSessionId: ${sessionId}`);
+  const lines = [`${indent}resumeSessionKey: ${detail.sessionKey}`];
+  if (detail.sessionId) {
+    lines.push(`${indent}resumeSessionId: ${detail.sessionId}`);
   }
-  if (resolved.target?.agentId) {
-    lines.push(`${indent}resumeAgent: ${resolved.target.agentId}`);
+  if (detail.agentId) {
+    lines.push(`${indent}resumeAgent: ${detail.agentId}`);
   }
-  lines.push(
-    `${indent}resumeWith: ${buildResumeWithCommand({
-      sessionKey,
-      entry: resolved.entry,
-    })}`,
-  );
-  if (resolved.entry?.acp) {
-    for (const line of resolveAcpThreadSessionDetailLines({
-      sessionKey,
-      meta: resolved.entry.acp,
-    })) {
-      lines.push(`${indent}${line}`);
-    }
+  lines.push(`${indent}resumeWith: ${detail.resumeWith}`);
+  for (const line of detail.acpDetailLines) {
+    lines.push(`${indent}${line}`);
   }
   return lines;
 }

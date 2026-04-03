@@ -17,6 +17,7 @@ vi.mock("../acp/runtime/session-identifiers.js", () => ({
 }));
 
 import {
+  describeBackgroundSessionResume,
   formatBackgroundChildSessionGroupLines,
   formatBackgroundSessionResumeLines,
 } from "./background-session-resume.js";
@@ -75,6 +76,25 @@ describe("background session resume helpers", () => {
     ]);
   });
 
+  it("describes structured background session resume details", () => {
+    const detail = describeBackgroundSessionResume({
+      cfg: {} as never,
+      sessionKey: "agent:coder:acp:child",
+    });
+
+    expect(detail).toEqual({
+      sessionKey: "agent:coder:acp:child",
+      sessionId: "sess-child-123",
+      agentId: "coder",
+      resumeWith:
+        'openclaw agent --session-id sess-child-123 --message "Continue from the latest background task state."',
+      acpDetailLines: [
+        "agent session id: inner-123",
+        "resume in Codex CLI: `codex resume inner-123` (continues this conversation).",
+      ],
+    });
+  });
+
   it("falls back to session-key resume commands and dedupes grouped child sessions", () => {
     const lines = formatBackgroundChildSessionGroupLines({
       cfg: {} as never,
@@ -96,6 +116,7 @@ describe("background session resume helpers", () => {
       "  agent session id: inner-123",
       "  resume in Codex CLI: `codex resume inner-123` (continues this conversation).",
       "- agent:main:missing",
+      "  resumeAgent: main",
       '  resumeWith: openclaw agent --session-key agent:main:missing --message "Continue from the latest background task state."',
     ]);
   });

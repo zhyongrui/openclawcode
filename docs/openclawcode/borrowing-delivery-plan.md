@@ -89,12 +89,21 @@ Staged next:
 
 ### 4. Detached-session identity and resume discipline
 
-Status: `shipped` baseline
+Status: `current wave`
 
 Shipped already:
 
 - explicit `resumeSessionKey` / `resumeSessionId` presentation
 - stable accepted-response session identity for background agent runs
+
+Completed in this wave:
+
+- `openclaw sessions show <lookup>` for one operator-facing session lifecycle
+  view
+- session lookup by exact session key or stable session id with ambiguity
+  surfacing
+- transcript path/existence, related tasks, related TaskFlows, and resume hints
+  gathered in one place for detached-session inspection
 
 Staged next:
 
@@ -195,6 +204,7 @@ Staged next:
 - [x] Publish an authoritative sandbox and escalation contract.
 - [x] Sync the borrowing notes and dev log to reflect the new shipped slices.
 - [x] Ship the first repo-local workflow history slice for ClaudeCode borrowing.
+- [x] Ship the first operator-facing detached-session lifecycle view.
 
 ## Explicit non-goals
 
