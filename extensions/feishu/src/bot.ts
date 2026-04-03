@@ -1,25 +1,32 @@
 import os from "node:os";
+import { createChannelPairingController } from "openclaw/plugin-sdk/channel-pairing";
 import {
   ensureConfiguredBindingRouteReady,
   resolveConfiguredBindingRoute,
 } from "openclaw/plugin-sdk/conversation-runtime";
 import { getSessionBindingService } from "openclaw/plugin-sdk/conversation-runtime";
+import { resolveAgentOutboundIdentity } from "openclaw/plugin-sdk/outbound-runtime";
+import {
+  buildPendingHistoryContextFromMap,
+  clearHistoryEntriesIfEnabled,
+  DEFAULT_GROUP_HISTORY_LIMIT,
+  recordPendingHistoryEntryIfEnabled,
+  type HistoryEntry,
+} from "openclaw/plugin-sdk/reply-history";
 import { deriveLastRoutePolicy } from "openclaw/plugin-sdk/routing";
 import { resolveAgentIdFromSessionKey } from "openclaw/plugin-sdk/routing";
+import {
+  resolveDefaultGroupPolicy,
+  resolveOpenProviderRuntimeGroupPolicy,
+  warnMissingProviderGroupPolicyFallbackOnce,
+} from "openclaw/plugin-sdk/runtime-group-policy";
 import type { ClawdbotConfig, RuntimeEnv } from "../runtime-api.js";
 import {
   buildAgentMediaPayload,
-  buildPendingHistoryContextFromMap,
-  clearHistoryEntriesIfEnabled,
-  createChannelPairingController,
-  DEFAULT_GROUP_HISTORY_LIMIT,
-  type HistoryEntry,
+  evaluateSupplementalContextVisibility,
+  filterSupplementalContextItems,
   normalizeAgentId,
-  recordPendingHistoryEntryIfEnabled,
-  resolveAgentOutboundIdentity,
-  resolveOpenProviderRuntimeGroupPolicy,
-  resolveDefaultGroupPolicy,
-  warnMissingProviderGroupPolicyFallbackOnce,
+  resolveChannelContextVisibilityMode,
 } from "../runtime-api.js";
 import {
   executePluginCommand,
@@ -458,7 +465,7 @@ export function buildFeishuAgentBody(params: {
   return messageBody;
 }
 
-function shouldIncludeFetchedGroupContextMessage(params: {
+function isFetchedGroupContextSenderAllowed(params: {
   isGroup: boolean;
   allowFrom: Array<string | number>;
   senderId?: string;
@@ -471,15 +478,36 @@ function shouldIncludeFetchedGroupContextMessage(params: {
     return true;
   }
   const senderId = params.senderId?.trim();
-  if (!senderId) {
-    return false;
-  }
-  return isFeishuGroupAllowed({
-    groupPolicy: "allowlist",
+  const senderAllowed =
+    !!senderId &&
+    isFeishuGroupAllowed({
+      groupPolicy: "allowlist",
+      allowFrom: params.allowFrom,
+      senderId,
+      senderName: undefined,
+    });
+  return senderAllowed;
+}
+
+function shouldIncludeFetchedGroupContextMessage(params: {
+  isGroup: boolean;
+  allowFrom: Array<string | number>;
+  mode: "all" | "allowlist" | "allowlist_quote";
+  kind: "quote" | "thread" | "history";
+  senderId?: string;
+  senderType?: string;
+}): boolean {
+  const senderAllowed = isFetchedGroupContextSenderAllowed({
+    isGroup: params.isGroup,
     allowFrom: params.allowFrom,
-    senderId,
-    senderName: undefined,
+    senderId: params.senderId,
+    senderType: params.senderType,
   });
+  return evaluateSupplementalContextVisibility({
+    mode: params.mode,
+    kind: params.kind,
+    senderAllowed,
+  }).include;
 }
 
 function filterFetchedGroupContextMessages<
@@ -489,16 +517,22 @@ function filterFetchedGroupContextMessages<
   params: {
     isGroup: boolean;
     allowFrom: Array<string | number>;
+    mode: "all" | "allowlist" | "allowlist_quote";
+    kind: "quote" | "thread" | "history";
   },
 ): T[] {
-  return messages.filter((message) =>
-    shouldIncludeFetchedGroupContextMessage({
-      isGroup: params.isGroup,
-      allowFrom: params.allowFrom,
-      senderId: message.senderId,
-      senderType: message.senderType,
-    }),
-  );
+  return filterSupplementalContextItems({
+    items: messages,
+    mode: params.mode,
+    kind: params.kind,
+    isSenderAllowed: (message) =>
+      isFetchedGroupContextSenderAllowed({
+        isGroup: params.isGroup,
+        allowFrom: params.allowFrom,
+        senderId: message.senderId,
+        senderType: message.senderType,
+      }),
+  }).items;
 }
 
 export async function handleFeishuMessage(params: {
@@ -1057,6 +1091,11 @@ export async function handleFeishuMessage(params: {
     const inboundLabel = isGroup
       ? `Feishu[${account.accountId}] message in group ${ctx.chatId}`
       : `Feishu[${account.accountId}] DM from ${ctx.senderOpenId}`;
+    const contextVisibilityMode = resolveChannelContextVisibilityMode({
+      cfg: effectiveCfg,
+      channel: "feishu",
+      accountId: account.accountId,
+    });
 
     // Do not enqueue inbound user previews as system events.
     // System events are prepended to future prompts and can be misread as
@@ -1091,6 +1130,8 @@ export async function handleFeishuMessage(params: {
           shouldIncludeFetchedGroupContextMessage({
             isGroup,
             allowFrom: effectiveGroupSenderAllowFrom,
+            mode: contextVisibilityMode,
+            kind: "quote",
             senderId: quotedMessageInfo.senderId,
             senderType: quotedMessageInfo.senderType,
           })
@@ -1101,7 +1142,7 @@ export async function handleFeishuMessage(params: {
           );
         } else if (quotedMessageInfo) {
           log(
-            `feishu[${account.accountId}]: skipped quoted message from sender ${quotedMessageInfo.senderId ?? "unknown"} due to group sender allowlist`,
+            `feishu[${account.accountId}]: skipped quoted message from sender ${quotedMessageInfo.senderId ?? "unknown"} (mode=${contextVisibilityMode})`,
           );
         }
       } catch (err) {
@@ -1202,12 +1243,14 @@ export async function handleFeishuMessage(params: {
           !shouldIncludeFetchedGroupContextMessage({
             isGroup,
             allowFrom: effectiveGroupSenderAllowFrom,
+            mode: contextVisibilityMode,
+            kind: "thread",
             senderId: rootMessageInfo.senderId,
             senderType: rootMessageInfo.senderType,
           })
         ) {
           log(
-            `feishu[${account.accountId}]: skipped thread starter from sender ${rootMessageInfo.senderId ?? "unknown"} due to group sender allowlist`,
+            `feishu[${account.accountId}]: skipped thread starter from sender ${rootMessageInfo.senderId ?? "unknown"} (mode=${contextVisibilityMode})`,
           );
           rootMessageInfo = null;
         }
@@ -1280,6 +1323,8 @@ export async function handleFeishuMessage(params: {
         const allowlistedMessages = filterFetchedGroupContextMessages(threadMessages, {
           isGroup,
           allowFrom: effectiveGroupSenderAllowFrom,
+          mode: contextVisibilityMode,
+          kind: "history",
         });
         const relevantMessages =
           (senderScoped

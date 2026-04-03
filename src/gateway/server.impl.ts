@@ -373,6 +373,10 @@ export type GatewayServerOptions = {
     runtime: import("../runtime.js").RuntimeEnv,
     prompter: import("../wizard/prompts.js").WizardPrompter,
   ) => Promise<void>;
+  /**
+   * Optional startup timestamp used for concise readiness logging.
+   */
+  startupStartedAt?: number;
 };
 
 export async function startGatewayServer(
@@ -505,6 +509,7 @@ export async function startGatewayServer(
     });
 
   let cfgAtStart: OpenClawConfig;
+  let startupInternalWriteHash: string | null = null;
   const startupRuntimeConfig = applyConfigOverrides(configSnapshot.config);
   const authBootstrap = await prepareGatewayStartupConfig({
     configSnapshot,
@@ -539,11 +544,16 @@ export async function startGatewayServer(
   );
   // Unconditional startup migration: seed gateway.controlUi.allowedOrigins for existing
   // non-loopback installs that upgraded to v2026.2.26+ without required origins.
-  cfgAtStart = await maybeSeedControlUiAllowedOriginsAtStartup({
+  const controlUiSeed = await maybeSeedControlUiAllowedOriginsAtStartup({
     config: cfgAtStart,
     writeConfig: writeConfigFile,
     log,
   });
+  cfgAtStart = controlUiSeed.config;
+  if (authBootstrap.persistedGeneratedToken || controlUiSeed.persistedAllowedOriginsSeed) {
+    const startupSnapshot = await readConfigFileSnapshot();
+    startupInternalWriteHash = startupSnapshot.hash ?? null;
+  }
   await runStartupMatrixMigration({
     cfg: cfgAtStart,
     env: process.env,
@@ -720,6 +730,7 @@ export async function startGatewayServer(
     channelManager,
     startedAt: serverStartedAt,
   });
+  log.info("starting HTTP server...");
   const {
     canvasHost,
     releasePluginRouteRegistry,
@@ -1331,8 +1342,10 @@ export async function startGatewayServer(
       bindHosts: httpBindHosts,
       port,
       tlsEnabled: gatewayTls.enabled,
+      pluginCount: pluginRegistry.plugins.length,
       log,
       isNixMode,
+      startupStartedAt: opts.startupStartedAt,
     });
     stopGatewayUpdateCheck = minimalTestGateway
       ? () => {}
@@ -1367,6 +1380,7 @@ export async function startGatewayServer(
           logDiagnostics: false,
         }));
       }
+      log.info("starting channels and sidecars...");
       ({ pluginServices } = await startGatewaySidecars({
         cfg: gatewayPluginConfigAtStart,
         pluginRegistry,
@@ -1436,6 +1450,7 @@ export async function startGatewayServer(
 
           return startGatewayConfigReloader({
             initialConfig: cfgAtStart,
+            initialInternalWriteHash: startupInternalWriteHash,
             readSnapshot: readConfigFileSnapshot,
             subscribeToWrites: registerConfigWriteListener,
             onHotReload: async (plan, nextConfig) => {

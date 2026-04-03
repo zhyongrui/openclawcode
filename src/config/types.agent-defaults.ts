@@ -280,6 +280,8 @@ export type AgentDefaultsConfig = {
   maxConcurrent?: number;
   /** Sub-agent defaults (spawned via sessions_spawn). */
   subagents?: {
+    /** Default allowlist of target agent ids for sessions_spawn. Use "*" to allow any. */
+    allowAgents?: string[];
     /** Max concurrent sub-agent runs (global lane: "subagent"). Default: 1. */
     maxConcurrent?: number;
     /** Maximum depth allowed for sessions_spawn chains. Default behavior: 1 (no nested spawns). */
@@ -356,6 +358,11 @@ export type AgentCompactionConfig = {
    * Default: false (existing behavior preserved).
    */
   truncateAfterCompaction?: boolean;
+  /**
+   * Send a "🧹 Compacting context..." notice to the user when compaction starts.
+   * Default: false (silent by default).
+   */
+  notifyUser?: boolean;
 };
 
 export type AgentCompactionMemoryFlushConfig = {

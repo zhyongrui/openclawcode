@@ -1924,7 +1924,7 @@ describe("handleFeishuMessage command authorization", () => {
     expect(mockDispatchReplyFromConfig).not.toHaveBeenCalled();
   });
 
-  it("drops quoted group context from senders outside the group sender allowlist", async () => {
+  it("drops quoted group context from senders outside the group sender allowlist in allowlist mode", async () => {
     mockShouldComputeCommandAuthorized.mockReturnValue(false);
     mockGetMessageFeishu.mockResolvedValueOnce({
       messageId: "om_parent_blocked",
@@ -1940,6 +1940,7 @@ describe("handleFeishuMessage command authorization", () => {
         feishu: {
           groupPolicy: "open",
           groupSenderAllowFrom: ["ou-allowed"],
+          contextVisibility: "allowlist",
           groups: {
             "oc-group": {
               requireMention: false,
@@ -1971,6 +1972,57 @@ describe("handleFeishuMessage command authorization", () => {
       expect.objectContaining({
         ReplyToId: "om_parent_blocked",
         ReplyToBody: undefined,
+      }),
+    );
+  });
+
+  it("keeps quoted group context from non-allowlisted senders in default all mode", async () => {
+    mockShouldComputeCommandAuthorized.mockReturnValue(false);
+    mockGetMessageFeishu.mockResolvedValueOnce({
+      messageId: "om_parent_visible",
+      chatId: "oc-group",
+      senderId: "ou-blocked",
+      senderType: "user",
+      content: "visible quoted content",
+      contentType: "text",
+    });
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          groupPolicy: "open",
+          groupSenderAllowFrom: ["ou-allowed"],
+          groups: {
+            "oc-group": {
+              requireMention: false,
+            },
+          },
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-allowed",
+        },
+      },
+      message: {
+        message_id: "msg-group-quoted-visible",
+        parent_id: "om_parent_visible",
+        chat_id: "oc-group",
+        chat_type: "group",
+        message_type: "text",
+        content: JSON.stringify({ text: "hello" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockFinalizeInboundContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ReplyToId: "om_parent_visible",
+        ReplyToBody: "visible quoted content",
       }),
     );
   });
@@ -3328,6 +3380,7 @@ describe("handleFeishuMessage command authorization", () => {
         feishu: {
           groupPolicy: "open",
           groupSenderAllowFrom: ["ou-allowed"],
+          contextVisibility: "allowlist",
           groups: {
             "oc-group": {
               requireMention: false,

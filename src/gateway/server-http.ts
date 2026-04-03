@@ -8,12 +8,12 @@ import {
 import { createServer as createHttpsServer } from "node:https";
 import type { TlsOptions } from "node:tls";
 import type { WebSocketServer } from "ws";
+import { handleSlackHttpRequest } from "../../extensions/slack/api.js";
 import { resolveAgentAvatar } from "../agents/identity-avatar.js";
 import { CANVAS_WS_PATH, handleA2uiHttpRequest } from "../canvas-host/a2ui.js";
 import type { CanvasHostHandler } from "../canvas-host/server.js";
 import { loadConfig } from "../config/config.js";
 import type { createSubsystemLogger } from "../logging/subsystem.js";
-import { handleSlackHttpRequest } from "../plugin-sdk/slack.js";
 import { resolveHookExternalContentSource as resolveHookExternalContentSourceFromSession } from "../security/external-content.js";
 import { safeEqualSecret } from "../security/secret-equal.js";
 import {
@@ -314,12 +314,21 @@ type GatewayHttpRequestStage = {
   run: () => Promise<boolean> | boolean;
 };
 
-async function runGatewayHttpRequestStages(
+export async function runGatewayHttpRequestStages(
   stages: readonly GatewayHttpRequestStage[],
 ): Promise<boolean> {
   for (const stage of stages) {
-    if (await stage.run()) {
-      return true;
+    try {
+      if (await stage.run()) {
+        return true;
+      }
+    } catch (err) {
+      // Log and skip the failing stage so subsequent stages (control-ui,
+      // gateway-probes, etc.) remain reachable.  A common trigger is a
+      // bundled-plugin facade that fails to load because an optional
+      // dependency is missing (e.g. @slack/bolt after the lazy-facade
+      // refactor).
+      console.error(`[gateway-http] stage "${stage.name}" threw — skipping:`, err);
     }
   }
   return false;
@@ -1013,7 +1022,8 @@ export function createGatewayHttpServer(opts: {
       res.statusCode = 404;
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.end("Not Found");
-    } catch {
+    } catch (err) {
+      console.error("[gateway-http] unhandled error in request handler:", err);
       res.statusCode = 500;
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.end("Internal Server Error");

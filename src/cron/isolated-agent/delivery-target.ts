@@ -1,3 +1,5 @@
+import { resolveWhatsAppAccount } from "../../../extensions/whatsapp/api.js";
+import { normalizeWhatsAppTarget } from "../../channels/plugins/normalize/whatsapp.js";
 import type { ChannelId } from "../../channels/plugins/types.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import {
@@ -13,8 +15,6 @@ import {
   resolveSessionDeliveryTarget,
 } from "../../infra/outbound/targets.js";
 import { readChannelAllowFromStoreSync } from "../../pairing/pairing-store.js";
-import { normalizeWhatsAppTarget } from "../../plugin-sdk/whatsapp-targets.js";
-import { resolveWhatsAppAccount } from "../../plugin-sdk/whatsapp.js";
 import { buildChannelAccountBindings } from "../../routing/bindings.js";
 import { normalizeAccountId, normalizeAgentId } from "../../routing/session-key.js";
 
@@ -43,6 +43,7 @@ export async function resolveDeliveryTarget(
   jobPayload: {
     channel?: "last" | ChannelId;
     to?: string;
+    threadId?: string | number;
     /** Explicit accountId from job.delivery — overrides session-derived and binding-derived values. */
     accountId?: string;
     sessionKey?: string;
@@ -67,6 +68,7 @@ export async function resolveDeliveryTarget(
     entry: main,
     requestedChannel,
     explicitTo,
+    explicitThreadId: jobPayload.threadId,
     allowMismatchedLastTo,
   });
 
@@ -93,6 +95,7 @@ export async function resolveDeliveryTarget(
         entry: main,
         requestedChannel,
         explicitTo,
+        explicitThreadId: jobPayload.threadId,
         fallbackChannel,
         allowMismatchedLastTo,
         mode: preliminary.mode,
