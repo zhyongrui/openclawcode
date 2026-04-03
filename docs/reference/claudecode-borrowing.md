@@ -286,6 +286,9 @@ Implemented:
 - `openclaw sessions` now surfaces a lifecycle column in the main session list,
   so the detached-session state is visible before drilling into a single
   session detail view
+- `openclaw tasks list` now also carries detached child-session lifecycle state,
+  so operators can triage detached work from either the task ledger or the
+  session ledger with the same status vocabulary
 
 Not implemented yet:
 

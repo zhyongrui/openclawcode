@@ -3,6 +3,11 @@ import { info } from "../globals.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { formatBackgroundSessionResumeLines } from "./background-session-resume.js";
 import {
+  formatSessionLifecycleStatusLabel,
+  inspectDetachedSessionLifecycle,
+  type SessionLifecycleAssessment,
+} from "./sessions.js";
+import {
   cancelTaskById,
   getTaskById,
   updateTaskNotifyPolicyById,
@@ -44,6 +49,7 @@ const STATUS_PAD = 10;
 const DELIVERY_PAD = 14;
 const ID_PAD = 10;
 const RUN_PAD = 10;
+const SESSION_PAD = 16;
 
 function truncate(value: string, maxChars: number) {
   if (value.length <= maxChars) {
@@ -80,7 +86,35 @@ function formatTaskStatusCell(status: string, rich: boolean) {
   return theme.muted(padded);
 }
 
-function formatTaskRows(tasks: TaskRecord[], rich: boolean) {
+function formatTaskSessionLifecycleCell(
+  lifecycle: SessionLifecycleAssessment | null | undefined,
+  rich: boolean,
+) {
+  const label = lifecycle
+    ? formatSessionLifecycleStatusLabel(lifecycle.status).padEnd(SESSION_PAD)
+    : "n/a".padEnd(SESSION_PAD);
+  if (!rich || !lifecycle) {
+    return label;
+  }
+  if (lifecycle.status === "blocked_detached" || lifecycle.status === "missing_transcript") {
+    return theme.warn(label);
+  }
+  if (lifecycle.status === "running_detached") {
+    return theme.accentBright(label);
+  }
+  if (lifecycle.status === "aborted_last_run") {
+    return theme.error(label);
+  }
+  if (lifecycle.status === "waiting_detached" || lifecycle.status === "resumable") {
+    return theme.success(label);
+  }
+  return theme.muted(label);
+}
+
+function formatTaskRows(
+  tasks: Array<TaskRecord & { sessionLifecycle?: SessionLifecycleAssessment | null }>,
+  rich: boolean,
+) {
   const header = [
     "Task".padEnd(ID_PAD),
     "Kind".padEnd(RUNTIME_PAD),
@@ -89,6 +123,7 @@ function formatTaskRows(tasks: TaskRecord[], rich: boolean) {
     "Delivery".padEnd(DELIVERY_PAD),
     "Run".padEnd(RUN_PAD),
     "Child Session",
+    "Session".padEnd(SESSION_PAD),
     "Summary",
   ].join(" ");
   const lines = [rich ? theme.heading(header) : header];
@@ -108,6 +143,7 @@ function formatTaskRows(tasks: TaskRecord[], rich: boolean) {
       task.deliveryStatus.padEnd(DELIVERY_PAD),
       shortToken(task.runId, RUN_PAD).padEnd(RUN_PAD),
       truncate(task.childSessionKey?.trim() || "n/a", 36).padEnd(36),
+      formatTaskSessionLifecycleCell(task.sessionLifecycle, rich),
       summary,
     ].join(" ");
     lines.push(line.trimEnd());
@@ -267,6 +303,7 @@ export async function tasksListCommand(
 ) {
   const runtimeFilter = opts.runtime?.trim();
   const statusFilter = opts.status?.trim();
+  const cfg = loadConfig();
   const tasks = reconcileInspectableTasks().filter((task) => {
     if (runtimeFilter && task.runtime !== runtimeFilter) {
       return false;
@@ -276,15 +313,23 @@ export async function tasksListCommand(
     }
     return true;
   });
+  const rows = tasks.map((task) => ({
+    ...task,
+    sessionLifecycle:
+      inspectDetachedSessionLifecycle({
+        cfg,
+        sessionKey: task.childSessionKey,
+      })?.lifecycle ?? null,
+  }));
 
   if (opts.json) {
     runtime.log(
       JSON.stringify(
         {
-          count: tasks.length,
+          count: rows.length,
           runtime: runtimeFilter ?? null,
           status: statusFilter ?? null,
-          tasks,
+          tasks: rows,
         },
         null,
         2,
@@ -293,7 +338,7 @@ export async function tasksListCommand(
     return;
   }
 
-  runtime.log(info(`Background tasks: ${tasks.length}`));
+  runtime.log(info(`Background tasks: ${rows.length}`));
   runtime.log(info(`Task pressure: ${formatTaskListSummary(tasks)}`));
   if (runtimeFilter) {
     runtime.log(info(`Runtime filter: ${runtimeFilter}`));
@@ -301,12 +346,12 @@ export async function tasksListCommand(
   if (statusFilter) {
     runtime.log(info(`Status filter: ${statusFilter}`));
   }
-  if (tasks.length === 0) {
+  if (rows.length === 0) {
     runtime.log("No background tasks found.");
     return;
   }
   const rich = isRich();
-  for (const line of formatTaskRows(tasks, rich)) {
+  for (const line of formatTaskRows(rows, rich)) {
     runtime.log(line);
   }
 }

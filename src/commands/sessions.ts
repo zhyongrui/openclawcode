@@ -7,6 +7,7 @@ import {
   resolveFreshSessionTotalTokens,
   resolveSessionFilePath,
   resolveSessionFilePathOptions,
+  resolveSessionStoreTargets,
   type SessionEntry,
   type SessionStoreTarget,
 } from "../config/sessions.js";
@@ -80,7 +81,7 @@ type ResolvedSessionLookup =
     };
 
 type FoundSessionLookup = Extract<ResolvedSessionLookup, { kind: "found" }>;
-type SessionLifecycleStatus =
+export type SessionLifecycleStatus =
   | "missing_transcript"
   | "blocked_detached"
   | "waiting_detached"
@@ -88,7 +89,7 @@ type SessionLifecycleStatus =
   | "aborted_last_run"
   | "resumable";
 
-type SessionLifecycleAssessment = {
+export type SessionLifecycleAssessment = {
   status: SessionLifecycleStatus;
   summary: string;
   resumeAvailable: boolean;
@@ -96,6 +97,18 @@ type SessionLifecycleAssessment = {
   activeFlowCount: number;
   waitingFlowCount: number;
   blockedFlowCount: number;
+};
+
+export type DetachedSessionLifecycleSnapshot = {
+  sessionKey: string;
+  entry?: SessionEntry;
+  target?: SessionStoreTarget;
+  transcriptPath: string | null;
+  transcriptExists: boolean;
+  relatedTasks: ReturnType<typeof listTasksForRelatedSessionKey>;
+  relatedTaskFlows: ReturnType<typeof listTaskFlowsForOwnerKey>;
+  resumeDetail?: BackgroundSessionResumeDetail;
+  lifecycle: SessionLifecycleAssessment;
 };
 
 const formatKTokens = (value: number) => `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1)}k`;
@@ -164,8 +177,12 @@ const LIFECYCLE_LABELS: Record<SessionLifecycleStatus, string> = {
   resumable: "resumable",
 };
 
+export function formatSessionLifecycleStatusLabel(status: SessionLifecycleStatus): string {
+  return LIFECYCLE_LABELS[status] ?? status;
+}
+
 function formatLifecycleCell(lifecycle: SessionLifecycleAssessment, rich: boolean) {
-  const label = (LIFECYCLE_LABELS[lifecycle.status] ?? lifecycle.status).padEnd(LIFECYCLE_PAD);
+  const label = formatSessionLifecycleStatusLabel(lifecycle.status).padEnd(LIFECYCLE_PAD);
   if (!rich) {
     return label;
   }
@@ -184,7 +201,7 @@ function formatLifecycleCell(lifecycle: SessionLifecycleAssessment, rich: boolea
   return theme.muted(label);
 }
 
-function resolveSessionTranscriptState(params: {
+export function resolveSessionTranscriptState(params: {
   entry: SessionEntry;
   target: SessionStoreTarget;
 }): { transcriptPath: string | null; transcriptExists: boolean } {
@@ -225,26 +242,25 @@ function buildSessionListRows(params: {
           agentId: parseAgentSessionKey(row.key)?.agentId ?? target.agentId,
           kind: classifySessionKey(row.key, entry),
         } satisfies SessionRow & { entry: SessionEntry; target: SessionStoreTarget };
-        const transcript = resolveSessionTranscriptState({ entry, target });
-        const relatedTasks = listTasksForRelatedSessionKey(row.key);
-        const relatedTaskFlows = listTaskFlowsForOwnerKey(row.key);
-        const resumeDetail = describeBackgroundSessionResume({
+        const snapshot = inspectDetachedSessionLifecycle({
           cfg: params.cfg,
           sessionKey: row.key,
           entry,
           target,
+          abortedLastRun: resolvedRow.abortedLastRun === true,
         });
         return {
           ...resolvedRow,
-          transcriptPath: transcript.transcriptPath,
-          transcriptExists: transcript.transcriptExists,
-          lifecycle: buildSessionLifecycleAssessment({
-            row: resolvedRow,
-            transcriptExists: transcript.transcriptExists,
-            relatedTasks,
-            relatedTaskFlows,
-            resumeDetail,
-          }),
+          transcriptPath: snapshot?.transcriptPath ?? null,
+          transcriptExists: snapshot?.transcriptExists ?? false,
+          lifecycle:
+            snapshot?.lifecycle ??
+            buildSessionLifecycleAssessment({
+              abortedLastRun: resolvedRow.abortedLastRun === true,
+              transcriptExists: false,
+              relatedTasks: [],
+              relatedTaskFlows: [],
+            }),
         } satisfies SessionListRow;
       });
     })
@@ -334,8 +350,8 @@ function formatSessionLookupCandidates(matches: SessionLookupMatch[]): string[] 
   );
 }
 
-function buildSessionLifecycleAssessment(params: {
-  row: SessionRow;
+export function buildSessionLifecycleAssessment(params: {
+  abortedLastRun?: boolean;
   transcriptExists: boolean;
   relatedTasks: ReturnType<typeof listTasksForRelatedSessionKey>;
   relatedTaskFlows: ReturnType<typeof listTaskFlowsForOwnerKey>;
@@ -395,7 +411,7 @@ function buildSessionLifecycleAssessment(params: {
       blockedFlowCount,
     };
   }
-  if (params.row.abortedLastRun === true) {
+  if (params.abortedLastRun === true) {
     return {
       status: "aborted_last_run",
       summary: "The last recorded run aborted, but the session still has resumable identity.",
@@ -414,6 +430,91 @@ function buildSessionLifecycleAssessment(params: {
     activeFlowCount,
     waitingFlowCount,
     blockedFlowCount,
+  };
+}
+
+function resolveDetachedSessionStoreEntry(params: {
+  cfg: ReturnType<typeof loadConfig>;
+  sessionKey: string;
+  entry?: SessionEntry;
+  target?: SessionStoreTarget;
+}): {
+  entry?: SessionEntry;
+  target?: SessionStoreTarget;
+} {
+  if (params.entry && params.target) {
+    return {
+      entry: params.entry,
+      target: params.target,
+    };
+  }
+  const targets = resolveSessionStoreTargets(params.cfg, { allAgents: true });
+  for (const target of targets) {
+    const entry = loadSessionStore(target.storePath)[params.sessionKey];
+    if (entry) {
+      return {
+        entry,
+        target,
+      };
+    }
+  }
+  return {
+    entry: params.entry,
+    target: params.target,
+  };
+}
+
+export function inspectDetachedSessionLifecycle(params: {
+  cfg: ReturnType<typeof loadConfig>;
+  sessionKey?: string;
+  entry?: SessionEntry;
+  target?: SessionStoreTarget;
+  abortedLastRun?: boolean;
+}): DetachedSessionLifecycleSnapshot | undefined {
+  const sessionKey = params.sessionKey?.trim();
+  if (!sessionKey) {
+    return undefined;
+  }
+  const resolved = resolveDetachedSessionStoreEntry({
+    cfg: params.cfg,
+    sessionKey,
+    entry: params.entry,
+    target: params.target,
+  });
+  const transcript =
+    resolved.entry && resolved.target
+      ? resolveSessionTranscriptState({
+          entry: resolved.entry,
+          target: resolved.target,
+        })
+      : {
+          transcriptPath: null,
+          transcriptExists: false,
+        };
+  const relatedTasks = listTasksForRelatedSessionKey(sessionKey);
+  const relatedTaskFlows = listTaskFlowsForOwnerKey(sessionKey);
+  const resumeDetail = describeBackgroundSessionResume({
+    cfg: params.cfg,
+    sessionKey,
+    entry: resolved.entry,
+    target: resolved.target,
+  });
+  return {
+    sessionKey,
+    entry: resolved.entry,
+    target: resolved.target,
+    transcriptPath: transcript.transcriptPath,
+    transcriptExists: transcript.transcriptExists,
+    relatedTasks,
+    relatedTaskFlows,
+    resumeDetail,
+    lifecycle: buildSessionLifecycleAssessment({
+      abortedLastRun: params.abortedLastRun ?? (resolved.entry?.abortedLastRun === true),
+      transcriptExists: transcript.transcriptExists,
+      relatedTasks,
+      relatedTaskFlows,
+      resumeDetail,
+    }),
   };
 }
 
@@ -705,32 +806,35 @@ export async function sessionsShowCommand(
     kind: classifySessionKey(match.sessionKey, match.entry),
   } satisfies SessionRow;
   const model = resolveSessionDisplayModel(cfg, row, displayDefaults);
-  const transcriptPath = resolveSessionFilePath(match.entry.sessionId, match.entry, {
-    agentId: match.target.agentId,
-    ...resolveSessionFilePathOptions({ agentId: match.target.agentId, storePath: match.target.storePath }),
+  const transcript = resolveSessionTranscriptState({
+    entry: match.entry,
+    target: match.target,
   });
-  const transcriptExists = fs.existsSync(transcriptPath);
-  const relatedTasks = listTasksForRelatedSessionKey(match.sessionKey);
-  const relatedTaskFlows = listTaskFlowsForOwnerKey(match.sessionKey);
-  const resumeDetail = describeBackgroundSessionResume({
+  const snapshot = inspectDetachedSessionLifecycle({
     cfg,
     sessionKey: match.sessionKey,
     entry: match.entry,
     target: match.target,
+    abortedLastRun: row.abortedLastRun === true,
   });
+  const relatedTasks = snapshot?.relatedTasks ?? [];
+  const relatedTaskFlows = snapshot?.relatedTaskFlows ?? [];
+  const resumeDetail = snapshot?.resumeDetail;
   const resumeLines = formatBackgroundSessionResumeLines({
     cfg,
     sessionKey: match.sessionKey,
     entry: match.entry,
     target: match.target,
   });
-  const lifecycle = buildSessionLifecycleAssessment({
-    row,
-    transcriptExists,
-    relatedTasks,
-    relatedTaskFlows,
-    resumeDetail,
-  });
+  const lifecycle =
+    snapshot?.lifecycle ??
+    buildSessionLifecycleAssessment({
+      abortedLastRun: row.abortedLastRun === true,
+      transcriptExists: transcript.transcriptExists,
+      relatedTasks,
+      relatedTaskFlows,
+      resumeDetail,
+    });
   const payload = buildSessionShowPayload({
     lookup,
     resolvedBy: resolved.resolvedBy,
@@ -738,8 +842,8 @@ export async function sessionsShowCommand(
     row,
     model,
     configContextTokens,
-    transcriptPath,
-    transcriptExists,
+    transcriptPath: transcript.transcriptPath ?? "n/a",
+    transcriptExists: transcript.transcriptExists,
     relatedTasks,
     relatedTaskFlows,
     lifecycle,
@@ -765,8 +869,8 @@ export async function sessionsShowCommand(
   runtime.log(
     `tokens: ${formatTokensCell(resolveFreshSessionTotalTokens(row), row.contextTokens ?? lookupContextTokens(model) ?? configContextTokens ?? null, false).trim()}`,
   );
-  runtime.log(`transcript: ${transcriptPath}`);
-  runtime.log(`transcriptExists: ${transcriptExists ? "yes" : "no"}`);
+  runtime.log(`transcript: ${transcript.transcriptPath ?? "n/a"}`);
+  runtime.log(`transcriptExists: ${transcript.transcriptExists ? "yes" : "no"}`);
   runtime.log(`lifecycle: ${lifecycle.status}`);
   runtime.log(`lifecycleSummary: ${lifecycle.summary}`);
   runtime.log(`relatedTasks: ${relatedTasks.length}`);

@@ -111,6 +111,9 @@ Completed in this wave:
   of leaving the operator to infer it from raw task/flow rows
 - `sessions` list now includes the same lifecycle status at table/list level so
   operators can triage detached sessions before drilling into `show`
+- `tasks list` now reuses that detached-session lifecycle language for
+  child-session rows, so the task ledger and session ledger speak the same
+  operator-facing state model
 
 Staged next:
 
