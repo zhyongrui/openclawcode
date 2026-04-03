@@ -5,6 +5,7 @@ import type { RuntimeEnv } from "../runtime.js";
 import { listTasksForFlowId } from "../tasks/runtime-internal.js";
 import { cancelFlowById, getFlowTaskSummary } from "../tasks/task-executor.js";
 import type { TaskFlowRecord, TaskFlowStatus } from "../tasks/task-flow-registry.types.js";
+import { formatBackgroundChildSessionGroupLines } from "./background-session-resume.js";
 import {
   formatSessionLifecycleStatusLabel,
   inspectDetachedSessionLifecycle,
@@ -233,6 +234,7 @@ export async function flowsShowCommand(
   opts: { json?: boolean; lookup: string },
   runtime: RuntimeEnv,
 ) {
+  const cfg = loadConfig();
   const flow = resolveTaskFlowForLookupToken(opts.lookup);
   if (!flow) {
     runtime.error(`TaskFlow not found: ${opts.lookup}`);
@@ -242,12 +244,23 @@ export async function flowsShowCommand(
   const tasks = listTasksForFlowId(flow.flowId);
   const taskSummary = getFlowTaskSummary(flow.flowId);
   const stateSummary = summarizeFlowState(flow);
+  const detachedLifecycle = parseAgentSessionKey(flow.ownerKey)
+    ? (inspectDetachedSessionLifecycle({
+        cfg,
+        sessionKey: flow.ownerKey,
+      })?.lifecycle ?? null)
+    : null;
+  const childSessionLines = formatBackgroundChildSessionGroupLines({
+    cfg,
+    sessionKeys: tasks.map((task) => task.childSessionKey),
+  });
 
   if (opts.json) {
     runtime.log(
       JSON.stringify(
         {
           ...flow,
+          detachedLifecycle,
           tasks,
           taskSummary,
         },
@@ -265,6 +278,12 @@ export async function flowsShowCommand(
     `goal: ${safeFlowDisplayText(flow.goal)}`,
     `currentStep: ${safeFlowDisplayText(flow.currentStep)}`,
     `owner: ${safeFlowDisplayText(flow.ownerKey)}`,
+    ...(detachedLifecycle
+      ? [
+          `sessionLifecycle: ${detachedLifecycle.status}`,
+          `sessionLifecycleSummary: ${safeFlowDisplayText(detachedLifecycle.summary)}`,
+        ]
+      : []),
     `notify: ${flow.notifyPolicy}`,
     ...(stateSummary ? [`state: ${safeFlowDisplayText(stateSummary)}`] : []),
     ...(flow.cancelRequestedAt
@@ -276,6 +295,9 @@ export async function flowsShowCommand(
     `tasks: ${taskSummary.total} total · ${taskSummary.active} active · ${taskSummary.failures} issues`,
   ];
   for (const line of lines) {
+    runtime.log(line);
+  }
+  for (const line of childSessionLines) {
     runtime.log(line);
   }
   if (tasks.length === 0) {

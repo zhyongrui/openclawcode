@@ -116,6 +116,9 @@ Completed in this wave:
   operator-facing state model
 - `flows list` now reuses the same detached-session lifecycle language, so all
   three detached triage ledgers line up before drilling into detail views
+- `tasks show` and `flows show` now surface the same detached-session
+  lifecycle state in their detail views, so operators keep the same state model
+  after drilling in from list triage
 
 Staged next:
 

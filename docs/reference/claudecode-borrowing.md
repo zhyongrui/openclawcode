@@ -291,6 +291,9 @@ Implemented:
   session ledger with the same status vocabulary
 - `openclaw flows list` now carries the same detached-session lifecycle state,
   so TaskFlow triage uses the same vocabulary as tasks and sessions
+- `openclaw tasks show` and `openclaw flows show` now surface that detached
+  session lifecycle state in the detail view too, so operators do not have to
+  switch to `sessions show` just to classify what state a detached run is in
 
 Not implemented yet:
 

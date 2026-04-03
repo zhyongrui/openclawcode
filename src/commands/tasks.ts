@@ -366,9 +366,25 @@ export async function tasksShowCommand(
     runtime.exit(1);
     return;
   }
+  const cfg = loadConfig();
+  const sessionLifecycle = task.childSessionKey
+    ? (inspectDetachedSessionLifecycle({
+        cfg,
+        sessionKey: task.childSessionKey,
+      })?.lifecycle ?? null)
+    : null;
 
   if (opts.json) {
-    runtime.log(JSON.stringify(task, null, 2));
+    runtime.log(
+      JSON.stringify(
+        {
+          ...task,
+          sessionLifecycle,
+        },
+        null,
+        2,
+      ),
+    );
     return;
   }
 
@@ -385,6 +401,12 @@ export async function tasksShowCommand(
     `notify: ${task.notifyPolicy}`,
     `ownerKey: ${task.ownerKey}`,
     `childSessionKey: ${task.childSessionKey ?? "n/a"}`,
+    ...(sessionLifecycle
+      ? [
+          `sessionLifecycle: ${sessionLifecycle.status}`,
+          `sessionLifecycleSummary: ${sessionLifecycle.summary}`,
+        ]
+      : []),
     `parentTaskId: ${task.parentTaskId ?? "n/a"}`,
     `agentId: ${task.agentId ?? "n/a"}`,
     `runId: ${task.runId ?? "n/a"}`,
@@ -399,7 +421,7 @@ export async function tasksShowCommand(
     ...(task.progressSummary ? [`progressSummary: ${task.progressSummary}`] : []),
     ...(task.terminalSummary ? [`terminalSummary: ${task.terminalSummary}`] : []),
     ...formatBackgroundSessionResumeLines({
-      cfg: loadConfig(),
+      cfg,
       sessionKey: task.childSessionKey,
     }),
   ];
