@@ -275,6 +275,9 @@ Implemented:
   - transcript path and existence
   - linked background tasks and TaskFlows
   - concrete resume hints in one operator-facing view
+- `openclaw sessions continue <lookup> --message ...` now resolves the same
+  detached/background session lookup and forwards a direct continue turn without
+  forcing the operator to rewrite the resume command manually
 
 Not implemented yet:
 

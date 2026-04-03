@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { flowsCancelCommand, flowsListCommand, flowsShowCommand } from "../../commands/flows.js";
 import { healthCommand } from "../../commands/health.js";
 import { sessionsCleanupCommand } from "../../commands/sessions-cleanup.js";
-import { sessionsCommand, sessionsShowCommand } from "../../commands/sessions.js";
+import { sessionsCommand, sessionsContinueCommand, sessionsShowCommand } from "../../commands/sessions.js";
 import { statusCommand } from "../../commands/status.js";
 import {
   tasksAuditCommand,
@@ -199,6 +199,79 @@ export function registerStatusHealthSessionsCommands(program: Command) {
             store: (opts.store as string | undefined) ?? parentOpts?.store,
             agent: (opts.agent as string | undefined) ?? parentOpts?.agent,
             allAgents: Boolean(opts.allAgents || parentOpts?.allAgents),
+            json: Boolean(opts.json || parentOpts?.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  sessionsCmd
+    .command("continue <lookup>")
+    .description("Continue one session by session key or session id")
+    .requiredOption("-m, --message <text>", "Message body for the agent")
+    .option("--store <path>", "Path to session store (default: resolved from config)")
+    .option("--agent <id>", "Agent id to inspect (default: configured default agent)")
+    .option("--all-agents", "Search across all configured agents", false)
+    .option("--background", "Send another detached turn and return immediately", false)
+    .option("--thinking <level>", "Thinking level: off | minimal | low | medium | high | xhigh")
+    .option("--verbose <on|off>", "Persist agent verbose level for the session")
+    .option(
+      "--local",
+      "Run the embedded agent locally (requires model provider API keys in your shell)",
+      false,
+    )
+    .option(
+      "--deliver",
+      "Send the continued session reply back to the selected channel",
+      false,
+    )
+    .option(
+      "--timeout <seconds>",
+      "Override agent command timeout (seconds, default 600 or config value)",
+    )
+    .option("--json", "Output JSON", false)
+    .addHelpText(
+      "after",
+      () =>
+        `\n${theme.heading("Examples:")}\n${formatHelpExamples([
+          [
+            'openclaw sessions continue abc123 --message "Continue from the last failing test"',
+            "Resolve a session id and continue it directly.",
+          ],
+          [
+            'openclaw sessions continue agent:work:main --message "Resume and summarize blockers" --local',
+            "Continue one explicit session locally.",
+          ],
+          [
+            'openclaw sessions --all-agents continue abc123 --message "Keep going" --background',
+            "Resolve across stores and send another detached turn.",
+          ],
+        ])}`,
+    )
+    .action(async (lookup, opts, command) => {
+      const parentOpts = command.parent?.opts() as
+        | {
+            store?: string;
+            agent?: string;
+            allAgents?: boolean;
+            json?: boolean;
+          }
+        | undefined;
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        await sessionsContinueCommand(
+          {
+            lookup,
+            message: opts.message as string,
+            store: (opts.store as string | undefined) ?? parentOpts?.store,
+            agent: (opts.agent as string | undefined) ?? parentOpts?.agent,
+            allAgents: Boolean(opts.allAgents || parentOpts?.allAgents),
+            background: Boolean(opts.background),
+            thinking: opts.thinking as string | undefined,
+            verbose: opts.verbose as string | undefined,
+            local: Boolean(opts.local),
+            deliver: Boolean(opts.deliver),
+            timeout: opts.timeout as string | undefined,
             json: Boolean(opts.json || parentOpts?.json),
           },
           defaultRuntime,

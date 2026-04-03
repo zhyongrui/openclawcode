@@ -19,6 +19,7 @@ import { listTaskFlowsForOwnerKey } from "../tasks/task-flow-runtime-internal.js
 import { listTasksForRelatedSessionKey } from "../tasks/task-registry.js";
 import { type RuntimeEnv, writeRuntimeJson } from "../runtime.js";
 import { isRich, theme } from "../terminal/theme.js";
+import { agentCliCommand } from "./agent-via-gateway.js";
 import {
   describeBackgroundSessionResume,
   formatBackgroundSessionResumeLines,
@@ -67,6 +68,8 @@ type ResolvedSessionLookup =
   | {
       kind: "missing";
     };
+
+type FoundSessionLookup = Extract<ResolvedSessionLookup, { kind: "found" }>;
 
 const formatKTokens = (value: number) => `${(value / 1000).toFixed(value >= 10_000 ? 0 : 1)}k`;
 
@@ -197,6 +200,33 @@ function formatSessionLookupCandidates(matches: SessionLookupMatch[]): string[] 
     (match) =>
       `- ${match.sessionKey} | agent=${match.target.agentId} | store=${match.target.storePath} | updated=${match.entry.updatedAt ? new Date(match.entry.updatedAt).toISOString() : "unknown"}`,
   );
+}
+
+function resolveSessionLookupOrExit(params: {
+  lookup: string;
+  targets: SessionStoreTarget[];
+  runtime: RuntimeEnv;
+}): FoundSessionLookup | undefined {
+  const resolved = resolveSessionLookup({
+    lookup: params.lookup,
+    targets: params.targets,
+  });
+  if (resolved.kind === "missing") {
+    params.runtime.error(`Session not found: ${params.lookup}`);
+    params.runtime.exit(1);
+    return undefined;
+  }
+  if (resolved.kind === "ambiguous") {
+    params.runtime.error(
+      `Session lookup is ambiguous by ${resolved.resolvedBy === "session_key" ? "session key" : "session id"}: ${params.lookup}`,
+    );
+    for (const line of formatSessionLookupCandidates(resolved.matches)) {
+      params.runtime.error(line);
+    }
+    params.runtime.exit(1);
+    return undefined;
+  }
+  return resolved;
 }
 
 function buildSessionShowPayload(params: {
@@ -452,23 +482,12 @@ export async function sessionsShowCommand(
     return;
   }
 
-  const resolved = resolveSessionLookup({
+  const resolved = resolveSessionLookupOrExit({
     lookup,
     targets,
+    runtime,
   });
-  if (resolved.kind === "missing") {
-    runtime.error(`Session not found: ${lookup}`);
-    runtime.exit(1);
-    return;
-  }
-  if (resolved.kind === "ambiguous") {
-    runtime.error(
-      `Session lookup is ambiguous by ${resolved.resolvedBy === "session_key" ? "session key" : "session id"}: ${lookup}`,
-    );
-    for (const line of formatSessionLookupCandidates(resolved.matches)) {
-      runtime.error(line);
-    }
-    runtime.exit(1);
+  if (!resolved) {
     return;
   }
 
@@ -558,4 +577,74 @@ export async function sessionsShowCommand(
       runtime.log(line);
     }
   }
+}
+
+export async function sessionsContinueCommand(
+  opts: {
+    lookup: string;
+    message: string;
+    store?: string;
+    agent?: string;
+    allAgents?: boolean;
+    background?: boolean;
+    thinking?: string;
+    verbose?: string;
+    timeout?: string;
+    deliver?: boolean;
+    local?: boolean;
+    json?: boolean;
+  },
+  runtime: RuntimeEnv,
+) {
+  const lookup = opts.lookup.trim();
+  if (!lookup) {
+    runtime.error("Session lookup must not be empty.");
+    runtime.exit(1);
+    return;
+  }
+  const message = opts.message.trim();
+  if (!message) {
+    runtime.error("Message (--message) is required.");
+    runtime.exit(1);
+    return;
+  }
+
+  const cfg = loadConfig();
+  const targets = resolveSessionStoreTargetsOrExit({
+    cfg,
+    opts: {
+      store: opts.store,
+      agent: opts.agent,
+      allAgents: opts.allAgents,
+    },
+    runtime,
+  });
+  if (!targets) {
+    return;
+  }
+
+  const resolved = resolveSessionLookupOrExit({
+    lookup,
+    targets,
+    runtime,
+  });
+  if (!resolved) {
+    return;
+  }
+
+  const sessionId = resolved.match.entry.sessionId?.trim();
+  await agentCliCommand(
+    {
+      message,
+      ...(sessionId ? { sessionId } : { sessionKey: resolved.match.sessionKey }),
+      background: opts.background,
+      thinking: opts.thinking,
+      verbose: opts.verbose,
+      timeout: opts.timeout,
+      deliver: opts.deliver,
+      local: opts.local,
+      json: opts.json,
+    },
+    runtime,
+  );
 }

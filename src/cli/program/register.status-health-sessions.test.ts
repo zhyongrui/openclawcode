@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   statusCommand: vi.fn(),
   healthCommand: vi.fn(),
   sessionsCommand: vi.fn(),
+  sessionsContinueCommand: vi.fn(),
   sessionsShowCommand: vi.fn(),
   sessionsCleanupCommand: vi.fn(),
   tasksListCommand: vi.fn(),
@@ -28,6 +29,7 @@ const mocks = vi.hoisted(() => ({
 const statusCommand = mocks.statusCommand;
 const healthCommand = mocks.healthCommand;
 const sessionsCommand = mocks.sessionsCommand;
+const sessionsContinueCommand = mocks.sessionsContinueCommand;
 const sessionsShowCommand = mocks.sessionsShowCommand;
 const sessionsCleanupCommand = mocks.sessionsCleanupCommand;
 const tasksListCommand = mocks.tasksListCommand;
@@ -52,6 +54,7 @@ vi.mock("../../commands/health.js", () => ({
 
 vi.mock("../../commands/sessions.js", () => ({
   sessionsCommand: mocks.sessionsCommand,
+  sessionsContinueCommand: mocks.sessionsContinueCommand,
   sessionsShowCommand: mocks.sessionsShowCommand,
 }));
 
@@ -95,6 +98,7 @@ describe("registerStatusHealthSessionsCommands", () => {
     statusCommand.mockResolvedValue(undefined);
     healthCommand.mockResolvedValue(undefined);
     sessionsCommand.mockResolvedValue(undefined);
+    sessionsContinueCommand.mockResolvedValue(undefined);
     sessionsShowCommand.mockResolvedValue(undefined);
     sessionsCleanupCommand.mockResolvedValue(undefined);
     tasksListCommand.mockResolvedValue(undefined);
@@ -258,6 +262,33 @@ describe("registerStatusHealthSessionsCommands", () => {
         lookup: "sess-123",
         agent: "work",
         allAgents: true,
+        json: true,
+      }),
+      runtime,
+    );
+  });
+
+  it("runs sessions continue subcommand with forwarded options", async () => {
+    await runCli([
+      "sessions",
+      "--all-agents",
+      "continue",
+      "sess-123",
+      "--message",
+      "Continue detached work",
+      "--agent",
+      "work",
+      "--background",
+      "--json",
+    ]);
+
+    expect(sessionsContinueCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lookup: "sess-123",
+        message: "Continue detached work",
+        agent: "work",
+        allAgents: true,
+        background: true,
         json: true,
       }),
       runtime,

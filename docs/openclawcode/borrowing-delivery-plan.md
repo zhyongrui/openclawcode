@@ -100,6 +100,8 @@ Completed in this wave:
 
 - `openclaw sessions show <lookup>` for one operator-facing session lifecycle
   view
+- `openclaw sessions continue <lookup> --message ...` so the operator can
+  resolve and continue a detached session without rewriting the resume command
 - session lookup by exact session key or stable session id with ambiguity
   surfacing
 - transcript path/existence, related tasks, related TaskFlows, and resume hints
