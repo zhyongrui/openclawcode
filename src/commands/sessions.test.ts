@@ -1,5 +1,11 @@
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { configureTaskFlowRegistryRuntime } from "../tasks/task-flow-registry.store.js";
+import { configureTaskRegistryRuntime } from "../tasks/task-registry.store.js";
+import { createManagedTaskFlow, resetTaskFlowRegistryForTests } from "../tasks/task-flow-runtime-internal.js";
+import { createTaskRecord, resetTaskRegistryForTests } from "../tasks/task-registry.js";
 import {
   makeRuntime,
   mockSessionsConfig,
@@ -15,13 +21,47 @@ mockSessionsConfig();
 import { sessionsCommand } from "./sessions.js";
 
 describe("sessionsCommand", () => {
+  const tempDirs: string[] = [];
+  const taskStore = {
+    loadSnapshot: () => ({
+      tasks: new Map(),
+      deliveryStates: new Map(),
+    }),
+    saveSnapshot: () => {},
+    upsertTaskWithDeliveryState: () => {},
+    upsertTask: () => {},
+    deleteTaskWithDeliveryState: () => {},
+    deleteTask: () => {},
+    upsertDeliveryState: () => {},
+    deleteDeliveryState: () => {},
+    close: () => {},
+  };
+  const flowStore = {
+    loadSnapshot: () => ({
+      flows: new Map(),
+    }),
+    saveSnapshot: () => {},
+    upsertFlow: () => {},
+    deleteFlow: () => {},
+    close: () => {},
+  };
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-12-06T00:00:00Z"));
+    resetTaskRegistryForTests({ persist: false });
+    resetTaskFlowRegistryForTests({ persist: false });
+    configureTaskRegistryRuntime({ store: taskStore });
+    configureTaskFlowRegistryRuntime({ store: flowStore });
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    resetTaskRegistryForTests({ persist: false });
+    resetTaskFlowRegistryForTests({ persist: false });
+    for (const dir of tempDirs.splice(0, tempDirs.length)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("renders a tabular view with token percentages", async () => {
@@ -104,6 +144,77 @@ describe("sessionsCommand", () => {
     expect(main?.totalTokensFresh).toBe(true);
     expect(group?.totalTokens).toBeNull();
     expect(group?.totalTokensFresh).toBe(false);
+  });
+
+  it("shows lifecycle state in table and JSON output", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-sessions-list-"));
+    tempDirs.push(root);
+    const store = path.join(root, "sessions.json");
+    const transcriptPath = path.join(root, "sess-child-123.jsonl");
+    fs.writeFileSync(transcriptPath, '{"type":"message"}\n', "utf8");
+    fs.writeFileSync(
+      store,
+      JSON.stringify(
+        {
+          "agent:coder:acp:child": {
+            sessionId: "sess-child-123",
+            updatedAt: Date.now() - 5 * 60_000,
+            sessionFile: transcriptPath,
+            model: "gpt-5.4",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    createTaskRecord({
+      runtime: "acp",
+      ownerKey: "agent:main:main",
+      scopeKind: "session",
+      childSessionKey: "agent:coder:acp:child",
+      originKind: "detached_session",
+      originSessionKey: "agent:main:main",
+      runId: "run-detached-1",
+      label: "Continue detached work",
+      task: "Continue detached work",
+      status: "running",
+      deliveryStatus: "pending",
+      notifyPolicy: "state_changes",
+      createdAt: Date.now() - 4 * 60_000,
+      lastEventAt: Date.now() - 2 * 60_000,
+    });
+    createManagedTaskFlow({
+      ownerKey: "agent:coder:acp:child",
+      controllerId: "tests/sessions-list",
+      goal: "Continue detached work",
+      status: "waiting",
+      currentStep: "await_user_input",
+      createdAt: Date.now() - 4 * 60_000,
+      updatedAt: Date.now() - 2 * 60_000,
+    });
+
+    const { runtime, logs } = makeRuntime();
+    await sessionsCommand({ store }, runtime);
+    const row = logs.find((line) => line.includes("agent:coder:acp:child")) ?? "";
+    expect(row).toContain("waiting");
+
+    const payload = await runSessionsJson<{
+      sessions?: Array<{
+        key: string;
+        transcriptExists: boolean;
+        lifecycle: { status: string; waitingFlowCount: number };
+      }>;
+    }>(sessionsCommand, store);
+    expect(payload.sessions?.[0]).toMatchObject({
+      key: "agent:coder:acp:child",
+      transcriptExists: true,
+      lifecycle: {
+        status: "waiting_detached",
+        waitingFlowCount: 1,
+      },
+    });
   });
 
   it("applies --active filtering in JSON output", async () => {

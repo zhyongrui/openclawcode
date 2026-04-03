@@ -45,8 +45,17 @@ type SessionRow = SessionDisplayRow & {
   kind: "direct" | "group" | "global" | "unknown";
 };
 
+type SessionListRow = SessionRow & {
+  entry: SessionEntry;
+  target: SessionStoreTarget;
+  transcriptPath: string | null;
+  transcriptExists: boolean;
+  lifecycle: SessionLifecycleAssessment;
+};
+
 const AGENT_PAD = 10;
 const KIND_PAD = 6;
+const LIFECYCLE_PAD = 18;
 const TOKENS_PAD = 20;
 
 type SessionLookupMatch = {
@@ -145,6 +154,111 @@ const formatKindCell = (kind: SessionRow["kind"], rich: boolean) => {
   }
   return theme.muted(label);
 };
+
+const LIFECYCLE_LABELS: Record<SessionLifecycleStatus, string> = {
+  missing_transcript: "missing-xcript",
+  blocked_detached: "blocked",
+  waiting_detached: "waiting",
+  running_detached: "running",
+  aborted_last_run: "aborted",
+  resumable: "resumable",
+};
+
+function formatLifecycleCell(lifecycle: SessionLifecycleAssessment, rich: boolean) {
+  const label = (LIFECYCLE_LABELS[lifecycle.status] ?? lifecycle.status).padEnd(LIFECYCLE_PAD);
+  if (!rich) {
+    return label;
+  }
+  if (lifecycle.status === "blocked_detached" || lifecycle.status === "missing_transcript") {
+    return theme.warn(label);
+  }
+  if (lifecycle.status === "running_detached") {
+    return theme.accentBright(label);
+  }
+  if (lifecycle.status === "aborted_last_run") {
+    return theme.error(label);
+  }
+  if (lifecycle.status === "waiting_detached" || lifecycle.status === "resumable") {
+    return theme.success(label);
+  }
+  return theme.muted(label);
+}
+
+function resolveSessionTranscriptState(params: {
+  entry: SessionEntry;
+  target: SessionStoreTarget;
+}): { transcriptPath: string | null; transcriptExists: boolean } {
+  const sessionId = params.entry.sessionId?.trim();
+  if (!sessionId) {
+    return {
+      transcriptPath: null,
+      transcriptExists: false,
+    };
+  }
+  const transcriptPath = resolveSessionFilePath(sessionId, params.entry, {
+    agentId: params.target.agentId,
+    ...resolveSessionFilePathOptions({
+      agentId: params.target.agentId,
+      storePath: params.target.storePath,
+    }),
+  });
+  return {
+    transcriptPath,
+    transcriptExists: fs.existsSync(transcriptPath),
+  };
+}
+
+function buildSessionListRows(params: {
+  cfg: ReturnType<typeof loadConfig>;
+  targets: SessionStoreTarget[];
+  activeMinutes?: number;
+}): SessionListRow[] {
+  return params.targets
+    .flatMap((target) => {
+      const store = loadSessionStore(target.storePath);
+      return toSessionDisplayRows(store).map((row) => {
+        const entry = store[row.key];
+        const resolvedRow = {
+          ...row,
+          entry,
+          target,
+          agentId: parseAgentSessionKey(row.key)?.agentId ?? target.agentId,
+          kind: classifySessionKey(row.key, entry),
+        } satisfies SessionRow & { entry: SessionEntry; target: SessionStoreTarget };
+        const transcript = resolveSessionTranscriptState({ entry, target });
+        const relatedTasks = listTasksForRelatedSessionKey(row.key);
+        const relatedTaskFlows = listTaskFlowsForOwnerKey(row.key);
+        const resumeDetail = describeBackgroundSessionResume({
+          cfg: params.cfg,
+          sessionKey: row.key,
+          entry,
+          target,
+        });
+        return {
+          ...resolvedRow,
+          transcriptPath: transcript.transcriptPath,
+          transcriptExists: transcript.transcriptExists,
+          lifecycle: buildSessionLifecycleAssessment({
+            row: resolvedRow,
+            transcriptExists: transcript.transcriptExists,
+            relatedTasks,
+            relatedTaskFlows,
+            resumeDetail,
+          }),
+        } satisfies SessionListRow;
+      });
+    })
+    .filter((row) => {
+      if (params.activeMinutes === undefined) {
+        return true;
+      }
+      if (!row.updatedAt) {
+        return false;
+      }
+      return Date.now() - row.updatedAt <= params.activeMinutes * 60_000;
+    })
+    .toSorted((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+}
 
 function collectSessionLookupMatches(targets: SessionStoreTarget[]): SessionLookupMatch[] {
   return targets.flatMap((target) => {
@@ -448,25 +562,11 @@ export async function sessionsCommand(
     activeMinutes = parsed;
   }
 
-  const rows = targets
-    .flatMap((target) => {
-      const store = loadSessionStore(target.storePath);
-      return toSessionDisplayRows(store).map((row) => ({
-        ...row,
-        agentId: parseAgentSessionKey(row.key)?.agentId ?? target.agentId,
-        kind: classifySessionKey(row.key, store[row.key]),
-      }));
-    })
-    .filter((row) => {
-      if (activeMinutes === undefined) {
-        return true;
-      }
-      if (!row.updatedAt) {
-        return false;
-      }
-      return Date.now() - row.updatedAt <= activeMinutes * 60_000;
-    })
-    .toSorted((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+  const rows = buildSessionListRows({
+    cfg,
+    targets,
+    activeMinutes,
+  });
 
   if (opts.json) {
     const multi = targets.length > 1;
@@ -484,13 +584,14 @@ export async function sessionsCommand(
       activeMinutes: activeMinutes ?? null,
       sessions: rows.map((r) => {
         const model = resolveSessionDisplayModel(cfg, r, displayDefaults);
+        const { entry: _entry, target: _target, ...row } = r;
         return {
-          ...r,
-          totalTokens: resolveFreshSessionTotalTokens(r) ?? null,
+          ...row,
+          totalTokens: resolveFreshSessionTotalTokens(row) ?? null,
           totalTokensFresh:
-            typeof r.totalTokens === "number" ? r.totalTokensFresh !== false : false,
+            typeof row.totalTokens === "number" ? row.totalTokensFresh !== false : false,
           contextTokens:
-            r.contextTokens ?? lookupContextTokens(model) ?? configContextTokens ?? null,
+            row.contextTokens ?? lookupContextTokens(model) ?? configContextTokens ?? null,
           model,
         };
       }),
@@ -519,6 +620,7 @@ export async function sessionsCommand(
   const header = [
     ...(showAgentColumn ? ["Agent".padEnd(AGENT_PAD)] : []),
     "Kind".padEnd(KIND_PAD),
+    "Lifecycle".padEnd(LIFECYCLE_PAD),
     "Key".padEnd(SESSION_KEY_PAD),
     "Age".padEnd(SESSION_AGE_PAD),
     "Model".padEnd(SESSION_MODEL_PAD),
@@ -538,6 +640,7 @@ export async function sessionsCommand(
         ? [rich ? theme.accentBright(row.agentId.padEnd(AGENT_PAD)) : row.agentId.padEnd(AGENT_PAD)]
         : []),
       formatKindCell(row.kind, rich),
+      formatLifecycleCell(row.lifecycle, rich),
       formatSessionKeyCell(row.key, rich),
       formatSessionAgeCell(row.updatedAt, rich),
       formatSessionModelCell(model, rich),

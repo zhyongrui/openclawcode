@@ -109,6 +109,8 @@ Completed in this wave:
 - `sessions show` now classifies the detached-session lifecycle state
   (`running`, `waiting`, `blocked`, `missing transcript`, `resumable`) instead
   of leaving the operator to infer it from raw task/flow rows
+- `sessions` list now includes the same lifecycle status at table/list level so
+  operators can triage detached sessions before drilling into `show`
 
 Staged next:
 

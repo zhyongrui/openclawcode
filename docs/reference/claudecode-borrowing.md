@@ -283,6 +283,9 @@ Implemented:
   higher-level continuation path from tasks/flows/session inspection output
 - `openclaw sessions show <lookup>` now also classifies lifecycle state such as
   waiting, blocked, missing transcript, or plain resumable
+- `openclaw sessions` now surfaces a lifecycle column in the main session list,
+  so the detached-session state is visible before drilling into a single
+  session detail view
 
 Not implemented yet:
 
