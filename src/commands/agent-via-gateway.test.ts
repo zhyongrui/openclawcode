@@ -107,7 +107,7 @@ describe("agentCliCommand", () => {
     });
   });
 
-  it("returns immediately in background mode and prints wait/resume hints", async () => {
+  it("returns immediately in background mode and prints wait/continue/resume hints", async () => {
     await withTempStore(async () => {
       vi.mocked(callGateway).mockResolvedValue({
         runId: "run-bg-1",
@@ -127,7 +127,30 @@ describe("agentCliCommand", () => {
       expect(runtime.log).toHaveBeenCalledWith("runId: run-bg-1");
       expect(runtime.log).toHaveBeenCalledWith("sessionId: sess-bg-1");
       expect(runtime.log).toHaveBeenCalledWith(
+        'continue: openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
+      );
+      expect(runtime.log).toHaveBeenCalledWith(
         'resume: openclaw agent --session-id sess-bg-1 --message "Continue from the latest background task state."',
+      );
+    });
+  });
+
+  it("falls back to session id for continue hints when no session key is available", async () => {
+    await withTempStore(async () => {
+      vi.mocked(callGateway).mockResolvedValue({
+        runId: "run-bg-2",
+        status: "accepted",
+        acceptedAt: 1,
+        sessionId: "sess-bg-2",
+      });
+
+      await agentCliCommand({ message: "hi", sessionId: "sess-bg-2", background: true }, runtime);
+
+      expect(runtime.log).toHaveBeenCalledWith(
+        'continue: openclaw sessions continue sess-bg-2 --message "Continue from the latest background task state."',
+      );
+      expect(runtime.log).toHaveBeenCalledWith(
+        'resume: openclaw agent --session-id sess-bg-2 --message "Continue from the latest background task state."',
       );
     });
   });

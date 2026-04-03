@@ -452,6 +452,9 @@ Implemented:
 - gateway-backed `openclaw agent --background` now uses the same stable session
   identity in its accepted response, so operators can wait or resume a run
   without separately inspecting task or session stores
+- that accepted background output now also prints a direct
+  `openclaw sessions continue ...` command, so the foreground handoff uses the
+  same continuation path as detached-session inspection views
 
 Not implemented yet:
 

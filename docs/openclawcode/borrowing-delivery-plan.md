@@ -58,6 +58,8 @@ Shipped already:
 - detached-session resume hints in `tasks show` and `flows show`
 - `openclaw agent --background`
 - explicit `--session-key <key>` targeting
+- background acceptance output now also prints a direct
+  `openclaw sessions continue ...` handoff alongside low-level wait/resume hints
 
 Staged next:
 

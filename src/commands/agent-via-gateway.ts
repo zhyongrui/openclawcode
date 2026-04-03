@@ -35,6 +35,7 @@ type GatewayAgentResponse = {
 };
 
 const NO_GATEWAY_TIMEOUT_MS = 2_147_000_000;
+const CONTINUE_MESSAGE = "Continue from the latest background task state.";
 
 export type AgentCliOpts = {
   message: string;
@@ -97,6 +98,26 @@ function quoteCliArg(value: string): string {
   return JSON.stringify(value);
 }
 
+function buildContinueCommand(sessionLookup: string) {
+  return formatCliCommand(
+    `openclaw sessions continue ${quoteCliArg(sessionLookup)} --message ${quoteCliArg(CONTINUE_MESSAGE)}`,
+  );
+}
+
+function buildResumeCommand(params: { sessionId?: string; sessionKey?: string }) {
+  if (params.sessionId) {
+    return formatCliCommand(
+      `openclaw agent --session-id ${quoteCliArg(params.sessionId)} --message ${quoteCliArg(CONTINUE_MESSAGE)}`,
+    );
+  }
+  if (params.sessionKey) {
+    return formatCliCommand(
+      `openclaw agent --session-key ${quoteCliArg(params.sessionKey)} --message ${quoteCliArg(CONTINUE_MESSAGE)}`,
+    );
+  }
+  return null;
+}
+
 function logAcceptedBackgroundRun(
   runtime: RuntimeEnv,
   params: {
@@ -120,14 +141,16 @@ function logAcceptedBackgroundRun(
       `wait: ${formatCliCommand(`openclaw gateway call agent.wait --run-id ${quoteCliArg(params.runId)}`)}`,
     );
   }
-  if (params.sessionId) {
-    runtime.log(
-      `resume: ${formatCliCommand(`openclaw agent --session-id ${quoteCliArg(params.sessionId)} --message ${quoteCliArg("Continue from the latest background task state.")}`)}`,
-    );
-  } else if (params.sessionKey) {
-    runtime.log(
-      `resume: ${formatCliCommand(`openclaw agent --session-key ${quoteCliArg(params.sessionKey)} --message ${quoteCliArg("Continue from the latest background task state.")}`)}`,
-    );
+  const continueLookup = params.sessionKey ?? params.sessionId;
+  if (continueLookup) {
+    runtime.log(`continue: ${buildContinueCommand(continueLookup)}`);
+  }
+  const resumeCommand = buildResumeCommand({
+    sessionId: params.sessionId,
+    sessionKey: params.sessionKey,
+  });
+  if (resumeCommand) {
+    runtime.log(`resume: ${resumeCommand}`);
   }
 }
 
