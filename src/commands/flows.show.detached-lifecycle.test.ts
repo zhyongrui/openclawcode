@@ -147,6 +147,8 @@ describe("flowsShowCommand detached session lifecycle", () => {
     const textRun = makeRuntime();
     await flowsShowCommand({ lookup: flow.flowId, json: false }, textRun.runtime);
     const output = textRun.logs.join("\n");
+    expect(output).toContain(`lookup: ${flow.flowId}`);
+    expect(output).toContain("resolvedBy: flow_id");
     expect(output).toContain("sessionLifecycle: missing_transcript");
     expect(output).toContain("sessionLifecycleSummary: Transcript file is missing");
     expect(output).toContain("Child sessions:");
@@ -155,6 +157,8 @@ describe("flowsShowCommand detached session lifecycle", () => {
     const jsonRun = makeRuntime();
     await flowsShowCommand({ lookup: flow.flowId, json: true }, jsonRun.runtime);
     const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as {
+      lookup?: string;
+      resolvedBy?: string | null;
       flowId?: string;
       detachedLifecycle?: {
         status: string;
@@ -168,6 +172,8 @@ describe("flowsShowCommand detached session lifecycle", () => {
     };
 
     expect(payload).toMatchObject({
+      lookup: flow.flowId,
+      resolvedBy: "flow_id",
       flowId: flow.flowId,
       detachedLifecycle: {
         status: "missing_transcript",
@@ -180,6 +186,31 @@ describe("flowsShowCommand detached session lifecycle", () => {
             'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
         },
       ],
+    });
+  });
+
+  it("classifies an owner-key lookup in JSON output", async () => {
+    const flow = createManagedTaskFlow({
+      ownerKey: "agent:coder:acp:owner-lookup",
+      controllerId: "tests/flows-show",
+      goal: "Lookup by owner key",
+      status: "waiting",
+      createdAt: Date.now() - 4 * 60_000,
+      updatedAt: Date.now() - 2 * 60_000,
+    });
+
+    const jsonRun = makeRuntime();
+    await flowsShowCommand({ lookup: "agent:coder:acp:owner-lookup", json: true }, jsonRun.runtime);
+    const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as {
+      lookup?: string;
+      resolvedBy?: string | null;
+      flowId?: string;
+    };
+
+    expect(payload).toMatchObject({
+      lookup: "agent:coder:acp:owner-lookup",
+      resolvedBy: "owner_key",
+      flowId: flow.flowId,
     });
   });
 });

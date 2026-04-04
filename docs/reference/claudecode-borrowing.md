@@ -300,6 +300,9 @@ Implemented:
 - `openclaw sessions continue --json` now also exposes the resolved lookup and
   continue request metadata around the returned agent result, so automation can
   tie a continuation result back to the detached session it targeted
+- `openclaw tasks show` and `openclaw flows show` now also expose `lookup` and
+  `resolvedBy`, so machine-readable detail views keep the same explicit
+  resolution context as `sessions show`
 
 Not implemented yet:
 

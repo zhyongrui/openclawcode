@@ -145,12 +145,16 @@ describe("tasksShowCommand detached session lifecycle", () => {
     const textRun = makeRuntime();
     await tasksShowCommand({ lookup: task.taskId, json: false }, textRun.runtime);
     const output = textRun.logs.join("\n");
+    expect(output).toContain(`lookup: ${task.taskId}`);
+    expect(output).toContain("resolvedBy: task_id");
     expect(output).toContain("sessionLifecycle: missing_transcript");
     expect(output).toContain("sessionLifecycleSummary: Transcript file is missing");
 
     const jsonRun = makeRuntime();
     await tasksShowCommand({ lookup: task.taskId, json: true }, jsonRun.runtime);
     const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as {
+      lookup?: string;
+      resolvedBy?: string | null;
       taskId?: string;
       sessionLifecycle?: {
         status: string;
@@ -164,6 +168,8 @@ describe("tasksShowCommand detached session lifecycle", () => {
     };
 
     expect(payload).toMatchObject({
+      lookup: task.taskId,
+      resolvedBy: "task_id",
       taskId: task.taskId,
       sessionLifecycle: {
         status: "missing_transcript",
@@ -174,6 +180,36 @@ describe("tasksShowCommand detached session lifecycle", () => {
         continueWith:
           'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       },
+    });
+  });
+
+  it("classifies a run-id lookup in JSON output", async () => {
+    const task = createTaskRecord({
+      runtime: "acp",
+      ownerKey: "agent:main:main",
+      scopeKind: "session",
+      runId: "run-detached-2",
+      label: "Lookup by run id",
+      task: "Lookup by run id",
+      status: "running",
+      deliveryStatus: "pending",
+      notifyPolicy: "state_changes",
+      createdAt: Date.now() - 4 * 60_000,
+      lastEventAt: Date.now() - 2 * 60_000,
+    });
+
+    const jsonRun = makeRuntime();
+    await tasksShowCommand({ lookup: "run-detached-2", json: true }, jsonRun.runtime);
+    const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as {
+      lookup?: string;
+      resolvedBy?: string | null;
+      taskId?: string;
+    };
+
+    expect(payload).toMatchObject({
+      lookup: "run-detached-2",
+      resolvedBy: "run_id",
+      taskId: task.taskId,
     });
   });
 });

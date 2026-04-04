@@ -12,6 +12,8 @@ import {
 } from "./sessions.js";
 import {
   cancelTaskById,
+  findLatestTaskForRelatedSessionKey,
+  findTaskByRunId,
   getTaskById,
   updateTaskNotifyPolicyById,
 } from "../tasks/runtime-internal.js";
@@ -54,6 +56,10 @@ const ID_PAD = 10;
 const RUN_PAD = 10;
 const SESSION_PAD = 16;
 
+type TaskLookupResolution = {
+  resolvedBy: "task_id" | "run_id" | "session_key";
+};
+
 function truncate(value: string, maxChars: number) {
   if (value.length <= maxChars) {
     return value;
@@ -87,6 +93,23 @@ function formatTaskStatusCell(status: string, rich: boolean) {
     return theme.accentBright(padded);
   }
   return theme.muted(padded);
+}
+
+function resolveTaskLookupResolution(token: string): TaskLookupResolution | null {
+  const lookup = token.trim();
+  if (!lookup) {
+    return null;
+  }
+  if (getTaskById(lookup)) {
+    return { resolvedBy: "task_id" };
+  }
+  if (findTaskByRunId(lookup)) {
+    return { resolvedBy: "run_id" };
+  }
+  if (findLatestTaskForRelatedSessionKey(lookup)) {
+    return { resolvedBy: "session_key" };
+  }
+  return null;
 }
 
 function formatTaskSessionLifecycleCell(
@@ -363,7 +386,9 @@ export async function tasksShowCommand(
   opts: { json?: boolean; lookup: string },
   runtime: RuntimeEnv,
 ) {
-  const task = reconcileTaskLookupToken(opts.lookup);
+  const lookup = opts.lookup.trim();
+  const resolution = resolveTaskLookupResolution(lookup);
+  const task = reconcileTaskLookupToken(lookup);
   if (!task) {
     runtime.error(`Task not found: ${opts.lookup}`);
     runtime.exit(1);
@@ -385,6 +410,8 @@ export async function tasksShowCommand(
     runtime.log(
       JSON.stringify(
         {
+          lookup,
+          resolvedBy: resolution?.resolvedBy ?? null,
           ...task,
           sessionLifecycle,
           sessionResume: sessionResume ?? null,
@@ -398,6 +425,8 @@ export async function tasksShowCommand(
 
   const lines = [
     "Background task:",
+    `lookup: ${lookup}`,
+    ...(resolution ? [`resolvedBy: ${resolution.resolvedBy}`] : []),
     `taskId: ${task.taskId}`,
     `kind: ${task.runtime}`,
     `originKind: ${task.originKind ?? "n/a"}`,

@@ -33,6 +33,10 @@ type FlowListRow = TaskFlowRecord & {
   detachedLifecycle?: SessionLifecycleAssessment | null;
 };
 
+type FlowLookupResolution = {
+  resolvedBy: "flow_id" | "owner_key";
+};
+
 function truncate(value: string, maxChars: number) {
   if (value.length <= maxChars) {
     return value;
@@ -57,6 +61,20 @@ function shortToken(value: string | undefined, maxChars = ID_PAD): string {
     return "n/a";
   }
   return truncate(trimmed, maxChars);
+}
+
+function resolveFlowLookupResolution(token: string): FlowLookupResolution | null {
+  const lookup = token.trim();
+  if (!lookup) {
+    return null;
+  }
+  if (getTaskFlowById(lookup)) {
+    return { resolvedBy: "flow_id" };
+  }
+  if (resolveTaskFlowForLookupToken(lookup)) {
+    return { resolvedBy: "owner_key" };
+  }
+  return null;
 }
 
 function formatFlowStatusCell(status: TaskFlowStatus, rich: boolean) {
@@ -238,7 +256,9 @@ export async function flowsShowCommand(
   runtime: RuntimeEnv,
 ) {
   const cfg = loadConfig();
-  const flow = resolveTaskFlowForLookupToken(opts.lookup);
+  const lookup = opts.lookup.trim();
+  const resolution = resolveFlowLookupResolution(lookup);
+  const flow = resolveTaskFlowForLookupToken(lookup);
   if (!flow) {
     runtime.error(`TaskFlow not found: ${opts.lookup}`);
     runtime.exit(1);
@@ -266,6 +286,8 @@ export async function flowsShowCommand(
     runtime.log(
       JSON.stringify(
         {
+          lookup,
+          resolvedBy: resolution?.resolvedBy ?? null,
           ...flow,
           detachedLifecycle,
           childSessions,
@@ -281,6 +303,8 @@ export async function flowsShowCommand(
 
   const lines = [
     "TaskFlow:",
+    `lookup: ${lookup}`,
+    ...(resolution ? [`resolvedBy: ${resolution.resolvedBy}`] : []),
     `flowId: ${flow.flowId}`,
     `status: ${flow.status}`,
     `goal: ${safeFlowDisplayText(flow.goal)}`,
