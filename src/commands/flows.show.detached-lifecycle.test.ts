@@ -167,6 +167,8 @@ describe("flowsShowCommand detached session lifecycle", () => {
       childSessions?: Array<{
         sessionKey: string;
         sessionId?: string;
+        transcriptPath: string | null;
+        transcriptExists: boolean;
         continueWith: string;
       }>;
     };
@@ -182,6 +184,8 @@ describe("flowsShowCommand detached session lifecycle", () => {
       childSessions: [
         {
           sessionKey: "agent:coder:acp:child",
+          transcriptPath: null,
+          transcriptExists: false,
           continueWith:
             'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
         },

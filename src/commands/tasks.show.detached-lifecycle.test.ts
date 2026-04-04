@@ -163,6 +163,8 @@ describe("tasksShowCommand detached session lifecycle", () => {
       sessionResume?: {
         sessionKey: string;
         sessionId?: string;
+        transcriptPath: string | null;
+        transcriptExists: boolean;
         continueWith: string;
       } | null;
     };
@@ -177,6 +179,8 @@ describe("tasksShowCommand detached session lifecycle", () => {
       },
       sessionResume: {
         sessionKey: "agent:coder:acp:child",
+        transcriptPath: null,
+        transcriptExists: false,
         continueWith:
           'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       },

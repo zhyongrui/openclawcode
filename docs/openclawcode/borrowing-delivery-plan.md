@@ -125,6 +125,10 @@ Completed in this wave:
   after drilling in from list triage
 - detached-session detail views now also expose structured resume metadata in
   JSON payloads, so scripts and operator UIs do not have to parse raw help text
+- that structured detached-session resume metadata now also carries transcript
+  path and transcript existence snapshot fields, so handoff/reattach callers
+  can tell whether durable history is still present without making a second
+  lookup
 - `sessions continue --json` now wraps the resolved session lookup and continue
   request metadata around the returned agent result, so automation can see both
   what was targeted and what happened next

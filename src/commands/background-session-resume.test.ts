@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   resolveSessionStoreTargetsMock: vi.fn(),
@@ -6,10 +9,15 @@ const mocks = vi.hoisted(() => ({
   resolveAcpThreadSessionDetailLinesMock: vi.fn(),
 }));
 
-vi.mock("../config/sessions.js", () => ({
-  resolveSessionStoreTargets: (...args: unknown[]) => mocks.resolveSessionStoreTargetsMock(...args),
-  loadSessionStore: (...args: unknown[]) => mocks.loadSessionStoreMock(...args),
-}));
+vi.mock("../config/sessions.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../config/sessions.js")>();
+  return {
+    ...actual,
+    resolveSessionStoreTargets: (...args: unknown[]) =>
+      mocks.resolveSessionStoreTargetsMock(...args),
+    loadSessionStore: (...args: unknown[]) => mocks.loadSessionStoreMock(...args),
+  };
+});
 
 vi.mock("../acp/runtime/session-identifiers.js", () => ({
   resolveAcpThreadSessionDetailLines: (...args: unknown[]) =>
@@ -24,8 +32,14 @@ import {
 } from "./background-session-resume.js";
 
 describe("background session resume helpers", () => {
+  let tempDir: string;
+  let transcriptPath: string;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-bg-resume-"));
+    transcriptPath = path.join(tempDir, "sess-child-123.jsonl");
+    fs.writeFileSync(transcriptPath, '{"type":"message"}\n', "utf8");
     mocks.resolveSessionStoreTargetsMock.mockReturnValue([
       { agentId: "main", storePath: "/tmp/main.json" },
       { agentId: "coder", storePath: "/tmp/coder.json" },
@@ -36,6 +50,7 @@ describe("background session resume helpers", () => {
           "agent:coder:acp:child": {
             sessionId: "sess-child-123",
             updatedAt: 1,
+            sessionFile: transcriptPath,
             acp: {
               backend: "codex",
               agent: "codex",
@@ -59,6 +74,10 @@ describe("background session resume helpers", () => {
       "agent session id: inner-123",
       "resume in Codex CLI: `codex resume inner-123` (continues this conversation).",
     ]);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
   it("formats direct resume lines from a persisted child session", () => {
@@ -88,6 +107,8 @@ describe("background session resume helpers", () => {
       sessionKey: "agent:coder:acp:child",
       sessionId: "sess-child-123",
       agentId: "coder",
+      transcriptPath,
+      transcriptExists: true,
       continueWith:
         'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       resumeWith:
@@ -142,6 +163,8 @@ describe("background session resume helpers", () => {
         sessionKey: "agent:coder:acp:child",
         sessionId: "sess-child-123",
         agentId: "coder",
+        transcriptPath,
+        transcriptExists: true,
         continueWith:
           'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
         resumeWith:
@@ -154,6 +177,8 @@ describe("background session resume helpers", () => {
       {
         sessionKey: "agent:main:missing",
         agentId: "main",
+        transcriptPath: null,
+        transcriptExists: false,
         continueWith:
           'openclaw sessions continue agent:main:missing --message "Continue from the latest background task state."',
         resumeWith:

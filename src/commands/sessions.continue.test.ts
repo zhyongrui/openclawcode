@@ -84,6 +84,8 @@ describe("sessionsContinueCommand", () => {
           } | null;
           resumeBeforeContinue?: {
             sessionKey: string;
+            transcriptPath: string | null;
+            transcriptExists: boolean;
             continueWith: string;
           } | null;
         };
@@ -115,6 +117,8 @@ describe("sessionsContinueCommand", () => {
           },
           resumeBeforeContinue: {
             sessionKey: "agent:coder:acp:child",
+            transcriptPath: "/tmp/missing-transcript.jsonl",
+            transcriptExists: false,
             continueWith:
               'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
           },

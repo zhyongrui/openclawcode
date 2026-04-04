@@ -154,6 +154,8 @@ describe("sessionsShowCommand", () => {
       resume?: {
         sessionKey: string;
         sessionId?: string;
+        transcriptPath: string | null;
+        transcriptExists: boolean;
         continueWith: string;
       } | null;
       resumeLines: string[];
@@ -190,6 +192,8 @@ describe("sessionsShowCommand", () => {
       resume: {
         sessionKey: "agent:coder:acp:child",
         sessionId: "sess-child-123",
+        transcriptPath,
+        transcriptExists: true,
         continueWith:
           'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       },

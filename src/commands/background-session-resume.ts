@@ -1,7 +1,10 @@
+import fs from "node:fs";
 import { resolveAcpThreadSessionDetailLines } from "../acp/runtime/session-identifiers.js";
 import { formatCliCommand } from "../cli/command-format.js";
 import {
   loadSessionStore,
+  resolveSessionFilePath,
+  resolveSessionFilePathOptions,
   resolveSessionStoreTargets,
   type SessionEntry,
   type SessionStoreTarget,
@@ -28,6 +31,8 @@ export type BackgroundSessionResumeDetail = {
   sessionKey: string;
   sessionId?: string;
   agentId?: string;
+  transcriptPath: string | null;
+  transcriptExists: boolean;
   continueWith: string;
   resumeWith: string;
   acpDetailLines: string[];
@@ -49,6 +54,33 @@ function resolveBackgroundSessionEntry(
     }
   }
   return { sessionKey };
+}
+
+function resolveBackgroundSessionTranscriptState(params: {
+  sessionKey: string;
+  entry?: SessionEntry;
+  target?: SessionStoreTarget;
+}): { transcriptPath: string | null; transcriptExists: boolean } {
+  const sessionId = params.entry?.sessionId?.trim();
+  if (!sessionId) {
+    return {
+      transcriptPath: null,
+      transcriptExists: false,
+    };
+  }
+  const agentId =
+    parseAgentSessionKey(params.sessionKey)?.agentId ?? params.target?.agentId ?? undefined;
+  const transcriptPath = resolveSessionFilePath(sessionId, params.entry, {
+    agentId,
+    ...resolveSessionFilePathOptions({
+      agentId,
+      storePath: params.target?.storePath,
+    }),
+  });
+  return {
+    transcriptPath,
+    transcriptExists: fs.existsSync(transcriptPath),
+  };
 }
 
 function buildResumeWithCommand(params: {
@@ -96,6 +128,11 @@ export function describeBackgroundSessionResume(params: {
     ...((parseAgentSessionKey(sessionKey)?.agentId ?? resolved.target?.agentId)
       ? { agentId: parseAgentSessionKey(sessionKey)?.agentId ?? resolved.target?.agentId }
       : {}),
+    ...resolveBackgroundSessionTranscriptState({
+      sessionKey,
+      entry: resolved.entry,
+      target: resolved.target,
+    }),
     continueWith: buildContinueWithCommand(sessionKey),
     resumeWith: buildResumeWithCommand({
       sessionKey,
