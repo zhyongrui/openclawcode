@@ -303,6 +303,9 @@ Implemented:
 - those detached-session text resume blocks now also print transcript path and
   transcript existence hints, so CLI operators keep the same handoff context
   even when they are not consuming JSON
+- `openclaw agent --background` accepted output now also includes transcript
+  path/existence snapshot hints in both text and JSON, so the first detached
+  handoff matches the same durable-history cues exposed by later session views
 - `openclaw sessions continue --json` now also exposes the resolved lookup and
   continue request metadata around the returned agent result, so automation can
   tie a continuation result back to the detached session it targeted

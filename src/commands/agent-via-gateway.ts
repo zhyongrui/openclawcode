@@ -14,6 +14,7 @@ import {
 } from "../utils/message-channel.js";
 import { agentCommand } from "./agent.js";
 import { resolveSessionKeyForRequest } from "./agent/session.js";
+import { describeBackgroundSessionResume } from "./background-session-resume.js";
 
 type AgentGatewayResult = {
   payloads?: Array<{
@@ -38,6 +39,9 @@ type BackgroundAcceptedHandoff = {
   runId?: string;
   sessionId?: string;
   sessionKey?: string;
+  agentId?: string;
+  transcriptPath?: string | null;
+  transcriptExists?: boolean;
   waitWith?: string;
   continueWith?: string;
   resumeWith?: string;
@@ -132,21 +136,41 @@ function buildWaitCommand(runId: string) {
 }
 
 function buildAcceptedBackgroundHandoff(params: {
+  cfg: ReturnType<typeof loadConfig>;
   runId?: string;
   sessionId?: string;
   sessionKey?: string;
 }): BackgroundAcceptedHandoff {
+  const resumeDetail = params.sessionKey
+    ? describeBackgroundSessionResume({
+        cfg: params.cfg,
+        sessionKey: params.sessionKey,
+      })
+    : undefined;
   const continueLookup = params.sessionKey ?? params.sessionId;
-  const resumeWith = buildResumeCommand({
-    sessionId: params.sessionId,
-    sessionKey: params.sessionKey,
-  });
+  const resumeWith =
+    resumeDetail?.resumeWith ??
+    buildResumeCommand({
+      sessionId: params.sessionId,
+      sessionKey: params.sessionKey,
+    });
   return {
     ...(params.runId ? { runId: params.runId } : {}),
     ...(params.sessionId ? { sessionId: params.sessionId } : {}),
     ...(params.sessionKey ? { sessionKey: params.sessionKey } : {}),
+    ...(resumeDetail?.agentId ? { agentId: resumeDetail.agentId } : {}),
+    ...(resumeDetail
+      ? {
+          transcriptPath: resumeDetail.transcriptPath,
+          transcriptExists: resumeDetail.transcriptExists,
+        }
+      : {}),
     ...(params.runId ? { waitWith: buildWaitCommand(params.runId) } : {}),
-    ...(continueLookup ? { continueWith: buildContinueCommand(continueLookup) } : {}),
+    ...(resumeDetail?.continueWith
+      ? { continueWith: resumeDetail.continueWith }
+      : continueLookup
+        ? { continueWith: buildContinueCommand(continueLookup) }
+        : {}),
     ...(resumeWith ? { resumeWith } : {}),
   };
 }
@@ -154,6 +178,7 @@ function buildAcceptedBackgroundHandoff(params: {
 function logAcceptedBackgroundRun(
   runtime: RuntimeEnv,
   params: {
+    cfg: ReturnType<typeof loadConfig>;
     runId?: string;
     sessionId?: string;
     sessionKey?: string;
@@ -169,6 +194,15 @@ function logAcceptedBackgroundRun(
   }
   if (handoff.sessionId) {
     runtime.log(`sessionId: ${handoff.sessionId}`);
+  }
+  if (handoff.agentId) {
+    runtime.log(`agent: ${handoff.agentId}`);
+  }
+  if ("transcriptPath" in handoff) {
+    runtime.log(`transcript: ${handoff.transcriptPath ?? "n/a"}`);
+  }
+  if (typeof handoff.transcriptExists === "boolean") {
+    runtime.log(`transcriptExists: ${handoff.transcriptExists ? "yes" : "no"}`);
   }
   if (handoff.waitWith) {
     runtime.log(`wait: ${handoff.waitWith}`);
@@ -255,6 +289,7 @@ export async function agentViaGatewayCommand(opts: AgentCliOpts, runtime: Runtim
   if (opts.json) {
     const accepted = opts.background
       ? buildAcceptedBackgroundHandoff({
+          cfg,
           runId: response?.runId,
           sessionId: response?.sessionId ?? opts.sessionId,
           sessionKey: response?.sessionKey ?? sessionKey,
@@ -269,6 +304,7 @@ export async function agentViaGatewayCommand(opts: AgentCliOpts, runtime: Runtim
 
   if (opts.background) {
     logAcceptedBackgroundRun(runtime, {
+      cfg,
       runId: response?.runId,
       sessionId: response?.sessionId ?? opts.sessionId,
       sessionKey: response?.sessionKey ?? sessionKey,

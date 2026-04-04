@@ -132,6 +132,9 @@ Completed in this wave:
 - detached-session text resume/handoff blocks now also print transcript path
   and transcript existence hints, so operators get the same history-presence
   signal in `tasks show`, `flows show`, `sessions show`, and `sessions continue`
+- `openclaw agent --background` accepted handoff now also carries transcript
+  path/existence snapshot hints in both text and JSON, so the very first
+  detached-run acknowledgment exposes the same durable-history signal
 - `sessions continue --json` now wraps the resolved session lookup and continue
   request metadata around the returned agent result, so automation can see both
   what was targeted and what happened next

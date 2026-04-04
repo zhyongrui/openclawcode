@@ -108,7 +108,23 @@ describe("agentCliCommand", () => {
   });
 
   it("returns immediately in background mode and prints wait/continue/resume hints", async () => {
-    await withTempStore(async () => {
+    await withTempStore(async ({ dir, store }) => {
+      const transcriptPath = path.join(dir, "sess-bg-1.jsonl");
+      fs.writeFileSync(transcriptPath, '{"type":"message"}\n', "utf8");
+      fs.writeFileSync(
+        store,
+        JSON.stringify(
+          {
+            "agent:main:main": {
+              sessionId: "sess-bg-1",
+              updatedAt: 1,
+              sessionFile: transcriptPath,
+            },
+          },
+          null,
+          2,
+        ),
+      );
       vi.mocked(callGateway).mockResolvedValue({
         runId: "run-bg-1",
         status: "accepted",
@@ -126,6 +142,9 @@ describe("agentCliCommand", () => {
       expect(runtime.log).toHaveBeenCalledWith("Accepted background agent run.");
       expect(runtime.log).toHaveBeenCalledWith("runId: run-bg-1");
       expect(runtime.log).toHaveBeenCalledWith("sessionId: sess-bg-1");
+      expect(runtime.log).toHaveBeenCalledWith("agent: main");
+      expect(runtime.log).toHaveBeenCalledWith(`transcript: ${transcriptPath}`);
+      expect(runtime.log).toHaveBeenCalledWith("transcriptExists: yes");
       expect(runtime.log).toHaveBeenCalledWith(
         'continue: openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
       );
@@ -156,7 +175,21 @@ describe("agentCliCommand", () => {
   });
 
   it("adds structured handoff hints to background JSON output", async () => {
-    await withTempStore(async () => {
+    await withTempStore(async ({ dir, store }) => {
+      fs.writeFileSync(
+        store,
+        JSON.stringify(
+          {
+            "agent:main:main": {
+              sessionId: "sess-bg-json-1",
+              updatedAt: 1,
+              sessionFile: "/tmp/openclaw-bg-json-1.jsonl",
+            },
+          },
+          null,
+          2,
+        ),
+      );
       vi.mocked(callGateway).mockResolvedValue({
         runId: "run-bg-json-1",
         status: "accepted",
@@ -176,6 +209,9 @@ describe("agentCliCommand", () => {
           runId?: string;
           sessionId?: string;
           sessionKey?: string;
+          agentId?: string;
+          transcriptPath?: string | null;
+          transcriptExists?: boolean;
           waitWith?: string;
           continueWith?: string;
           resumeWith?: string;
@@ -190,6 +226,9 @@ describe("agentCliCommand", () => {
           runId: "run-bg-json-1",
           sessionId: "sess-bg-json-1",
           sessionKey: "agent:main:main",
+          agentId: "main",
+          transcriptPath: path.join(dir, "sess-bg-json-1.jsonl"),
+          transcriptExists: false,
           waitWith: "openclaw gateway call agent.wait --run-id run-bg-json-1",
           continueWith:
             'openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
