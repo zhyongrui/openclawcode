@@ -956,17 +956,60 @@ export async function sessionsContinueCommand(
   }
 
   const sessionId = resolved.match.entry.sessionId?.trim();
+  const commandOpts = {
+    message,
+    ...(sessionId ? { sessionId } : { sessionKey: resolved.match.sessionKey }),
+    background: opts.background,
+    thinking: opts.thinking,
+    verbose: opts.verbose,
+    timeout: opts.timeout,
+    deliver: opts.deliver,
+    local: opts.local,
+  };
+
+  if (opts.json) {
+    const quietRuntime: RuntimeEnv = {
+      ...runtime,
+      log: () => {},
+    };
+    const agentResult = await agentCliCommand(
+      {
+        ...commandOpts,
+        json: false,
+      },
+      quietRuntime,
+    );
+    const continuedSessionAgentId =
+      parseAgentSessionKey(resolved.match.sessionKey)?.agentId ?? resolved.match.target.agentId;
+    writeRuntimeJson(runtime, {
+      ...((agentResult && typeof agentResult === "object" && !Array.isArray(agentResult))
+        ? agentResult
+        : {}),
+      lookup,
+      resolvedBy: resolved.resolvedBy,
+      continuedSession: {
+        key: resolved.match.sessionKey,
+        sessionId: sessionId ?? null,
+        agentId: continuedSessionAgentId,
+        storePath: resolved.match.target.storePath,
+      },
+      continueRequest: {
+        message,
+        background: opts.background === true,
+        thinking: opts.thinking ?? null,
+        verbose: opts.verbose ?? null,
+        timeout: opts.timeout ?? null,
+        deliver: opts.deliver === true,
+        local: opts.local === true,
+      },
+    });
+    return;
+  }
+
   await agentCliCommand(
     {
-      message,
-      ...(sessionId ? { sessionId } : { sessionKey: resolved.match.sessionKey }),
-      background: opts.background,
-      thinking: opts.thinking,
-      verbose: opts.verbose,
-      timeout: opts.timeout,
-      deliver: opts.deliver,
-      local: opts.local,
-      json: opts.json,
+      ...commandOpts,
+      json: false,
     },
     runtime,
   );

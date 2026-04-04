@@ -17,10 +17,10 @@ import { sessionsContinueCommand } from "./sessions.js";
 describe("sessionsContinueCommand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.agentCliCommandMock.mockResolvedValue(undefined);
+    mocks.agentCliCommandMock.mockResolvedValue({});
   });
 
-  it("resolves by session id and forwards continue options to agentCliCommand", async () => {
+  it("wraps JSON output with resolved session metadata and forwarded agent result", async () => {
     const store = writeStore({
       "agent:coder:acp:child": {
         sessionId: "sess-child-123",
@@ -29,7 +29,15 @@ describe("sessionsContinueCommand", () => {
     });
 
     try {
-      const { runtime } = makeRuntime();
+      mocks.agentCliCommandMock.mockResolvedValue({
+        runId: "run-bg-1",
+        status: "accepted",
+        handoff: {
+          continueWith:
+            'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+        },
+      });
+      const { runtime, logs } = makeRuntime();
       await sessionsContinueCommand(
         {
           lookup: "sess-child-123",
@@ -50,11 +58,56 @@ describe("sessionsContinueCommand", () => {
           background: true,
           thinking: "medium",
           verbose: "on",
-          json: true,
+          json: false,
         }),
-        runtime,
+        expect.objectContaining({
+          log: expect.any(Function),
+        }),
       );
       expect(mocks.agentCliCommandMock.mock.calls[0]?.[0]?.sessionKey).toBeUndefined();
+
+      const payload = JSON.parse(logs[0] ?? "{}") as {
+        runId?: string;
+        status?: string;
+        lookup?: string;
+        resolvedBy?: string;
+        continuedSession?: {
+          key: string;
+          sessionId: string | null;
+          agentId: string;
+        };
+        continueRequest?: {
+          message: string;
+          background: boolean;
+          thinking: string | null;
+          verbose: string | null;
+        };
+        handoff?: {
+          continueWith?: string;
+        };
+      };
+
+      expect(payload).toMatchObject({
+        runId: "run-bg-1",
+        status: "accepted",
+        lookup: "sess-child-123",
+        resolvedBy: "session_id",
+        continuedSession: {
+          key: "agent:coder:acp:child",
+          sessionId: "sess-child-123",
+          agentId: "coder",
+        },
+        continueRequest: {
+          message: "Continue detached work",
+          background: true,
+          thinking: "medium",
+          verbose: "on",
+        },
+        handoff: {
+          continueWith:
+            'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+        },
+      });
     } finally {
       fs.rmSync(store, { force: true });
     }
@@ -84,6 +137,7 @@ describe("sessionsContinueCommand", () => {
           message: "Resume by key",
           sessionKey: "agent:main:main",
           local: true,
+          json: false,
         }),
         runtime,
       );
@@ -122,6 +176,52 @@ describe("sessionsContinueCommand", () => {
       expect(errors[1]).toContain("agent:main:alpha");
       expect(errors[2]).toContain("agent:main:beta");
       expect(mocks.agentCliCommandMock).not.toHaveBeenCalled();
+    } finally {
+      fs.rmSync(store, { force: true });
+    }
+  });
+
+  it("keeps JSON output additive when continuing a session-key lookup", async () => {
+    const store = writeStore({
+      "agent:main:main": {
+        updatedAt: Date.now() - 5 * 60_000,
+      },
+    });
+
+    try {
+      mocks.agentCliCommandMock.mockResolvedValue({
+        payloads: [{ text: "done" }],
+        meta: { stub: true },
+      });
+      const { runtime, logs } = makeRuntime();
+      await sessionsContinueCommand(
+        {
+          lookup: "agent:main:main",
+          message: "Resume by key",
+          store,
+          json: true,
+          local: true,
+        },
+        runtime,
+      );
+
+      const payload = JSON.parse(logs[0] ?? "{}") as {
+        payloads?: Array<{ text?: string }>;
+        continuedSession?: { key: string; sessionId: string | null };
+        continueRequest?: { local: boolean; background: boolean };
+      };
+
+      expect(payload).toMatchObject({
+        payloads: [{ text: "done" }],
+        continuedSession: {
+          key: "agent:main:main",
+          sessionId: null,
+        },
+        continueRequest: {
+          local: true,
+          background: false,
+        },
+      });
     } finally {
       fs.rmSync(store, { force: true });
     }

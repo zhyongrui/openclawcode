@@ -297,6 +297,9 @@ Implemented:
 - `openclaw sessions show`, `openclaw tasks show`, and `openclaw flows show`
   now also expose structured resume metadata in JSON, so UI/automation callers
   can reuse the same handoff data without scraping text lines
+- `openclaw sessions continue --json` now also exposes the resolved lookup and
+  continue request metadata around the returned agent result, so automation can
+  tie a continuation result back to the detached session it targeted
 
 Not implemented yet:
 
