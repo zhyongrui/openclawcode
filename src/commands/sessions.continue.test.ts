@@ -199,6 +199,11 @@ describe("sessionsContinueCommand", () => {
       expect(output).toContain("transcriptExists: no");
       expect(output).toContain("lifecycleBeforeContinue: missing_transcript");
       expect(output).toContain("lifecycleSummary: Transcript file is missing");
+      expect(output).toContain("Resume before continue:");
+      expect(output).toContain("resumeSessionKey: agent:coder:acp:child");
+      expect(output).toContain(
+        'continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+      );
     } finally {
       fs.rmSync(store, { force: true });
     }

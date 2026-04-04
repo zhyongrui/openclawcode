@@ -133,6 +133,9 @@ Completed in this wave:
   do not need a separate `sessions show` round-trip just to capture state
 - `sessions continue` text output now also prints the resolved session target
   and pre-continue lifecycle snapshot before dispatching the next turn
+- that `sessions continue` text preamble now also prints the pre-continue
+  resume/handoff metadata, so operators can copy the same continuation hints
+  they would see in `sessions show`
 - `tasks show` / `flows show` now also expose `lookup` and `resolvedBy`, so
   detail views explain which operator token matched the underlying durable
   record

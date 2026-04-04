@@ -1029,6 +1029,17 @@ export async function sessionsContinueCommand(
     runtime.log(`lifecycleBeforeContinue: ${snapshot.lifecycle.status}`);
     runtime.log(`lifecycleSummary: ${snapshot.lifecycle.summary}`);
   }
+  if (snapshot?.resumeDetail) {
+    runtime.log("Resume before continue:");
+    for (const line of formatBackgroundSessionResumeLines({
+      cfg,
+      sessionKey: resolved.match.sessionKey,
+      entry: resolved.match.entry,
+      target: resolved.match.target,
+    })) {
+      runtime.log(line);
+    }
+  }
 
   await agentCliCommand(
     {
