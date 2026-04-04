@@ -14,7 +14,10 @@ import {
 } from "../utils/message-channel.js";
 import { agentCommand } from "./agent.js";
 import { resolveSessionKeyForRequest } from "./agent/session.js";
-import { describeBackgroundSessionResume } from "./background-session-resume.js";
+import {
+  type BackgroundSessionResumeDetail,
+  describeBackgroundSessionResume,
+} from "./background-session-resume.js";
 
 type AgentGatewayResult = {
   payloads?: Array<{
@@ -45,6 +48,7 @@ type BackgroundAcceptedHandoff = {
   waitWith?: string;
   continueWith?: string;
   resumeWith?: string;
+  resume?: BackgroundSessionResumeDetail;
 };
 
 const NO_GATEWAY_TIMEOUT_MS = 2_147_000_000;
@@ -172,6 +176,7 @@ function buildAcceptedBackgroundHandoff(params: {
         ? { continueWith: buildContinueCommand(continueLookup) }
         : {}),
     ...(resumeWith ? { resumeWith } : {}),
+    ...(resumeDetail ? { resume: resumeDetail } : {}),
   };
 }
 

@@ -138,6 +138,9 @@ Completed in this wave:
 - the `sessions`, `tasks list`, and `flows list` JSON ledgers now also carry
   structured resume metadata, so scripts can continue or inspect detached work
   directly from list surfaces without a second `show` lookup
+- `openclaw agent --background --json` now also embeds the same shared
+  structured `resume` object inside its handoff payload, so accepted-run
+  automation can reuse the exact schema exposed by sessions/tasks/flows
 - `sessions continue --json` now wraps the resolved session lookup and continue
   request metadata around the returned agent result, so automation can see both
   what was targeted and what happened next

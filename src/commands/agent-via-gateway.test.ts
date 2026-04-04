@@ -215,6 +215,15 @@ describe("agentCliCommand", () => {
           waitWith?: string;
           continueWith?: string;
           resumeWith?: string;
+          resume?: {
+            sessionKey: string;
+            sessionId?: string;
+            agentId?: string;
+            transcriptPath: string | null;
+            transcriptExists: boolean;
+            continueWith: string;
+            resumeWith: string;
+          };
         };
       };
 
@@ -234,6 +243,17 @@ describe("agentCliCommand", () => {
             'openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
           resumeWith:
             'openclaw agent --session-id sess-bg-json-1 --message "Continue from the latest background task state."',
+          resume: {
+            sessionKey: "agent:main:main",
+            sessionId: "sess-bg-json-1",
+            agentId: "main",
+            transcriptPath: path.join(dir, "sess-bg-json-1.jsonl"),
+            transcriptExists: false,
+            continueWith:
+              'openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
+            resumeWith:
+              'openclaw agent --session-id sess-bg-json-1 --message "Continue from the latest background task state."',
+          },
         },
       });
     });

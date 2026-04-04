@@ -309,6 +309,10 @@ Implemented:
 - the `sessions`, `tasks list`, and `flows list` JSON ledgers now also include
   structured resume metadata, so operators and automation can copy continuation
   commands straight from list views instead of making a follow-up `show` call
+- `openclaw agent --background --json` now also embeds that same shared
+  structured `resume` object under `handoff`, so accepted-run automation does
+  not have to translate between a separate handoff schema and session-ledger
+  schema
 - `openclaw sessions continue --json` now also exposes the resolved lookup and
   continue request metadata around the returned agent result, so automation can
   tie a continuation result back to the detached session it targeted
