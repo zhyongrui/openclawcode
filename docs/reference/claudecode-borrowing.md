@@ -300,6 +300,9 @@ Implemented:
 - that structured detached-session resume metadata now also includes transcript
   path and transcript existence snapshot fields, so automation can distinguish
   between "resume target exists" and "durable transcript still exists"
+- those detached-session text resume blocks now also print transcript path and
+  transcript existence hints, so CLI operators keep the same handoff context
+  even when they are not consuming JSON
 - `openclaw sessions continue --json` now also exposes the resolved lookup and
   continue request metadata around the returned agent result, so automation can
   tie a continuation result back to the detached session it targeted

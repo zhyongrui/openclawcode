@@ -149,6 +149,8 @@ describe("tasksShowCommand detached session lifecycle", () => {
     expect(output).toContain("resolvedBy: task_id");
     expect(output).toContain("sessionLifecycle: missing_transcript");
     expect(output).toContain("sessionLifecycleSummary: Transcript file is missing");
+    expect(output).toContain("resumeTranscript: n/a");
+    expect(output).toContain("resumeTranscriptExists: no");
 
     const jsonRun = makeRuntime();
     await tasksShowCommand({ lookup: task.taskId, json: true }, jsonRun.runtime);

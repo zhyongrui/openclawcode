@@ -200,6 +200,8 @@ describe("sessionsShowCommand", () => {
     });
     expect(payload.resumeLines).toContain("resumeSessionKey: agent:coder:acp:child");
     expect(payload.resumeLines).toContain("resumeSessionId: sess-child-123");
+    expect(payload.resumeLines).toContain(`resumeTranscript: ${transcriptPath}`);
+    expect(payload.resumeLines).toContain("resumeTranscriptExists: yes");
     expect(payload.resumeLines).toContain(
       'continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
     );

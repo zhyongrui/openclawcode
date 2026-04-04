@@ -129,6 +129,9 @@ Completed in this wave:
   path and transcript existence snapshot fields, so handoff/reattach callers
   can tell whether durable history is still present without making a second
   lookup
+- detached-session text resume/handoff blocks now also print transcript path
+  and transcript existence hints, so operators get the same history-presence
+  signal in `tasks show`, `flows show`, `sessions show`, and `sessions continue`
 - `sessions continue --json` now wraps the resolved session lookup and continue
   request metadata around the returned agent result, so automation can see both
   what was targeted and what happened next

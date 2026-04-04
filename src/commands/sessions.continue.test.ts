@@ -205,6 +205,8 @@ describe("sessionsContinueCommand", () => {
       expect(output).toContain("lifecycleSummary: Transcript file is missing");
       expect(output).toContain("Resume before continue:");
       expect(output).toContain("resumeSessionKey: agent:coder:acp:child");
+      expect(output).toContain("resumeTranscript: /tmp/missing-transcript-continue.jsonl");
+      expect(output).toContain("resumeTranscriptExists: no");
       expect(output).toContain(
         'continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       );

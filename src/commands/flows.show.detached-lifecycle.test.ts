@@ -152,6 +152,8 @@ describe("flowsShowCommand detached session lifecycle", () => {
     expect(output).toContain("sessionLifecycle: missing_transcript");
     expect(output).toContain("sessionLifecycleSummary: Transcript file is missing");
     expect(output).toContain("Child sessions:");
+    expect(output).toContain("resumeTranscript: n/a");
+    expect(output).toContain("resumeTranscriptExists: no");
     expect(output).toContain("continueWith: openclaw sessions continue agent:coder:acp:child");
 
     const jsonRun = makeRuntime();

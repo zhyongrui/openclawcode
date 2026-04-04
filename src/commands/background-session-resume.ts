@@ -171,6 +171,8 @@ export function formatBackgroundSessionResumeLines(params: {
   if (detail.agentId) {
     lines.push(`${indent}resumeAgent: ${detail.agentId}`);
   }
+  lines.push(`${indent}resumeTranscript: ${detail.transcriptPath ?? "n/a"}`);
+  lines.push(`${indent}resumeTranscriptExists: ${detail.transcriptExists ? "yes" : "no"}`);
   lines.push(`${indent}continueWith: ${detail.continueWith}`);
   lines.push(`${indent}resumeWith: ${detail.resumeWith}`);
   for (const line of detail.acpDetailLines) {
