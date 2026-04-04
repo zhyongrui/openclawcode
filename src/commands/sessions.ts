@@ -956,6 +956,8 @@ export async function sessionsContinueCommand(
   }
 
   const sessionId = resolved.match.entry.sessionId?.trim();
+  const continuedSessionAgentId =
+    parseAgentSessionKey(resolved.match.sessionKey)?.agentId ?? resolved.match.target.agentId;
   const commandOpts = {
     message,
     ...(sessionId ? { sessionId } : { sessionKey: resolved.match.sessionKey }),
@@ -986,8 +988,6 @@ export async function sessionsContinueCommand(
       },
       quietRuntime,
     );
-    const continuedSessionAgentId =
-      parseAgentSessionKey(resolved.match.sessionKey)?.agentId ?? resolved.match.target.agentId;
     writeRuntimeJson(runtime, {
       ...((agentResult && typeof agentResult === "object" && !Array.isArray(agentResult))
         ? agentResult
@@ -1015,6 +1015,19 @@ export async function sessionsContinueCommand(
       },
     });
     return;
+  }
+
+  runtime.log("Continuing session:");
+  runtime.log(`lookup: ${lookup}`);
+  runtime.log(`resolvedBy: ${resolved.resolvedBy}`);
+  runtime.log(`key: ${resolved.match.sessionKey}`);
+  runtime.log(`sessionId: ${sessionId ?? "n/a"}`);
+  runtime.log(`agent: ${continuedSessionAgentId}`);
+  runtime.log(`store: ${resolved.match.target.storePath}`);
+  runtime.log(`transcriptExists: ${snapshot?.transcriptExists ? "yes" : "no"}`);
+  if (snapshot?.lifecycle) {
+    runtime.log(`lifecycleBeforeContinue: ${snapshot.lifecycle.status}`);
+    runtime.log(`lifecycleSummary: ${snapshot.lifecycle.summary}`);
   }
 
   await agentCliCommand(

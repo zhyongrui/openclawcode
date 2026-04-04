@@ -303,6 +303,9 @@ Implemented:
 - that `sessions continue --json` envelope now also carries the target
   session's pre-continue lifecycle and resume snapshot, so automation can
   capture detached-session state without making a second `sessions show` call
+- `openclaw sessions continue` text output now also prints the resolved target
+  and pre-continue lifecycle snapshot, so operators can confirm the detached
+  session state before the next turn is sent
 - `openclaw tasks show` and `openclaw flows show` now also expose `lookup` and
   `resolvedBy`, so machine-readable detail views keep the same explicit
   resolution context as `sessions show`

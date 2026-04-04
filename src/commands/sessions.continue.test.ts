@@ -169,6 +169,41 @@ describe("sessionsContinueCommand", () => {
     }
   });
 
+  it("prints resolved session context before continuing in text mode", async () => {
+    const store = writeStore({
+      "agent:coder:acp:child": {
+        sessionId: "sess-child-999",
+        updatedAt: Date.now() - 5 * 60_000,
+        sessionFile: "/tmp/missing-transcript-continue.jsonl",
+      },
+    });
+
+    try {
+      const { runtime, logs } = makeRuntime();
+      await sessionsContinueCommand(
+        {
+          lookup: "sess-child-999",
+          message: "Continue in text mode",
+          store,
+        },
+        runtime,
+      );
+
+      const output = logs.join("\n");
+      expect(output).toContain("Continuing session:");
+      expect(output).toContain("lookup: sess-child-999");
+      expect(output).toContain("resolvedBy: session_id");
+      expect(output).toContain("key: agent:coder:acp:child");
+      expect(output).toContain("sessionId: sess-child-999");
+      expect(output).toContain("agent: coder");
+      expect(output).toContain("transcriptExists: no");
+      expect(output).toContain("lifecycleBeforeContinue: missing_transcript");
+      expect(output).toContain("lifecycleSummary: Transcript file is missing");
+    } finally {
+      fs.rmSync(store, { force: true });
+    }
+  });
+
   it("fails with candidate details when the lookup is ambiguous", async () => {
     const store = writeStore({
       "agent:main:alpha": {

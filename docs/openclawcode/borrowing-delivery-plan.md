@@ -131,6 +131,8 @@ Completed in this wave:
 - that `sessions continue --json` envelope now also carries the target
   session's lifecycle and resume snapshot before the continue call, so callers
   do not need a separate `sessions show` round-trip just to capture state
+- `sessions continue` text output now also prints the resolved session target
+  and pre-continue lifecycle snapshot before dispatching the next turn
 - `tasks show` / `flows show` now also expose `lookup` and `resolvedBy`, so
   detail views explain which operator token matched the underlying durable
   record
