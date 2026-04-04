@@ -25,6 +25,7 @@ describe("sessionsContinueCommand", () => {
       "agent:coder:acp:child": {
         sessionId: "sess-child-123",
         updatedAt: Date.now() - 5 * 60_000,
+        sessionFile: "/tmp/missing-transcript.jsonl",
       },
     });
 
@@ -75,6 +76,16 @@ describe("sessionsContinueCommand", () => {
           key: string;
           sessionId: string | null;
           agentId: string;
+          transcriptPath: string | null;
+          transcriptExists: boolean;
+          lifecycleBeforeContinue?: {
+            status: string;
+            waitingFlowCount: number;
+          } | null;
+          resumeBeforeContinue?: {
+            sessionKey: string;
+            continueWith: string;
+          } | null;
         };
         continueRequest?: {
           message: string;
@@ -96,6 +107,17 @@ describe("sessionsContinueCommand", () => {
           key: "agent:coder:acp:child",
           sessionId: "sess-child-123",
           agentId: "coder",
+          transcriptPath: "/tmp/missing-transcript.jsonl",
+          transcriptExists: false,
+          lifecycleBeforeContinue: {
+            status: "missing_transcript",
+            waitingFlowCount: 0,
+          },
+          resumeBeforeContinue: {
+            sessionKey: "agent:coder:acp:child",
+            continueWith:
+              'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+          },
         },
         continueRequest: {
           message: "Continue detached work",
@@ -207,7 +229,13 @@ describe("sessionsContinueCommand", () => {
 
       const payload = JSON.parse(logs[0] ?? "{}") as {
         payloads?: Array<{ text?: string }>;
-        continuedSession?: { key: string; sessionId: string | null };
+        continuedSession?: {
+          key: string;
+          sessionId: string | null;
+          lifecycleBeforeContinue?: {
+            status: string;
+          } | null;
+        };
         continueRequest?: { local: boolean; background: boolean };
       };
 
@@ -216,6 +244,9 @@ describe("sessionsContinueCommand", () => {
         continuedSession: {
           key: "agent:main:main",
           sessionId: null,
+          lifecycleBeforeContinue: {
+            status: "missing_transcript",
+          },
         },
         continueRequest: {
           local: true,

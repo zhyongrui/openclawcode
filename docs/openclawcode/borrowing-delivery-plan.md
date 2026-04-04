@@ -128,6 +128,9 @@ Completed in this wave:
 - `sessions continue --json` now wraps the resolved session lookup and continue
   request metadata around the returned agent result, so automation can see both
   what was targeted and what happened next
+- that `sessions continue --json` envelope now also carries the target
+  session's lifecycle and resume snapshot before the continue call, so callers
+  do not need a separate `sessions show` round-trip just to capture state
 - `tasks show` / `flows show` now also expose `lookup` and `resolvedBy`, so
   detail views explain which operator token matched the underlying durable
   record

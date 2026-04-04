@@ -966,6 +966,13 @@ export async function sessionsContinueCommand(
     deliver: opts.deliver,
     local: opts.local,
   };
+  const snapshot = inspectDetachedSessionLifecycle({
+    cfg,
+    sessionKey: resolved.match.sessionKey,
+    entry: resolved.match.entry,
+    target: resolved.match.target,
+    abortedLastRun: resolved.match.entry.abortedLastRun === true,
+  });
 
   if (opts.json) {
     const quietRuntime: RuntimeEnv = {
@@ -992,6 +999,10 @@ export async function sessionsContinueCommand(
         sessionId: sessionId ?? null,
         agentId: continuedSessionAgentId,
         storePath: resolved.match.target.storePath,
+        transcriptPath: snapshot?.transcriptPath ?? null,
+        transcriptExists: snapshot?.transcriptExists ?? false,
+        lifecycleBeforeContinue: snapshot?.lifecycle ?? null,
+        resumeBeforeContinue: snapshot?.resumeDetail ?? null,
       },
       continueRequest: {
         message,
