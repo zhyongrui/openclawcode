@@ -141,6 +141,9 @@ Completed in this wave:
 - `openclaw agent --background --json` now also embeds the same shared
   structured `resume` object inside its handoff payload, so accepted-run
   automation can reuse the exact schema exposed by sessions/tasks/flows
+- `openclaw agent --background` text output now also prints the shared
+  `Resume:` block, so accepted-run operators see the same resumeSessionKey,
+  transcript hints, and ACP-native resume lines as later detached-session views
 - `sessions continue --json` now wraps the resolved session lookup and continue
   request metadata around the returned agent result, so automation can see both
   what was targeted and what happened next

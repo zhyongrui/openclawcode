@@ -313,6 +313,10 @@ Implemented:
   structured `resume` object under `handoff`, so accepted-run automation does
   not have to translate between a separate handoff schema and session-ledger
   schema
+- `openclaw agent --background` text output now also prints the shared
+  `Resume:` block, so operators get the same `resumeSessionKey`, transcript
+  state, and ACP-native resume hints at accepted time instead of only after a
+  later `sessions/tasks/flows` inspection
 - `openclaw sessions continue --json` now also exposes the resolved lookup and
   continue request metadata around the returned agent result, so automation can
   tie a continuation result back to the detached session it targeted

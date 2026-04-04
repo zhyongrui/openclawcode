@@ -119,6 +119,20 @@ describe("agentCliCommand", () => {
               sessionId: "sess-bg-1",
               updatedAt: 1,
               sessionFile: transcriptPath,
+              acp: {
+                backend: "codex",
+                agent: "codex",
+                runtimeSessionName: "main",
+                mode: "persistent",
+                state: "idle",
+                lastActivityAt: 1,
+                identity: {
+                  state: "resolved",
+                  source: "status",
+                  lastUpdatedAt: 1,
+                  agentSessionId: "codex-inner-1",
+                },
+              },
             },
           },
           null,
@@ -150,6 +164,12 @@ describe("agentCliCommand", () => {
       );
       expect(runtime.log).toHaveBeenCalledWith(
         'resume: openclaw agent --session-id sess-bg-1 --message "Continue from the latest background task state."',
+      );
+      expect(runtime.log).toHaveBeenCalledWith("Resume:");
+      expect(runtime.log).toHaveBeenCalledWith("resumeSessionKey: agent:main:main");
+      expect(runtime.log).toHaveBeenCalledWith(`resumeTranscript: ${transcriptPath}`);
+      expect(runtime.log).toHaveBeenCalledWith(
+        "resume in Codex CLI: `codex resume codex-inner-1` (continues this conversation).",
       );
     });
   });

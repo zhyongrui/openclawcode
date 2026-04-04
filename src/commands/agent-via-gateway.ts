@@ -17,6 +17,7 @@ import { resolveSessionKeyForRequest } from "./agent/session.js";
 import {
   type BackgroundSessionResumeDetail,
   describeBackgroundSessionResume,
+  formatBackgroundSessionResumeLines,
 } from "./background-session-resume.js";
 
 type AgentGatewayResult = {
@@ -217,6 +218,15 @@ function logAcceptedBackgroundRun(
   }
   if (handoff.resumeWith) {
     runtime.log(`resume: ${handoff.resumeWith}`);
+  }
+  if (handoff.resume?.sessionKey) {
+    runtime.log("Resume:");
+    for (const line of formatBackgroundSessionResumeLines({
+      cfg: params.cfg,
+      sessionKey: handoff.resume.sessionKey,
+    })) {
+      runtime.log(line);
+    }
   }
 }
 
