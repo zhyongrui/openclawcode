@@ -52,6 +52,7 @@ type SessionListRow = SessionRow & {
   transcriptPath: string | null;
   transcriptExists: boolean;
   lifecycle: SessionLifecycleAssessment;
+  resume?: BackgroundSessionResumeDetail;
 };
 
 const AGENT_PAD = 10;
@@ -253,6 +254,7 @@ function buildSessionListRows(params: {
           ...resolvedRow,
           transcriptPath: snapshot?.transcriptPath ?? null,
           transcriptExists: snapshot?.transcriptExists ?? false,
+          resume: snapshot?.resumeDetail,
           lifecycle:
             snapshot?.lifecycle ??
             buildSessionLifecycleAssessment({

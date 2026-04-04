@@ -135,6 +135,9 @@ Completed in this wave:
 - `openclaw agent --background` accepted handoff now also carries transcript
   path/existence snapshot hints in both text and JSON, so the very first
   detached-run acknowledgment exposes the same durable-history signal
+- the `sessions`, `tasks list`, and `flows list` JSON ledgers now also carry
+  structured resume metadata, so scripts can continue or inspect detached work
+  directly from list surfaces without a second `show` lookup
 - `sessions continue --json` now wraps the resolved session lookup and continue
   request metadata around the returned agent result, so automation can see both
   what was targeted and what happened next

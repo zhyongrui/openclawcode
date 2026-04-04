@@ -341,11 +341,16 @@ export async function tasksListCommand(
   });
   const rows = tasks.map((task) => ({
     ...task,
-    sessionLifecycle:
-      inspectDetachedSessionLifecycle({
+    ...(() => {
+      const snapshot = inspectDetachedSessionLifecycle({
         cfg,
         sessionKey: task.childSessionKey,
-      })?.lifecycle ?? null,
+      });
+      return {
+        sessionLifecycle: snapshot?.lifecycle ?? null,
+        sessionResume: snapshot?.resumeDetail ?? null,
+      };
+    })(),
   }));
 
   if (opts.json) {

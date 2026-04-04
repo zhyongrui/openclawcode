@@ -31,6 +31,7 @@ const SESSION_PAD = 16;
 
 type FlowListRow = TaskFlowRecord & {
   detachedLifecycle?: SessionLifecycleAssessment | null;
+  sessionResume?: import("./background-session-resume.js").BackgroundSessionResumeDetail | null;
 };
 
 type FlowLookupResolution = {
@@ -207,15 +208,19 @@ export async function flowsListCommand(
     }
     return true;
   });
-  const rows: FlowListRow[] = flows.map((flow) => ({
-    ...flow,
-    detachedLifecycle: parseAgentSessionKey(flow.ownerKey)
-      ? (inspectDetachedSessionLifecycle({
+  const rows: FlowListRow[] = flows.map((flow) => {
+    const snapshot = parseAgentSessionKey(flow.ownerKey)
+      ? inspectDetachedSessionLifecycle({
           cfg,
           sessionKey: flow.ownerKey,
-        })?.lifecycle ?? null)
-      : null,
-  }));
+        })
+      : undefined;
+    return {
+      ...flow,
+      detachedLifecycle: snapshot?.lifecycle ?? null,
+      sessionResume: snapshot?.resumeDetail ?? null,
+    };
+  });
 
   if (opts.json) {
     runtime.log(

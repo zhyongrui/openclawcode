@@ -205,6 +205,12 @@ describe("sessionsCommand", () => {
         key: string;
         transcriptExists: boolean;
         lifecycle: { status: string; waitingFlowCount: number };
+        resume?: {
+          sessionKey: string;
+          transcriptPath: string | null;
+          transcriptExists: boolean;
+          continueWith: string;
+        } | null;
       }>;
     }>(sessionsCommand, store);
     expect(payload.sessions?.[0]).toMatchObject({
@@ -213,6 +219,13 @@ describe("sessionsCommand", () => {
       lifecycle: {
         status: "waiting_detached",
         waitingFlowCount: 1,
+      },
+      resume: {
+        sessionKey: "agent:coder:acp:child",
+        transcriptPath,
+        transcriptExists: true,
+        continueWith:
+          'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       },
     });
   });
