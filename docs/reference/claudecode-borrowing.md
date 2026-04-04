@@ -455,6 +455,9 @@ Implemented:
 - that accepted background output now also prints a direct
   `openclaw sessions continue ...` command, so the foreground handoff uses the
   same continuation path as detached-session inspection views
+- `openclaw agent --background --json` now exposes the same handoff hints as
+  structured fields, so automation can reuse the exact wait/continue/resume
+  commands without scraping text output
 
 Not implemented yet:
 

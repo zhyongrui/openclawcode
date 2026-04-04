@@ -34,6 +34,15 @@ type GatewayAgentResponse = {
   result?: AgentGatewayResult;
 };
 
+type BackgroundAcceptedHandoff = {
+  runId?: string;
+  sessionId?: string;
+  sessionKey?: string;
+  waitWith?: string;
+  continueWith?: string;
+  resumeWith?: string;
+};
+
 const NO_GATEWAY_TIMEOUT_MS = 2_147_000_000;
 const CONTINUE_MESSAGE = "Continue from the latest background task state.";
 
@@ -118,6 +127,30 @@ function buildResumeCommand(params: { sessionId?: string; sessionKey?: string })
   return null;
 }
 
+function buildWaitCommand(runId: string) {
+  return formatCliCommand(`openclaw gateway call agent.wait --run-id ${quoteCliArg(runId)}`);
+}
+
+function buildAcceptedBackgroundHandoff(params: {
+  runId?: string;
+  sessionId?: string;
+  sessionKey?: string;
+}): BackgroundAcceptedHandoff {
+  const continueLookup = params.sessionKey ?? params.sessionId;
+  const resumeWith = buildResumeCommand({
+    sessionId: params.sessionId,
+    sessionKey: params.sessionKey,
+  });
+  return {
+    ...(params.runId ? { runId: params.runId } : {}),
+    ...(params.sessionId ? { sessionId: params.sessionId } : {}),
+    ...(params.sessionKey ? { sessionKey: params.sessionKey } : {}),
+    ...(params.runId ? { waitWith: buildWaitCommand(params.runId) } : {}),
+    ...(continueLookup ? { continueWith: buildContinueCommand(continueLookup) } : {}),
+    ...(resumeWith ? { resumeWith } : {}),
+  };
+}
+
 function logAcceptedBackgroundRun(
   runtime: RuntimeEnv,
   params: {
@@ -126,31 +159,25 @@ function logAcceptedBackgroundRun(
     sessionKey?: string;
   },
 ) {
+  const handoff = buildAcceptedBackgroundHandoff(params);
   runtime.log("Accepted background agent run.");
-  if (params.runId) {
-    runtime.log(`runId: ${params.runId}`);
+  if (handoff.runId) {
+    runtime.log(`runId: ${handoff.runId}`);
   }
-  if (params.sessionKey) {
-    runtime.log(`sessionKey: ${params.sessionKey}`);
+  if (handoff.sessionKey) {
+    runtime.log(`sessionKey: ${handoff.sessionKey}`);
   }
-  if (params.sessionId) {
-    runtime.log(`sessionId: ${params.sessionId}`);
+  if (handoff.sessionId) {
+    runtime.log(`sessionId: ${handoff.sessionId}`);
   }
-  if (params.runId) {
-    runtime.log(
-      `wait: ${formatCliCommand(`openclaw gateway call agent.wait --run-id ${quoteCliArg(params.runId)}`)}`,
-    );
+  if (handoff.waitWith) {
+    runtime.log(`wait: ${handoff.waitWith}`);
   }
-  const continueLookup = params.sessionKey ?? params.sessionId;
-  if (continueLookup) {
-    runtime.log(`continue: ${buildContinueCommand(continueLookup)}`);
+  if (handoff.continueWith) {
+    runtime.log(`continue: ${handoff.continueWith}`);
   }
-  const resumeCommand = buildResumeCommand({
-    sessionId: params.sessionId,
-    sessionKey: params.sessionKey,
-  });
-  if (resumeCommand) {
-    runtime.log(`resume: ${resumeCommand}`);
+  if (handoff.resumeWith) {
+    runtime.log(`resume: ${handoff.resumeWith}`);
   }
 }
 
@@ -226,7 +253,17 @@ export async function agentViaGatewayCommand(opts: AgentCliOpts, runtime: Runtim
   );
 
   if (opts.json) {
-    writeRuntimeJson(runtime, response);
+    const accepted = opts.background
+      ? buildAcceptedBackgroundHandoff({
+          runId: response?.runId,
+          sessionId: response?.sessionId ?? opts.sessionId,
+          sessionKey: response?.sessionKey ?? sessionKey,
+        })
+      : undefined;
+    writeRuntimeJson(runtime, {
+      ...response,
+      ...(accepted ? { handoff: accepted } : {}),
+    });
     return response;
   }
 

@@ -60,6 +60,8 @@ Shipped already:
 - explicit `--session-key <key>` targeting
 - background acceptance output now also prints a direct
   `openclaw sessions continue ...` handoff alongside low-level wait/resume hints
+- `openclaw agent --background --json` now exposes the same wait/continue/resume
+  handoff hints as structured fields for automation callers
 
 Staged next:
 

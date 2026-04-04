@@ -155,6 +155,51 @@ describe("agentCliCommand", () => {
     });
   });
 
+  it("adds structured handoff hints to background JSON output", async () => {
+    await withTempStore(async () => {
+      vi.mocked(callGateway).mockResolvedValue({
+        runId: "run-bg-json-1",
+        status: "accepted",
+        acceptedAt: 1,
+        sessionId: "sess-bg-json-1",
+        sessionKey: "agent:main:main",
+      });
+
+      await agentCliCommand({ message: "hi", to: "+1555", background: true, json: true }, runtime);
+
+      expect(runtime.log).toHaveBeenCalledTimes(1);
+      const payload = JSON.parse(String(vi.mocked(runtime.log).mock.calls[0]?.[0])) as {
+        runId?: string;
+        sessionId?: string;
+        sessionKey?: string;
+        handoff?: {
+          runId?: string;
+          sessionId?: string;
+          sessionKey?: string;
+          waitWith?: string;
+          continueWith?: string;
+          resumeWith?: string;
+        };
+      };
+
+      expect(payload).toMatchObject({
+        runId: "run-bg-json-1",
+        sessionId: "sess-bg-json-1",
+        sessionKey: "agent:main:main",
+        handoff: {
+          runId: "run-bg-json-1",
+          sessionId: "sess-bg-json-1",
+          sessionKey: "agent:main:main",
+          waitWith: "openclaw gateway call agent.wait --run-id run-bg-json-1",
+          continueWith:
+            'openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
+          resumeWith:
+            'openclaw agent --session-id sess-bg-json-1 --message "Continue from the latest background task state."',
+        },
+      });
+    });
+  });
+
   it("falls back to embedded agent when gateway fails", async () => {
     await withTempStore(async () => {
       vi.mocked(callGateway).mockRejectedValue(new Error("gateway not connected"));
