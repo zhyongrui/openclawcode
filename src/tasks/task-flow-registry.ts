@@ -33,6 +33,7 @@ type FlowRecordPatch = Omit<
       | "stateJson"
       | "waitJson"
       | "cancelRequestedAt"
+      | "reattachedAt"
       | "updatedAt"
       | "endedAt"
     >
@@ -53,6 +54,7 @@ type FlowRecordPatch = Omit<
   stateJson?: JsonValue | null;
   waitJson?: JsonValue | null;
   cancelRequestedAt?: number | null;
+  reattachedAt?: number | null;
   endedAt?: number | null;
 };
 
@@ -266,6 +268,7 @@ function buildFlowRecord(params: {
   stateJson?: JsonValue | null;
   waitJson?: JsonValue | null;
   cancelRequestedAt?: number | null;
+  reattachedAt?: number | null;
   createdAt?: number;
   updatedAt?: number;
   endedAt?: number | null;
@@ -295,6 +298,7 @@ function buildFlowRecord(params: {
       ? { waitJson: normalizeJsonBlob(params.waitJson)! }
       : {}),
     ...(params.cancelRequestedAt != null ? { cancelRequestedAt: params.cancelRequestedAt } : {}),
+    ...(params.reattachedAt != null ? { reattachedAt: params.reattachedAt } : {}),
     createdAt: now,
     updatedAt: params.updatedAt ?? now,
     ...(params.endedAt != null ? { endedAt: params.endedAt } : {}),
@@ -330,6 +334,8 @@ function applyFlowPatch(current: TaskFlowRecord, patch: FlowRecordPatch): TaskFl
       patch.cancelRequestedAt === undefined
         ? current.cancelRequestedAt
         : (patch.cancelRequestedAt ?? undefined),
+    reattachedAt:
+      patch.reattachedAt === undefined ? current.reattachedAt : (patch.reattachedAt ?? undefined),
     revision: current.revision + 1,
     updatedAt: patch.updatedAt ?? Date.now(),
     endedAt: patch.endedAt === undefined ? current.endedAt : (patch.endedAt ?? undefined),
@@ -362,6 +368,7 @@ export function createFlowRecord(params: {
   stateJson?: JsonValue | null;
   waitJson?: JsonValue | null;
   cancelRequestedAt?: number | null;
+  reattachedAt?: number | null;
   createdAt?: number;
   updatedAt?: number;
   endedAt?: number | null;
@@ -384,6 +391,7 @@ export function createManagedTaskFlow(params: {
   stateJson?: JsonValue | null;
   waitJson?: JsonValue | null;
   cancelRequestedAt?: number | null;
+  reattachedAt?: number | null;
   createdAt?: number;
   updatedAt?: number;
   endedAt?: number | null;
@@ -701,6 +709,29 @@ export function deleteTaskFlowRecordById(flowId: string): boolean {
     previous: cloneFlowRecord(current),
   }));
   return true;
+}
+
+export function markTaskFlowsReattachedForOwnerKey(params: {
+  ownerKey: string;
+  reattachedAt?: number;
+}): TaskFlowRecord[] {
+  ensureFlowRegistryReady();
+  const ownerKey = params.ownerKey.trim();
+  if (!ownerKey) {
+    return [];
+  }
+  const reattachedAt = params.reattachedAt ?? Date.now();
+  const updated: TaskFlowRecord[] = [];
+  for (const flow of flows.values()) {
+    if (flow.ownerKey.trim() !== ownerKey) {
+      continue;
+    }
+    const next = updateFlowRecordByIdUnchecked(flow.flowId, { reattachedAt });
+    if (next) {
+      updated.push(next);
+    }
+  }
+  return updated.toSorted((left, right) => right.createdAt - left.createdAt);
 }
 
 export function resetTaskFlowRegistryForTests(opts?: { persist?: boolean }) {

@@ -151,6 +151,7 @@ describe("tasksShowCommand detached session lifecycle", () => {
     expect(output).toContain("sessionLifecycleSummary: Transcript file is missing");
     expect(output).toContain("resumeTranscript: n/a");
     expect(output).toContain("resumeTranscriptExists: no");
+    expect(output).toContain("reattachedAt: n/a");
 
     const jsonRun = makeRuntime();
     await tasksShowCommand({ lookup: task.taskId, json: true }, jsonRun.runtime);
@@ -187,6 +188,34 @@ describe("tasksShowCommand detached session lifecycle", () => {
           'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       },
     });
+  });
+
+  it("shows reattachedAt when the detached session was later resumed in foreground", async () => {
+    const reattachedAt = Date.parse("2026-04-03T11:58:30Z");
+    const task = createTaskRecord({
+      runtime: "acp",
+      ownerKey: "agent:main:main",
+      scopeKind: "session",
+      childSessionKey: "agent:coder:acp:child-reattached",
+      originKind: "detached_session",
+      originSessionKey: "agent:main:main",
+      runId: "run-detached-reattached",
+      label: "Reattach detached work",
+      task: "Reattach detached work",
+      status: "running",
+      deliveryStatus: "pending",
+      notifyPolicy: "state_changes",
+      reattachedAt,
+    });
+
+    const textRun = makeRuntime();
+    await tasksShowCommand({ lookup: task.taskId, json: false }, textRun.runtime);
+    expect(textRun.logs.join("\n")).toContain("reattachedAt: 2026-04-03T11:58:30.000Z");
+
+    const jsonRun = makeRuntime();
+    await tasksShowCommand({ lookup: task.taskId, json: true }, jsonRun.runtime);
+    const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as { reattachedAt?: number };
+    expect(payload.reattachedAt).toBe(reattachedAt);
   });
 
   it("classifies a run-id lookup in JSON output", async () => {

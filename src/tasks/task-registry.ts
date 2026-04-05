@@ -1202,6 +1202,30 @@ export function setTaskTimingById(params: {
   return updateTask(params.taskId, patch);
 }
 
+export function markTasksReattachedForRelatedSessionKey(params: {
+  sessionKey: string;
+  reattachedAt?: number;
+}): TaskRecord[] {
+  ensureTaskRegistryReady();
+  const key = normalizeSessionIndexKey(params.sessionKey);
+  if (!key) {
+    return [];
+  }
+  const taskIds = taskIdsByRelatedSessionKey.get(key);
+  if (!taskIds || taskIds.size === 0) {
+    return [];
+  }
+  const reattachedAt = params.reattachedAt ?? Date.now();
+  const updated: TaskRecord[] = [];
+  for (const taskId of taskIds) {
+    const task = updateTask(taskId, { reattachedAt });
+    if (task) {
+      updated.push(task);
+    }
+  }
+  return updated.toSorted(compareTasksNewestFirst);
+}
+
 export function setTaskCleanupAfterById(params: {
   taskId: string;
   cleanupAfter: number;
@@ -1351,7 +1375,6 @@ export function createTaskRecord(params: {
   requesterOrigin?: TaskDeliveryState["requesterOrigin"];
   parentFlowId?: string;
   childSessionKey?: string;
-  parentFlowId?: string;
   parentTaskId?: string;
   agentId?: string;
   runId?: string;
@@ -1363,6 +1386,7 @@ export function createTaskRecord(params: {
   notifyPolicy?: TaskNotifyPolicy;
   startedAt?: number;
   lastEventAt?: number;
+  reattachedAt?: number;
   cleanupAfter?: number;
   progressSummary?: string | null;
   terminalSummary?: string | null;
@@ -1427,7 +1451,6 @@ export function createTaskRecord(params: {
     ownerKey,
     scopeKind,
     childSessionKey: params.childSessionKey,
-    parentFlowId: params.parentFlowId?.trim() || undefined,
     parentTaskId: params.parentTaskId?.trim() || undefined,
     agentId: params.agentId?.trim() || undefined,
     runId: params.runId?.trim() || undefined,
@@ -1439,6 +1462,7 @@ export function createTaskRecord(params: {
     createdAt: now,
     startedAt: params.startedAt,
     lastEventAt,
+    reattachedAt: params.reattachedAt,
     cleanupAfter: params.cleanupAfter,
     progressSummary: normalizeTaskSummary(params.progressSummary),
     terminalSummary: normalizeTaskSummary(params.terminalSummary),

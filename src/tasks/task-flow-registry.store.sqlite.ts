@@ -26,6 +26,7 @@ type FlowRegistryRow = {
   state_json: string | null;
   wait_json: string | null;
   cancel_requested_at: number | bigint | null;
+  reattached_at: number | bigint | null;
   created_at: number | bigint;
   updated_at: number | bigint;
   ended_at: number | bigint | null;
@@ -81,6 +82,7 @@ function rowToSyncMode(row: FlowRegistryRow): TaskFlowSyncMode {
 function rowToFlowRecord(row: FlowRegistryRow): TaskFlowRecord {
   const endedAt = normalizeNumber(row.ended_at);
   const cancelRequestedAt = normalizeNumber(row.cancel_requested_at);
+  const reattachedAt = normalizeNumber(row.reattached_at);
   const requesterOrigin = parseJsonValue<DeliveryContext>(row.requester_origin_json);
   const stateJson = parseJsonValue<JsonValue>(row.state_json);
   const waitJson = parseJsonValue<JsonValue>(row.wait_json);
@@ -100,6 +102,7 @@ function rowToFlowRecord(row: FlowRegistryRow): TaskFlowRecord {
     ...(stateJson !== undefined ? { stateJson } : {}),
     ...(waitJson !== undefined ? { waitJson } : {}),
     ...(cancelRequestedAt != null ? { cancelRequestedAt } : {}),
+    ...(reattachedAt != null ? { reattachedAt } : {}),
     createdAt: normalizeNumber(row.created_at) ?? 0,
     updatedAt: normalizeNumber(row.updated_at) ?? 0,
     ...(endedAt != null ? { endedAt } : {}),
@@ -123,6 +126,7 @@ function bindFlowRecord(record: TaskFlowRecord) {
     state_json: serializeJson(record.stateJson),
     wait_json: serializeJson(record.waitJson),
     cancel_requested_at: record.cancelRequestedAt ?? null,
+    reattached_at: record.reattachedAt ?? null,
     created_at: record.createdAt,
     updated_at: record.updatedAt,
     ended_at: record.endedAt ?? null,
@@ -149,6 +153,7 @@ function createStatements(db: DatabaseSync): FlowRegistryStatements {
         state_json,
         wait_json,
         cancel_requested_at,
+        reattached_at,
         created_at,
         updated_at,
         ended_at
@@ -191,6 +196,7 @@ function createStatements(db: DatabaseSync): FlowRegistryStatements {
         @state_json,
         @wait_json,
         @cancel_requested_at,
+        @reattached_at,
         @created_at,
         @updated_at,
         @ended_at
@@ -210,6 +216,7 @@ function createStatements(db: DatabaseSync): FlowRegistryStatements {
         state_json = excluded.state_json,
         wait_json = excluded.wait_json,
         cancel_requested_at = excluded.cancel_requested_at,
+        reattached_at = excluded.reattached_at,
         created_at = excluded.created_at,
         updated_at = excluded.updated_at,
         ended_at = excluded.ended_at
@@ -243,6 +250,7 @@ function ensureSchema(db: DatabaseSync) {
       state_json TEXT,
       wait_json TEXT,
       cancel_requested_at INTEGER,
+      reattached_at INTEGER,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       ended_at INTEGER
@@ -309,6 +317,9 @@ function ensureSchema(db: DatabaseSync) {
   }
   if (!hasFlowRunsColumn(db, "cancel_requested_at")) {
     db.exec(`ALTER TABLE flow_runs ADD COLUMN cancel_requested_at INTEGER;`);
+  }
+  if (!hasFlowRunsColumn(db, "reattached_at")) {
+    db.exec(`ALTER TABLE flow_runs ADD COLUMN reattached_at INTEGER;`);
   }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_flow_runs_status ON flow_runs(status);`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_flow_runs_owner_key ON flow_runs(owner_key);`);

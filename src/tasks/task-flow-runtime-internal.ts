@@ -9,6 +9,7 @@ export {
   getTaskFlowById,
   listTaskFlowRecords,
   listTaskFlowsForOwnerKey,
+  markTaskFlowsReattachedForOwnerKey,
   requestFlowCancel,
   resolveTaskFlowForLookupToken,
   resetTaskFlowRegistryForTests,

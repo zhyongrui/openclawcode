@@ -16,6 +16,7 @@ export {
   listTasksForRelatedSessionKey,
   linkTaskToFlowById,
   markTaskLostById,
+  markTasksReattachedForRelatedSessionKey,
   markTaskRunningByRunId,
   markTaskTerminalById,
   markTaskTerminalByRunId,

@@ -16,8 +16,14 @@ import { info } from "../globals.js";
 import { formatTimeAgo } from "../infra/format-time/format-relative.js";
 import { parseAgentSessionKey } from "../routing/session-key.js";
 import { resolveSessionIdMatchSelection } from "../sessions/session-id-resolution.js";
-import { listTaskFlowsForOwnerKey } from "../tasks/task-flow-runtime-internal.js";
-import { listTasksForRelatedSessionKey } from "../tasks/task-registry.js";
+import {
+  listTaskFlowsForOwnerKey,
+  markTaskFlowsReattachedForOwnerKey,
+} from "../tasks/task-flow-runtime-internal.js";
+import {
+  listTasksForRelatedSessionKey,
+  markTasksReattachedForRelatedSessionKey,
+} from "../tasks/runtime-internal.js";
 import { type RuntimeEnv, writeRuntimeJson } from "../runtime.js";
 import { isRich, theme } from "../terminal/theme.js";
 import { agentCliCommand } from "./agent-via-gateway.js";
@@ -611,6 +617,7 @@ function buildSessionShowPayload(params: {
       childSessionKey: task.childSessionKey ?? null,
       parentFlowId: task.parentFlowId ?? null,
       updatedAt: task.lastEventAt ?? task.createdAt,
+      reattachedAt: task.reattachedAt ?? null,
     })),
     relatedTaskFlows: params.relatedTaskFlows.map((flow) => ({
       flowId: flow.flowId,
@@ -625,6 +632,7 @@ function buildSessionShowPayload(params: {
       createdAt: flow.createdAt,
       updatedAt: flow.updatedAt,
       endedAt: flow.endedAt ?? null,
+      reattachedAt: flow.reattachedAt ?? null,
       revision: flow.revision,
     })),
     resume: params.resumeDetail ?? null,
@@ -884,7 +892,7 @@ export async function sessionsShowCommand(
     runtime.log("Related tasks:");
     for (const task of relatedTasks.slice(0, 8)) {
       runtime.log(
-        `- ${task.taskId} ${task.status} ${task.runtime} ${task.runId ?? "n/a"} ${task.label ?? task.task}`,
+        `- ${task.taskId} ${task.status} ${task.runtime} ${task.runId ?? "n/a"} ${task.label ?? task.task}${task.reattachedAt ? ` [reattached ${new Date(task.reattachedAt).toISOString()}]` : ""}`,
       );
     }
   }
@@ -892,7 +900,7 @@ export async function sessionsShowCommand(
     runtime.log("Related TaskFlows:");
     for (const flow of relatedTaskFlows.slice(0, 8)) {
       runtime.log(
-        `- ${flow.flowId} ${flow.status} ${flow.syncMode} ${flow.controllerId ?? "n/a"} ${flow.goal}`,
+        `- ${flow.flowId} ${flow.status} ${flow.syncMode} ${flow.controllerId ?? "n/a"} ${flow.goal}${flow.reattachedAt ? ` [reattached ${new Date(flow.reattachedAt).toISOString()}]` : ""}`,
       );
     }
   }
@@ -977,6 +985,7 @@ export async function sessionsContinueCommand(
     target: resolved.match.target,
     abortedLastRun: resolved.match.entry.abortedLastRun === true,
   });
+  const reattachedAt = opts.background === true ? null : Date.now();
 
   if (opts.json) {
     const quietRuntime: RuntimeEnv = {
@@ -988,8 +997,18 @@ export async function sessionsContinueCommand(
         ...commandOpts,
         json: false,
       },
-      quietRuntime,
+        quietRuntime,
     );
+    if (reattachedAt != null) {
+      markTasksReattachedForRelatedSessionKey({
+        sessionKey: resolved.match.sessionKey,
+        reattachedAt,
+      });
+      markTaskFlowsReattachedForOwnerKey({
+        ownerKey: resolved.match.sessionKey,
+        reattachedAt,
+      });
+    }
     writeRuntimeJson(runtime, {
       ...((agentResult && typeof agentResult === "object" && !Array.isArray(agentResult))
         ? agentResult
@@ -1005,6 +1024,7 @@ export async function sessionsContinueCommand(
         transcriptExists: snapshot?.transcriptExists ?? false,
         lifecycleBeforeContinue: snapshot?.lifecycle ?? null,
         resumeBeforeContinue: snapshot?.resumeDetail ?? null,
+        reattachedAt,
       },
       continueRequest: {
         message,
@@ -1050,4 +1070,14 @@ export async function sessionsContinueCommand(
     },
     runtime,
   );
+  if (reattachedAt != null) {
+    markTasksReattachedForRelatedSessionKey({
+      sessionKey: resolved.match.sessionKey,
+      reattachedAt,
+    });
+    markTaskFlowsReattachedForOwnerKey({
+      ownerKey: resolved.match.sessionKey,
+      reattachedAt,
+    });
+  }
 }

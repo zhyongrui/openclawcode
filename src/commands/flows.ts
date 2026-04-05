@@ -326,6 +326,7 @@ export async function flowsShowCommand(
     ...(flow.cancelRequestedAt
       ? [`cancelRequestedAt: ${new Date(flow.cancelRequestedAt).toISOString()}`]
       : []),
+    `reattachedAt: ${flow.reattachedAt ? new Date(flow.reattachedAt).toISOString() : "n/a"}`,
     `createdAt: ${new Date(flow.createdAt).toISOString()}`,
     `updatedAt: ${new Date(flow.updatedAt).toISOString()}`,
     `endedAt: ${flow.endedAt ? new Date(flow.endedAt).toISOString() : "n/a"}`,

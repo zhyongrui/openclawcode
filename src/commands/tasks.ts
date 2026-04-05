@@ -458,6 +458,7 @@ export async function tasksShowCommand(
     `startedAt: ${task.startedAt ? new Date(task.startedAt).toISOString() : "n/a"}`,
     `endedAt: ${task.endedAt ? new Date(task.endedAt).toISOString() : "n/a"}`,
     `lastEventAt: ${task.lastEventAt ? new Date(task.lastEventAt).toISOString() : "n/a"}`,
+    `reattachedAt: ${task.reattachedAt ? new Date(task.reattachedAt).toISOString() : "n/a"}`,
     `cleanupAfter: ${task.cleanupAfter ? new Date(task.cleanupAfter).toISOString() : "n/a"}`,
     ...(task.error ? [`error: ${task.error}`] : []),
     ...(task.progressSummary ? [`progressSummary: ${task.progressSummary}`] : []),

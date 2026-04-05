@@ -181,12 +181,14 @@ describe("sessionsShowCommand", () => {
         {
           runId: "run-detached-1",
           originKind: "detached_session",
+          reattachedAt: null,
         },
       ],
       relatedTaskFlows: [
         {
           controllerId: "tests/sessions-show",
           status: "waiting",
+          reattachedAt: null,
         },
       ],
       resume: {
@@ -208,6 +210,61 @@ describe("sessionsShowCommand", () => {
     expect(payload.resumeLines.some((line) => line.includes("openclaw agent --session-id"))).toBe(
       true,
     );
+  });
+
+  it("shows reattached metadata on related tasks and flows", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-sessions-show-reattached-"));
+    tempDirs.push(root);
+    const store = path.join(root, "sessions.json");
+    fs.writeFileSync(
+      store,
+      JSON.stringify(
+        {
+          "agent:coder:acp:child-reattached": {
+            sessionId: "sess-child-reattached",
+            updatedAt: Date.now() - 5 * 60_000,
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const reattachedAt = Date.parse("2026-04-03T11:58:30Z");
+    createTaskRecord({
+      runtime: "acp",
+      ownerKey: "agent:main:main",
+      scopeKind: "session",
+      childSessionKey: "agent:coder:acp:child-reattached",
+      originKind: "detached_session",
+      originSessionKey: "agent:main:main",
+      task: "Continue detached work",
+      status: "running",
+      deliveryStatus: "pending",
+      notifyPolicy: "state_changes",
+      reattachedAt,
+    });
+    createManagedTaskFlow({
+      ownerKey: "agent:coder:acp:child-reattached",
+      controllerId: "tests/sessions-show",
+      goal: "Continue detached work",
+      status: "waiting",
+      reattachedAt,
+    });
+
+    const { runtime, logs } = makeRuntime();
+    await sessionsShowCommand(
+      {
+        lookup: "sess-child-reattached",
+        store,
+        json: false,
+      },
+      runtime,
+    );
+
+    const output = logs.join("\n");
+    expect(output).toContain("[reattached 2026-04-03T11:58:30.000Z]");
   });
 
   it("classifies a session with a missing transcript as missing_transcript", async () => {

@@ -41,6 +41,7 @@ export type TaskRunView = {
   startedAt?: number;
   endedAt?: number;
   lastEventAt?: number;
+  reattachedAt?: number;
   cleanupAfter?: number;
   error?: string;
   progressSummary?: string;
@@ -66,6 +67,7 @@ export type TaskFlowView = {
   goal: string;
   currentStep?: string;
   cancelRequestedAt?: number;
+  reattachedAt?: number;
   createdAt: number;
   updatedAt: number;
   endedAt?: number;

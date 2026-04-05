@@ -56,13 +56,13 @@ export type TaskRecord = {
   runtime: TaskRuntime;
   originKind?: TaskOriginKind;
   originSessionKey?: string;
+  reattachedAt?: number;
   sourceId?: string;
   requesterSessionKey: string;
   parentFlowId?: string;
   ownerKey: string;
   scopeKind: TaskScopeKind;
   childSessionKey?: string;
-  parentFlowId?: string;
   parentTaskId?: string;
   agentId?: string;
   runId?: string;

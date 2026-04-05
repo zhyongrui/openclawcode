@@ -27,6 +27,7 @@ export type TaskFlowRecord = {
   ownerKey: string;
   requesterOrigin?: DeliveryContext;
   controllerId?: string;
+  reattachedAt?: number;
   revision: number;
   status: TaskFlowStatus;
   notifyPolicy: TaskNotifyPolicy;

@@ -158,10 +158,18 @@ Completed in this wave:
 - `tasks show` / `flows show` now also expose `lookup` and `resolvedBy`, so
   detail views explain which operator token matched the underlying durable
   record
+- foreground `sessions continue` now stamps related task and TaskFlow records
+  with durable `reattachedAt` metadata, so detached work can later distinguish
+  "still backgrounded" from "brought back to the foreground"
+- that reattach metadata now shows up in `tasks show`, `flows show`, and
+  `sessions show` related-record payloads, giving operator views a first
+  durable hook for later completion-routing behavior
 
 Staged next:
 
 - non-CLI reattach affordances
+- completion routing and notifications that react differently once detached
+  work has been foreground-reattached
 - clearer remote-session lifecycle views in operator UIs
 
 ### 5. Bridge and remote-control subsystem boundaries

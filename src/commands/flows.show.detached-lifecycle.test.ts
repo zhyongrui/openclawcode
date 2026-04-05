@@ -155,6 +155,7 @@ describe("flowsShowCommand detached session lifecycle", () => {
     expect(output).toContain("resumeTranscript: n/a");
     expect(output).toContain("resumeTranscriptExists: no");
     expect(output).toContain("continueWith: openclaw sessions continue agent:coder:acp:child");
+    expect(output).toContain("reattachedAt: n/a");
 
     const jsonRun = makeRuntime();
     await flowsShowCommand({ lookup: flow.flowId, json: true }, jsonRun.runtime);
@@ -193,6 +194,26 @@ describe("flowsShowCommand detached session lifecycle", () => {
         },
       ],
     });
+  });
+
+  it("shows reattachedAt when the detached flow was later resumed in foreground", async () => {
+    const reattachedAt = Date.parse("2026-04-03T11:58:30Z");
+    const flow = createManagedTaskFlow({
+      ownerKey: "agent:coder:acp:owner-reattached",
+      controllerId: "tests/flows-show",
+      goal: "Continue detached work",
+      status: "waiting",
+      reattachedAt,
+    });
+
+    const textRun = makeRuntime();
+    await flowsShowCommand({ lookup: flow.flowId, json: false }, textRun.runtime);
+    expect(textRun.logs.join("\n")).toContain("reattachedAt: 2026-04-03T11:58:30.000Z");
+
+    const jsonRun = makeRuntime();
+    await flowsShowCommand({ lookup: flow.flowId, json: true }, jsonRun.runtime);
+    const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as { reattachedAt?: number };
+    expect(payload.reattachedAt).toBe(reattachedAt);
   });
 
   it("classifies an owner-key lookup in JSON output", async () => {

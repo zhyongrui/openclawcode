@@ -1,5 +1,9 @@
 import fs from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { configureTaskFlowRegistryRuntime } from "../tasks/task-flow-registry.store.js";
+import { createManagedTaskFlow, getTaskFlowById, resetTaskFlowRegistryForTests } from "../tasks/task-flow-runtime-internal.js";
+import { configureTaskRegistryRuntime } from "../tasks/task-registry.store.js";
+import { createTaskRecord, getTaskById, resetTaskRegistryForTests } from "../tasks/runtime-internal.js";
 import { makeRuntime, mockSessionsConfig, writeStore } from "./sessions.test-helpers.js";
 
 const mocks = vi.hoisted(() => ({
@@ -15,9 +19,37 @@ mockSessionsConfig();
 import { sessionsContinueCommand } from "./sessions.js";
 
 describe("sessionsContinueCommand", () => {
+  const taskStore = {
+    loadSnapshot: () => ({
+      tasks: new Map(),
+      deliveryStates: new Map(),
+    }),
+    saveSnapshot: () => {},
+    upsertTaskWithDeliveryState: () => {},
+    upsertTask: () => {},
+    deleteTaskWithDeliveryState: () => {},
+    deleteTask: () => {},
+    upsertDeliveryState: () => {},
+    deleteDeliveryState: () => {},
+    close: () => {},
+  };
+  const flowStore = {
+    loadSnapshot: () => ({
+      flows: new Map(),
+    }),
+    saveSnapshot: () => {},
+    upsertFlow: () => {},
+    deleteFlow: () => {},
+    close: () => {},
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.agentCliCommandMock.mockResolvedValue({});
+    resetTaskRegistryForTests({ persist: false });
+    resetTaskFlowRegistryForTests({ persist: false });
+    configureTaskRegistryRuntime({ store: taskStore });
+    configureTaskFlowRegistryRuntime({ store: flowStore });
   });
 
   it("wraps JSON output with resolved session metadata and forwarded agent result", async () => {
@@ -299,6 +331,109 @@ describe("sessionsContinueCommand", () => {
           background: false,
         },
       });
+    } finally {
+      fs.rmSync(store, { force: true });
+    }
+  });
+
+  it("marks related tasks and flows as reattached for foreground continue", async () => {
+    const store = writeStore({
+      "agent:coder:acp:child": {
+        sessionId: "sess-child-continue-reattach",
+        updatedAt: Date.now() - 5 * 60_000,
+      },
+    });
+    const task = createTaskRecord({
+      runtime: "acp",
+      ownerKey: "agent:main:main",
+      scopeKind: "session",
+      childSessionKey: "agent:coder:acp:child",
+      originKind: "detached_session",
+      originSessionKey: "agent:main:main",
+      task: "Detached child",
+      status: "running",
+      deliveryStatus: "pending",
+      notifyPolicy: "state_changes",
+    });
+    const flow = createManagedTaskFlow({
+      ownerKey: "agent:coder:acp:child",
+      controllerId: "tests/sessions-continue",
+      goal: "Detached child",
+      status: "waiting",
+    });
+
+    try {
+      const { runtime, logs } = makeRuntime();
+      await sessionsContinueCommand(
+        {
+          lookup: "sess-child-continue-reattach",
+          message: "Bring this back to foreground",
+          store,
+          json: true,
+        },
+        runtime,
+      );
+
+      const updatedTask = getTaskById(task.taskId);
+      const updatedFlow = getTaskFlowById(flow.flowId);
+      expect(updatedTask?.reattachedAt).toBeTypeOf("number");
+      expect(updatedFlow?.reattachedAt).toBeTypeOf("number");
+
+      const payload = JSON.parse(logs[0] ?? "{}") as {
+        continuedSession?: { reattachedAt?: number | null };
+      };
+      expect(payload.continuedSession?.reattachedAt).toBe(updatedTask?.reattachedAt);
+      expect(updatedFlow?.reattachedAt).toBe(updatedTask?.reattachedAt);
+    } finally {
+      fs.rmSync(store, { force: true });
+    }
+  });
+
+  it("does not mark related tasks and flows as reattached for background continue", async () => {
+    const store = writeStore({
+      "agent:coder:acp:bg-child": {
+        sessionId: "sess-child-continue-bg",
+        updatedAt: Date.now() - 5 * 60_000,
+      },
+    });
+    const task = createTaskRecord({
+      runtime: "acp",
+      ownerKey: "agent:main:main",
+      scopeKind: "session",
+      childSessionKey: "agent:coder:acp:bg-child",
+      originKind: "detached_session",
+      originSessionKey: "agent:main:main",
+      task: "Detached child",
+      status: "running",
+      deliveryStatus: "pending",
+      notifyPolicy: "state_changes",
+    });
+    const flow = createManagedTaskFlow({
+      ownerKey: "agent:coder:acp:bg-child",
+      controllerId: "tests/sessions-continue",
+      goal: "Detached child",
+      status: "waiting",
+    });
+
+    try {
+      const { runtime, logs } = makeRuntime();
+      await sessionsContinueCommand(
+        {
+          lookup: "sess-child-continue-bg",
+          message: "Keep it detached",
+          store,
+          json: true,
+          background: true,
+        },
+        runtime,
+      );
+
+      expect(getTaskById(task.taskId)?.reattachedAt).toBeUndefined();
+      expect(getTaskFlowById(flow.flowId)?.reattachedAt).toBeUndefined();
+      const payload = JSON.parse(logs[0] ?? "{}") as {
+        continuedSession?: { reattachedAt?: number | null };
+      };
+      expect(payload.continuedSession?.reattachedAt).toBeNull();
     } finally {
       fs.rmSync(store, { force: true });
     }

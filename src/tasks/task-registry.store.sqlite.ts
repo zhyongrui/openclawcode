@@ -16,7 +16,6 @@ type TaskRegistryRow = {
   owner_key: string;
   scope_kind: TaskRecord["scopeKind"];
   child_session_key: string | null;
-  parent_flow_id: string | null;
   parent_task_id: string | null;
   agent_id: string | null;
   run_id: string | null;
@@ -29,6 +28,7 @@ type TaskRegistryRow = {
   started_at: number | bigint | null;
   ended_at: number | bigint | null;
   last_event_at: number | bigint | null;
+  reattached_at: number | bigint | null;
   cleanup_after: number | bigint | null;
   error: string | null;
   progress_summary: string | null;
@@ -94,6 +94,7 @@ function rowToTaskRecord(row: TaskRegistryRow): TaskRecord {
   const startedAt = normalizeNumber(row.started_at);
   const endedAt = normalizeNumber(row.ended_at);
   const lastEventAt = normalizeNumber(row.last_event_at);
+  const reattachedAt = normalizeNumber(row.reattached_at);
   const cleanupAfter = normalizeNumber(row.cleanup_after);
   return {
     taskId: row.task_id,
@@ -106,7 +107,6 @@ function rowToTaskRecord(row: TaskRegistryRow): TaskRecord {
     ownerKey: row.owner_key,
     scopeKind: row.scope_kind,
     ...(row.child_session_key ? { childSessionKey: row.child_session_key } : {}),
-    ...(row.parent_flow_id ? { parentFlowId: row.parent_flow_id } : {}),
     ...(row.parent_task_id ? { parentTaskId: row.parent_task_id } : {}),
     ...(row.agent_id ? { agentId: row.agent_id } : {}),
     ...(row.run_id ? { runId: row.run_id } : {}),
@@ -119,6 +119,7 @@ function rowToTaskRecord(row: TaskRegistryRow): TaskRecord {
     ...(startedAt != null ? { startedAt } : {}),
     ...(endedAt != null ? { endedAt } : {}),
     ...(lastEventAt != null ? { lastEventAt } : {}),
+    ...(reattachedAt != null ? { reattachedAt } : {}),
     ...(cleanupAfter != null ? { cleanupAfter } : {}),
     ...(row.error ? { error: row.error } : {}),
     ...(row.progress_summary ? { progressSummary: row.progress_summary } : {}),
@@ -148,7 +149,6 @@ function bindTaskRecord(record: TaskRecord) {
     owner_key: record.ownerKey,
     scope_kind: record.scopeKind,
     child_session_key: record.childSessionKey ?? null,
-    parent_flow_id: record.parentFlowId ?? null,
     parent_task_id: record.parentTaskId ?? null,
     agent_id: record.agentId ?? null,
     run_id: record.runId ?? null,
@@ -161,6 +161,7 @@ function bindTaskRecord(record: TaskRecord) {
     started_at: record.startedAt ?? null,
     ended_at: record.endedAt ?? null,
     last_event_at: record.lastEventAt ?? null,
+    reattached_at: record.reattachedAt ?? null,
     cleanup_after: record.cleanupAfter ?? null,
     error: record.error ?? null,
     progress_summary: record.progressSummary ?? null,
@@ -190,7 +191,6 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
         owner_key,
         scope_kind,
         child_session_key,
-        parent_flow_id,
         parent_task_id,
         agent_id,
         run_id,
@@ -203,6 +203,7 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
         started_at,
         ended_at,
         last_event_at,
+        reattached_at,
         cleanup_after,
         error,
         progress_summary,
@@ -243,6 +244,7 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
         started_at,
         ended_at,
         last_event_at,
+        reattached_at,
         cleanup_after,
         error,
         progress_summary,
@@ -258,7 +260,6 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
         @owner_key,
         @scope_kind,
         @child_session_key,
-        @parent_flow_id,
         @parent_task_id,
         @agent_id,
         @run_id,
@@ -271,6 +272,7 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
         @started_at,
         @ended_at,
         @last_event_at,
+        @reattached_at,
         @cleanup_after,
         @error,
         @progress_summary,
@@ -286,7 +288,6 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
         owner_key = excluded.owner_key,
         scope_kind = excluded.scope_kind,
         child_session_key = excluded.child_session_key,
-        parent_flow_id = excluded.parent_flow_id,
         parent_task_id = excluded.parent_task_id,
         agent_id = excluded.agent_id,
         run_id = excluded.run_id,
@@ -299,6 +300,7 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
         started_at = excluded.started_at,
         ended_at = excluded.ended_at,
         last_event_at = excluded.last_event_at,
+        reattached_at = excluded.reattached_at,
         cleanup_after = excluded.cleanup_after,
         error = excluded.error,
         progress_summary = excluded.progress_summary,
@@ -371,7 +373,6 @@ function ensureSchema(db: DatabaseSync) {
       owner_key TEXT NOT NULL,
       scope_kind TEXT NOT NULL,
       child_session_key TEXT,
-      parent_flow_id TEXT,
       parent_task_id TEXT,
       agent_id TEXT,
       run_id TEXT,
@@ -384,6 +385,7 @@ function ensureSchema(db: DatabaseSync) {
       started_at INTEGER,
       ended_at INTEGER,
       last_event_at INTEGER,
+      reattached_at INTEGER,
       cleanup_after INTEGER,
       error TEXT,
       progress_summary TEXT,
@@ -394,6 +396,9 @@ function ensureSchema(db: DatabaseSync) {
   migrateLegacyOwnerColumns(db);
   if (!hasTaskRunsColumn(db, "parent_flow_id")) {
     db.exec(`ALTER TABLE task_runs ADD COLUMN parent_flow_id TEXT;`);
+  }
+  if (!hasTaskRunsColumn(db, "reattached_at")) {
+    db.exec(`ALTER TABLE task_runs ADD COLUMN reattached_at INTEGER;`);
   }
   db.exec(`
     CREATE TABLE IF NOT EXISTS task_delivery_state (

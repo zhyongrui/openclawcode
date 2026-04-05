@@ -332,6 +332,13 @@ Implemented:
 - `openclaw tasks show` and `openclaw flows show` now also expose `lookup` and
   `resolvedBy`, so machine-readable detail views keep the same explicit
   resolution context as `sessions show`
+- foreground `openclaw sessions continue ...` now also stamps related detached
+  task and TaskFlow records with durable `reattachedAt` metadata, so later
+  operator views can tell whether the detached session stayed detached or was
+  explicitly brought back to the foreground
+- that `reattachedAt` state now surfaces in `tasks show`, `flows show`, and
+  `sessions show` related-record output, which establishes the substrate needed
+  for ClaudeCode-style completion routing that depends on reattach state
 
 Not implemented yet:
 
@@ -339,8 +346,8 @@ Not implemented yet:
   beyond the CLI entrypoint
 - session transcript handoff and recovery UX matching ClaudeCode's
   `LocalMainSessionTask` pattern
-- completion-routing behavior that depends on whether a detached task was
-  later reattached
+- the actual completion-routing behavior that depends on whether a detached
+  task was later reattached
 
 This keeps the first step deliberately narrow: make detached-session provenance
 durable and inspectable first, then build the foreground-to-background
