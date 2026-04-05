@@ -48,6 +48,7 @@ type BackgroundAcceptedHandoff = {
   transcriptExists?: boolean;
   waitWith?: string;
   continueWith?: string;
+  reattachWith?: string;
   resumeWith?: string;
   resume?: BackgroundSessionResumeDetail;
 };
@@ -176,6 +177,7 @@ function buildAcceptedBackgroundHandoff(params: {
       : continueLookup
         ? { continueWith: buildContinueCommand(continueLookup) }
         : {}),
+    ...(resumeDetail?.reattachWith ? { reattachWith: resumeDetail.reattachWith } : {}),
     ...(resumeWith ? { resumeWith } : {}),
     ...(resumeDetail ? { resume: resumeDetail } : {}),
   };
@@ -215,6 +217,9 @@ function logAcceptedBackgroundRun(
   }
   if (handoff.continueWith) {
     runtime.log(`continue: ${handoff.continueWith}`);
+  }
+  if (handoff.reattachWith) {
+    runtime.log(`reattach: ${handoff.reattachWith}`);
   }
   if (handoff.resumeWith) {
     runtime.log(`resume: ${handoff.resumeWith}`);

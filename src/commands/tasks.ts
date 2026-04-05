@@ -2,6 +2,7 @@ import { loadConfig } from "../config/config.js";
 import { info } from "../globals.js";
 import type { RuntimeEnv } from "../runtime.js";
 import {
+  buildBackgroundSessionCompletionRouting,
   describeBackgroundSessionResume,
   formatBackgroundSessionResumeLines,
 } from "./background-session-resume.js";
@@ -409,6 +410,12 @@ export async function tasksShowCommand(
   const sessionResume = describeBackgroundSessionResume({
     cfg,
     sessionKey: task.childSessionKey,
+    completionRouting: buildBackgroundSessionCompletionRouting({
+      reattachedAt: task.reattachedAt,
+    }),
+  });
+  const completionRouting = buildBackgroundSessionCompletionRouting({
+    reattachedAt: task.reattachedAt,
   });
 
   if (opts.json) {
@@ -418,6 +425,7 @@ export async function tasksShowCommand(
           lookup,
           resolvedBy: resolution?.resolvedBy ?? null,
           ...task,
+          completionRouting,
           sessionLifecycle,
           sessionResume: sessionResume ?? null,
         },
@@ -443,6 +451,8 @@ export async function tasksShowCommand(
     `notify: ${task.notifyPolicy}`,
     `ownerKey: ${task.ownerKey}`,
     `childSessionKey: ${task.childSessionKey ?? "n/a"}`,
+    `completionRouting: ${completionRouting.mode}`,
+    `completionRoutingSummary: ${completionRouting.summary}`,
     ...(sessionLifecycle
       ? [
           `sessionLifecycle: ${sessionLifecycle.status}`,
@@ -466,6 +476,7 @@ export async function tasksShowCommand(
     ...formatBackgroundSessionResumeLines({
       cfg,
       sessionKey: task.childSessionKey,
+      completionRouting,
     }),
   ];
   for (const line of lines) {

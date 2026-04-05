@@ -16,7 +16,7 @@ vi.mock("./agent-via-gateway.js", () => ({
 
 mockSessionsConfig();
 
-import { sessionsContinueCommand } from "./sessions.js";
+import { sessionsContinueCommand, sessionsReattachCommand } from "./sessions.js";
 
 describe("sessionsContinueCommand", () => {
   const taskStore = {
@@ -119,6 +119,10 @@ describe("sessionsContinueCommand", () => {
             transcriptPath: string | null;
             transcriptExists: boolean;
             continueWith: string;
+            reattachWith: string;
+          } | null;
+          completionRoutingAfterContinue?: {
+            mode: string;
           } | null;
         };
         continueRequest?: {
@@ -153,6 +157,11 @@ describe("sessionsContinueCommand", () => {
             transcriptExists: false,
             continueWith:
               'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+            reattachWith:
+              'openclaw sessions reattach agent:coder:acp:child --message "Continue from the latest background task state."',
+          },
+          completionRoutingAfterContinue: {
+            mode: "detached_delivery",
           },
         },
         continueRequest: {
@@ -235,6 +244,7 @@ describe("sessionsContinueCommand", () => {
       expect(output).toContain("transcriptExists: no");
       expect(output).toContain("lifecycleBeforeContinue: missing_transcript");
       expect(output).toContain("lifecycleSummary: Transcript file is missing");
+      expect(output).toContain("completionRoutingAfterContinue: foreground_reattached");
       expect(output).toContain("Resume before continue:");
       expect(output).toContain("resumeSessionKey: agent:coder:acp:child");
       expect(output).toContain("resumeTranscript: /tmp/missing-transcript-continue.jsonl");
@@ -325,6 +335,9 @@ describe("sessionsContinueCommand", () => {
           lifecycleBeforeContinue: {
             status: "missing_transcript",
           },
+          completionRoutingAfterContinue: {
+            mode: "foreground_reattached",
+          },
         },
         continueRequest: {
           local: true,
@@ -380,9 +393,15 @@ describe("sessionsContinueCommand", () => {
       expect(updatedFlow?.reattachedAt).toBeTypeOf("number");
 
       const payload = JSON.parse(logs[0] ?? "{}") as {
-        continuedSession?: { reattachedAt?: number | null };
+        continuedSession?: {
+          reattachedAt?: number | null;
+          completionRoutingAfterContinue?: { mode?: string };
+        };
       };
       expect(payload.continuedSession?.reattachedAt).toBe(updatedTask?.reattachedAt);
+      expect(payload.continuedSession?.completionRoutingAfterContinue?.mode).toBe(
+        "foreground_reattached",
+      );
       expect(updatedFlow?.reattachedAt).toBe(updatedTask?.reattachedAt);
     } finally {
       fs.rmSync(store, { force: true });
@@ -431,9 +450,44 @@ describe("sessionsContinueCommand", () => {
       expect(getTaskById(task.taskId)?.reattachedAt).toBeUndefined();
       expect(getTaskFlowById(flow.flowId)?.reattachedAt).toBeUndefined();
       const payload = JSON.parse(logs[0] ?? "{}") as {
-        continuedSession?: { reattachedAt?: number | null };
+        continuedSession?: {
+          reattachedAt?: number | null;
+          completionRoutingAfterContinue?: { mode?: string };
+        };
       };
       expect(payload.continuedSession?.reattachedAt).toBeNull();
+      expect(payload.continuedSession?.completionRoutingAfterContinue?.mode).toBe(
+        "detached_delivery",
+      );
+    } finally {
+      fs.rmSync(store, { force: true });
+    }
+  });
+
+  it("reattach command defaults to the shared resume message and foreground mode", async () => {
+    const store = writeStore({
+      "agent:coder:acp:child": {
+        sessionId: "sess-child-reattach-default",
+        updatedAt: Date.now() - 5 * 60_000,
+      },
+    });
+
+    try {
+      await sessionsReattachCommand(
+        {
+          lookup: "sess-child-reattach-default",
+          store,
+        },
+        makeRuntime().runtime,
+      );
+
+      expect(mocks.agentCliCommandMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "Continue from the latest background task state.",
+          sessionId: "sess-child-reattach-default",
+        }),
+        expect.anything(),
+      );
     } finally {
       fs.rmSync(store, { force: true });
     }

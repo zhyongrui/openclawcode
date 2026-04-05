@@ -140,6 +140,9 @@ describe("sessionsShowCommand", () => {
         status: string;
         summary: string;
       };
+      completionRouting?: {
+        mode: string;
+      };
       session: {
         key: string;
         sessionId: string;
@@ -167,6 +170,9 @@ describe("sessionsShowCommand", () => {
       agentId: "coder",
       lifecycle: {
         status: "waiting_detached",
+      },
+      completionRouting: {
+        mode: "detached_delivery",
       },
       session: {
         key: "agent:coder:acp:child",

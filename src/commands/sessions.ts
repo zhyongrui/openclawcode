@@ -28,6 +28,8 @@ import { type RuntimeEnv, writeRuntimeJson } from "../runtime.js";
 import { isRich, theme } from "../terminal/theme.js";
 import { agentCliCommand } from "./agent-via-gateway.js";
 import {
+  DEFAULT_BACKGROUND_RESUME_MESSAGE,
+  buildBackgroundSessionCompletionRouting,
   type BackgroundSessionResumeDetail,
   describeBackgroundSessionResume,
   formatBackgroundSessionResumeLines,
@@ -114,6 +116,7 @@ export type DetachedSessionLifecycleSnapshot = {
   transcriptExists: boolean;
   relatedTasks: ReturnType<typeof listTasksForRelatedSessionKey>;
   relatedTaskFlows: ReturnType<typeof listTaskFlowsForOwnerKey>;
+  completionRouting: ReturnType<typeof buildBackgroundSessionCompletionRouting>;
   resumeDetail?: BackgroundSessionResumeDetail;
   lifecycle: SessionLifecycleAssessment;
 };
@@ -472,6 +475,20 @@ function resolveDetachedSessionStoreEntry(params: {
   };
 }
 
+function resolveDetachedSessionCompletionRouting(params: {
+  relatedTasks: ReturnType<typeof listTasksForRelatedSessionKey>;
+  relatedTaskFlows: ReturnType<typeof listTaskFlowsForOwnerKey>;
+}) {
+  const reattachedAt = Math.max(
+    0,
+    ...params.relatedTasks.map((task) => task.reattachedAt ?? 0),
+    ...params.relatedTaskFlows.map((flow) => flow.reattachedAt ?? 0),
+  );
+  return buildBackgroundSessionCompletionRouting({
+    reattachedAt: reattachedAt > 0 ? reattachedAt : undefined,
+  });
+}
+
 export function inspectDetachedSessionLifecycle(params: {
   cfg: ReturnType<typeof loadConfig>;
   sessionKey?: string;
@@ -501,11 +518,16 @@ export function inspectDetachedSessionLifecycle(params: {
         };
   const relatedTasks = listTasksForRelatedSessionKey(sessionKey);
   const relatedTaskFlows = listTaskFlowsForOwnerKey(sessionKey);
+  const completionRouting = resolveDetachedSessionCompletionRouting({
+    relatedTasks,
+    relatedTaskFlows,
+  });
   const resumeDetail = describeBackgroundSessionResume({
     cfg: params.cfg,
     sessionKey,
     entry: resolved.entry,
     target: resolved.target,
+    completionRouting,
   });
   return {
     sessionKey,
@@ -515,6 +537,7 @@ export function inspectDetachedSessionLifecycle(params: {
     transcriptExists: transcript.transcriptExists,
     relatedTasks,
     relatedTaskFlows,
+    completionRouting,
     resumeDetail,
     lifecycle: buildSessionLifecycleAssessment({
       abortedLastRun: params.abortedLastRun ?? (resolved.entry?.abortedLastRun === true),
@@ -565,6 +588,7 @@ function buildSessionShowPayload(params: {
   relatedTasks: ReturnType<typeof listTasksForRelatedSessionKey>;
   relatedTaskFlows: ReturnType<typeof listTaskFlowsForOwnerKey>;
   lifecycle: SessionLifecycleAssessment;
+  completionRouting: ReturnType<typeof buildBackgroundSessionCompletionRouting>;
   resumeDetail?: BackgroundSessionResumeDetail;
   resumeLines: string[];
 }) {
@@ -605,6 +629,7 @@ function buildSessionShowPayload(params: {
     relatedTaskCount: params.relatedTasks.length,
     relatedTaskFlowCount: params.relatedTaskFlows.length,
     lifecycle: params.lifecycle,
+    completionRouting: params.completionRouting,
     relatedTasks: params.relatedTasks.map((task) => ({
       taskId: task.taskId,
       runtime: task.runtime,
@@ -832,11 +857,14 @@ export async function sessionsShowCommand(
   const relatedTasks = snapshot?.relatedTasks ?? [];
   const relatedTaskFlows = snapshot?.relatedTaskFlows ?? [];
   const resumeDetail = snapshot?.resumeDetail;
+  const completionRouting =
+    snapshot?.completionRouting ?? buildBackgroundSessionCompletionRouting();
   const resumeLines = formatBackgroundSessionResumeLines({
     cfg,
     sessionKey: match.sessionKey,
     entry: match.entry,
     target: match.target,
+    completionRouting,
   });
   const lifecycle =
     snapshot?.lifecycle ??
@@ -859,6 +887,7 @@ export async function sessionsShowCommand(
     relatedTasks,
     relatedTaskFlows,
     lifecycle,
+    completionRouting,
     resumeDetail,
     resumeLines,
   });
@@ -886,6 +915,8 @@ export async function sessionsShowCommand(
   runtime.log(`transcriptExists: ${transcript.transcriptExists ? "yes" : "no"}`);
   runtime.log(`lifecycle: ${lifecycle.status}`);
   runtime.log(`lifecycleSummary: ${lifecycle.summary}`);
+  runtime.log(`completionRouting: ${completionRouting.mode}`);
+  runtime.log(`completionRoutingSummary: ${completionRouting.summary}`);
   runtime.log(`relatedTasks: ${relatedTasks.length}`);
   runtime.log(`relatedTaskFlows: ${relatedTaskFlows.length}`);
   if (relatedTasks.length > 0) {
@@ -986,6 +1017,9 @@ export async function sessionsContinueCommand(
     abortedLastRun: resolved.match.entry.abortedLastRun === true,
   });
   const reattachedAt = opts.background === true ? null : Date.now();
+  const completionRoutingAfterContinue = buildBackgroundSessionCompletionRouting({
+    reattachedAt,
+  });
 
   if (opts.json) {
     const quietRuntime: RuntimeEnv = {
@@ -1024,6 +1058,7 @@ export async function sessionsContinueCommand(
         transcriptExists: snapshot?.transcriptExists ?? false,
         lifecycleBeforeContinue: snapshot?.lifecycle ?? null,
         resumeBeforeContinue: snapshot?.resumeDetail ?? null,
+        completionRoutingAfterContinue,
         reattachedAt,
       },
       continueRequest: {
@@ -1051,6 +1086,8 @@ export async function sessionsContinueCommand(
     runtime.log(`lifecycleBeforeContinue: ${snapshot.lifecycle.status}`);
     runtime.log(`lifecycleSummary: ${snapshot.lifecycle.summary}`);
   }
+  runtime.log(`completionRoutingAfterContinue: ${completionRoutingAfterContinue.mode}`);
+  runtime.log(`completionRoutingSummary: ${completionRoutingAfterContinue.summary}`);
   if (snapshot?.resumeDetail) {
     runtime.log("Resume before continue:");
     for (const line of formatBackgroundSessionResumeLines({
@@ -1058,6 +1095,7 @@ export async function sessionsContinueCommand(
       sessionKey: resolved.match.sessionKey,
       entry: resolved.match.entry,
       target: resolved.match.target,
+      completionRouting: snapshot?.completionRouting,
     })) {
       runtime.log(line);
     }
@@ -1080,4 +1118,30 @@ export async function sessionsContinueCommand(
       reattachedAt,
     });
   }
+}
+
+export async function sessionsReattachCommand(
+  opts: {
+    lookup: string;
+    message?: string;
+    store?: string;
+    agent?: string;
+    allAgents?: boolean;
+    thinking?: string;
+    verbose?: string;
+    timeout?: string;
+    deliver?: boolean;
+    local?: boolean;
+    json?: boolean;
+  },
+  runtime: RuntimeEnv,
+) {
+  return sessionsContinueCommand(
+    {
+      ...opts,
+      message: opts.message?.trim() || DEFAULT_BACKGROUND_RESUME_MESSAGE,
+      background: false,
+    },
+    runtime,
+  );
 }

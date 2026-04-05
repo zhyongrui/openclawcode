@@ -163,11 +163,15 @@ describe("agentCliCommand", () => {
         'continue: openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
       );
       expect(runtime.log).toHaveBeenCalledWith(
+        'reattach: openclaw sessions reattach agent:main:main --message "Continue from the latest background task state."',
+      );
+      expect(runtime.log).toHaveBeenCalledWith(
         'resume: openclaw agent --session-id sess-bg-1 --message "Continue from the latest background task state."',
       );
       expect(runtime.log).toHaveBeenCalledWith("Resume:");
       expect(runtime.log).toHaveBeenCalledWith("resumeSessionKey: agent:main:main");
       expect(runtime.log).toHaveBeenCalledWith(`resumeTranscript: ${transcriptPath}`);
+      expect(runtime.log).toHaveBeenCalledWith("completionRouting: detached_delivery");
       expect(runtime.log).toHaveBeenCalledWith(
         "resume in Codex CLI: `codex resume codex-inner-1` (continues this conversation).",
       );
@@ -234,6 +238,7 @@ describe("agentCliCommand", () => {
           transcriptExists?: boolean;
           waitWith?: string;
           continueWith?: string;
+          reattachWith?: string;
           resumeWith?: string;
           resume?: {
             sessionKey: string;
@@ -241,7 +246,12 @@ describe("agentCliCommand", () => {
             agentId?: string;
             transcriptPath: string | null;
             transcriptExists: boolean;
+            completionRouting: {
+              mode: string;
+              summary: string;
+            };
             continueWith: string;
+            reattachWith: string;
             resumeWith: string;
           };
         };
@@ -261,6 +271,8 @@ describe("agentCliCommand", () => {
           waitWith: "openclaw gateway call agent.wait --run-id run-bg-json-1",
           continueWith:
             'openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
+          reattachWith:
+            'openclaw sessions reattach agent:main:main --message "Continue from the latest background task state."',
           resumeWith:
             'openclaw agent --session-id sess-bg-json-1 --message "Continue from the latest background task state."',
           resume: {
@@ -269,8 +281,13 @@ describe("agentCliCommand", () => {
             agentId: "main",
             transcriptPath: path.join(dir, "sess-bg-json-1.jsonl"),
             transcriptExists: false,
+            completionRouting: {
+              mode: "detached_delivery",
+            },
             continueWith:
               'openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
+            reattachWith:
+              'openclaw sessions reattach agent:main:main --message "Continue from the latest background task state."',
             resumeWith:
               'openclaw agent --session-id sess-bg-json-1 --message "Continue from the latest background task state."',
           },

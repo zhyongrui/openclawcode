@@ -4,7 +4,9 @@ import {
   formatTaskStateChangeMessage,
   formatTaskTerminalMessage,
   isTerminalTaskStatus,
+  resolveTaskCompletionRouting,
   shouldAutoDeliverTaskStateChange,
+  shouldSuppressDetachedTaskTerminalDeliveryForReattach,
   shouldAutoDeliverTaskTerminalUpdate,
   shouldSuppressDuplicateTerminalDelivery,
 } from "./task-executor-policy.js";
@@ -182,6 +184,34 @@ describe("task-executor-policy", () => {
         }),
         preferredTaskId: undefined,
       }),
+    ).toBe(false);
+    expect(
+      resolveTaskCompletionRouting(
+        createTask({
+          reattachedAt: 200,
+        }),
+      ),
+    ).toMatchObject({
+      mode: "foreground_reattached",
+      reattachedAt: 200,
+    });
+    expect(
+      shouldSuppressDetachedTaskTerminalDeliveryForReattach(
+        createTask({
+          status: "succeeded",
+          endedAt: 300,
+          reattachedAt: 200,
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      shouldSuppressDetachedTaskTerminalDeliveryForReattach(
+        createTask({
+          status: "succeeded",
+          endedAt: 150,
+          reattachedAt: 200,
+        }),
+      ),
     ).toBe(false);
   });
 });

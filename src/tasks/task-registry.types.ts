@@ -16,6 +16,7 @@ export type TaskDeliveryStatus =
   | "pending"
   | "delivered"
   | "session_queued"
+  | "reattached"
   | "failed"
   | "parent_missing"
   | "not_applicable";

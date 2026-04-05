@@ -50,7 +50,7 @@ Staged next:
 
 ### 2. Background current-session UX
 
-Status: `shipped` baseline, `staged` for richer UI handoff
+Status: `shipped` baseline, `current wave` for reattach-aware handoff
 
 Shipped already:
 
@@ -62,6 +62,15 @@ Shipped already:
   `openclaw sessions continue ...` handoff alongside low-level wait/resume hints
 - `openclaw agent --background --json` now exposes the same wait/continue/resume
   handoff hints as structured fields for automation callers
+
+Completed in this wave:
+
+- detached-session resume/handoff surfaces now expose explicit completion
+  routing so operators and automation can tell whether completion will stay in
+  detached delivery or remain with a foreground-reattached session
+- detached task terminal delivery now suppresses detached delivery after a
+  foreground reattach and records that terminal state as reattached instead of
+  queueing another detached notification
 
 Staged next:
 
@@ -164,12 +173,21 @@ Completed in this wave:
 - that reattach metadata now shows up in `tasks show`, `flows show`, and
   `sessions show` related-record payloads, giving operator views a first
   durable hook for later completion-routing behavior
+- `openclaw sessions reattach <lookup>` now provides a first-class foreground
+  reattach command with the same shared resume message and lookup semantics as
+  `sessions continue`
+- `tasks show`, `flows show`, `sessions show`, shared resume blocks, and
+  `sessions continue --json` now also expose completion-routing metadata, so
+  callers can see whether detached completion stays detached or is now owned by
+  the reattached foreground session
+- detached completion routing now reacts to foreground reattach state instead
+  of only exposing the underlying metadata: once a detached run was brought
+  back to the foreground, terminal delivery is suppressed from the detached
+  lane and marked as reattached
 
 Staged next:
 
 - non-CLI reattach affordances
-- completion routing and notifications that react differently once detached
-  work has been foreground-reattached
 - clearer remote-session lifecycle views in operator UIs
 
 ### 5. Bridge and remote-control subsystem boundaries
@@ -267,6 +285,8 @@ Staged next:
 - [x] Sync the borrowing notes and dev log to reflect the new shipped slices.
 - [x] Ship the first repo-local workflow history slice for ClaudeCode borrowing.
 - [x] Ship the first operator-facing detached-session lifecycle view.
+- [x] Ship first-class detached-session reattach and reattach-aware completion
+  routing.
 
 ## Explicit non-goals
 

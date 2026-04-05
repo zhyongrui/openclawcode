@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   healthCommand: vi.fn(),
   sessionsCommand: vi.fn(),
   sessionsContinueCommand: vi.fn(),
+  sessionsReattachCommand: vi.fn(),
   sessionsShowCommand: vi.fn(),
   sessionsCleanupCommand: vi.fn(),
   tasksListCommand: vi.fn(),
@@ -30,6 +31,7 @@ const statusCommand = mocks.statusCommand;
 const healthCommand = mocks.healthCommand;
 const sessionsCommand = mocks.sessionsCommand;
 const sessionsContinueCommand = mocks.sessionsContinueCommand;
+const sessionsReattachCommand = mocks.sessionsReattachCommand;
 const sessionsShowCommand = mocks.sessionsShowCommand;
 const sessionsCleanupCommand = mocks.sessionsCleanupCommand;
 const tasksListCommand = mocks.tasksListCommand;
@@ -55,6 +57,7 @@ vi.mock("../../commands/health.js", () => ({
 vi.mock("../../commands/sessions.js", () => ({
   sessionsCommand: mocks.sessionsCommand,
   sessionsContinueCommand: mocks.sessionsContinueCommand,
+  sessionsReattachCommand: mocks.sessionsReattachCommand,
   sessionsShowCommand: mocks.sessionsShowCommand,
 }));
 
@@ -99,6 +102,7 @@ describe("registerStatusHealthSessionsCommands", () => {
     healthCommand.mockResolvedValue(undefined);
     sessionsCommand.mockResolvedValue(undefined);
     sessionsContinueCommand.mockResolvedValue(undefined);
+    sessionsReattachCommand.mockResolvedValue(undefined);
     sessionsShowCommand.mockResolvedValue(undefined);
     sessionsCleanupCommand.mockResolvedValue(undefined);
     tasksListCommand.mockResolvedValue(undefined);
@@ -289,6 +293,31 @@ describe("registerStatusHealthSessionsCommands", () => {
         agent: "work",
         allAgents: true,
         background: true,
+        json: true,
+      }),
+      runtime,
+    );
+  });
+
+  it("runs sessions reattach subcommand with forwarded options", async () => {
+    await runCli([
+      "sessions",
+      "--all-agents",
+      "reattach",
+      "sess-123",
+      "--agent",
+      "work",
+      "--message",
+      "Resume in foreground",
+      "--json",
+    ]);
+
+    expect(sessionsReattachCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lookup: "sess-123",
+        message: "Resume in foreground",
+        agent: "work",
+        allAgents: true,
         json: true,
       }),
       runtime,

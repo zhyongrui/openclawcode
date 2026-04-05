@@ -231,7 +231,6 @@ function createStatements(db: DatabaseSync): TaskRegistryStatements {
         owner_key,
         scope_kind,
         child_session_key,
-        parent_flow_id,
         parent_task_id,
         agent_id,
         run_id,
@@ -414,16 +413,12 @@ function ensureSchema(db: DatabaseSync) {
   if (!hasTaskRunsColumn(db, "origin_session_key")) {
     db.exec(`ALTER TABLE task_runs ADD COLUMN origin_session_key TEXT;`);
   }
-  if (!hasTaskRunsColumn(db, "parent_flow_id")) {
-    db.exec(`ALTER TABLE task_runs ADD COLUMN parent_flow_id TEXT;`);
-  }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_task_runs_status ON task_runs(status);`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_task_runs_runtime_status ON task_runs(runtime, status);`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_task_runs_cleanup_after ON task_runs(cleanup_after);`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_task_runs_last_event_at ON task_runs(last_event_at);`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_task_runs_parent_flow_id ON task_runs(parent_flow_id);`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_task_runs_owner_key ON task_runs(owner_key);`);
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_task_runs_parent_flow_id ON task_runs(parent_flow_id);`);
   db.exec(
     `CREATE INDEX IF NOT EXISTS idx_task_runs_child_session_key ON task_runs(child_session_key);`,
   );

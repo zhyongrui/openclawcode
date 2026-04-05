@@ -14,7 +14,9 @@ import {
   formatTaskStateChangeMessage,
   formatTaskTerminalMessage,
   isTerminalTaskStatus,
+  resolveTaskCompletionRouting,
   shouldAutoDeliverTaskStateChange,
+  shouldSuppressDetachedTaskTerminalDeliveryForReattach,
   shouldAutoDeliverTaskTerminalUpdate,
   shouldSuppressDuplicateTerminalDelivery,
 } from "./task-executor-policy.js";
@@ -1003,6 +1005,16 @@ export async function maybeDeliverTaskTerminalUpdate(taskId: string): Promise<Ta
       return updateTask(taskId, {
         deliveryStatus: "not_applicable",
         lastEventAt: Date.now(),
+      });
+    }
+    if (shouldSuppressDetachedTaskTerminalDeliveryForReattach(latest)) {
+      const completionRouting = resolveTaskCompletionRouting(latest);
+      const summary =
+        completionRouting.mode === "foreground_reattached" ? completionRouting.summary : undefined;
+      return updateTask(taskId, {
+        deliveryStatus: "reattached",
+        lastEventAt: Date.now(),
+        ...(summary && !latest.terminalSummary ? { terminalSummary: summary } : {}),
       });
     }
     const owner = resolveTaskDeliveryOwner(latest);

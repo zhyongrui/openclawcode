@@ -177,6 +177,7 @@ function createStatements(db: DatabaseSync): FlowRegistryStatements {
         state_json,
         wait_json,
         cancel_requested_at,
+        reattached_at,
         created_at,
         updated_at,
         ended_at

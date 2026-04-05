@@ -6,6 +6,7 @@ import { listTasksForFlowId } from "../tasks/runtime-internal.js";
 import { cancelFlowById, getFlowTaskSummary } from "../tasks/task-executor.js";
 import type { TaskFlowRecord, TaskFlowStatus } from "../tasks/task-flow-registry.types.js";
 import {
+  buildBackgroundSessionCompletionRouting,
   describeBackgroundChildSessions,
   formatBackgroundChildSessionGroupLines,
 } from "./background-session-resume.js";
@@ -272,19 +273,38 @@ export async function flowsShowCommand(
   const tasks = listTasksForFlowId(flow.flowId);
   const taskSummary = getFlowTaskSummary(flow.flowId);
   const stateSummary = summarizeFlowState(flow);
+  const completionRouting = buildBackgroundSessionCompletionRouting({
+    reattachedAt: flow.reattachedAt,
+  });
   const detachedLifecycle = parseAgentSessionKey(flow.ownerKey)
     ? (inspectDetachedSessionLifecycle({
         cfg,
         sessionKey: flow.ownerKey,
       })?.lifecycle ?? null)
     : null;
+  const completionRoutingBySessionKey = new Map(
+    tasks.flatMap((task) =>
+      task.childSessionKey?.trim()
+        ? [
+            [
+              task.childSessionKey.trim(),
+              buildBackgroundSessionCompletionRouting({
+                reattachedAt: task.reattachedAt ?? flow.reattachedAt,
+              }),
+            ] as const,
+          ]
+        : [],
+    ),
+  );
   const childSessionLines = formatBackgroundChildSessionGroupLines({
     cfg,
     sessionKeys: tasks.map((task) => task.childSessionKey),
+    completionRoutingBySessionKey,
   });
   const childSessions = describeBackgroundChildSessions({
     cfg,
     sessionKeys: tasks.map((task) => task.childSessionKey),
+    completionRoutingBySessionKey,
   });
 
   if (opts.json) {
@@ -294,6 +314,7 @@ export async function flowsShowCommand(
           lookup,
           resolvedBy: resolution?.resolvedBy ?? null,
           ...flow,
+          completionRouting,
           detachedLifecycle,
           childSessions,
           tasks,
@@ -315,6 +336,8 @@ export async function flowsShowCommand(
     `goal: ${safeFlowDisplayText(flow.goal)}`,
     `currentStep: ${safeFlowDisplayText(flow.currentStep)}`,
     `owner: ${safeFlowDisplayText(flow.ownerKey)}`,
+    `completionRouting: ${completionRouting.mode}`,
+    `completionRoutingSummary: ${safeFlowDisplayText(completionRouting.summary)}`,
     ...(detachedLifecycle
       ? [
           `sessionLifecycle: ${detachedLifecycle.status}`,

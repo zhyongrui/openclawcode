@@ -12,7 +12,8 @@ import {
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { parseAgentSessionKey } from "../routing/session-key.js";
 
-const RESUME_MESSAGE = "Continue from the latest background task state.";
+export const DEFAULT_BACKGROUND_RESUME_MESSAGE =
+  "Continue from the latest background task state.";
 
 function quoteCliArg(value: string): string {
   if (/^[A-Za-z0-9_./:@=-]+$/.test(value)) {
@@ -27,13 +28,21 @@ type ResolvedBackgroundSession = {
   target?: SessionStoreTarget;
 };
 
+export type BackgroundSessionCompletionRouting = {
+  mode: "detached_delivery" | "foreground_reattached";
+  summary: string;
+  reattachedAt?: number;
+};
+
 export type BackgroundSessionResumeDetail = {
   sessionKey: string;
   sessionId?: string;
   agentId?: string;
   transcriptPath: string | null;
   transcriptExists: boolean;
+  completionRouting: BackgroundSessionCompletionRouting;
   continueWith: string;
+  reattachWith: string;
   resumeWith: string;
   acpDetailLines: string[];
 };
@@ -90,18 +99,42 @@ function buildResumeWithCommand(params: {
   const sessionId = params.entry?.sessionId?.trim();
   if (sessionId) {
     return formatCliCommand(
-      `openclaw agent --session-id ${quoteCliArg(sessionId)} --message ${quoteCliArg(RESUME_MESSAGE)}`,
+      `openclaw agent --session-id ${quoteCliArg(sessionId)} --message ${quoteCliArg(DEFAULT_BACKGROUND_RESUME_MESSAGE)}`,
     );
   }
   return formatCliCommand(
-    `openclaw agent --session-key ${quoteCliArg(params.sessionKey)} --message ${quoteCliArg(RESUME_MESSAGE)}`,
+    `openclaw agent --session-key ${quoteCliArg(params.sessionKey)} --message ${quoteCliArg(DEFAULT_BACKGROUND_RESUME_MESSAGE)}`,
   );
 }
 
 function buildContinueWithCommand(sessionKey: string): string {
   return formatCliCommand(
-    `openclaw sessions continue ${quoteCliArg(sessionKey)} --message ${quoteCliArg(RESUME_MESSAGE)}`,
+    `openclaw sessions continue ${quoteCliArg(sessionKey)} --message ${quoteCliArg(DEFAULT_BACKGROUND_RESUME_MESSAGE)}`,
   );
+}
+
+function buildReattachWithCommand(sessionKey: string): string {
+  return formatCliCommand(
+    `openclaw sessions reattach ${quoteCliArg(sessionKey)} --message ${quoteCliArg(DEFAULT_BACKGROUND_RESUME_MESSAGE)}`,
+  );
+}
+
+export function buildBackgroundSessionCompletionRouting(params?: {
+  reattachedAt?: number | null;
+}): BackgroundSessionCompletionRouting {
+  const reattachedAt = params?.reattachedAt ?? undefined;
+  if (typeof reattachedAt === "number") {
+    return {
+      mode: "foreground_reattached",
+      summary:
+        "Detached completion stays with the foreground reattached session instead of detached delivery.",
+      reattachedAt,
+    };
+  }
+  return {
+    mode: "detached_delivery",
+    summary: "Detached completion will still be delivered or queued back to the owner session.",
+  };
 }
 
 export function describeBackgroundSessionResume(params: {
@@ -109,6 +142,7 @@ export function describeBackgroundSessionResume(params: {
   sessionKey?: string;
   entry?: SessionEntry;
   target?: SessionStoreTarget;
+  completionRouting?: BackgroundSessionCompletionRouting;
 }): BackgroundSessionResumeDetail | undefined {
   const sessionKey = params.sessionKey?.trim();
   if (!sessionKey) {
@@ -133,7 +167,9 @@ export function describeBackgroundSessionResume(params: {
       entry: resolved.entry,
       target: resolved.target,
     }),
+    completionRouting: params.completionRouting ?? buildBackgroundSessionCompletionRouting(),
     continueWith: buildContinueWithCommand(sessionKey),
+    reattachWith: buildReattachWithCommand(sessionKey),
     resumeWith: buildResumeWithCommand({
       sessionKey,
       entry: resolved.entry,
@@ -152,6 +188,7 @@ export function formatBackgroundSessionResumeLines(params: {
   sessionKey?: string;
   entry?: SessionEntry;
   target?: SessionStoreTarget;
+  completionRouting?: BackgroundSessionCompletionRouting;
   indent?: string;
 }): string[] {
   const detail = describeBackgroundSessionResume({
@@ -159,6 +196,7 @@ export function formatBackgroundSessionResumeLines(params: {
     sessionKey: params.sessionKey,
     entry: params.entry,
     target: params.target,
+    completionRouting: params.completionRouting,
   });
   if (!detail) {
     return [];
@@ -173,7 +211,15 @@ export function formatBackgroundSessionResumeLines(params: {
   }
   lines.push(`${indent}resumeTranscript: ${detail.transcriptPath ?? "n/a"}`);
   lines.push(`${indent}resumeTranscriptExists: ${detail.transcriptExists ? "yes" : "no"}`);
+  lines.push(`${indent}completionRouting: ${detail.completionRouting.mode}`);
+  lines.push(`${indent}completionRoutingSummary: ${detail.completionRouting.summary}`);
+  if (detail.completionRouting.reattachedAt) {
+    lines.push(
+      `${indent}completionRoutingAt: ${new Date(detail.completionRouting.reattachedAt).toISOString()}`,
+    );
+  }
   lines.push(`${indent}continueWith: ${detail.continueWith}`);
+  lines.push(`${indent}reattachWith: ${detail.reattachWith}`);
   lines.push(`${indent}resumeWith: ${detail.resumeWith}`);
   for (const line of detail.acpDetailLines) {
     lines.push(`${indent}${line}`);
@@ -184,6 +230,9 @@ export function formatBackgroundSessionResumeLines(params: {
 export function describeBackgroundChildSessions(params: {
   cfg: OpenClawConfig;
   sessionKeys: Iterable<string | undefined>;
+  completionRoutingBySessionKey?:
+    | ReadonlyMap<string, BackgroundSessionCompletionRouting>
+    | Readonly<Record<string, BackgroundSessionCompletionRouting | undefined>>;
 }): BackgroundSessionResumeDetail[] {
   const uniqueKeys = Array.from(
     new Set(
@@ -193,9 +242,14 @@ export function describeBackgroundChildSessions(params: {
     ),
   );
   return uniqueKeys.flatMap((sessionKey) => {
+    const completionRouting =
+      params.completionRoutingBySessionKey instanceof Map
+        ? params.completionRoutingBySessionKey.get(sessionKey)
+        : params.completionRoutingBySessionKey?.[sessionKey];
     const detail = describeBackgroundSessionResume({
       cfg: params.cfg,
       sessionKey,
+      completionRouting,
     });
     return detail ? [detail] : [];
   });
@@ -204,6 +258,9 @@ export function describeBackgroundChildSessions(params: {
 export function formatBackgroundChildSessionGroupLines(params: {
   cfg: OpenClawConfig;
   sessionKeys: Iterable<string | undefined>;
+  completionRoutingBySessionKey?:
+    | ReadonlyMap<string, BackgroundSessionCompletionRouting>
+    | Readonly<Record<string, BackgroundSessionCompletionRouting | undefined>>;
 }): string[] {
   const childSessions = describeBackgroundChildSessions(params);
   if (childSessions.length === 0) {

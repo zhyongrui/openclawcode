@@ -251,7 +251,7 @@ Judgment: very high-value to adapt.
 
 ### Implementation status
 
-The first adaptation slice is now in place in `openclawcode`.
+The detached-session borrowing line is now in place in `openclawcode`.
 
 Implemented:
 
@@ -339,6 +339,15 @@ Implemented:
 - that `reattachedAt` state now surfaces in `tasks show`, `flows show`, and
   `sessions show` related-record output, which establishes the substrate needed
   for ClaudeCode-style completion routing that depends on reattach state
+- detached-session resume and handoff surfaces now also expose explicit
+  completion-routing metadata, including whether completion remains in detached
+  delivery or stays with a foreground-reattached session
+- `openclaw sessions reattach <lookup>` now provides a first-class foreground
+  reattach command that reuses the same lookup rules and shared resume message
+  as the detached-session continuation flow
+- detached terminal completion delivery now actually reacts to reattach state:
+  once a detached task was brought back into the foreground, detached terminal
+  delivery is suppressed and the task is marked as reattached instead
 
 Not implemented yet:
 
@@ -346,8 +355,6 @@ Not implemented yet:
   beyond the CLI entrypoint
 - session transcript handoff and recovery UX matching ClaudeCode's
   `LocalMainSessionTask` pattern
-- the actual completion-routing behavior that depends on whether a detached
-  task was later reattached
 
 This keeps the first step deliberately narrow: make detached-session provenance
 durable and inspectable first, then build the foreground-to-background
@@ -504,7 +511,7 @@ Implemented:
 Not implemented yet:
 
 - current-session-first history browsing or project-local history views
-- a first-class reattach UI beyond CLI inspection surfaces
+- a first-class reattach UI beyond the new CLI reattach command
 - richer UI affordances that expose the same wait/resume flow outside the CLI
 
 This keeps the scope narrow: detached sessions are now easier to continue once

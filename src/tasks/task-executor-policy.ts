@@ -1,6 +1,12 @@
 import type { TaskEventRecord, TaskRecord, TaskStatus } from "./task-registry.types.js";
 import { formatTaskStatusTitleText, sanitizeTaskStatusText } from "./task-status.js";
 
+export type TaskCompletionRouting = {
+  mode: "detached_delivery" | "foreground_reattached";
+  summary: string;
+  reattachedAt?: number;
+};
+
 export function isTerminalTaskStatus(status: TaskStatus): boolean {
   return (
     status === "succeeded" ||
@@ -102,6 +108,31 @@ export function shouldAutoDeliverTaskTerminalUpdate(task: TaskRecord): boolean {
     return false;
   }
   return task.deliveryStatus === "pending";
+}
+
+export function resolveTaskCompletionRouting(task: Pick<TaskRecord, "reattachedAt">): TaskCompletionRouting {
+  if (typeof task.reattachedAt === "number") {
+    return {
+      mode: "foreground_reattached",
+      summary:
+        "Detached completion stays with the foreground reattached session instead of detached delivery.",
+      reattachedAt: task.reattachedAt,
+    };
+  }
+  return {
+    mode: "detached_delivery",
+    summary: "Detached completion will still be delivered or queued back to the owner session.",
+  };
+}
+
+export function shouldSuppressDetachedTaskTerminalDeliveryForReattach(
+  task: Pick<TaskRecord, "reattachedAt" | "endedAt" | "lastEventAt" | "createdAt">,
+): boolean {
+  if (typeof task.reattachedAt !== "number") {
+    return false;
+  }
+  const terminalAt = task.endedAt ?? task.lastEventAt ?? task.createdAt;
+  return terminalAt >= task.reattachedAt;
 }
 
 export function shouldAutoDeliverTaskStateChange(task: TaskRecord): boolean {

@@ -92,7 +92,10 @@ describe("background session resume helpers", () => {
       "resumeAgent: coder",
       `resumeTranscript: ${transcriptPath}`,
       "resumeTranscriptExists: yes",
+      "completionRouting: detached_delivery",
+      "completionRoutingSummary: Detached completion will still be delivered or queued back to the owner session.",
       'continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+      'reattachWith: openclaw sessions reattach agent:coder:acp:child --message "Continue from the latest background task state."',
       'resumeWith: openclaw agent --session-id sess-child-123 --message "Continue from the latest background task state."',
       "agent session id: inner-123",
       "resume in Codex CLI: `codex resume inner-123` (continues this conversation).",
@@ -111,8 +114,14 @@ describe("background session resume helpers", () => {
       agentId: "coder",
       transcriptPath,
       transcriptExists: true,
+      completionRouting: {
+        mode: "detached_delivery",
+        summary: "Detached completion will still be delivered or queued back to the owner session.",
+      },
       continueWith:
         'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+      reattachWith:
+        'openclaw sessions reattach agent:coder:acp:child --message "Continue from the latest background task state."',
       resumeWith:
         'openclaw agent --session-id sess-child-123 --message "Continue from the latest background task state."',
       acpDetailLines: [
@@ -141,7 +150,10 @@ describe("background session resume helpers", () => {
       "  resumeAgent: coder",
       `  resumeTranscript: ${transcriptPath}`,
       "  resumeTranscriptExists: yes",
+      "  completionRouting: detached_delivery",
+      "  completionRoutingSummary: Detached completion will still be delivered or queued back to the owner session.",
       '  continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+      '  reattachWith: openclaw sessions reattach agent:coder:acp:child --message "Continue from the latest background task state."',
       '  resumeWith: openclaw agent --session-id sess-child-123 --message "Continue from the latest background task state."',
       "  agent session id: inner-123",
       "  resume in Codex CLI: `codex resume inner-123` (continues this conversation).",
@@ -149,7 +161,10 @@ describe("background session resume helpers", () => {
       "  resumeAgent: main",
       "  resumeTranscript: n/a",
       "  resumeTranscriptExists: no",
+      "  completionRouting: detached_delivery",
+      "  completionRoutingSummary: Detached completion will still be delivered or queued back to the owner session.",
       '  continueWith: openclaw sessions continue agent:main:missing --message "Continue from the latest background task state."',
+      '  reattachWith: openclaw sessions reattach agent:main:missing --message "Continue from the latest background task state."',
       '  resumeWith: openclaw agent --session-key agent:main:missing --message "Continue from the latest background task state."',
     ]);
   });
@@ -171,8 +186,15 @@ describe("background session resume helpers", () => {
         agentId: "coder",
         transcriptPath,
         transcriptExists: true,
+        completionRouting: {
+          mode: "detached_delivery",
+          summary:
+            "Detached completion will still be delivered or queued back to the owner session.",
+        },
         continueWith:
           'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
+        reattachWith:
+          'openclaw sessions reattach agent:coder:acp:child --message "Continue from the latest background task state."',
         resumeWith:
           'openclaw agent --session-id sess-child-123 --message "Continue from the latest background task state."',
         acpDetailLines: [
@@ -185,12 +207,41 @@ describe("background session resume helpers", () => {
         agentId: "main",
         transcriptPath: null,
         transcriptExists: false,
+        completionRouting: {
+          mode: "detached_delivery",
+          summary:
+            "Detached completion will still be delivered or queued back to the owner session.",
+        },
         continueWith:
           'openclaw sessions continue agent:main:missing --message "Continue from the latest background task state."',
+        reattachWith:
+          'openclaw sessions reattach agent:main:missing --message "Continue from the latest background task state."',
         resumeWith:
           'openclaw agent --session-key agent:main:missing --message "Continue from the latest background task state."',
         acpDetailLines: [],
       },
     ]);
+  });
+
+  it("renders foreground reattach completion routing when provided", () => {
+    const lines = formatBackgroundSessionResumeLines({
+      cfg: {} as never,
+      sessionKey: "agent:coder:acp:child",
+      completionRouting: {
+        mode: "foreground_reattached",
+        summary:
+          "Detached completion stays with the foreground reattached session instead of detached delivery.",
+        reattachedAt: Date.parse("2026-04-05T03:00:00Z"),
+      },
+    });
+
+    expect(lines).toContain("completionRouting: foreground_reattached");
+    expect(lines).toContain(
+      "completionRoutingSummary: Detached completion stays with the foreground reattached session instead of detached delivery.",
+    );
+    expect(lines).toContain("completionRoutingAt: 2026-04-05T03:00:00.000Z");
+    expect(lines).toContain(
+      'reattachWith: openclaw sessions reattach agent:coder:acp:child --message "Continue from the latest background task state."',
+    );
   });
 });

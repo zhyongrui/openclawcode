@@ -1150,6 +1150,38 @@ describe("task-registry", () => {
     });
   });
 
+  it("suppresses detached terminal delivery after the session was foreground-reattached", async () => {
+    await withTaskRegistryTempDir(async (root) => {
+      process.env.OPENCLAW_STATE_DIR = root;
+      resetTaskRegistryForTests();
+
+      const task = createTaskRecord({
+        runtime: "acp",
+        ownerKey: "agent:main:main",
+        scopeKind: "session",
+        requesterOrigin: {
+          channel: "telegram",
+          to: "telegram:123",
+        },
+        childSessionKey: "agent:main:acp:child",
+        runId: "run-reattached-terminal",
+        task: "Investigate issue",
+        status: "succeeded",
+        deliveryStatus: "pending",
+        terminalSummary: "Finished in the foreground session.",
+        reattachedAt: Date.now() - 1_000,
+      });
+
+      await maybeDeliverTaskTerminalUpdate(task.taskId);
+
+      expect(hoisted.sendMessageMock).not.toHaveBeenCalled();
+      expect(getTaskById(task.taskId)).toMatchObject({
+        deliveryStatus: "reattached",
+      });
+      expect(peekSystemEvents("agent:main:main")).toEqual([]);
+    });
+  });
+
   it("restores persisted tasks from disk on the next lookup", async () => {
     await withTaskRegistryTempDir(async (root) => {
       process.env.OPENCLAW_STATE_DIR = root;

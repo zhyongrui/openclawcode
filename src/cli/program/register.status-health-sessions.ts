@@ -1,8 +1,14 @@
 import type { Command } from "commander";
 import { flowsCancelCommand, flowsListCommand, flowsShowCommand } from "../../commands/flows.js";
 import { healthCommand } from "../../commands/health.js";
+import { DEFAULT_BACKGROUND_RESUME_MESSAGE } from "../../commands/background-session-resume.js";
 import { sessionsCleanupCommand } from "../../commands/sessions-cleanup.js";
-import { sessionsCommand, sessionsContinueCommand, sessionsShowCommand } from "../../commands/sessions.js";
+import {
+  sessionsCommand,
+  sessionsContinueCommand,
+  sessionsReattachCommand,
+  sessionsShowCommand,
+} from "../../commands/sessions.js";
 import { statusCommand } from "../../commands/status.js";
 import {
   tasksAuditCommand,
@@ -199,6 +205,77 @@ export function registerStatusHealthSessionsCommands(program: Command) {
             store: (opts.store as string | undefined) ?? parentOpts?.store,
             agent: (opts.agent as string | undefined) ?? parentOpts?.agent,
             allAgents: Boolean(opts.allAgents || parentOpts?.allAgents),
+            json: Boolean(opts.json || parentOpts?.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  sessionsCmd
+    .command("reattach <lookup>")
+    .description("Bring one detached session back to the foreground")
+    .option(
+      "-m, --message <text>",
+      "Message body for the agent",
+      DEFAULT_BACKGROUND_RESUME_MESSAGE,
+    )
+    .option("--store <path>", "Path to session store (default: resolved from config)")
+    .option("--agent <id>", "Agent id to inspect (default: configured default agent)")
+    .option("--all-agents", "Search across all configured agents", false)
+    .option("--thinking <level>", "Thinking level: off | minimal | low | medium | high | xhigh")
+    .option("--verbose <on|off>", "Persist agent verbose level for the session")
+    .option(
+      "--local",
+      "Run the embedded agent locally (requires model provider API keys in your shell)",
+      false,
+    )
+    .option(
+      "--deliver",
+      "Send the reattached session reply back to the selected channel",
+      false,
+    )
+    .option(
+      "--timeout <seconds>",
+      "Override agent command timeout (seconds, default 600 or config value)",
+    )
+    .option("--json", "Output JSON", false)
+    .addHelpText(
+      "after",
+      () =>
+        `\n${theme.heading("Examples:")}\n${formatHelpExamples([
+          [
+            "openclaw sessions reattach abc123",
+            "Resolve a detached session and reattach it in the foreground.",
+          ],
+          [
+            'openclaw sessions reattach agent:work:main --message "Resume and summarize blockers" --local',
+            "Reattach one explicit session locally.",
+          ],
+        ])}`,
+    )
+    .action(async (lookup, opts, command) => {
+      const parentOpts = command.parent?.opts() as
+        | {
+            store?: string;
+            agent?: string;
+            allAgents?: boolean;
+            json?: boolean;
+          }
+        | undefined;
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        await sessionsReattachCommand(
+          {
+            lookup,
+            message: opts.message as string | undefined,
+            store: (opts.store as string | undefined) ?? parentOpts?.store,
+            agent: (opts.agent as string | undefined) ?? parentOpts?.agent,
+            allAgents: Boolean(opts.allAgents || parentOpts?.allAgents),
+            thinking: opts.thinking as string | undefined,
+            verbose: opts.verbose as string | undefined,
+            timeout: opts.timeout as string | undefined,
+            deliver: Boolean(opts.deliver),
+            local: Boolean(opts.local),
             json: Boolean(opts.json || parentOpts?.json),
           },
           defaultRuntime,

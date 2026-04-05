@@ -151,6 +151,7 @@ describe("flowsShowCommand detached session lifecycle", () => {
     expect(output).toContain("resolvedBy: flow_id");
     expect(output).toContain("sessionLifecycle: missing_transcript");
     expect(output).toContain("sessionLifecycleSummary: Transcript file is missing");
+    expect(output).toContain("completionRouting: detached_delivery");
     expect(output).toContain("Child sessions:");
     expect(output).toContain("resumeTranscript: n/a");
     expect(output).toContain("resumeTranscriptExists: no");
@@ -167,11 +168,17 @@ describe("flowsShowCommand detached session lifecycle", () => {
         status: string;
         waitingFlowCount: number;
       } | null;
+      completionRouting?: {
+        mode: string;
+      } | null;
       childSessions?: Array<{
         sessionKey: string;
         sessionId?: string;
         transcriptPath: string | null;
         transcriptExists: boolean;
+        completionRouting?: {
+          mode: string;
+        };
         continueWith: string;
       }>;
     };
@@ -184,11 +191,17 @@ describe("flowsShowCommand detached session lifecycle", () => {
         status: "missing_transcript",
         waitingFlowCount: 1,
       },
+      completionRouting: {
+        mode: "detached_delivery",
+      },
       childSessions: [
         {
           sessionKey: "agent:coder:acp:child",
           transcriptPath: null,
           transcriptExists: false,
+          completionRouting: {
+            mode: "detached_delivery",
+          },
           continueWith:
             'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
         },
@@ -208,12 +221,17 @@ describe("flowsShowCommand detached session lifecycle", () => {
 
     const textRun = makeRuntime();
     await flowsShowCommand({ lookup: flow.flowId, json: false }, textRun.runtime);
+    expect(textRun.logs.join("\n")).toContain("completionRouting: foreground_reattached");
     expect(textRun.logs.join("\n")).toContain("reattachedAt: 2026-04-03T11:58:30.000Z");
 
     const jsonRun = makeRuntime();
     await flowsShowCommand({ lookup: flow.flowId, json: true }, jsonRun.runtime);
-    const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as { reattachedAt?: number };
+    const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as {
+      reattachedAt?: number;
+      completionRouting?: { mode?: string };
+    };
     expect(payload.reattachedAt).toBe(reattachedAt);
+    expect(payload.completionRouting?.mode).toBe("foreground_reattached");
   });
 
   it("classifies an owner-key lookup in JSON output", async () => {
