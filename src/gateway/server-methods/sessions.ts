@@ -9,6 +9,17 @@ import {
   waitForEmbeddedPiRunEnd,
 } from "../../agents/pi-embedded-runner/runs.js";
 import { clearSessionQueues } from "../../auto-reply/reply/queue/cleanup.js";
+import {
+  DEFAULT_BACKGROUND_RESUME_MESSAGE,
+  buildBackgroundSessionCompletionRouting,
+  buildBackgroundSessionTranscriptHandoff,
+  formatBackgroundSessionResumeLines,
+} from "../../commands/background-session-resume.js";
+import {
+  buildSessionLifecycleAssessment,
+  inspectDetachedSessionLifecycle,
+  resolveSessionTranscriptState,
+} from "../../commands/sessions.js";
 import { loadConfig } from "../../config/config.js";
 import {
   loadSessionStore,
@@ -38,11 +49,13 @@ import {
   validateSessionsCompactParams,
   validateSessionsCreateParams,
   validateSessionsDeleteParams,
+  validateSessionsInspectParams,
   validateSessionsListParams,
   validateSessionsMessagesSubscribeParams,
   validateSessionsMessagesUnsubscribeParams,
   validateSessionsPatchParams,
   validateSessionsPreviewParams,
+  validateSessionsReattachParams,
   validateSessionsResetParams,
   validateSessionsResolveParams,
   validateSessionsSendParams,
@@ -50,6 +63,7 @@ import {
 import { reactivateCompletedSubagentSession } from "../session-subagent-reactivation.js";
 import {
   archiveFileOnDisk,
+  buildGatewaySessionRow,
   listSessionsFromStore,
   loadCombinedSessionStoreForGateway,
   loadGatewaySessionRow,
@@ -67,6 +81,8 @@ import {
 } from "../session-utils.js";
 import { applySessionsPatchToStore } from "../sessions-patch.js";
 import { resolveSessionKeyFromResolveParams } from "../sessions-resolve.js";
+import { markTaskFlowsReattachedForOwnerKey } from "../../tasks/task-flow-runtime-internal.js";
+import { markTasksReattachedForRelatedSessionKey } from "../../tasks/runtime-internal.js";
 import { chatHandlers } from "./chat.js";
 import type {
   GatewayClient,
@@ -214,6 +230,135 @@ function rejectWebchatSessionMutation(params: {
     ),
   );
   return true;
+}
+
+function buildSessionInspectPayload(params: {
+  cfg: ReturnType<typeof loadConfig>;
+  key: string;
+  storePath: string;
+  store: Record<string, SessionEntry>;
+  entry: SessionEntry;
+  previewLimit?: number;
+  previewMaxChars?: number;
+}) {
+  const target = resolveGatewaySessionStoreTarget({
+    cfg: params.cfg,
+    key: params.key,
+    store: params.store,
+  });
+  const row = buildGatewaySessionRow({
+    cfg: params.cfg,
+    storePath: params.storePath,
+    store: params.store,
+    key: params.key,
+    entry: params.entry,
+  });
+  const transcript = resolveSessionTranscriptState({
+    entry: params.entry,
+    target,
+  });
+  const snapshot = inspectDetachedSessionLifecycle({
+    cfg: params.cfg,
+    sessionKey: params.key,
+    entry: params.entry,
+    target,
+    abortedLastRun: row.abortedLastRun === true,
+  });
+  const relatedTasks = snapshot?.relatedTasks ?? [];
+  const relatedTaskFlows = snapshot?.relatedTaskFlows ?? [];
+  const completionRouting =
+    snapshot?.completionRouting ?? buildBackgroundSessionCompletionRouting();
+  const lifecycle =
+    snapshot?.lifecycle ??
+    buildSessionLifecycleAssessment({
+      abortedLastRun: row.abortedLastRun === true,
+      transcriptExists: transcript.transcriptExists,
+      relatedTasks,
+      relatedTaskFlows,
+      resumeDetail: snapshot?.resumeDetail,
+    });
+  const previewLimit =
+    typeof params.previewLimit === "number" && Number.isFinite(params.previewLimit)
+      ? Math.max(1, Math.floor(params.previewLimit))
+      : 12;
+  const previewMaxChars =
+    typeof params.previewMaxChars === "number" && Number.isFinite(params.previewMaxChars)
+      ? Math.max(20, Math.floor(params.previewMaxChars))
+      : 240;
+  const previewItems =
+    params.entry.sessionId?.trim() && transcript.transcriptExists
+      ? readSessionPreviewItemsFromTranscript(
+          params.entry.sessionId,
+          params.storePath,
+          params.entry.sessionFile,
+          target.agentId,
+          previewLimit,
+          previewMaxChars,
+        )
+      : [];
+
+  return {
+    key: params.key,
+    row,
+    transcript: {
+      path: transcript.transcriptPath,
+      exists: transcript.transcriptExists,
+      handoff: buildBackgroundSessionTranscriptHandoff({
+        transcriptExists: transcript.transcriptExists,
+        completionRouting,
+      }),
+    },
+    lifecycle,
+    completionRouting,
+    relatedTasks: relatedTasks.map((task) => ({
+      taskId: task.taskId,
+      runtime: task.runtime,
+      status: task.status,
+      runId: task.runId ?? null,
+      label: task.label ?? null,
+      task: task.task,
+      originKind: task.originKind ?? null,
+      originSessionKey: task.originSessionKey ?? null,
+      childSessionKey: task.childSessionKey ?? null,
+      parentFlowId: task.parentFlowId ?? null,
+      updatedAt: task.lastEventAt ?? task.createdAt,
+      reattachedAt: task.reattachedAt ?? null,
+    })),
+    relatedTaskFlows: relatedTaskFlows.map((flow) => ({
+      flowId: flow.flowId,
+      syncMode: flow.syncMode,
+      status: flow.status,
+      goal: flow.goal,
+      controllerId: flow.controllerId ?? null,
+      currentStep: flow.currentStep ?? null,
+      blockedTaskId: flow.blockedTaskId ?? null,
+      blockedSummary: flow.blockedSummary ?? null,
+      cancelRequestedAt: flow.cancelRequestedAt ?? null,
+      createdAt: flow.createdAt,
+      updatedAt: flow.updatedAt,
+      endedAt: flow.endedAt ?? null,
+      reattachedAt: flow.reattachedAt ?? null,
+      revision: flow.revision,
+    })),
+    resume: snapshot?.resumeDetail ?? null,
+    resumeLines: formatBackgroundSessionResumeLines({
+      cfg: params.cfg,
+      sessionKey: params.key,
+      entry: params.entry,
+      target,
+      completionRouting,
+    }),
+    preview: {
+      status: !params.entry.sessionId?.trim()
+        ? "missing"
+        : !transcript.transcriptExists
+          ? "missing"
+          : previewItems.length > 0
+            ? "ok"
+            : "empty",
+      items: previewItems,
+    },
+  };
 }
 
 function buildDashboardSessionKey(agentId: string): string {
@@ -630,6 +775,42 @@ export const sessionsHandlers: GatewayRequestHandlers = {
 
     respond(true, { ts: Date.now(), previews } satisfies SessionsPreviewResult, undefined);
   },
+  "sessions.inspect": ({ params, respond }) => {
+    if (!assertValidParams(params, validateSessionsInspectParams, "sessions.inspect", respond)) {
+      return;
+    }
+    const p = params as {
+      key?: unknown;
+      previewLimit?: unknown;
+      previewMaxChars?: unknown;
+    };
+    const key = requireSessionKey(p.key, respond);
+    if (!key) {
+      return;
+    }
+    const { cfg, storePath, store, entry, canonicalKey } = loadSessionEntry(key);
+    if (!entry?.sessionId) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, `session not found: ${key}`),
+      );
+      return;
+    }
+    respond(
+      true,
+      buildSessionInspectPayload({
+        cfg,
+        key: canonicalKey,
+        storePath,
+        store,
+        entry,
+        previewLimit: typeof p.previewLimit === "number" ? p.previewLimit : undefined,
+        previewMaxChars: typeof p.previewMaxChars === "number" ? p.previewMaxChars : undefined,
+      }),
+      undefined,
+    );
+  },
   "sessions.resolve": async ({ params, respond }) => {
     if (!assertValidParams(params, validateSessionsResolveParams, "sessions.resolve", respond)) {
       return;
@@ -841,6 +1022,121 @@ export const sessionsHandlers: GatewayRequestHandlers = {
       client,
       isWebchatConnect,
       interruptIfActive: false,
+    });
+  },
+  "sessions.reattach": async ({ req, params, respond, context, client, isWebchatConnect }) => {
+    if (!assertValidParams(params, validateSessionsReattachParams, "sessions.reattach", respond)) {
+      return;
+    }
+    const p = params as {
+      key?: unknown;
+      message?: unknown;
+      thinking?: unknown;
+      attachments?: unknown[];
+      timeoutMs?: unknown;
+      idempotencyKey?: unknown;
+    };
+    const key = requireSessionKey(p.key, respond);
+    if (!key) {
+      return;
+    }
+    const { cfg, storePath, store, entry, canonicalKey } = loadSessionEntry(key);
+    if (!entry?.sessionId) {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, `session not found: ${key}`),
+      );
+      return;
+    }
+    const message =
+      typeof p.message === "string" && p.message.trim()
+        ? p.message
+        : DEFAULT_BACKGROUND_RESUME_MESSAGE;
+    const before = buildSessionInspectPayload({
+      cfg,
+      key: canonicalKey,
+      storePath,
+      store,
+      entry,
+    });
+
+    let sendOk = false;
+    let sendPayload: unknown;
+    let sendError: ReturnType<typeof errorShape> | undefined;
+    await handleSessionSend({
+      method: "sessions.send",
+      req,
+      params: {
+        key: canonicalKey,
+        message,
+        ...(typeof p.thinking === "string" ? { thinking: p.thinking } : {}),
+        ...(Array.isArray(p.attachments) ? { attachments: p.attachments } : {}),
+        ...(typeof p.timeoutMs === "number" ? { timeoutMs: p.timeoutMs } : {}),
+        ...(typeof p.idempotencyKey === "string" ? { idempotencyKey: p.idempotencyKey } : {}),
+      },
+      respond: (ok, payload, error) => {
+        sendOk = ok;
+        sendPayload = payload;
+        sendError = error;
+      },
+      context,
+      client,
+      isWebchatConnect,
+      interruptIfActive: false,
+    });
+    if (!sendOk) {
+      respond(false, undefined, sendError);
+      return;
+    }
+
+    const reattachedAt = Date.now();
+    markTasksReattachedForRelatedSessionKey({
+      sessionKey: canonicalKey,
+      reattachedAt,
+    });
+    markTaskFlowsReattachedForOwnerKey({
+      ownerKey: canonicalKey,
+      reattachedAt,
+    });
+
+    const after = buildSessionInspectPayload({
+      cfg,
+      key: canonicalKey,
+      storePath,
+      store,
+      entry,
+    });
+
+    respond(
+      true,
+      {
+        ...((sendPayload && typeof sendPayload === "object" && !Array.isArray(sendPayload))
+          ? sendPayload
+          : {}),
+        continuedSession: {
+          key: canonicalKey,
+          sessionId: entry.sessionId,
+          transcriptPath: before.transcript.path,
+          transcriptExists: before.transcript.exists,
+          lifecycleBeforeContinue: before.lifecycle,
+          resumeBeforeContinue: before.resume,
+          completionRoutingAfterContinue: after.completionRouting,
+          reattachedAt,
+        },
+        continueRequest: {
+          message,
+          background: false,
+          thinking: typeof p.thinking === "string" ? p.thinking : null,
+          timeoutMs: typeof p.timeoutMs === "number" ? p.timeoutMs : null,
+        },
+        inspect: after,
+      },
+      undefined,
+    );
+    emitSessionsChanged(context, {
+      sessionKey: canonicalKey,
+      reason: "reattach",
     });
   },
   "sessions.steer": async ({ req, params, respond, context, client, isWebchatConnect }) => {

@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { deleteSessionsAndRefresh, subscribeSessions, type SessionsState } from "./sessions.ts";
+import {
+  deleteSessionsAndRefresh,
+  loadSessionInspect,
+  reattachSessionInspect,
+  sendSessionInspectFollowup,
+  subscribeSessions,
+  type SessionsState,
+} from "./sessions.ts";
 
 type RequestFn = (method: string, params?: unknown) => Promise<unknown>;
 
@@ -22,6 +29,14 @@ function createState(request: RequestFn, overrides: Partial<SessionsState> = {})
     sessionsFilterLimit: "0",
     sessionsIncludeGlobal: true,
     sessionsIncludeUnknown: true,
+    sessionsInspectKey: null,
+    sessionsInspectLoading: false,
+    sessionsInspectResult: null,
+    sessionsInspectError: null,
+    sessionsInspectDraft: "",
+    sessionsInspectActionLoading: false,
+    sessionsInspectActionError: null,
+    sessionsInspectActionStatus: null,
     ...overrides,
   };
 }
@@ -118,5 +133,138 @@ describe("deleteSessionsAndRefresh", () => {
 
     expect(deleted).toEqual([]);
     expect(request).not.toHaveBeenCalled();
+  });
+});
+
+describe("session inspect flows", () => {
+  it("loads session inspect detail", async () => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "sessions.inspect") {
+        return {
+          key: "agent:main:main",
+          row: { key: "agent:main:main", kind: "direct", updatedAt: 1 },
+          transcript: {
+            path: "/tmp/session.jsonl",
+            exists: true,
+            handoff: { mode: "detached_resume", summary: "ok" },
+          },
+          lifecycle: {
+            status: "resumable",
+            summary: "ready",
+            resumeAvailable: true,
+            activeTaskCount: 0,
+            activeFlowCount: 0,
+            waitingFlowCount: 0,
+            blockedFlowCount: 0,
+          },
+          completionRouting: { mode: "detached_delivery", summary: "detached" },
+          relatedTasks: [],
+          relatedTaskFlows: [],
+          resume: null,
+          resumeLines: [],
+          preview: { status: "ok", items: [] },
+        };
+      }
+      throw new Error(`unexpected method: ${method}`);
+    });
+    const state = createState(request);
+
+    await loadSessionInspect(state, "agent:main:main");
+
+    expect(request).toHaveBeenCalledWith("sessions.inspect", { key: "agent:main:main" });
+    expect(state.sessionsInspectResult?.key).toBe("agent:main:main");
+    expect(state.sessionsInspectLoading).toBe(false);
+  });
+
+  it("sends detached follow-up and refreshes inspect detail", async () => {
+    const request = vi.fn(async (method: string) => {
+      if (method === "sessions.send") {
+        return { ok: true };
+      }
+      if (method === "sessions.inspect") {
+        return {
+          key: "agent:main:main",
+          row: { key: "agent:main:main", kind: "direct", updatedAt: 1 },
+          transcript: {
+            path: "/tmp/session.jsonl",
+            exists: true,
+            handoff: { mode: "detached_resume", summary: "ok" },
+          },
+          lifecycle: {
+            status: "resumable",
+            summary: "ready",
+            resumeAvailable: true,
+            activeTaskCount: 0,
+            activeFlowCount: 0,
+            waitingFlowCount: 0,
+            blockedFlowCount: 0,
+          },
+          completionRouting: { mode: "detached_delivery", summary: "detached" },
+          relatedTasks: [],
+          relatedTaskFlows: [],
+          resume: null,
+          resumeLines: [],
+          preview: { status: "ok", items: [] },
+        };
+      }
+      throw new Error(`unexpected method: ${method}`);
+    });
+    const state = createState(request, { sessionsInspectKey: "agent:main:main" });
+
+    await sendSessionInspectFollowup(state, "agent:main:main", "");
+
+    expect(request).toHaveBeenNthCalledWith(1, "sessions.send", {
+      key: "agent:main:main",
+      message: "Continue from the latest background task state.",
+    });
+    expect(request).toHaveBeenNthCalledWith(2, "sessions.inspect", { key: "agent:main:main" });
+    expect(state.sessionsInspectActionStatus).toBe("Detached follow-up sent.");
+  });
+
+  it("reattaches and stores the refreshed inspect snapshot", async () => {
+    const inspect = {
+      key: "agent:main:main",
+      row: { key: "agent:main:main", kind: "direct", updatedAt: 1 },
+      transcript: {
+        path: "/tmp/session.jsonl",
+        exists: true,
+        handoff: { mode: "foreground_history", summary: "reattached" },
+      },
+      lifecycle: {
+        status: "resumable",
+        summary: "ready",
+        resumeAvailable: true,
+        activeTaskCount: 0,
+        activeFlowCount: 0,
+        waitingFlowCount: 0,
+        blockedFlowCount: 0,
+      },
+      completionRouting: { mode: "foreground_reattached", summary: "foreground" },
+      relatedTasks: [],
+      relatedTaskFlows: [],
+      resume: null,
+      resumeLines: [],
+      preview: { status: "ok", items: [] },
+    };
+    const request = vi.fn(async (method: string) => {
+      if (method === "sessions.reattach") {
+        return {
+          continuedSession: { key: "agent:main:main" },
+          inspect,
+        };
+      }
+      throw new Error(`unexpected method: ${method}`);
+    });
+    const state = createState(request);
+
+    const result = await reattachSessionInspect(state, "agent:main:main", "");
+
+    expect(request).toHaveBeenCalledWith("sessions.reattach", {
+      key: "agent:main:main",
+      message: "Continue from the latest background task state.",
+    });
+    expect(result?.inspect?.completionRouting.mode).toBe("foreground_reattached");
+    expect(state.sessionsInspectResult?.completionRouting.mode).toBe("foreground_reattached");
+    expect(state.sessionsInspectActionStatus).toBe("Session reattached in foreground.");
   });
 });

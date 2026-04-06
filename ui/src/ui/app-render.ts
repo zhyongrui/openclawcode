@@ -79,7 +79,15 @@ import {
 import { loadLogs } from "./controllers/logs.ts";
 import { loadNodes } from "./controllers/nodes.ts";
 import { loadPresence } from "./controllers/presence.ts";
-import { deleteSessionsAndRefresh, loadSessions, patchSession } from "./controllers/sessions.ts";
+import {
+  clearSessionInspect,
+  deleteSessionsAndRefresh,
+  loadSessionInspect,
+  loadSessions,
+  patchSession,
+  reattachSessionInspect,
+  sendSessionInspectFollowup,
+} from "./controllers/sessions.ts";
 import {
   closeClawHubDetail,
   installFromClawHub,
@@ -840,6 +848,14 @@ export function renderApp(state: AppViewState) {
                 page: state.sessionsPage,
                 pageSize: state.sessionsPageSize,
                 selectedKeys: state.sessionsSelectedKeys,
+                inspectKey: state.sessionsInspectKey,
+                inspectLoading: state.sessionsInspectLoading,
+                inspectResult: state.sessionsInspectResult,
+                inspectError: state.sessionsInspectError,
+                inspectDraft: state.sessionsInspectDraft,
+                inspectActionLoading: state.sessionsInspectActionLoading,
+                inspectActionError: state.sessionsInspectActionError,
+                inspectActionStatus: state.sessionsInspectActionStatus,
                 onFiltersChange: (next) => {
                   state.sessionsFilterActive = next.activeMinutes;
                   state.sessionsFilterLimit = next.limit;
@@ -864,6 +880,25 @@ export function renderApp(state: AppViewState) {
                 },
                 onRefresh: () => loadSessions(state),
                 onPatch: (key, patch) => patchSession(state, key, patch),
+                onInspect: (key) => {
+                  void loadSessionInspect(state, key);
+                },
+                onInspectDismiss: () => {
+                  clearSessionInspect(state);
+                },
+                onInspectDraftChange: (next) => {
+                  state.sessionsInspectDraft = next;
+                },
+                onInspectContinue: async (key, message) => {
+                  await sendSessionInspectFollowup(state, key, message);
+                },
+                onInspectReattach: async (key, message) => {
+                  const res = await reattachSessionInspect(state, key, message);
+                  if (res?.continuedSession?.key) {
+                    switchChatSession(state, res.continuedSession.key);
+                    state.setTab("chat" as import("./navigation.ts").Tab);
+                  }
+                },
                 onToggleSelect: (key) => {
                   const next = new Set(state.sessionsSelectedKeys);
                   if (next.has(key)) {

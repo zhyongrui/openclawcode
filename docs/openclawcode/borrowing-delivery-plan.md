@@ -78,11 +78,14 @@ Completed in this wave:
   semantics, so operators and automation can distinguish a still-live detached
   transcript from a reattached history-only transcript snapshot or a missing
   recovery artifact
+- Control UI Sessions now exposes a detached-session detail panel with
+  transcript preview, shared resume/handoff lines, related task/TaskFlow
+  context, detached follow-up, and first-class foreground reattach actions via
+  gateway `sessions.inspect` / `sessions.reattach`
 
 Staged next:
 
 - TUI / Control UI affordance for backgrounding the currently interactive turn
-- richer transcript recovery UX beyond the new handoff semantics
 
 ### 3. History and session-local operator UX
 
@@ -104,10 +107,9 @@ Completed in this wave:
 - durable large-paste references for oversized or multiline history-tail items,
   so repo-local workflow history can point at persisted tail artifacts instead
   of replaying pasted payloads inline
-
-Staged next:
-
-- richer non-CLI history and transcript handoff affordances
+- non-CLI session history and transcript handoff affordances in Control UI via
+  session inspect previews and shared resume metadata instead of CLI-only
+  `sessions show` output
 
 ### 4. Detached-session identity and resume discipline
 
@@ -193,11 +195,12 @@ Completed in this wave:
   of only exposing the underlying metadata: once a detached run was brought
   back to the foreground, terminal delivery is suppressed from the detached
   lane and marked as reattached
-
-Staged next:
-
-- non-CLI reattach affordances
-- clearer remote-session lifecycle views in operator UIs
+- gateway `sessions.reattach` now brings that foreground reattach behavior into
+  non-CLI operator flows, so Control UI can take over detached work without
+  shelling out to the CLI
+- Control UI Sessions detail now exposes the same detached lifecycle,
+  completion-routing, transcript-handoff, and related-work state model that the
+  CLI `sessions show` / `sessions continue` views already use
 
 ### 5. Bridge and remote-control subsystem boundaries
 

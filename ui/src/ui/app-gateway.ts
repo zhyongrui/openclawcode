@@ -34,7 +34,7 @@ import {
 } from "./controllers/exec-approval.ts";
 import { loadHealthState } from "./controllers/health.ts";
 import { loadNodes } from "./controllers/nodes.ts";
-import { loadSessions, subscribeSessions } from "./controllers/sessions.ts";
+import { loadSessionInspect, loadSessions, subscribeSessions } from "./controllers/sessions.ts";
 import {
   resolveGatewayErrorDetailCode,
   type GatewayEventFrame,
@@ -88,6 +88,7 @@ type GatewayHost = {
   execApprovalQueue: ExecApprovalRequest[];
   execApprovalError: string | null;
   updateAvailable: UpdateAvailable | null;
+  sessionsInspectKey?: string | null;
 };
 
 type SessionDefaultsSnapshot = {
@@ -411,6 +412,12 @@ function handleGatewayEventUnsafe(host: GatewayHost, evt: GatewayEventFrame) {
 
   if (evt.event === "sessions.changed") {
     void loadSessions(host as unknown as OpenClawApp);
+    if (host.sessionsInspectKey) {
+      void loadSessionInspect(
+        host as unknown as Parameters<typeof loadSessionInspect>[0],
+        host.sessionsInspectKey,
+      );
+    }
     return;
   }
 

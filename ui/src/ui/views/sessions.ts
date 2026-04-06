@@ -4,7 +4,7 @@ import { formatRelativeTimestamp } from "../format.ts";
 import { icons } from "../icons.ts";
 import { pathForTab } from "../navigation.ts";
 import { formatSessionTokens } from "../presenter.ts";
-import type { GatewaySessionRow, SessionsListResult } from "../types.ts";
+import type { GatewaySessionRow, SessionInspectResult, SessionsListResult } from "../types.ts";
 
 export type SessionsProps = {
   loading: boolean;
@@ -21,6 +21,14 @@ export type SessionsProps = {
   page: number;
   pageSize: number;
   selectedKeys: Set<string>;
+  inspectKey: string | null;
+  inspectLoading: boolean;
+  inspectResult: SessionInspectResult | null;
+  inspectError: string | null;
+  inspectDraft: string;
+  inspectActionLoading: boolean;
+  inspectActionError: string | null;
+  inspectActionStatus: string | null;
   onFiltersChange: (next: {
     activeMinutes: string;
     limit: string;
@@ -42,6 +50,11 @@ export type SessionsProps = {
       reasoningLevel?: string | null;
     },
   ) => void;
+  onInspect: (key: string) => void;
+  onInspectDismiss: () => void;
+  onInspectDraftChange: (value: string) => void;
+  onInspectContinue: (key: string, message: string) => void;
+  onInspectReattach: (key: string, message: string) => void;
   onToggleSelect: (key: string) => void;
   onSelectPage: (keys: string[]) => void;
   onDeselectPage: (keys: string[]) => void;
@@ -353,6 +366,7 @@ export function renderSessions(props: SessionsProps) {
                 <th>Fast</th>
                 <th>Verbose</th>
                 <th>Reasoning</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -360,7 +374,7 @@ export function renderSessions(props: SessionsProps) {
                 ? html`
                     <tr>
                       <td
-                        colspan="10"
+                        colspan="11"
                         style="text-align: center; padding: 48px 16px; color: var(--muted)"
                       >
                         No sessions found.
@@ -375,6 +389,8 @@ export function renderSessions(props: SessionsProps) {
                       props.selectedKeys.has(row.key),
                       props.onToggleSelect,
                       props.loading,
+                      props.inspectKey === row.key,
+                      props.onInspect,
                       props.onNavigateToChat,
                     ),
                   )}
@@ -412,6 +428,8 @@ export function renderSessions(props: SessionsProps) {
             `
           : nothing}
       </div>
+
+      ${renderInspectPanel(props)}
     </section>
   `;
 }
@@ -423,6 +441,8 @@ function renderRow(
   selected: boolean,
   onToggleSelect: SessionsProps["onToggleSelect"],
   disabled: boolean,
+  inspected: boolean,
+  onInspect: SessionsProps["onInspect"],
   onNavigateToChat?: (sessionKey: string) => void,
 ) {
   const updated = row.updatedAt ? formatRelativeTimestamp(row.updatedAt) : t("common.na");
@@ -585,6 +605,191 @@ function renderRow(
           )}
         </select>
       </td>
+      <td>
+        <button
+          class="btn btn--sm ${inspected ? "active" : ""}"
+          ?disabled=${disabled}
+          @click=${() => onInspect(row.key)}
+        >
+          ${inspected ? "Inspecting" : "Inspect"}
+        </button>
+      </td>
     </tr>
+  `;
+}
+
+function renderInspectPanel(props: SessionsProps) {
+  if (!props.inspectLoading && !props.inspectResult && !props.inspectError) {
+    return nothing;
+  }
+
+  const detail = props.inspectResult;
+  const lifecycleLabel = detail?.lifecycle?.status?.replaceAll("_", " ") ?? "loading";
+  const draftPlaceholder =
+    detail?.resume?.continueWith ?? 'Continue from the latest background task state.';
+
+  return html`
+    <section class="card" style="margin-top: 16px;">
+      <div class="row" style="justify-content: space-between; align-items: flex-start; gap: 12px;">
+        <div>
+          <div class="card-title">
+            ${detail ? `Session Detail: ${detail.key}` : props.inspectKey ?? "Session detail"}
+          </div>
+          <div class="card-sub">
+            ${detail
+              ? `Lifecycle: ${lifecycleLabel} · Transcript handoff: ${detail.transcript.handoff.mode}`
+              : "Detached session recovery and transcript handoff view."}
+          </div>
+        </div>
+        <button class="btn btn--sm" @click=${props.onInspectDismiss}>Close</button>
+      </div>
+
+      ${props.inspectLoading
+        ? html`<div class="muted" style="margin-top: 12px;">Loading session detail…</div>`
+        : nothing}
+      ${props.inspectError
+        ? html`<div class="callout danger" style="margin-top: 12px;">${props.inspectError}</div>`
+        : nothing}
+      ${detail
+        ? html`
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 16px;">
+              <div class="card" style="padding: 14px;">
+                <div class="card-title" style="font-size: 13px;">Status</div>
+                <div class="card-sub" style="margin-top: 8px;">${detail.lifecycle.summary}</div>
+                <div class="muted" style="margin-top: 10px;">Completion: ${detail.completionRouting.mode}</div>
+                <div class="muted" style="margin-top: 6px;">Transcript: ${detail.transcript.exists ? "available" : "missing"}</div>
+              </div>
+              <div class="card" style="padding: 14px;">
+                <div class="card-title" style="font-size: 13px;">Recovery</div>
+                <div class="card-sub mono" style="margin-top: 8px; word-break: break-all;">
+                  ${detail.transcript.path ?? "n/a"}
+                </div>
+                <div class="muted" style="margin-top: 10px;">${detail.transcript.handoff.summary}</div>
+              </div>
+              <div class="card" style="padding: 14px;">
+                <div class="card-title" style="font-size: 13px;">Work</div>
+                <div class="card-sub" style="margin-top: 8px;">
+                  ${detail.relatedTasks.length} task${detail.relatedTasks.length === 1 ? "" : "s"} ·
+                  ${detail.relatedTaskFlows.length} flow${detail.relatedTaskFlows.length === 1 ? "" : "s"}
+                </div>
+                <div class="muted" style="margin-top: 10px;">
+                  ${detail.row.modelProvider && detail.row.model
+                    ? `${detail.row.modelProvider}/${detail.row.model}`
+                    : detail.row.model ?? "model unknown"}
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top: 16px; padding: 14px;">
+              <div class="card-title" style="font-size: 13px;">Operator Actions</div>
+              <textarea
+                style="width: 100%; min-height: 92px; margin-top: 10px;"
+                .value=${props.inspectDraft}
+                placeholder=${draftPlaceholder}
+                @input=${(e: Event) => props.onInspectDraftChange((e.target as HTMLTextAreaElement).value)}
+              ></textarea>
+              ${props.inspectActionError
+                ? html`<div class="callout danger" style="margin-top: 10px;">${props.inspectActionError}</div>`
+                : nothing}
+              ${props.inspectActionStatus
+                ? html`<div class="callout success" style="margin-top: 10px;">${props.inspectActionStatus}</div>`
+                : nothing}
+              <div class="row" style="gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                <button
+                  class="btn btn--sm"
+                  ?disabled=${props.inspectActionLoading}
+                  @click=${() => props.onInspectContinue(detail.key, props.inspectDraft)}
+                >
+                  Continue Detached
+                </button>
+                <button
+                  class="btn btn--sm"
+                  ?disabled=${props.inspectActionLoading}
+                  @click=${() => props.onInspectReattach(detail.key, props.inspectDraft)}
+                >
+                  Reattach In Chat
+                </button>
+                ${props.onNavigateToChat
+                  ? html`
+                      <button class="btn btn--sm" @click=${() => props.onNavigateToChat?.(detail.key)}>
+                        Open Chat
+                      </button>
+                    `
+                  : nothing}
+              </div>
+            </div>
+
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-top: 16px;">
+              <div class="card" style="padding: 14px;">
+                <div class="card-title" style="font-size: 13px;">Transcript Preview</div>
+                <div class="card-sub" style="margin-top: 8px;">
+                  ${detail.preview.status === "ok"
+                    ? "Latest transcript snippets."
+                    : detail.preview.status === "empty"
+                      ? "Transcript exists but preview is empty."
+                      : "Transcript preview unavailable."}
+                </div>
+                <div style="margin-top: 12px; display: grid; gap: 10px;">
+                  ${detail.preview.items.map(
+                    (item) => html`
+                      <div class="card" style="padding: 10px;">
+                        <div class="muted" style="margin-bottom: 6px;">${item.role}</div>
+                        <div style="white-space: pre-wrap;">${item.text}</div>
+                      </div>
+                    `,
+                  )}
+                </div>
+              </div>
+              <div class="card" style="padding: 14px;">
+                <div class="card-title" style="font-size: 13px;">Resume Lines</div>
+                <div class="card-sub" style="margin-top: 8px;">Shared detached-session handoff metadata.</div>
+                <pre
+                  class="mono"
+                  style="margin: 12px 0 0; white-space: pre-wrap; word-break: break-word; background: var(--surface-2, rgba(0,0,0,0.04)); padding: 12px; border-radius: var(--radius-sm);"
+                >${detail.resumeLines.join("\n")}</pre>
+              </div>
+            </div>
+
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-top: 16px;">
+              <div class="card" style="padding: 14px;">
+                <div class="card-title" style="font-size: 13px;">Related Tasks</div>
+                <div style="margin-top: 10px; display: grid; gap: 8px;">
+                  ${detail.relatedTasks.length === 0
+                    ? html`<div class="muted">No related tasks.</div>`
+                    : detail.relatedTasks.slice(0, 8).map(
+                        (task) => html`
+                          <div class="card" style="padding: 10px;">
+                            <div class="mono">${task.taskId}</div>
+                            <div class="muted" style="margin-top: 4px;">
+                              ${task.status} · ${task.runtime}${task.runId ? ` · ${task.runId}` : ""}
+                            </div>
+                            <div style="margin-top: 6px;">${task.label ?? task.task}</div>
+                          </div>
+                        `,
+                      )}
+                </div>
+              </div>
+              <div class="card" style="padding: 14px;">
+                <div class="card-title" style="font-size: 13px;">Related Flows</div>
+                <div style="margin-top: 10px; display: grid; gap: 8px;">
+                  ${detail.relatedTaskFlows.length === 0
+                    ? html`<div class="muted">No related flows.</div>`
+                    : detail.relatedTaskFlows.slice(0, 8).map(
+                        (flow) => html`
+                          <div class="card" style="padding: 10px;">
+                            <div class="mono">${flow.flowId}</div>
+                            <div class="muted" style="margin-top: 4px;">
+                              ${flow.status} · ${flow.syncMode}
+                            </div>
+                            <div style="margin-top: 6px;">${flow.goal}</div>
+                          </div>
+                        `,
+                      )}
+                </div>
+              </div>
+            </div>
+          `
+        : nothing}
+    </section>
   `;
 }

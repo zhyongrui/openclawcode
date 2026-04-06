@@ -2,7 +2,7 @@
 
 import { render } from "lit";
 import { describe, expect, it, vi } from "vitest";
-import type { SessionsListResult } from "../types.ts";
+import type { SessionInspectResult, SessionsListResult } from "../types.ts";
 import { renderSessions, type SessionsProps } from "./sessions.ts";
 
 function buildResult(session: SessionsListResult["sessions"][number]): SessionsListResult {
@@ -41,6 +41,14 @@ function buildProps(result: SessionsListResult): SessionsProps {
     page: 0,
     pageSize: 10,
     selectedKeys: new Set<string>(),
+    inspectKey: null,
+    inspectLoading: false,
+    inspectResult: null,
+    inspectError: null,
+    inspectDraft: "",
+    inspectActionLoading: false,
+    inspectActionError: null,
+    inspectActionStatus: null,
     onFiltersChange: () => undefined,
     onSearchChange: () => undefined,
     onSortChange: () => undefined,
@@ -48,11 +56,58 @@ function buildProps(result: SessionsListResult): SessionsProps {
     onPageSizeChange: () => undefined,
     onRefresh: () => undefined,
     onPatch: () => undefined,
+    onInspect: () => undefined,
+    onInspectDismiss: () => undefined,
+    onInspectDraftChange: () => undefined,
+    onInspectContinue: () => undefined,
+    onInspectReattach: () => undefined,
     onToggleSelect: () => undefined,
     onSelectPage: () => undefined,
     onDeselectPage: () => undefined,
     onDeselectAll: () => undefined,
     onDeleteSelected: () => undefined,
+  };
+}
+
+function buildInspectResult(key: string): SessionInspectResult {
+  return {
+    key,
+    row: {
+      key,
+      kind: "direct",
+      updatedAt: Date.now(),
+      model: "gpt-5",
+      modelProvider: "openai",
+    },
+    transcript: {
+      path: "/tmp/session.jsonl",
+      exists: true,
+      handoff: {
+        mode: "detached_resume",
+        summary: "Transcript remains live for detached resume.",
+      },
+    },
+    lifecycle: {
+      status: "resumable",
+      summary: "Session is resumable.",
+      resumeAvailable: true,
+      activeTaskCount: 0,
+      activeFlowCount: 0,
+      waitingFlowCount: 0,
+      blockedFlowCount: 0,
+    },
+    completionRouting: {
+      mode: "detached_delivery",
+      summary: "Detached completion stays detached.",
+    },
+    relatedTasks: [],
+    relatedTaskFlows: [],
+    resume: null,
+    resumeLines: ["resumeSessionKey: agent:main:main"],
+    preview: {
+      status: "ok",
+      items: [{ role: "assistant", text: "Latest transcript preview" }],
+    },
   };
 }
 
@@ -164,5 +219,28 @@ describe("sessions view", () => {
     expect(onDeselectPage).toHaveBeenCalledWith(["page-0"]);
     expect(onDeselectAll).not.toHaveBeenCalled();
     expect(onSelectPage).not.toHaveBeenCalled();
+  });
+
+  it("renders the session detail panel when inspect data is present", async () => {
+    const container = document.createElement("div");
+    render(
+      renderSessions({
+        ...buildProps(
+          buildResult({
+            key: "agent:main:main",
+            kind: "direct",
+            updatedAt: Date.now(),
+          }),
+        ),
+        inspectKey: "agent:main:main",
+        inspectResult: buildInspectResult("agent:main:main"),
+      }),
+      container,
+    );
+    await Promise.resolve();
+
+    expect(container.textContent).toContain("Session Detail: agent:main:main");
+    expect(container.textContent).toContain("Continue Detached");
+    expect(container.textContent).toContain("Latest transcript preview");
   });
 });

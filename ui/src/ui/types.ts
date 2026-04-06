@@ -368,6 +368,16 @@ export type AgentsFilesSetResult = {
 };
 
 export type SessionRunStatus = "running" | "done" | "failed" | "killed" | "timeout";
+export type SessionPreviewItem =
+  import("../../../src/gateway/session-utils.types.js").SessionPreviewItem;
+export type BackgroundSessionTranscriptHandoff =
+  import("../../../src/commands/background-session-resume.js").BackgroundSessionTranscriptHandoff;
+export type BackgroundSessionCompletionRouting =
+  import("../../../src/commands/background-session-resume.js").BackgroundSessionCompletionRouting;
+export type BackgroundSessionResumeDetail =
+  import("../../../src/commands/background-session-resume.js").BackgroundSessionResumeDetail;
+export type SessionLifecycleAssessment =
+  import("../../../src/commands/sessions.js").SessionLifecycleAssessment;
 
 export type GatewaySessionRow = {
   key: string;
@@ -403,6 +413,82 @@ export type GatewaySessionRow = {
 };
 
 export type SessionsListResult = SessionsListResultBase<GatewaySessionsDefaults, GatewaySessionRow>;
+
+export type SessionInspectRelatedTask = {
+  taskId: string;
+  runtime: string;
+  status: string;
+  runId: string | null;
+  label: string | null;
+  task: string;
+  originKind: string | null;
+  originSessionKey: string | null;
+  childSessionKey: string | null;
+  parentFlowId: string | null;
+  updatedAt: number;
+  reattachedAt: number | null;
+};
+
+export type SessionInspectRelatedTaskFlow = {
+  flowId: string;
+  syncMode: string;
+  status: string;
+  goal: string;
+  controllerId: string | null;
+  currentStep: number | null;
+  blockedTaskId: string | null;
+  blockedSummary: string | null;
+  cancelRequestedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+  endedAt: number | null;
+  reattachedAt: number | null;
+  revision: number;
+};
+
+export type SessionInspectResult = {
+  key: string;
+  row: GatewaySessionRow;
+  transcript: {
+    path: string | null;
+    exists: boolean;
+    handoff: BackgroundSessionTranscriptHandoff;
+  };
+  lifecycle: SessionLifecycleAssessment;
+  completionRouting: BackgroundSessionCompletionRouting;
+  relatedTasks: SessionInspectRelatedTask[];
+  relatedTaskFlows: SessionInspectRelatedTaskFlow[];
+  resume: BackgroundSessionResumeDetail | null;
+  resumeLines: string[];
+  preview: {
+    status: "ok" | "empty" | "missing";
+    items: SessionPreviewItem[];
+  };
+};
+
+export type SessionsReattachResult = {
+  runId?: string;
+  status?: string;
+  messageSeq?: number;
+  interruptedActiveRun?: boolean;
+  continuedSession?: {
+    key: string;
+    sessionId?: string | null;
+    transcriptPath?: string | null;
+    transcriptExists?: boolean | null;
+    lifecycleBeforeContinue?: SessionLifecycleAssessment | null;
+    resumeBeforeContinue?: BackgroundSessionResumeDetail | null;
+    completionRoutingAfterContinue?: BackgroundSessionCompletionRouting | null;
+    reattachedAt?: number | null;
+  };
+  continueRequest?: {
+    message: string;
+    background: boolean;
+    thinking?: string | null;
+    timeoutMs?: number | null;
+  };
+  inspect?: SessionInspectResult;
+};
 
 export type SessionsPatchResult = SessionsPatchResultBase<{
   sessionId: string;

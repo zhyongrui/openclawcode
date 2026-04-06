@@ -209,6 +209,14 @@ export type AppViewState = {
   sessionsPage: number;
   sessionsPageSize: number;
   sessionsSelectedKeys: Set<string>;
+  sessionsInspectKey: string | null;
+  sessionsInspectLoading: boolean;
+  sessionsInspectResult: import("./types.js").SessionInspectResult | null;
+  sessionsInspectError: string | null;
+  sessionsInspectDraft: string;
+  sessionsInspectActionLoading: boolean;
+  sessionsInspectActionError: string | null;
+  sessionsInspectActionStatus: string | null;
   usageLoading: boolean;
   usageResult: SessionsUsageResult | null;
   usageCostSummary: CostUsageSummary | null;

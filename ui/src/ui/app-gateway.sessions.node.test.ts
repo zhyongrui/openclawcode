@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const loadSessionsMock = vi.fn();
+const loadSessionInspectMock = vi.fn();
 
 vi.mock("./app-chat.ts", () => ({
   CHAT_SESSIONS_ACTIVE_MINUTES: 10,
@@ -40,6 +41,7 @@ vi.mock("./controllers/nodes.ts", () => ({
   loadNodes: vi.fn(),
 }));
 vi.mock("./controllers/sessions.ts", () => ({
+  loadSessionInspect: loadSessionInspectMock,
   loadSessions: loadSessionsMock,
   subscribeSessions: vi.fn(),
 }));
@@ -104,12 +106,14 @@ function createHost() {
     execApprovalQueue: [],
     execApprovalError: null,
     updateAvailable: null,
+    sessionsInspectKey: null,
   } as unknown as Parameters<typeof handleGatewayEvent>[0];
 }
 
 describe("handleGatewayEvent sessions.changed", () => {
   it("reloads sessions when the gateway pushes a sessions.changed event", () => {
     loadSessionsMock.mockReset();
+    loadSessionInspectMock.mockReset();
     const host = createHost();
 
     handleGatewayEvent(host, {
@@ -121,6 +125,24 @@ describe("handleGatewayEvent sessions.changed", () => {
 
     expect(loadSessionsMock).toHaveBeenCalledTimes(1);
     expect(loadSessionsMock).toHaveBeenCalledWith(host);
+    expect(loadSessionInspectMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the open inspect panel when a session changes", () => {
+    loadSessionsMock.mockReset();
+    loadSessionInspectMock.mockReset();
+    const host = createHost();
+    host.sessionsInspectKey = "agent:main:main";
+
+    handleGatewayEvent(host, {
+      type: "event",
+      event: "sessions.changed",
+      payload: { sessionKey: "agent:main:main", reason: "reattach" },
+      seq: 1,
+    });
+
+    expect(loadSessionInspectMock).toHaveBeenCalledTimes(1);
+    expect(loadSessionInspectMock).toHaveBeenCalledWith(host, "agent:main:main");
   });
 });
 

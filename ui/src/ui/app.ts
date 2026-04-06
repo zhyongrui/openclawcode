@@ -313,6 +313,14 @@ export class OpenClawApp extends LitElement {
   @state() sessionsPage = 0;
   @state() sessionsPageSize = 25;
   @state() sessionsSelectedKeys: Set<string> = new Set();
+  @state() sessionsInspectKey: string | null = null;
+  @state() sessionsInspectLoading = false;
+  @state() sessionsInspectResult: import("./types.js").SessionInspectResult | null = null;
+  @state() sessionsInspectError: string | null = null;
+  @state() sessionsInspectDraft = "";
+  @state() sessionsInspectActionLoading = false;
+  @state() sessionsInspectActionError: string | null = null;
+  @state() sessionsInspectActionStatus: string | null = null;
 
   @state() usageLoading = false;
   @state() usageResult: import("./types.js").SessionsUsageResult | null = null;
