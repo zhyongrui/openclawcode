@@ -26,13 +26,14 @@ export type {
 export {
   buildWorkspaceSkillSnapshot,
   buildWorkspaceSkillsPrompt,
-  buildWorkspaceSkillCommandSpecs,
   filterWorkspaceSkillEntries,
+  filterWorkspaceSkillEntriesWithOptions,
   loadWorkspaceSkillEntries,
   mirrorMergedSkillsToProjectWorkspace,
   resolveSkillsPromptForRun,
   syncSkillsToWorkspace,
 } from "./skills/workspace.js";
+export { buildWorkspaceSkillCommandSpecs } from "./skills/command-specs.js";
 
 export function resolveSkillsInstallPreferences(config?: OpenClawConfig): SkillsInstallPreferences {
   const raw = config?.skills?.install;

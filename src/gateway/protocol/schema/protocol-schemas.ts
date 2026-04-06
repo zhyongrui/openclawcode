@@ -100,6 +100,7 @@ import {
   ExecApprovalsNodeSetParamsSchema,
   ExecApprovalsSetParamsSchema,
   ExecApprovalsSnapshotSchema,
+  ExecApprovalGetParamsSchema,
   ExecApprovalRequestParamsSchema,
   ExecApprovalResolveParamsSchema,
 } from "./exec-approvals.js";
@@ -316,6 +317,7 @@ export const ProtocolSchemas = {
   ExecApprovalsNodeGetParams: ExecApprovalsNodeGetParamsSchema,
   ExecApprovalsNodeSetParams: ExecApprovalsNodeSetParamsSchema,
   ExecApprovalsSnapshot: ExecApprovalsSnapshotSchema,
+  ExecApprovalGetParams: ExecApprovalGetParamsSchema,
   ExecApprovalRequestParams: ExecApprovalRequestParamsSchema,
   ExecApprovalResolveParams: ExecApprovalResolveParamsSchema,
   PluginApprovalRequestParams: PluginApprovalRequestParamsSchema,

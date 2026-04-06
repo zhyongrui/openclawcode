@@ -58,6 +58,7 @@ export type TaskRecord = {
   originKind?: TaskOriginKind;
   originSessionKey?: string;
   reattachedAt?: number;
+  taskKind?: string;
   sourceId?: string;
   requesterSessionKey: string;
   parentFlowId?: string;

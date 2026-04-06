@@ -1,6 +1,3 @@
-import { listAgentIds } from "../../agents/agent-scope.js";
-import { resolveEffectiveToolInventory } from "../../agents/tools-effective-inventory.js";
-import { loadConfig } from "../../config/config.js";
 import { ADMIN_SCOPE } from "../method-scopes.js";
 import {
   ErrorCodes,
@@ -9,6 +6,11 @@ import {
   validateToolsEffectiveParams,
 } from "../protocol/index.js";
 import { resolveSessionToolsEffectiveInventoryParams } from "../tools-effective-context.js";
+import {
+  listAgentIds,
+  loadConfig,
+  resolveEffectiveToolInventory,
+} from "./tools-effective.runtime.js";
 import type { GatewayRequestHandlers, RespondFn } from "./types.js";
 
 function resolveRequestedAgentIdOrRespondError(params: {

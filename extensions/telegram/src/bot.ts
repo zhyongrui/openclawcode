@@ -1,4 +1,3 @@
-import { resolveDefaultAgentId } from "openclaw/plugin-sdk/agent-runtime";
 import {
   isNativeCommandsExplicitlyDisabled,
   resolveNativeCommandsEnabled,
@@ -32,10 +31,12 @@ import {
   resolveTelegramUpdateId,
   type TelegramUpdateKeyContext,
 } from "./bot-updates.js";
+import { resolveDefaultAgentId } from "./bot.agent.runtime.js";
 import { apiThrottler, Bot, sequentialize, type ApiClientOptions } from "./bot.runtime.js";
 import { buildTelegramGroupPeerId, resolveTelegramStreamMode } from "./bot/helpers.js";
 import { resolveTelegramTransport, type TelegramTransport } from "./fetch.js";
 import { tagTelegramNetworkError } from "./network-errors.js";
+import { resolveTelegramRequestTimeoutMs } from "./request-timeouts.js";
 import { createTelegramSendChatActionHandler } from "./sendchataction-401-backoff.js";
 import { getTelegramSequentialKey } from "./sequential-key.js";
 import { createTelegramThreadBindingManager } from "./thread-bindings.js";
@@ -73,14 +74,13 @@ type TelegramBotRuntime = {
   sequentialize: typeof sequentialize;
   apiThrottler: typeof apiThrottler;
 };
+type TelegramBotInstance = InstanceType<TelegramBotRuntime["Bot"]>;
 
 const DEFAULT_TELEGRAM_BOT_RUNTIME: TelegramBotRuntime = {
   Bot,
   sequentialize,
   apiThrottler,
 };
-
-const TELEGRAM_GET_UPDATES_REQUEST_TIMEOUT_MS = 45_000;
 
 let telegramBotRuntimeForTest: TelegramBotRuntime | undefined;
 
@@ -134,7 +134,7 @@ function extractTelegramApiMethod(input: TelegramFetchInput): string | null {
   }
 }
 
-export function createTelegramBot(opts: TelegramBotOptions) {
+export function createTelegramBot(opts: TelegramBotOptions): TelegramBotInstance {
   const botRuntime = telegramBotRuntimeForTest ?? DEFAULT_TELEGRAM_BOT_RUNTIME;
   const runtime: RuntimeEnv = opts.runtime ?? createNonExitingRuntime();
   const telegramDeps = opts.telegramDeps ?? defaultTelegramBotDeps;
@@ -199,8 +199,7 @@ export function createTelegramBot(opts: TelegramBotOptions) {
         }
       };
       const method = extractTelegramApiMethod(input);
-      const requestTimeoutMs =
-        method === "getupdates" ? TELEGRAM_GET_UPDATES_REQUEST_TIMEOUT_MS : undefined;
+      const requestTimeoutMs = resolveTelegramRequestTimeoutMs(method);
       let requestTimeout: ReturnType<typeof setTimeout> | undefined;
       let onRequestAbort: (() => void) | undefined;
       const requestSignal = init?.signal;

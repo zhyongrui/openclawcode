@@ -1,9 +1,8 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
+import { SILENT_REPLY_TOKEN, type PluginRuntime } from "openclaw/plugin-sdk/msteams";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolvePreferredOpenClawTmpDir } from "../../../src/infra/tmp-openclaw-dir.js";
-import { SILENT_REPLY_TOKEN, type PluginRuntime } from "../runtime-api.js";
 import type { StoredConversationReference } from "./conversation-store.js";
 const graphUploadMockState = vi.hoisted(() => ({
   uploadAndShareOneDrive: vi.fn(),
@@ -20,11 +19,10 @@ vi.mock("./graph-upload.js", () => {
 });
 
 import {
-  type MSTeamsAdapter,
-  type MSTeamsRenderedMessage,
   buildActivity,
   renderReplyPayloadsToMessages,
   sendMSTeamsMessages,
+  type MSTeamsAdapter,
 } from "./messenger.js";
 import { setMSTeamsRuntime } from "./runtime.js";
 

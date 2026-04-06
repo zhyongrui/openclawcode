@@ -86,6 +86,7 @@ export function createQueuedTaskRun(params: {
   runtime: TaskRuntime;
   originKind?: TaskRecord["originKind"];
   originSessionKey?: string;
+  taskKind?: string;
   sourceId?: string;
   requesterSessionKey?: string;
   ownerKey?: string;
@@ -120,6 +121,7 @@ export function createRunningTaskRun(params: {
   runtime: TaskRuntime;
   originKind?: TaskRecord["originKind"];
   originSessionKey?: string;
+  taskKind?: string;
   sourceId?: string;
   requesterSessionKey?: string;
   ownerKey?: string;

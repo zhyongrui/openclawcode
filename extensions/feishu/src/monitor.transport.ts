@@ -1,7 +1,7 @@
 import * as http from "http";
 import crypto from "node:crypto";
 import * as Lark from "@larksuiteoapi/node-sdk";
-import { safeEqualSecret } from "openclaw/plugin-sdk/browser-support";
+import { createFeishuWSClient } from "./client.js";
 import {
   applyBasicWebhookRequestGuards,
   isRequestBodyLimitError,
@@ -9,8 +9,8 @@ import {
   installRequestBodyLimitGuard,
   readRequestBodyWithLimit,
   requestBodyErrorToText,
-} from "../runtime-api.js";
-import { createFeishuWSClient } from "./client.js";
+  safeEqualSecret,
+} from "./monitor-transport-runtime-api.js";
 import {
   botNames,
   botOpenIds,
@@ -99,14 +99,16 @@ export async function monitorWebSocket({
   const error = runtime?.error ?? console.error;
   log(`feishu[${accountId}]: starting WebSocket connection...`);
 
-  const wsClient = createFeishuWSClient(account);
+  const wsClient = await createFeishuWSClient(account);
   wsClients.set(accountId, wsClient);
 
   return new Promise((resolve, reject) => {
     let cleanedUp = false;
 
     const cleanup = () => {
-      if (cleanedUp) return;
+      if (cleanedUp) {
+        return;
+      }
       cleanedUp = true;
       abortSignal?.removeEventListener("abort", handleAbort);
       try {
@@ -137,6 +139,8 @@ export async function monitorWebSocket({
 
     try {
       wsClient.start({ eventDispatcher });
+      void markFeishuTransportReady({ accountId }).catch(() => undefined);
+      void wsClient.start({ eventDispatcher });
       void markFeishuTransportReady({ accountId }).catch(() => undefined);
       log(`feishu[${accountId}]: WebSocket client started`);
     } catch (err) {

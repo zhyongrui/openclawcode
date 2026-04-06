@@ -1,5 +1,11 @@
 import { Command } from "commander";
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  awaitPendingSubCliRegistrations,
+  loadValidatedConfigForPluginRegistration,
+  registerSubCliByName,
+  registerSubCliCommands,
+} from "./register.subclis.js";
 
 const { acpAction, registerAcpCli } = vi.hoisted(() => {
   const action = vi.fn();
@@ -18,32 +24,21 @@ const { nodesAction, registerNodesCli } = vi.hoisted(() => {
   return { nodesAction: action, registerNodesCli: register };
 });
 
-const configModule = vi.hoisted(() => ({
-  loadConfig: vi.fn(),
-  readConfigFileSnapshot: vi.fn(),
+const { registerQaCli } = vi.hoisted(() => ({
+  registerQaCli: vi.fn((program: Command) => {
+    const qa = program.command("qa");
+    qa.command("run").action(() => undefined);
+  }),
+}));
+
+const pluginsCliModule = vi.hoisted(() => ({
+  loadValidatedConfigForPluginRegistration: vi.fn(async () => null),
 }));
 
 vi.mock("../acp-cli.js", () => ({ registerAcpCli }));
 vi.mock("../nodes-cli.js", () => ({ registerNodesCli }));
-vi.mock("../../config/config.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../config/config.js")>()),
-  ...configModule,
-}));
-
-const {
-  awaitPendingSubCliRegistrations,
-  loadValidatedConfigForPluginRegistration,
-  registerSubCliByName,
-  registerSubCliCommands,
-} = await import("./register.subclis.js");
-const mockedModuleIds = ["../acp-cli.js", "../nodes-cli.js", "../../config/config.js"];
-
-afterAll(() => {
-  for (const id of mockedModuleIds) {
-    vi.doUnmock(id);
-  }
-  vi.resetModules();
-});
+vi.mock("../qa-cli.js", () => ({ registerQaCli }));
+vi.mock("../../plugins/cli.js", () => pluginsCliModule);
 
 describe("registerSubCliCommands", () => {
   const originalArgv = process.argv;
@@ -69,12 +64,8 @@ describe("registerSubCliCommands", () => {
     acpAction.mockClear();
     registerNodesCli.mockClear();
     nodesAction.mockClear();
-    configModule.loadConfig.mockReset();
-    configModule.readConfigFileSnapshot.mockReset();
-    configModule.readConfigFileSnapshot.mockResolvedValue({
-      valid: false,
-      config: {},
-    });
+    pluginsCliModule.loadValidatedConfigForPluginRegistration.mockReset();
+    pluginsCliModule.loadValidatedConfigForPluginRegistration.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -104,6 +95,7 @@ describe("registerSubCliCommands", () => {
     expect(names).toContain("acp");
     expect(names).toContain("gateway");
     expect(names).toContain("clawbot");
+    expect(names).toContain("qa");
     expect(registerAcpCli).not.toHaveBeenCalled();
   });
 
@@ -122,27 +114,18 @@ describe("registerSubCliCommands", () => {
   });
 
   it("returns null for plugin registration when the config snapshot is invalid", async () => {
-    configModule.readConfigFileSnapshot.mockResolvedValueOnce({
-      valid: false,
-      config: { plugins: { load: { paths: ["/tmp/evil"] } } },
-    });
-
+    pluginsCliModule.loadValidatedConfigForPluginRegistration.mockResolvedValueOnce(null);
     await expect(loadValidatedConfigForPluginRegistration()).resolves.toBeNull();
-    expect(configModule.loadConfig).not.toHaveBeenCalled();
+    expect(pluginsCliModule.loadValidatedConfigForPluginRegistration).toHaveBeenCalledTimes(1);
   });
 
   it("loads validated config for plugin registration when the snapshot is valid", async () => {
     const loadedConfig = { plugins: { enabled: true } };
-    configModule.readConfigFileSnapshot.mockResolvedValueOnce({
-      valid: true,
-      config: loadedConfig,
-    });
-    configModule.loadConfig.mockReturnValueOnce(loadedConfig);
+    pluginsCliModule.loadValidatedConfigForPluginRegistration.mockResolvedValueOnce(loadedConfig);
 
     await expect(loadValidatedConfigForPluginRegistration()).resolves.toBe(loadedConfig);
-    expect(configModule.loadConfig).toHaveBeenCalledTimes(1);
+    expect(pluginsCliModule.loadValidatedConfigForPluginRegistration).toHaveBeenCalledTimes(1);
   });
-
   it("re-parses argv for lazy subcommands", async () => {
     const program = createRegisteredProgram(["node", "openclaw", "nodes", "list"], "openclaw");
 

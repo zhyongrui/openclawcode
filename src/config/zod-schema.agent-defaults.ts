@@ -21,6 +21,8 @@ export const AgentDefaultsSchema = z
     model: AgentModelSchema.optional(),
     imageModel: AgentModelSchema.optional(),
     imageGenerationModel: AgentModelSchema.optional(),
+    videoGenerationModel: AgentModelSchema.optional(),
+    musicGenerationModel: AgentModelSchema.optional(),
     pdfModel: AgentModelSchema.optional(),
     pdfMaxBytesMb: z.number().positive().optional(),
     pdfMaxPages: z.number().int().positive().optional(),
@@ -39,8 +41,10 @@ export const AgentDefaultsSchema = z
       )
       .optional(),
     workspace: z.string().optional(),
+    skills: z.array(z.string()).optional(),
     repoRoot: z.string().optional(),
     skipBootstrap: z.boolean().optional(),
+    contextInjection: z.union([z.literal("always"), z.literal("continuation-skip")]).optional(),
     bootstrapMaxChars: z.number().int().positive().optional(),
     bootstrapTotalMaxChars: z.number().int().positive().optional(),
     bootstrapPromptTruncationWarning: z
