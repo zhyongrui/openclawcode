@@ -42,10 +42,14 @@ Completed in this wave:
 
 - structured tool-availability notes for active runtime restrictions
 - `/tools` output now explains why some capabilities are hidden or gated
+- shared tool-surface diffing across two effective runtime inventories
+- `/tools compare <agent-id|session-key>` now shows operator-facing diffs across
+  agents or sessions instead of only listing the current surface
+- gateway `tools.diff` now exposes the same comparison as machine-readable
+  structured output for operator UIs and automation
 
 Staged next:
 
-- diff views across agents/sessions
 - named rollout presets beyond current policy/profile controls
 
 ### 2. Background current-session UX
@@ -293,6 +297,7 @@ Staged next:
   routing.
 - [x] Ship transcript handoff semantics for detached versus reattached session
   recovery surfaces.
+- [x] Ship cross-agent and cross-session tool-surface diff views.
 
 ## Explicit non-goals
 

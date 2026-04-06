@@ -13,7 +13,12 @@ import { resolveSandboxRuntimeStatus } from "../agents/sandbox.js";
 import type { SkillCommandSpec } from "../agents/skills.js";
 import { describeToolForVerbose } from "../agents/tool-description-summary.js";
 import { normalizeToolName } from "../agents/tool-policy-shared.js";
-import type { EffectiveToolInventoryResult } from "../agents/tools-effective-inventory.js";
+import type {
+  EffectiveToolInventoryCompareValue,
+  EffectiveToolInventoryDiffResult,
+  EffectiveToolInventoryEntry,
+  EffectiveToolInventoryResult,
+} from "../agents/tools-effective-inventory.js";
 import { derivePromptTokens, normalizeUsage, type UsageLike } from "../agents/usage.js";
 import { resolveChannelModelOverride } from "../channels/model-overrides.js";
 import { isCommandFlagEnabled } from "../config/commands.js";
@@ -976,6 +981,87 @@ function buildToolAvailabilityNotesLine(result: EffectiveToolInventoryResult): s
     return undefined;
   }
   return `Restrictions: ${notes.map((note) => note.message).join(" | ")}`;
+}
+
+function formatToolDiffValue(value: EffectiveToolInventoryCompareValue): string {
+  if (typeof value === "boolean") {
+    return value ? "yes" : "no";
+  }
+  return value ?? "n/a";
+}
+
+function formatToolDiffEntries(entries: EffectiveToolInventoryEntry[], verbose: boolean): string[] {
+  if (!verbose) {
+    return [entries.map((tool) => formatCompactToolEntry(tool as ToolsMessageItem)).join(", ")];
+  }
+  return entries.map((tool) => `  ${tool.label} - ${formatVerboseToolDescription(tool as ToolsMessageItem)}`);
+}
+
+export function buildToolsDiffMessage(
+  params: {
+    base: EffectiveToolInventoryResult;
+    target: EffectiveToolInventoryResult;
+    diff: EffectiveToolInventoryDiffResult;
+  },
+  options?: {
+    verbose?: boolean;
+    baseLabel?: string;
+    targetLabel?: string;
+  },
+): string {
+  const verbose = options?.verbose === true;
+  const baseLabel = options?.baseLabel ?? `Current (${params.base.agentId})`;
+  const targetLabel = options?.targetLabel ?? `Compare (${params.target.agentId})`;
+  const lines = [
+    "Tool surface diff",
+    "",
+    `Base: ${baseLabel} | profile=${params.base.profile} | ${buildToolSurfaceSummary(params.base)}`,
+    `Target: ${targetLabel} | profile=${params.target.profile} | ${buildToolSurfaceSummary(params.target)}`,
+    `Summary: ${params.diff.sharedCount} shared | ${params.diff.addedCounts.total} only in target | ${params.diff.removedCounts.total} only in base`,
+  ];
+  if (params.diff.profileChanged) {
+    lines.push(`Profile changed: ${params.base.profile} -> ${params.target.profile}`);
+  }
+  if (params.diff.contextChanges.length > 0) {
+    lines.push(
+      `Context changes: ${params.diff.contextChanges
+        .map((change) => `${change.field}=${formatToolDiffValue(change.from)} -> ${formatToolDiffValue(change.to)}`)
+        .join(" | ")}`,
+    );
+  }
+  if (params.diff.flagChanges.length > 0) {
+    lines.push(
+      `Flag changes: ${params.diff.flagChanges
+        .map((change) => `${change.field}=${formatToolDiffValue(change.from)} -> ${formatToolDiffValue(change.to)}`)
+        .join(" | ")}`,
+    );
+  }
+  if (params.diff.noteChanges.added.length > 0 || params.diff.noteChanges.removed.length > 0) {
+    const noteParts: string[] = [];
+    if (params.diff.noteChanges.added.length > 0) {
+      noteParts.push(`+ ${params.diff.noteChanges.added.map((note) => note.message).join(" | ")}`);
+    }
+    if (params.diff.noteChanges.removed.length > 0) {
+      noteParts.push(`- ${params.diff.noteChanges.removed.map((note) => note.message).join(" | ")}`);
+    }
+    lines.push(`Restriction delta: ${noteParts.join(" || ")}`);
+  }
+  if (params.diff.added.length === 0 && params.diff.removed.length === 0) {
+    lines.push("", "No tool availability differences found.");
+    return lines.join("\n");
+  }
+  if (params.diff.added.length > 0) {
+    lines.push("", "Only in target:");
+    lines.push(...formatToolDiffEntries(params.diff.added, verbose));
+  }
+  if (params.diff.removed.length > 0) {
+    lines.push("", "Only in base:");
+    lines.push(...formatToolDiffEntries(params.diff.removed, verbose));
+  }
+  if (!verbose) {
+    lines.push("", "Use /tools compare <agent-id|session-key> verbose for descriptions.");
+  }
+  return lines.join("\n");
 }
 
 export function buildToolsMessage(

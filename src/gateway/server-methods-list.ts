@@ -41,6 +41,7 @@ const BASE_METHODS = [
   "talk.mode",
   "models.list",
   "tools.catalog",
+  "tools.diff",
   "tools.effective",
   "agents.list",
   "agents.create",

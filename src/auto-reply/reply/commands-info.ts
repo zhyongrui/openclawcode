@@ -1,11 +1,16 @@
-import { resolveSessionAgentId } from "../../agents/agent-scope.js";
-import { resolveEffectiveToolInventory } from "../../agents/tools-effective-inventory.js";
+import { listAgentIds, resolveSessionAgentId } from "../../agents/agent-scope.js";
+import {
+  resolveEffectiveToolInventory,
+  resolveEffectiveToolInventoryDiff,
+} from "../../agents/tools-effective-inventory.js";
 import { logVerbose } from "../../globals.js";
+import { resolveSessionToolsEffectiveInventoryParams } from "../../gateway/tools-effective-context.js";
 import { listSkillCommandsForAgents } from "../skill-commands.js";
 import {
   buildCommandsMessage,
   buildCommandsMessagePaginated,
   buildHelpMessage,
+  buildToolsDiffMessage,
   buildToolsMessage,
 } from "../status.js";
 import { buildThreadingToolContext } from "./agent-runner-utils.js";
@@ -96,14 +101,32 @@ export const handleToolsCommand: CommandHandler = async (params, allowTextComman
   if (!allowTextCommands) {
     return null;
   }
-  const normalized = params.command.commandBodyNormalized;
+  const normalized = params.command.commandBodyNormalized.trim();
+  const usage = "Usage: /tools [compact|verbose] | /tools compare <agent-id|session-key> [compact|verbose]";
   let verbose = false;
+  let compareTarget: string | undefined;
   if (normalized === "/tools" || normalized === "/tools compact") {
     verbose = false;
   } else if (normalized === "/tools verbose") {
     verbose = true;
+  } else if (normalized.startsWith("/tools compare ") || normalized.startsWith("/tools diff ")) {
+    const prefix = normalized.startsWith("/tools compare ") ? "/tools compare " : "/tools diff ";
+    const rawArgs = normalized.slice(prefix.length).trim();
+    const parts = rawArgs.split(/\s+/).filter(Boolean);
+    if (parts.length === 0) {
+      return { shouldContinue: false, reply: { text: usage } };
+    }
+    const mode = parts.at(-1);
+    if (mode === "verbose" || mode === "compact") {
+      verbose = mode === "verbose";
+      parts.pop();
+    }
+    if (parts.length !== 1) {
+      return { shouldContinue: false, reply: { text: usage } };
+    }
+    compareTarget = parts[0];
   } else if (normalized.startsWith("/tools ")) {
-    return { shouldContinue: false, reply: { text: "Usage: /tools [compact|verbose]" } };
+    return { shouldContinue: false, reply: { text: usage } };
   } else {
     return null;
   }
@@ -156,6 +179,80 @@ export const handleToolsCommand: CommandHandler = async (params, allowTextComman
         params.ctx.ChatType,
       ),
     });
+    if (compareTarget) {
+      let target;
+      let targetLabel: string;
+      if (compareTarget.includes(":")) {
+        target = resolveEffectiveToolInventory(
+          resolveSessionToolsEffectiveInventoryParams({
+            sessionKey: compareTarget,
+            senderIsOwner: params.command.senderIsOwner,
+          }),
+        );
+        targetLabel = `Session ${compareTarget}`;
+      } else {
+        if (!listAgentIds(params.cfg).includes(compareTarget)) {
+          return {
+            shouldContinue: false,
+            reply: { text: `Unknown agent id "${compareTarget}".` },
+          };
+        }
+        target = resolveEffectiveToolInventory({
+          cfg: params.cfg,
+          agentId: compareTarget,
+          sessionKey: params.sessionKey,
+          workspaceDir: params.workspaceDir,
+          agentDir: params.agentDir,
+          modelProvider: params.provider,
+          modelId: params.model,
+          messageProvider: params.command.channel,
+          senderIsOwner: params.command.senderIsOwner,
+          senderId: params.command.senderId,
+          senderName: params.ctx.SenderName,
+          senderUsername: params.ctx.SenderUsername,
+          senderE164: params.ctx.SenderE164,
+          accountId: params.ctx.AccountId,
+          currentChannelId: threadingContext.currentChannelId,
+          currentThreadTs:
+            typeof params.ctx.MessageThreadId === "string" ||
+            typeof params.ctx.MessageThreadId === "number"
+              ? String(params.ctx.MessageThreadId)
+              : undefined,
+          currentMessageId: threadingContext.currentMessageId,
+          groupId: params.sessionEntry?.groupId ?? extractExplicitGroupId(params.ctx.From),
+          groupChannel:
+            params.sessionEntry?.groupChannel ?? params.ctx.GroupChannel ?? params.ctx.GroupSubject,
+          groupSpace: params.sessionEntry?.space ?? params.ctx.GroupSpace,
+          replyToMode: resolveReplyToMode(
+            params.cfg,
+            params.ctx.OriginatingChannel ?? params.ctx.Provider,
+            params.ctx.AccountId,
+            params.ctx.ChatType,
+          ),
+        });
+        targetLabel = `Agent ${compareTarget}`;
+      }
+      return {
+        shouldContinue: false,
+        reply: {
+          text: buildToolsDiffMessage(
+            {
+              base: result,
+              target,
+              diff: resolveEffectiveToolInventoryDiff({
+                base: result,
+                target,
+              }),
+            },
+            {
+              verbose,
+              baseLabel: `Current session ${params.sessionKey}`,
+              targetLabel,
+            },
+          ),
+        },
+      };
+    }
     return {
       shouldContinue: false,
       reply: { text: buildToolsMessage(result, { verbose }) },

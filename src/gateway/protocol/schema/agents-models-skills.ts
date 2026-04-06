@@ -349,6 +349,23 @@ export const ToolsEffectiveParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const ToolsDiffParamsSchema = Type.Union([
+  Type.Object(
+    {
+      sessionKey: NonEmptyString,
+      compareAgentId: NonEmptyString,
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      sessionKey: NonEmptyString,
+      compareSessionKey: NonEmptyString,
+    },
+    { additionalProperties: false },
+  ),
+]);
+
 export const ToolCatalogProfileSchema = Type.Object(
   {
     id: Type.Union([
@@ -476,12 +493,58 @@ export const ToolsEffectiveAssemblySchema = Type.Object(
   { additionalProperties: false },
 );
 
+export const ToolsDiffCompareValueSchema = Type.Union([Type.String(), Type.Boolean(), Type.Null()]);
+
+export const ToolsDiffAssemblyChangeSchema = Type.Object(
+  {
+    field: NonEmptyString,
+    from: ToolsDiffCompareValueSchema,
+    to: ToolsDiffCompareValueSchema,
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsDiffNoteChangesSchema = Type.Object(
+  {
+    added: Type.Array(ToolsEffectiveAssemblyNoteSchema),
+    removed: Type.Array(ToolsEffectiveAssemblyNoteSchema),
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsDiffResultSchema = Type.Object(
+  {
+    sharedCount: Type.Integer({ minimum: 0 }),
+    added: Type.Array(ToolsEffectiveEntrySchema),
+    removed: Type.Array(ToolsEffectiveEntrySchema),
+    addedCounts: ToolsEffectiveAssemblyCountsSchema,
+    removedCounts: ToolsEffectiveAssemblyCountsSchema,
+    profileChanged: Type.Boolean(),
+    contextChanges: Type.Array(ToolsDiffAssemblyChangeSchema),
+    flagChanges: Type.Array(ToolsDiffAssemblyChangeSchema),
+    noteChanges: ToolsDiffNoteChangesSchema,
+  },
+  { additionalProperties: false },
+);
+
 export const ToolsEffectiveResultSchema = Type.Object(
   {
     agentId: NonEmptyString,
     profile: NonEmptyString,
     groups: Type.Array(ToolsEffectiveGroupSchema),
     assembly: ToolsEffectiveAssemblySchema,
+  },
+  { additionalProperties: false },
+);
+
+export const ToolsDiffResponseSchema = Type.Object(
+  {
+    baseSessionKey: NonEmptyString,
+    compareAgentId: Type.Optional(NonEmptyString),
+    compareSessionKey: Type.Optional(NonEmptyString),
+    base: ToolsEffectiveResultSchema,
+    target: ToolsEffectiveResultSchema,
+    diff: ToolsDiffResultSchema,
   },
   { additionalProperties: false },
 );

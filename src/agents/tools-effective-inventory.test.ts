@@ -292,4 +292,125 @@ describe("resolveEffectiveToolInventory", () => {
       ],
     });
   });
+
+  it("builds a stable diff between two effective tool inventories", async () => {
+    const { resolveEffectiveToolInventoryDiff } = await loadHarness();
+    const base = {
+      agentId: "main",
+      profile: "coding",
+      assembly: {
+        counts: { total: 2, core: 1, plugin: 1, channel: 0 },
+        context: {
+          modelId: "gpt-4.1",
+          senderIsOwner: false,
+        },
+        flags: {
+          allowGatewaySubagentBinding: true,
+          requireExplicitMessageTarget: false,
+          disableMessageTool: false,
+        },
+        notes: [],
+      },
+      groups: [
+        {
+          id: "core" as const,
+          label: "Built-in tools",
+          source: "core" as const,
+          tools: [
+            {
+              id: "exec",
+              label: "Exec",
+              description: "Run shell commands",
+              rawDescription: "Run shell commands",
+              source: "core" as const,
+            },
+          ],
+        },
+        {
+          id: "plugin" as const,
+          label: "Connected tools",
+          source: "plugin" as const,
+          tools: [
+            {
+              id: "docs_lookup",
+              label: "Docs Lookup",
+              description: "Search docs",
+              rawDescription: "Search docs",
+              source: "plugin" as const,
+              pluginId: "docs",
+            },
+          ],
+        },
+      ],
+    };
+    const target = {
+      agentId: "coder",
+      profile: "full",
+      assembly: {
+        counts: { total: 2, core: 2, plugin: 0, channel: 0 },
+        context: {
+          modelId: "gpt-5.4",
+          senderIsOwner: false,
+        },
+        flags: {
+          allowGatewaySubagentBinding: true,
+          requireExplicitMessageTarget: false,
+          disableMessageTool: false,
+        },
+        notes: [],
+      },
+      groups: [
+        {
+          id: "core" as const,
+          label: "Built-in tools",
+          source: "core" as const,
+          tools: [
+            {
+              id: "exec",
+              label: "Exec",
+              description: "Run shell commands",
+              rawDescription: "Run shell commands",
+              source: "core" as const,
+            },
+            {
+              id: "browser",
+              label: "Browser",
+              description: "Browse the web",
+              rawDescription: "Browse the web",
+              source: "core" as const,
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(resolveEffectiveToolInventoryDiff({ base, target })).toEqual({
+      sharedCount: 1,
+      added: [
+        {
+          id: "browser",
+          label: "Browser",
+          description: "Browse the web",
+          rawDescription: "Browse the web",
+          source: "core",
+        },
+      ],
+      removed: [
+        {
+          id: "docs_lookup",
+          label: "Docs Lookup",
+          description: "Search docs",
+          rawDescription: "Search docs",
+          source: "plugin",
+          pluginId: "docs",
+        },
+      ],
+      addedCounts: { total: 1, core: 1, plugin: 0, channel: 0 },
+      removedCounts: { total: 1, core: 0, plugin: 1, channel: 0 },
+      profileChanged: true,
+      contextChanges: [{ field: "modelId", from: "gpt-4.1", to: "gpt-5.4" }],
+      flagChanges: [],
+      noteChanges: { added: [], removed: [] },
+    });
+  });
 });

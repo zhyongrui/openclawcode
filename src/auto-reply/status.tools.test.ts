@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
-import { buildCommandsMessage, buildHelpMessage, buildToolsMessage } from "./status.js";
+import { buildCommandsMessage, buildHelpMessage, buildToolsDiffMessage, buildToolsMessage } from "./status.js";
 
 vi.mock("../plugins/commands.js", () => ({
   listPluginCommands: () => [],
@@ -240,5 +240,130 @@ describe("tools product copy", () => {
     ).toBe(
       "No tools are available for this agent right now.\n\nProfile: full\nRestrictions: Owner-only tools are hidden because the current caller is not an owner.",
     );
+  });
+
+  it("formats a concise tool diff for end users", () => {
+    const text = buildToolsDiffMessage({
+      base: {
+        agentId: "main",
+        profile: "coding",
+        assembly: {
+          counts: { total: 2, core: 1, plugin: 1, channel: 0 },
+          context: { modelId: "gpt-4.1", senderIsOwner: false },
+          flags: {
+            allowGatewaySubagentBinding: true,
+            requireExplicitMessageTarget: false,
+            disableMessageTool: false,
+          },
+          notes: [],
+        },
+        groups: [
+          {
+            id: "core",
+            label: "Built-in tools",
+            source: "core",
+            tools: [
+              {
+                id: "exec",
+                label: "Exec",
+                description: "Run shell commands",
+                rawDescription: "Run shell commands",
+                source: "core",
+              },
+            ],
+          },
+          {
+            id: "plugin",
+            label: "Connected tools",
+            source: "plugin",
+            tools: [
+              {
+                id: "docs_lookup",
+                label: "Docs Lookup",
+                description: "Search internal documentation",
+                rawDescription: "Search internal documentation",
+                source: "plugin",
+                pluginId: "docs",
+              },
+            ],
+          },
+        ],
+      },
+      target: {
+        agentId: "coder",
+        profile: "full",
+        assembly: {
+          counts: { total: 2, core: 2, plugin: 0, channel: 0 },
+          context: { modelId: "gpt-5.4", senderIsOwner: false },
+          flags: {
+            allowGatewaySubagentBinding: true,
+            requireExplicitMessageTarget: false,
+            disableMessageTool: false,
+          },
+          notes: [],
+        },
+        groups: [
+          {
+            id: "core",
+            label: "Built-in tools",
+            source: "core",
+            tools: [
+              {
+                id: "exec",
+                label: "Exec",
+                description: "Run shell commands",
+                rawDescription: "Run shell commands",
+                source: "core",
+              },
+              {
+                id: "browser",
+                label: "Browser",
+                description: "Browse the web",
+                rawDescription: "Browse the web",
+                source: "core",
+              },
+            ],
+          },
+        ],
+      },
+      diff: {
+        sharedCount: 1,
+        added: [
+          {
+            id: "browser",
+            label: "Browser",
+            description: "Browse the web",
+            rawDescription: "Browse the web",
+            source: "core",
+          },
+        ],
+        removed: [
+          {
+            id: "docs_lookup",
+            label: "Docs Lookup",
+            description: "Search internal documentation",
+            rawDescription: "Search internal documentation",
+            source: "plugin",
+            pluginId: "docs",
+          },
+        ],
+        addedCounts: { total: 1, core: 1, plugin: 0, channel: 0 },
+        removedCounts: { total: 1, core: 0, plugin: 1, channel: 0 },
+        profileChanged: true,
+        contextChanges: [{ field: "modelId", from: "gpt-4.1", to: "gpt-5.4" }],
+        flagChanges: [],
+        noteChanges: { added: [], removed: [] },
+      },
+    });
+
+    expect(text).toContain("Tool surface diff");
+    expect(text).toContain("Summary: 1 shared | 1 only in target | 1 only in base");
+    expect(text).toContain("Profile changed: coding -> full");
+    expect(text).toContain("Context changes: modelId=gpt-4.1 -> gpt-5.4");
+    expect(text).toContain("Only in target:");
+    expect(text).toContain("browser");
+    expect(text).toContain("Only in base:");
+    expect(text).toContain("docs_lookup (docs)");
+    expect(text).toContain("Use /tools compare <agent-id|session-key> verbose for descriptions.");
   });
 });

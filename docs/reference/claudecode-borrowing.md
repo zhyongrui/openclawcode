@@ -179,10 +179,14 @@ Implemented:
   for active runtime gating such as profile-based hiding, owner-only tool
   suppression, explicit-target-only messaging, disabled message tools, and
   disabled gateway-subagent binding
+- `/tools compare <agent-id|session-key>` now also provides a first operator
+  diff view across two effective tool surfaces, so callers can compare agents
+  or detached-session contexts instead of only inspecting one runtime at a time
+- gateway `tools.diff` now exposes the same comparison as structured output for
+  automation and operator UIs
 
 Not implemented yet:
 
-- a dedicated operator UI for tool-source diffs across sessions or agents
 - rollout/preset management beyond the current policy- and profile-driven
   assembly
 

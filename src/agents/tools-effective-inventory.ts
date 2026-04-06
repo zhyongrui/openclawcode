@@ -75,6 +75,31 @@ export type EffectiveToolSurfaceResult = EffectiveToolInventoryResult & {
   tools: AnyAgentTool[];
 };
 
+export type EffectiveToolInventoryCompareValue = string | boolean | null;
+
+export type EffectiveToolInventoryAssemblyChange = {
+  field: string;
+  from: EffectiveToolInventoryCompareValue;
+  to: EffectiveToolInventoryCompareValue;
+};
+
+export type EffectiveToolInventoryNoteChanges = {
+  added: EffectiveToolAvailabilityNote[];
+  removed: EffectiveToolAvailabilityNote[];
+};
+
+export type EffectiveToolInventoryDiffResult = {
+  sharedCount: number;
+  added: EffectiveToolInventoryEntry[];
+  removed: EffectiveToolInventoryEntry[];
+  addedCounts: EffectiveToolAssemblyCounts;
+  removedCounts: EffectiveToolAssemblyCounts;
+  profileChanged: boolean;
+  contextChanges: EffectiveToolInventoryAssemblyChange[];
+  flagChanges: EffectiveToolInventoryAssemblyChange[];
+  noteChanges: EffectiveToolInventoryNoteChanges;
+};
+
 export type ResolveEffectiveToolInventoryParams = {
   cfg: OpenClawConfig;
   agentId?: string;
@@ -201,6 +226,75 @@ function buildEffectiveToolInventoryGroups(
       } satisfies EffectiveToolInventoryGroup;
     })
     .filter((group): group is EffectiveToolInventoryGroup => group !== null);
+}
+
+function compareToolInventoryEntryLabel(
+  a: EffectiveToolInventoryEntry,
+  b: EffectiveToolInventoryEntry,
+): number {
+  return (
+    a.label.localeCompare(b.label) ||
+    a.id.localeCompare(b.id) ||
+    (a.pluginId ?? "").localeCompare(b.pluginId ?? "") ||
+    (a.channelId ?? "").localeCompare(b.channelId ?? "")
+  );
+}
+
+function effectiveToolEntryKey(entry: EffectiveToolInventoryEntry): string {
+  return [entry.source, entry.id, entry.pluginId ?? "", entry.channelId ?? ""].join(":");
+}
+
+function flattenEffectiveToolEntries(result: EffectiveToolInventoryResult): EffectiveToolInventoryEntry[] {
+  return result.groups.flatMap((group) => group.tools);
+}
+
+function toToolAssemblyCounts(entries: EffectiveToolInventoryEntry[]): EffectiveToolAssemblyCounts {
+  const counts: EffectiveToolAssemblyCounts = {
+    total: entries.length,
+    core: 0,
+    plugin: 0,
+    channel: 0,
+  };
+  for (const entry of entries) {
+    counts[entry.source] += 1;
+  }
+  return counts;
+}
+
+function compareInventoryPrimitiveValue(a: EffectiveToolInventoryCompareValue, b: EffectiveToolInventoryCompareValue) {
+  if (typeof a === "boolean" && typeof b === "boolean") {
+    return Number(a) - Number(b);
+  }
+  return String(a ?? "").localeCompare(String(b ?? ""));
+}
+
+function collectAssemblyChanges(
+  params: Record<string, EffectiveToolInventoryCompareValue>,
+  target: Record<string, EffectiveToolInventoryCompareValue>,
+): EffectiveToolInventoryAssemblyChange[] {
+  const fields = Array.from(new Set([...Object.keys(params), ...Object.keys(target)])).toSorted();
+  return fields
+    .flatMap((field) => {
+      const from = params[field] ?? null;
+      const to = target[field] ?? null;
+      if (from === to) {
+        return [];
+      }
+      return [{ field, from, to }];
+    })
+    .toSorted(
+      (a, b) =>
+        a.field.localeCompare(b.field) ||
+        compareInventoryPrimitiveValue(a.from, b.from) ||
+        compareInventoryPrimitiveValue(a.to, b.to),
+    );
+}
+
+function compareToolAvailabilityNote(
+  a: EffectiveToolAvailabilityNote,
+  b: EffectiveToolAvailabilityNote,
+): number {
+  return a.id.localeCompare(b.id) || a.message.localeCompare(b.message);
 }
 
 function buildEffectiveToolAssembly(params: {
@@ -375,5 +469,70 @@ export function resolveEffectiveToolInventory(
     profile: surface.profile,
     groups: surface.groups,
     assembly: surface.assembly,
+  };
+}
+
+export function resolveEffectiveToolInventoryDiff(params: {
+  base: EffectiveToolInventoryResult;
+  target: EffectiveToolInventoryResult;
+}): EffectiveToolInventoryDiffResult {
+  const baseEntries = flattenEffectiveToolEntries(params.base);
+  const targetEntries = flattenEffectiveToolEntries(params.target);
+  const baseByKey = new Map(baseEntries.map((entry) => [effectiveToolEntryKey(entry), entry]));
+  const targetByKey = new Map(targetEntries.map((entry) => [effectiveToolEntryKey(entry), entry]));
+  const sharedKeys = Array.from(baseByKey.keys()).filter((key) => targetByKey.has(key));
+  const added = targetEntries
+    .filter((entry) => !baseByKey.has(effectiveToolEntryKey(entry)))
+    .toSorted(compareToolInventoryEntryLabel);
+  const removed = baseEntries
+    .filter((entry) => !targetByKey.has(effectiveToolEntryKey(entry)))
+    .toSorted(compareToolInventoryEntryLabel);
+  const baseNotes = params.base.assembly.notes;
+  const targetNotes = params.target.assembly.notes;
+  const baseNoteKeys = new Set(baseNotes.map((note) => `${note.id}:${note.message}`));
+  const targetNoteKeys = new Set(targetNotes.map((note) => `${note.id}:${note.message}`));
+  return {
+    sharedCount: sharedKeys.length,
+    added,
+    removed,
+    addedCounts: toToolAssemblyCounts(added),
+    removedCounts: toToolAssemblyCounts(removed),
+    profileChanged: params.base.profile !== params.target.profile,
+    contextChanges: collectAssemblyChanges(
+      {
+        messageProvider: params.base.assembly.context.messageProvider ?? null,
+        modelProvider: params.base.assembly.context.modelProvider ?? null,
+        modelId: params.base.assembly.context.modelId ?? null,
+        replyToMode: params.base.assembly.context.replyToMode ?? null,
+        senderIsOwner: params.base.assembly.context.senderIsOwner,
+      },
+      {
+        messageProvider: params.target.assembly.context.messageProvider ?? null,
+        modelProvider: params.target.assembly.context.modelProvider ?? null,
+        modelId: params.target.assembly.context.modelId ?? null,
+        replyToMode: params.target.assembly.context.replyToMode ?? null,
+        senderIsOwner: params.target.assembly.context.senderIsOwner,
+      },
+    ),
+    flagChanges: collectAssemblyChanges(
+      {
+        allowGatewaySubagentBinding: params.base.assembly.flags.allowGatewaySubagentBinding,
+        requireExplicitMessageTarget: params.base.assembly.flags.requireExplicitMessageTarget,
+        disableMessageTool: params.base.assembly.flags.disableMessageTool,
+      },
+      {
+        allowGatewaySubagentBinding: params.target.assembly.flags.allowGatewaySubagentBinding,
+        requireExplicitMessageTarget: params.target.assembly.flags.requireExplicitMessageTarget,
+        disableMessageTool: params.target.assembly.flags.disableMessageTool,
+      },
+    ),
+    noteChanges: {
+      added: targetNotes
+        .filter((note) => !baseNoteKeys.has(`${note.id}:${note.message}`))
+        .toSorted(compareToolAvailabilityNote),
+      removed: baseNotes
+        .filter((note) => !targetNoteKeys.has(`${note.id}:${note.message}`))
+        .toSorted(compareToolAvailabilityNote),
+    },
   };
 }
