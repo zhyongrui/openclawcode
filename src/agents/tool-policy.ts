@@ -2,6 +2,10 @@ import {
   expandToolGroups,
   normalizeToolList,
   normalizeToolName,
+  normalizeToolPresetList,
+  normalizeToolPresetName,
+  resolveToolPresetAlsoAllow,
+  resolveToolPresetPolicy,
   resolveToolProfilePolicy,
   TOOL_GROUPS,
 } from "./tool-policy-shared.js";
@@ -10,10 +14,14 @@ export {
   expandToolGroups,
   normalizeToolList,
   normalizeToolName,
+  normalizeToolPresetList,
+  normalizeToolPresetName,
+  resolveToolPresetAlsoAllow,
+  resolveToolPresetPolicy,
   resolveToolProfilePolicy,
   TOOL_GROUPS,
 } from "./tool-policy-shared.js";
-export type { ToolProfileId } from "./tool-policy-shared.js";
+export type { ToolProfileId, ToolPresetId } from "./tool-policy-shared.js";
 
 export type OwnerOnlyToolApprovalClass = "control_plane" | "exec_capable" | "interactive";
 

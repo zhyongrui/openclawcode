@@ -990,6 +990,9 @@ function buildToolSurfaceSummary(result: EffectiveToolInventoryResult): string {
   if (context.senderIsOwner) {
     parts.push("owner=yes");
   }
+  if (result.presets.length > 0) {
+    parts.push(`presets=${result.presets.join(",")}`);
+  }
   return parts.join(" | ");
 }
 
@@ -1108,6 +1111,7 @@ export function buildToolsMessage(
       "No tools are available for this agent right now.",
       "",
       `Profile: ${result.profile}`,
+      ...(result.presets.length > 0 ? [`Presets: ${result.presets.join(", ")}`] : []),
       ...(buildToolAvailabilityNotesLine(result)
         ? [buildToolAvailabilityNotesLine(result)!]
         : []),
@@ -1121,6 +1125,7 @@ export function buildToolsMessage(
         "Available tools",
         "",
         `Profile: ${result.profile}`,
+        ...(result.presets.length > 0 ? [`Presets: ${result.presets.join(", ")}`] : []),
         `Runtime: ${buildToolSurfaceSummary(result)}`,
         ...(buildToolAvailabilityNotesLine(result)
           ? [buildToolAvailabilityNotesLine(result)!]
@@ -1131,6 +1136,7 @@ export function buildToolsMessage(
         "Available tools",
         "",
         `Profile: ${result.profile}`,
+        ...(result.presets.length > 0 ? [`Presets: ${result.presets.join(", ")}`] : []),
         `Runtime: ${buildToolSurfaceSummary(result)}`,
         ...(buildToolAvailabilityNotesLine(result)
           ? [buildToolAvailabilityNotesLine(result)!]

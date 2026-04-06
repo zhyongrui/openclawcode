@@ -22,6 +22,7 @@ describe("tools product copy", () => {
     const text = buildToolsMessage({
       agentId: "main",
       profile: "coding",
+      presets: ["browser", "remote"],
       assembly: {
         counts: { total: 3, core: 2, plugin: 1, channel: 0 },
         context: {
@@ -90,7 +91,10 @@ describe("tools product copy", () => {
 
     expect(text).toContain("Available tools");
     expect(text).toContain("Profile: coding");
-    expect(text).toContain("Runtime: 3 total | 2 built-in | 1 plugin | 0 channel | channel=telegram | model=openai/gpt-5.4");
+    expect(text).toContain("Presets: browser, remote");
+    expect(text).toContain(
+      "Runtime: 3 total | 2 built-in | 1 plugin | 0 channel | channel=telegram | model=openai/gpt-5.4 | presets=browser,remote",
+    );
     expect(text).toContain(
       'Restrictions: Tool profile "coding" may hide capabilities that are available in fuller profiles. | Owner-only tools are hidden because the current caller is not an owner.',
     );
@@ -107,6 +111,7 @@ describe("tools product copy", () => {
       {
         agentId: "main",
         profile: "minimal",
+        presets: ["delegate"],
         assembly: {
           counts: { total: 1, core: 1, plugin: 0, channel: 0 },
           context: {
@@ -150,8 +155,9 @@ describe("tools product copy", () => {
 
     expect(text).toContain("What this agent can use right now:");
     expect(text).toContain("Profile: minimal");
+    expect(text).toContain("Presets: delegate");
     expect(text).toContain(
-      "Runtime: 1 total | 1 built-in | 0 plugin | 0 channel | channel=discord | reply=first | owner=yes",
+      "Runtime: 1 total | 1 built-in | 0 plugin | 0 channel | channel=discord | reply=first | owner=yes | presets=delegate",
     );
     expect(text).toContain(
       'Restrictions: Tool profile "minimal" may hide capabilities that are available in fuller profiles.',
@@ -166,6 +172,7 @@ describe("tools product copy", () => {
       {
         agentId: "main",
         profile: "coding",
+        presets: [],
         assembly: {
           counts: { total: 1, core: 1, plugin: 0, channel: 0 },
           context: { senderIsOwner: false },
@@ -221,6 +228,7 @@ describe("tools product copy", () => {
       buildToolsMessage({
         agentId: "main",
         profile: "full",
+        presets: ["remote"],
         assembly: {
           counts: { total: 0, core: 0, plugin: 0, channel: 0 },
           context: { senderIsOwner: false },
@@ -240,7 +248,7 @@ describe("tools product copy", () => {
       groups: [],
     }),
     ).toBe(
-      "No tools are available for this agent right now.\n\nProfile: full\nRestrictions: Owner-only tools are hidden because the current caller is not an owner.",
+      "No tools are available for this agent right now.\n\nProfile: full\nPresets: remote\nRestrictions: Owner-only tools are hidden because the current caller is not an owner.",
     );
   });
 
@@ -249,6 +257,7 @@ describe("tools product copy", () => {
       base: {
         agentId: "main",
         profile: "coding",
+        presets: [],
         assembly: {
           counts: { total: 2, core: 1, plugin: 1, channel: 0 },
           context: { modelId: "gpt-4.1", senderIsOwner: false },
@@ -294,6 +303,7 @@ describe("tools product copy", () => {
       target: {
         agentId: "coder",
         profile: "full",
+        presets: ["browser"],
         assembly: {
           counts: { total: 2, core: 2, plugin: 0, channel: 0 },
           context: { modelId: "gpt-5.4", senderIsOwner: false },

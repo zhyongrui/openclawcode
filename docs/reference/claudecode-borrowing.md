@@ -184,11 +184,11 @@ Implemented:
   or detached-session contexts instead of only inspecting one runtime at a time
 - gateway `tools.diff` now exposes the same comparison as structured output for
   automation and operator UIs
-
-Not implemented yet:
-
-- rollout/preset management beyond the current policy- and profile-driven
-  assembly
+- tool policy now also supports named additive presets (`browser`, `delegate`,
+  `remote`) so operators can roll out capability bundles without redefining a
+  full profile
+- `tools.effective`, `/tools`, and tool-surface diffs now expose those active
+  presets alongside the resolved profile so runtime slices are easier to audit
 
 This keeps the adaptation narrow and verifiable: establish one concrete
 runtime-assembly boundary first, then layer stronger rollout and comparison UX

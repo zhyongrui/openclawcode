@@ -31,6 +31,7 @@ export type EffectiveToolInventoryGroup = {
 export type EffectiveToolInventoryResult = {
   agentId: string;
   profile: string;
+  presets: string[];
   groups: EffectiveToolInventoryGroup[];
   assembly: EffectiveToolAssembly;
 };
@@ -443,6 +444,7 @@ export function resolveEffectiveToolSurface(
     modelId: params.modelId,
   });
   const profile = effectivePolicy.providerProfile ?? effectivePolicy.profile ?? "full";
+  const presets = effectivePolicy.presets ?? [];
   const groups = buildEffectiveToolInventoryGroups(effectiveTools);
   const assembly = buildEffectiveToolAssembly({
     profile,
@@ -457,7 +459,7 @@ export function resolveEffectiveToolSurface(
     allowGatewaySubagentBinding: params.allowGatewaySubagentBinding,
   });
 
-  return { agentId, workspaceDir, agentDir, tools: effectiveTools, profile, groups, assembly };
+  return { agentId, workspaceDir, agentDir, tools: effectiveTools, profile, presets, groups, assembly };
 }
 
 export function resolveEffectiveToolInventory(
@@ -467,6 +469,7 @@ export function resolveEffectiveToolInventory(
   return {
     agentId: surface.agentId,
     profile: surface.profile,
+    presets: surface.presets,
     groups: surface.groups,
     assembly: surface.assembly,
   };

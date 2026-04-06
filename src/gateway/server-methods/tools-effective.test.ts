@@ -32,6 +32,7 @@ const runtimeMocks = vi.hoisted(() => ({
   resolveEffectiveToolInventory: vi.fn(() => ({
     agentId: "main",
     profile: "coding",
+    presets: ["browser"],
     assembly: {
       counts: {
         total: 1,
@@ -165,6 +166,7 @@ describe("tools.effective handler", () => {
     expect(call?.[1]).toMatchObject({
       agentId: "main",
       profile: "coding",
+      presets: ["browser"],
       assembly: {
         counts: {
           total: 1,

@@ -5,7 +5,7 @@ async function loadHarness(options?: {
   createToolsMock?: ReturnType<typeof vi.fn>;
   pluginMeta?: Record<string, { pluginId: string } | undefined>;
   channelMeta?: Record<string, { channelId: string } | undefined>;
-  effectivePolicy?: { profile?: string; providerProfile?: string };
+  effectivePolicy?: { profile?: string; providerProfile?: string; presets?: string[] };
   resolvedModelCompat?: Record<string, unknown>;
 }) {
   vi.resetModules();
@@ -66,6 +66,7 @@ describe("resolveEffectiveToolInventory", () => {
     expect(result).toEqual({
       agentId: "main",
       profile: "full",
+      presets: [],
       groups: [
         {
           id: "core",
@@ -207,12 +208,13 @@ describe("resolveEffectiveToolInventory", () => {
   it("includes the resolved tool profile", async () => {
     const { resolveEffectiveToolInventory } = await loadHarness({
       tools: [{ name: "exec", label: "Exec", description: "Run shell commands" }],
-      effectivePolicy: { profile: "minimal", providerProfile: "coding" },
+      effectivePolicy: { profile: "minimal", providerProfile: "coding", presets: ["browser"] },
     });
 
     const result = resolveEffectiveToolInventory({ cfg: {} });
 
     expect(result.profile).toBe("coding");
+    expect(result.presets).toEqual(["browser"]);
     expect(result.assembly.context.senderIsOwner).toBe(false);
   });
 
@@ -297,11 +299,23 @@ describe("resolveEffectiveToolInventory", () => {
     });
   });
 
+  it("surfaces active presets from effective tool policy", async () => {
+    const { resolveEffectiveToolInventory } = await loadHarness({
+      tools: [{ name: "browser", label: "Browser", description: "Browse the web" }],
+      effectivePolicy: { profile: "minimal", presets: ["browser", "remote"] },
+    });
+
+    const result = resolveEffectiveToolInventory({ cfg: {} });
+
+    expect(result.presets).toEqual(["browser", "remote"]);
+  });
+
   it("builds a stable diff between two effective tool inventories", async () => {
     const { resolveEffectiveToolInventoryDiff } = await loadHarness();
     const base = {
       agentId: "main",
       profile: "coding",
+      presets: [],
       assembly: {
         counts: { total: 2, core: 1, plugin: 1, channel: 0 },
         context: {
@@ -350,6 +364,7 @@ describe("resolveEffectiveToolInventory", () => {
     const target = {
       agentId: "coder",
       profile: "full",
+      presets: ["browser"],
       assembly: {
         counts: { total: 2, core: 2, plugin: 0, channel: 0 },
         context: {

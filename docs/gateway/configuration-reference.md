@@ -1961,6 +1961,31 @@ Local onboarding defaults new local configs to `tools.profile: "coding"` when un
 | `messaging` | `group:messaging`, `sessions_list`, `sessions_history`, `sessions_send`, `session_status`                                       |
 | `full`      | No restriction (same as unset)                                                                                                  |
 
+### Tool presets
+
+`tools.presets` adds named bundles on top of the selected profile before later
+allow/deny filtering. You can also add presets per agent with
+`agents.list[].tools.presets` and per provider/model with
+`tools.byProvider.<provider>.presets`.
+
+| Preset     | Includes                           |
+| ---------- | ---------------------------------- |
+| `browser`  | `group:web`, `browser`, `canvas`   |
+| `delegate` | `group:sessions`                   |
+| `remote`   | `gateway`, `nodes`, `agents_list`  |
+
+```json5
+{
+  tools: {
+    profile: "minimal",
+    presets: ["browser"],
+    byProvider: {
+      "openai/gpt-5.4": { presets: ["remote"] },
+    },
+  },
+}
+```
+
 ### Tool groups
 
 | Group              | Tools                                                                                                                   |

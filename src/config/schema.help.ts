@@ -559,12 +559,16 @@ export const FIELD_HELP: Record<string, string> = {
     "Optional per-binary safe-bin profiles (positional limits + allowed/denied flags).",
   "tools.profile":
     "Global tool profile name used to select a predefined tool policy baseline before applying allow/deny overrides. Use this for consistent environment posture across agents and keep profile names stable.",
+  "tools.presets":
+    "Named additive tool bundles merged on top of the selected profile baseline before later allow/deny filtering. Use presets for rollout-ready capability slices like browser, delegate, or remote without redefining whole profiles.",
   "tools.alsoAllow":
     "Extra tool allowlist entries merged on top of the selected tool profile and default policy. Keep this list small and explicit so audits can quickly identify intentional policy exceptions.",
   "tools.byProvider":
     "Per-provider tool allow/deny overrides keyed by channel/provider ID to tailor capabilities by surface. Use this when one provider needs stricter controls than global tool policy.",
   "agents.list[].tools.profile":
     "Per-agent override for tool profile selection when one agent needs a different capability baseline. Use this sparingly so policy differences across agents stay intentional and reviewable.",
+  "agents.list[].tools.presets":
+    "Per-agent additive preset bundles layered on top of the resolved profile baseline. Use this to stage targeted capability slices for one agent without forking the whole profile.",
   "agents.list[].tools.alsoAllow":
     "Per-agent additive allowlist for tools on top of global and profile policy. Keep narrow to avoid accidental privilege expansion on specialized agents.",
   "agents.list[].tools.byProvider":

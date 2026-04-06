@@ -13,6 +13,7 @@ async function loadToolsHarness(options?: {
   resolveTools?: () => {
     agentId: string;
     profile: string;
+    presets: string[];
     assembly: {
       counts: {
         total: number;
@@ -73,6 +74,7 @@ async function loadToolsHarness(options?: {
         (() => ({
           agentId: "main",
           profile: "coding",
+          presets: ["browser"],
           assembly: {
             counts: {
               total: 2,
@@ -245,8 +247,9 @@ describe("handleToolsCommand", () => {
 
     expect(result?.reply?.text).toContain("Available tools");
     expect(result?.reply?.text).toContain("Profile: coding");
+    expect(result?.reply?.text).toContain("Presets: browser");
     expect(result?.reply?.text).toContain(
-      "Runtime: 2 total | 1 built-in | 1 plugin | 0 channel | channel=telegram | model=openai/gpt-4.1 | reply=all",
+      "Runtime: 2 total | 1 built-in | 1 plugin | 0 channel | channel=telegram | model=openai/gpt-4.1 | reply=all | presets=browser",
     );
     expect(result?.reply?.text).toContain(
       'Restrictions: Tool profile "coding" may hide capabilities that are available in fuller profiles. | Owner-only tools are hidden because the current caller is not an owner.',
@@ -341,6 +344,7 @@ describe("handleToolsCommand", () => {
           .mockReturnValueOnce({
             agentId: "main",
             profile: "coding",
+            presets: [],
             assembly: {
               counts: { total: 2, core: 1, plugin: 1, channel: 0 },
               context: { modelId: "gpt-4.1", senderIsOwner: false },
@@ -386,6 +390,7 @@ describe("handleToolsCommand", () => {
           .mockReturnValueOnce({
             agentId: "coder",
             profile: "full",
+            presets: ["browser"],
             assembly: {
               counts: { total: 2, core: 2, plugin: 0, channel: 0 },
               context: { modelId: "gpt-5.4", senderIsOwner: false },

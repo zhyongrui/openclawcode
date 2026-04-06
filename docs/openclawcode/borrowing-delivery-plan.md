@@ -47,10 +47,9 @@ Completed in this wave:
   agents or sessions instead of only listing the current surface
 - gateway `tools.diff` now exposes the same comparison as machine-readable
   structured output for operator UIs and automation
-
-Staged next:
-
-- named rollout presets beyond current policy/profile controls
+- named rollout presets (`browser`, `delegate`, `remote`) now layer on top of
+  existing profile policy so operators can expose targeted capability bundles
+  without redefining whole profiles
 
 ### 2. Background current-session UX
 

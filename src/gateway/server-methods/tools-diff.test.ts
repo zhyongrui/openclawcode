@@ -24,6 +24,7 @@ vi.mock("../../agents/tools-effective-inventory.js", () => ({
     .mockReturnValueOnce({
       agentId: "main",
       profile: "coding",
+      presets: [],
       assembly: {
         counts: { total: 1, core: 1, plugin: 0, channel: 0 },
         context: { senderIsOwner: false },
@@ -54,6 +55,7 @@ vi.mock("../../agents/tools-effective-inventory.js", () => ({
     .mockReturnValue({
       agentId: "coder",
       profile: "full",
+      presets: ["browser"],
       assembly: {
         counts: { total: 2, core: 2, plugin: 0, channel: 0 },
         context: { senderIsOwner: false },

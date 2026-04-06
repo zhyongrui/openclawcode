@@ -531,6 +531,7 @@ export const ToolsEffectiveResultSchema = Type.Object(
   {
     agentId: NonEmptyString,
     profile: NonEmptyString,
+    presets: Type.Array(NonEmptyString),
     groups: Type.Array(ToolsEffectiveGroupSchema),
     assembly: ToolsEffectiveAssemblySchema,
   },

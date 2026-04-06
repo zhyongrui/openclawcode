@@ -11,6 +11,7 @@ import {
 } from "./tool-description-presets.js";
 
 export type ToolProfileId = "minimal" | "coding" | "messaging" | "full";
+export type ToolPresetId = "browser" | "delegate" | "remote";
 
 type ToolProfilePolicy = {
   allow?: string[];
@@ -326,6 +327,18 @@ const CORE_TOOL_PROFILES: Record<ToolProfileId, ToolProfilePolicy> = {
   full: {},
 };
 
+const CORE_TOOL_PRESETS: Record<ToolPresetId, ToolProfilePolicy> = {
+  browser: {
+    allow: ["group:web", "browser", "canvas"],
+  },
+  delegate: {
+    allow: ["group:sessions"],
+  },
+  remote: {
+    allow: ["gateway", "nodes", "agents_list"],
+  },
+};
+
 function buildCoreToolGroupMap() {
   const sectionToolMap = new Map<string, string[]>();
   for (const tool of CORE_TOOL_DEFINITIONS) {
@@ -352,11 +365,34 @@ export const PROFILE_OPTIONS = [
   { id: "full", label: "Full" },
 ] as const;
 
+export const PRESET_OPTIONS = [
+  { id: "browser", label: "Browser" },
+  { id: "delegate", label: "Delegate" },
+  { id: "remote", label: "Remote" },
+] as const;
+
 export function resolveCoreToolProfilePolicy(profile?: string): ToolProfilePolicy | undefined {
   if (!profile) {
     return undefined;
   }
   const resolved = CORE_TOOL_PROFILES[profile as ToolProfileId];
+  if (!resolved) {
+    return undefined;
+  }
+  if (!resolved.allow && !resolved.deny) {
+    return undefined;
+  }
+  return {
+    allow: resolved.allow ? [...resolved.allow] : undefined,
+    deny: resolved.deny ? [...resolved.deny] : undefined,
+  };
+}
+
+export function resolveCoreToolPresetPolicy(preset?: string): ToolProfilePolicy | undefined {
+  if (!preset) {
+    return undefined;
+  }
+  const resolved = CORE_TOOL_PRESETS[preset as ToolPresetId];
   if (!resolved) {
     return undefined;
   }

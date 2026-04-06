@@ -18,7 +18,7 @@ import {
   type SubagentSessionRole,
 } from "./subagent-capabilities.js";
 import { isToolAllowedByPolicies, isToolAllowedByPolicyName } from "./tool-policy-match.js";
-import { normalizeToolName } from "./tool-policy.js";
+import { normalizeToolName, resolveToolPresetAlsoAllow } from "./tool-policy.js";
 
 /**
  * Tools always denied for sub-agents regardless of depth.
@@ -125,7 +125,13 @@ type ToolPolicyConfig = {
   alsoAllow?: string[];
   deny?: string[];
   profile?: string;
+  presets?: string[];
 };
+
+function mergeOrderedLists(...lists: Array<string[] | undefined>): string[] | undefined {
+  const merged = lists.flatMap((list) => list ?? []);
+  return merged.length > 0 ? Array.from(new Set(merged)) : undefined;
+}
 
 function normalizeProviderKey(value: string): string {
   return value.trim().toLowerCase();
@@ -274,12 +280,24 @@ export function resolveEffectiveToolPolicy(params: {
   const explicitProfileAlsoAllow =
     resolveExplicitProfileAlsoAllow(agentTools) ?? resolveExplicitProfileAlsoAllow(globalTools);
   const implicitProfileAlsoAllow = resolveImplicitProfileAlsoAllow({ globalTools, agentTools });
-  const profileAlsoAllow =
-    explicitProfileAlsoAllow || implicitProfileAlsoAllow
-      ? Array.from(
-          new Set([...(explicitProfileAlsoAllow ?? []), ...(implicitProfileAlsoAllow ?? [])]),
-        )
-      : undefined;
+  const basePresetResolution = resolveToolPresetAlsoAllow([
+    ...(globalTools?.presets ?? []),
+    ...(agentTools?.presets ?? []),
+  ]);
+  const providerPresetResolution = resolveToolPresetAlsoAllow([
+    ...(providerPolicy?.presets ?? []),
+    ...(agentProviderPolicy?.presets ?? []),
+  ]);
+  const profileAlsoAllow = mergeOrderedLists(
+    basePresetResolution.alsoAllow,
+    explicitProfileAlsoAllow,
+    implicitProfileAlsoAllow,
+  );
+  const providerProfileAlsoAllow = mergeOrderedLists(
+    providerPresetResolution.alsoAllow,
+    Array.isArray(providerPolicy?.alsoAllow) ? providerPolicy.alsoAllow : undefined,
+    Array.isArray(agentProviderPolicy?.alsoAllow) ? agentProviderPolicy.alsoAllow : undefined,
+  );
   return {
     agentId,
     globalPolicy: pickSandboxToolPolicy(globalTools),
@@ -288,13 +306,11 @@ export function resolveEffectiveToolPolicy(params: {
     agentProviderPolicy: pickSandboxToolPolicy(agentProviderPolicy),
     profile,
     providerProfile: agentProviderPolicy?.profile ?? providerPolicy?.profile,
+    presets:
+      mergeOrderedLists(basePresetResolution.presets, providerPresetResolution.presets) ?? [],
     // alsoAllow is applied at the profile stage (to avoid being filtered out early).
     profileAlsoAllow,
-    providerProfileAlsoAllow: Array.isArray(agentProviderPolicy?.alsoAllow)
-      ? agentProviderPolicy?.alsoAllow
-      : Array.isArray(providerPolicy?.alsoAllow)
-        ? providerPolicy?.alsoAllow
-        : undefined,
+    providerProfileAlsoAllow,
   };
 }
 

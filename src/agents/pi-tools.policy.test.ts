@@ -293,4 +293,34 @@ describe("resolveEffectiveToolPolicy", () => {
     const result = resolveEffectiveToolPolicy({ config: cfg, agentId: "coder" });
     expect(result.profileAlsoAllow).toEqual(["read", "write", "edit"]);
   });
+
+  it("adds configured presets to the profile-stage allowlist", () => {
+    const cfg = {
+      tools: {
+        profile: "minimal",
+        presets: ["browser"],
+      },
+    } as OpenClawConfig;
+    const result = resolveEffectiveToolPolicy({ config: cfg });
+    expect(result.presets).toEqual(["browser"]);
+    expect(result.profileAlsoAllow).toEqual(["group:web", "browser", "canvas"]);
+  });
+
+  it("merges provider presets into provider-stage allowlist and active presets", () => {
+    const cfg = {
+      tools: {
+        profile: "minimal",
+        presets: ["browser"],
+        byProvider: {
+          openai: {
+            presets: ["remote"],
+          },
+        },
+      },
+    } as OpenClawConfig;
+    const result = resolveEffectiveToolPolicy({ config: cfg, modelProvider: "openai" });
+    expect(result.presets).toEqual(["browser", "remote"]);
+    expect(result.profileAlsoAllow).toEqual(["group:web", "browser", "canvas"]);
+    expect(result.providerProfileAlsoAllow).toEqual(["gateway", "nodes", "agents_list"]);
+  });
 });

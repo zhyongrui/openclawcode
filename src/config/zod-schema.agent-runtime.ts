@@ -367,6 +367,12 @@ export const ToolProfileSchema = z
   .union([z.literal("minimal"), z.literal("coding"), z.literal("messaging"), z.literal("full")])
   .optional();
 
+export const ToolPresetNameSchema = z.union([
+  z.literal("browser"),
+  z.literal("delegate"),
+  z.literal("remote"),
+]);
+
 type AllowlistPolicy = {
   allow?: string[];
   alsoAllow?: string[];
@@ -391,6 +397,7 @@ export const ToolPolicyWithProfileSchema = z
     alsoAllow: z.array(z.string()).optional(),
     deny: z.array(z.string()).optional(),
     profile: ToolProfileSchema,
+    presets: z.array(ToolPresetNameSchema).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -555,6 +562,7 @@ export const AgentSandboxSchema = z
 
 const CommonToolPolicyFields = {
   profile: ToolProfileSchema,
+  presets: z.array(ToolPresetNameSchema).optional(),
   allow: z.array(z.string()).optional(),
   alsoAllow: z.array(z.string()).optional(),
   deny: z.array(z.string()).optional(),

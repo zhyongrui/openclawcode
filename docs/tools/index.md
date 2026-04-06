@@ -138,6 +138,33 @@ Per-agent override: `agents.list[].tools.profile`.
 | `messaging` | `group:messaging`, `sessions_list`, `sessions_history`, `sessions_send`, `session_status`                                                         |
 | `minimal`   | `session_status` only                                                                                                                             |
 
+### Tool presets
+
+`tools.presets` adds named capability bundles on top of the selected profile
+before later allow/deny filtering. Per-agent override additions:
+`agents.list[].tools.presets`. Provider-specific `tools.byProvider.*.presets`
+can add more bundles for one runtime surface.
+
+| Preset     | What it adds                          |
+| ---------- | ------------------------------------- |
+| `browser`  | `group:web`, `browser`, `canvas`      |
+| `delegate` | `group:sessions`                      |
+| `remote`   | `gateway`, `nodes`, `agents_list`     |
+
+Example:
+
+```json5
+{
+  tools: {
+    profile: "minimal",
+    presets: ["browser"],
+    byProvider: {
+      openai: { presets: ["remote"] },
+    },
+  },
+}
+```
+
 ### Tool groups
 
 Use `group:*` shorthands in allow/deny lists:

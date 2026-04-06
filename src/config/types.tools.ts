@@ -151,6 +151,7 @@ export type MediaToolsConfig = {
 };
 
 export type ToolProfileId = "minimal" | "coding" | "messaging" | "full";
+export type ToolPresetId = "browser" | "delegate" | "remote";
 
 export type ToolLoopDetectionDetectorConfig = {
   /** Enable warning/blocking for repeated identical calls to the same tool/params. */
@@ -189,6 +190,7 @@ export type ToolPolicyConfig = {
   alsoAllow?: string[];
   deny?: string[];
   profile?: ToolProfileId;
+  presets?: ToolPresetId[];
 };
 
 export type GroupToolPolicyConfig = {
@@ -301,6 +303,8 @@ export type FsToolsConfig = {
 export type AgentToolsConfig = {
   /** Base tool profile applied before allow/deny lists. */
   profile?: ToolProfileId;
+  /** Additive preset bundles merged on top of the selected base profile. */
+  presets?: ToolPresetId[];
   allow?: string[];
   /** Additional allowlist entries merged into allow and/or profile allowlist. */
   alsoAllow?: string[];
@@ -474,6 +478,8 @@ export type MemorySearchConfig = {
 export type ToolsConfig = {
   /** Base tool profile applied before allow/deny lists. */
   profile?: ToolProfileId;
+  /** Additive preset bundles merged on top of the selected base profile. */
+  presets?: ToolPresetId[];
   allow?: string[];
   /** Additional allowlist entries merged into allow and/or profile allowlist. */
   alsoAllow?: string[];

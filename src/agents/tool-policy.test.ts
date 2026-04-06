@@ -10,6 +10,8 @@ import {
   expandToolGroups,
   isOwnerOnlyToolName,
   normalizeToolName,
+  resolveToolPresetAlsoAllow,
+  resolveToolPresetPolicy,
   resolveOwnerOnlyToolApprovalClass,
   resolveToolProfilePolicy,
   TOOL_GROUPS,
@@ -62,6 +64,19 @@ describe("tool-policy", () => {
     expect(coding?.allow).toContain("cron");
     expect(coding?.allow).not.toContain("gateway");
     expect(resolveToolProfilePolicy("nope")).toBeUndefined();
+  });
+
+  it("resolves known presets and ignores unknown ones", () => {
+    const browser = resolveToolPresetPolicy("browser");
+    expect(browser?.allow).toEqual(["group:web", "browser", "canvas"]);
+    expect(resolveToolPresetPolicy("nope")).toBeUndefined();
+  });
+
+  it("expands preset bundles into additive allow entries", () => {
+    expect(resolveToolPresetAlsoAllow(["browser", "REMOTE", "unknown"])).toEqual({
+      presets: ["browser", "remote"],
+      alsoAllow: ["group:web", "browser", "canvas", "gateway", "nodes", "agents_list"],
+    });
   });
 
   it("includes core tool groups in group:openclaw", () => {
