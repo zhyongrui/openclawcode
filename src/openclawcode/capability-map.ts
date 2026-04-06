@@ -138,8 +138,14 @@ const CLI_COMMANDS: OpenClawCodeCapabilityMapCommand[] = [
     id: "cli.workflow-history",
     surface: "cli",
     command: "openclaw code workflow-history-show",
-    summary: "Show the repo-local workflow history with current-session-first ordering.",
-    capabilities: ["history.project-local", "history.current-session-first", "run.history-tail"],
+    summary:
+      "Show the repo-local workflow history with current-session-first ordering and durable tail references.",
+    capabilities: [
+      "history.project-local",
+      "history.current-session-first",
+      "run.history-tail",
+      "history.large-paste-reference",
+    ],
   },
   {
     id: "cli.policy",
@@ -287,7 +293,8 @@ const WORKFLOW_ARTIFACTS: OpenClawCodeCapabilityMapArtifact[] = [
   {
     id: "artifact.workflow-history",
     path: ".openclawcode/workflow-history.json",
-    summary: "Repo-local workflow history artifact with current-session-first ordering and bounded run tails.",
+    summary:
+      "Repo-local workflow history artifact with current-session-first ordering, bounded run tails, and durable tail references.",
     producers: ["openclaw code workflow-history-show"],
     consumers: ["operator review", "repo-local history inspection"],
   },

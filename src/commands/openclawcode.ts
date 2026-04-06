@@ -2246,7 +2246,7 @@ function logProjectWorkflowHistoryArtifact(params: {
   runtime.log(`Entries: ${artifact.entryCount}`);
   for (const entry of artifact.entries) {
     runtime.log(
-      `- ${entry.issueKey}: ${entry.stage ?? "unknown"} | source=${entry.source} | current=${entry.currentSessionFirst ? "yes" : "no"} | updated=${entry.updatedAt ?? "unknown"}${entry.historyTail.length > 0 ? ` | tail=${entry.historyTail.join(" ; ")}` : ""}`,
+      `- ${entry.issueKey}: ${entry.stage ?? "unknown"} | source=${entry.source} | current=${entry.currentSessionFirst ? "yes" : "no"} | updated=${entry.updatedAt ?? "unknown"}${entry.historyTail.length > 0 ? ` | tail=${entry.historyTail.join(" ; ")}` : ""}${entry.historyTailReferences.length > 0 ? ` | tailRefs=${entry.historyTailReferences.map((reference) => reference.relativeArtifactPath).join(",")}` : ""}`,
     );
   }
 }

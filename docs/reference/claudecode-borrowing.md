@@ -433,11 +433,13 @@ Implemented:
   active issue
 - bounded `historyTail` summaries plus durable run artifact paths instead of
   replaying the entire run history inline
+- durable tail-reference artifacts for oversized or multiline history entries,
+  so repo-local workflow history can keep a bounded inline summary while
+  pointing at persisted pasted-content text on disk
 
 Not implemented yet:
 
-- durable large-paste or image-reference indirection comparable to
-  `ClaudeCode/src/history.ts`
+- image-reference indirection comparable to `ClaudeCode/src/history.ts`
 - richer TUI or control-surface history affordances
 - a sharper split between transcript replay storage and command-history storage
 

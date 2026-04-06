@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { OpenClawCodeIssueStatusSnapshot } from "../integrations/openclaw-plugin/store.js";
@@ -8,9 +9,20 @@ import type { WorkflowRun } from "./contracts/index.js";
 import { deriveWorkflowLoopHealth } from "./loop-health.js";
 import { deriveWorkflowQualityGate } from "./quality-gate.js";
 
-export const PROJECT_WORKFLOW_HISTORY_SCHEMA_VERSION = 1;
+export const PROJECT_WORKFLOW_HISTORY_SCHEMA_VERSION = 2;
 const DEFAULT_WORKFLOW_HISTORY_LIMIT = 12;
 const HISTORY_TAIL_LIMIT = 3;
+const HISTORY_TAIL_REFERENCE_MAX_INLINE_CHARS = 240;
+const HISTORY_TAIL_SUMMARY_MAX_CHARS = 140;
+
+export interface ProjectWorkflowHistoryTailReference {
+  tailIndex: number;
+  historyIndex: number;
+  summary: string;
+  artifactPath: string;
+  relativeArtifactPath: string;
+  byteLength: number;
+}
 
 export interface ProjectWorkflowHistoryEntry {
   issueKey: string;
@@ -35,6 +47,7 @@ export interface ProjectWorkflowHistoryEntry {
   rerunReason: string | null;
   historyEventCount: number;
   historyTail: string[];
+  historyTailReferences: ProjectWorkflowHistoryTailReference[];
   runArtifactPath: string | null;
 }
 
@@ -66,6 +79,10 @@ function resolveWorkflowRunsDir(repoRootInput: string): string {
   return path.join(path.resolve(repoRootInput), ".openclawcode", "runs");
 }
 
+function resolveWorkflowHistoryTailRefsDir(repoRootInput: string): string {
+  return path.join(path.resolve(repoRootInput), ".openclawcode", "history-tail-refs");
+}
+
 function formatRepoKey(repo: RepoRef): string {
   return `${repo.owner}/${repo.repo}`;
 }
@@ -80,6 +97,17 @@ function normalizeSingleLine(value: string | null | undefined): string | null {
     .map((entry) => entry.trim())
     .find(Boolean);
   return line ?? null;
+}
+
+function summarizeHistoryTailEntry(value: string | null | undefined): string | null {
+  const line = normalizeSingleLine(value)?.replace(/\s+/g, " ").trim();
+  if (!line) {
+    return null;
+  }
+  if (line.length <= HISTORY_TAIL_SUMMARY_MAX_CHARS) {
+    return line;
+  }
+  return `${line.slice(0, HISTORY_TAIL_SUMMARY_MAX_CHARS - 3).trimEnd()}...`;
 }
 
 function compareIsoDesc(left: string | null, right: string | null): number {
@@ -114,24 +142,95 @@ function deriveCurrentIssueKey(params: {
   });
 }
 
-function buildHistoryTail(run: WorkflowRun | undefined): string[] {
-  if (!run) {
-    return [];
-  }
-  return run.history
-    .map((entry) => normalizeSingleLine(entry))
-    .filter((entry): entry is string => Boolean(entry))
-    .slice(-HISTORY_TAIL_LIMIT);
+function shouldPersistHistoryTailReference(value: string, summary: string): boolean {
+  const nonEmptyLineCount = value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean).length;
+  return (
+    value.trim().length > HISTORY_TAIL_REFERENCE_MAX_INLINE_CHARS ||
+    nonEmptyLineCount > 1 ||
+    summary.length >= HISTORY_TAIL_SUMMARY_MAX_CHARS
+  );
 }
 
-function buildEntryFromSnapshot(params: {
+function resolveHistoryTailReferenceArtifactPath(params: {
+  repoRoot: string;
+  runId: string;
+  historyIndex: number;
+  value: string;
+}): string {
+  const digest = createHash("sha256").update(params.value).digest("hex").slice(0, 12);
+  return path.join(
+    resolveWorkflowHistoryTailRefsDir(params.repoRoot),
+    params.runId,
+    `${String(params.historyIndex).padStart(4, "0")}-${digest}.txt`,
+  );
+}
+
+async function buildHistoryTail(params: {
+  run?: WorkflowRun;
+  repoRoot: string;
+}): Promise<{
+  historyTail: string[];
+  historyTailReferences: ProjectWorkflowHistoryTailReference[];
+}> {
+  if (!params.run) {
+    return {
+      historyTail: [],
+      historyTailReferences: [],
+    };
+  }
+
+  const historyTail: string[] = [];
+  const historyTailReferences: ProjectWorkflowHistoryTailReference[] = [];
+  const tailStartIndex = Math.max(0, params.run.history.length - HISTORY_TAIL_LIMIT);
+
+  for (let historyIndex = tailStartIndex; historyIndex < params.run.history.length; historyIndex += 1) {
+    const rawEntry = params.run.history[historyIndex];
+    const summary = summarizeHistoryTailEntry(rawEntry);
+    if (!summary || typeof rawEntry !== "string") {
+      continue;
+    }
+    const tailIndex = historyTail.length;
+    historyTail.push(summary);
+    if (!shouldPersistHistoryTailReference(rawEntry, summary)) {
+      continue;
+    }
+    const artifactPath = resolveHistoryTailReferenceArtifactPath({
+      repoRoot: params.repoRoot,
+      runId: params.run.id,
+      historyIndex,
+      value: rawEntry,
+    });
+    await mkdir(path.dirname(artifactPath), { recursive: true });
+    await writeFile(artifactPath, rawEntry, "utf8");
+    historyTailReferences.push({
+      tailIndex,
+      historyIndex,
+      summary,
+      artifactPath,
+      relativeArtifactPath: path.relative(params.repoRoot, artifactPath),
+      byteLength: Buffer.byteLength(rawEntry, "utf8"),
+    });
+  }
+
+  return { historyTail, historyTailReferences };
+}
+
+async function buildEntryFromSnapshot(params: {
   snapshot: OpenClawCodeIssueStatusSnapshot;
   repoKey: string;
   currentIssueKey: string | null;
   run?: WorkflowRun;
   runsDir: string;
-}): ProjectWorkflowHistoryEntry {
+  repoRoot: string;
+}): Promise<ProjectWorkflowHistoryEntry> {
   const { snapshot, repoKey, currentIssueKey, run, runsDir } = params;
+  const historyTail = await buildHistoryTail({
+    run,
+    repoRoot: params.repoRoot,
+  });
   return {
     issueKey: snapshot.issueKey,
     repoKey,
@@ -154,20 +253,26 @@ function buildEntryFromSnapshot(params: {
     latestReviewDecision: snapshot.latestReviewDecision ?? null,
     rerunReason: snapshot.rerunReason ?? run?.rerunContext?.reason ?? null,
     historyEventCount: run?.history.length ?? 0,
-    historyTail: buildHistoryTail(run),
+    historyTail: historyTail.historyTail,
+    historyTailReferences: historyTail.historyTailReferences,
     runArtifactPath: snapshot.runId ? path.join(runsDir, `${snapshot.runId}.json`) : null,
   };
 }
 
-function buildEntryFromRun(params: {
+async function buildEntryFromRun(params: {
   run: WorkflowRun;
   repoKey: string;
   currentIssueKey: string | null;
   runsDir: string;
-}): ProjectWorkflowHistoryEntry {
+  repoRoot: string;
+}): Promise<ProjectWorkflowHistoryEntry> {
   const { run, repoKey, currentIssueKey, runsDir } = params;
   const qualityGate = deriveWorkflowQualityGate(run);
   const loopHealth = deriveWorkflowLoopHealth(run);
+  const historyTail = await buildHistoryTail({
+    run,
+    repoRoot: params.repoRoot,
+  });
   const issueKey = formatIssueKey({
     owner: run.issue.owner,
     repo: run.issue.repo,
@@ -195,7 +300,8 @@ function buildEntryFromRun(params: {
     latestReviewDecision: run.rerunContext?.reviewDecision ?? null,
     rerunReason: run.rerunContext?.reason ?? null,
     historyEventCount: run.history.length,
-    historyTail: buildHistoryTail(run),
+    historyTail: historyTail.historyTail,
+    historyTailReferences: historyTail.historyTailReferences,
     runArtifactPath: path.join(runsDir, `${run.id}.json`),
   };
 }
@@ -263,12 +369,13 @@ export async function writeProjectWorkflowHistoryArtifact(params: {
       consumedRunIds.add(run.id);
     }
     entries.push(
-      buildEntryFromSnapshot({
+      await buildEntryFromSnapshot({
         snapshot,
         repoKey: repoKey ?? `${snapshot.owner}/${snapshot.repo}`,
         currentIssueKey,
         run,
         runsDir,
+        repoRoot,
       }),
     );
   }
@@ -278,11 +385,12 @@ export async function writeProjectWorkflowHistoryArtifact(params: {
       continue;
     }
     entries.push(
-      buildEntryFromRun({
+      await buildEntryFromRun({
         run,
         repoKey: repoKey ?? formatRepoKey({ owner: run.issue.owner, repo: run.issue.repo }),
         currentIssueKey,
         runsDir,
+        repoRoot,
       }),
     );
   }
@@ -364,6 +472,14 @@ export async function readProjectWorkflowHistoryArtifact(
       workflowRun: parsed.sourceCounts?.workflowRun ?? 0,
     },
     limit: parsed.limit ?? DEFAULT_WORKFLOW_HISTORY_LIMIT,
-    entries: Array.isArray(parsed.entries) ? parsed.entries : [],
+    entries: Array.isArray(parsed.entries)
+      ? parsed.entries.map((entry) => ({
+          ...entry,
+          historyTail: Array.isArray(entry.historyTail) ? entry.historyTail : [],
+          historyTailReferences: Array.isArray(entry.historyTailReferences)
+            ? entry.historyTailReferences
+            : [],
+        }))
+      : [],
   };
 }

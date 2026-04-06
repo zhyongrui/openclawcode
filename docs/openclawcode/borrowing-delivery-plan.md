@@ -101,10 +101,12 @@ Completed in this wave:
 - current-session-first ordering driven by the operator snapshot when available
 - bounded run-history tails with durable run artifact references instead of
   replaying full histories
+- durable large-paste references for oversized or multiline history-tail items,
+  so repo-local workflow history can point at persisted tail artifacts instead
+  of replaying pasted payloads inline
 
 Staged next:
 
-- durable large-paste references rather than eager inline replay
 - richer non-CLI history and transcript handoff affordances
 
 ### 4. Detached-session identity and resume discipline

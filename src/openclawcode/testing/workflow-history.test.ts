@@ -191,6 +191,7 @@ describe("project workflow history artifact", () => {
       runId: "run-105",
       historyEventCount: 2,
       historyTail: ["Planning completed", "Verification approved for human review"],
+      historyTailReferences: [],
     });
     expect(artifact.entries[1]).toMatchObject({
       issueKey: "openclaw/openclawcode#106",
@@ -206,5 +207,63 @@ describe("project workflow history artifact", () => {
     const persisted = await readProjectWorkflowHistoryArtifact(repoRoot);
     expect(persisted.entries).toHaveLength(2);
     expect(persisted.entries[0]?.issueKey).toBe("openclaw/openclawcode#105");
+  });
+
+  it("writes durable reference artifacts for long or multiline history tail entries", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-workflow-history-"));
+    const runsDir = path.join(repoRoot, ".openclawcode", "runs");
+    await mkdir(runsDir, { recursive: true });
+
+    const multilineTail = [
+      "Operator pasted failing command output:",
+      "line 1: stack trace frame",
+      "line 2: stack trace frame",
+      "line 3: stack trace frame",
+    ].join("\n");
+
+    await writeFile(
+      path.join(runsDir, "run-107.json"),
+      `${JSON.stringify(
+        createRun({
+          id: "run-107",
+          issueNumber: 107,
+          title: "History references",
+          updatedAt: "2026-04-02T12:00:00.000Z",
+          history: ["Planning completed", multilineTail, "Verification approved for human review"],
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    const artifact = await writeProjectWorkflowHistoryArtifact({
+      repoRoot,
+      repo: {
+        owner: "openclaw",
+        repo: "openclawcode",
+      },
+      limit: 5,
+    });
+
+    expect(artifact.entries).toHaveLength(1);
+    expect(artifact.entries[0]?.historyTail).toEqual([
+      "Planning completed",
+      "Operator pasted failing command output:",
+      "Verification approved for human review",
+    ]);
+    expect(artifact.entries[0]?.historyTailReferences).toHaveLength(1);
+    expect(artifact.entries[0]?.historyTailReferences[0]).toMatchObject({
+      tailIndex: 1,
+      historyIndex: 1,
+      summary: "Operator pasted failing command output:",
+      relativeArtifactPath: expect.stringMatching(
+        /^\.openclawcode[\\/]history-tail-refs[\\/]run-107[\\/]/,
+      ),
+    });
+
+    const referencePath = artifact.entries[0]?.historyTailReferences[0]?.artifactPath;
+    expect(referencePath).toBeTruthy();
+    await expect(readFile(referencePath!, "utf8")).resolves.toBe(multilineTail);
   });
 });

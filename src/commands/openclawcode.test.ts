@@ -5455,6 +5455,7 @@ describe("openclawCodeRunCommand", () => {
       runId: "run-105",
       historyEventCount: 2,
       historyTail: ["Planning completed", "Verification approved for human review"],
+      historyTailReferences: [],
     });
     expect(payload.entries[1]).toMatchObject({
       issueKey: "openclaw/openclawcode#106",
@@ -5468,6 +5469,73 @@ describe("openclawCodeRunCommand", () => {
         (entry: { issueKey: string }) => entry.issueKey === "openclaw/other-repo#200",
       ),
     ).toBe(false);
+  });
+
+  it("shows durable workflow-history tail references for long pasted history entries", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-workflow-history-"));
+    const stateDir = await mkdtemp(path.join(os.tmpdir(), "openclawcode-workflow-history-state-"));
+    const runsDir = path.join(repoRoot, ".openclawcode", "runs");
+    await mkdir(runsDir, { recursive: true });
+
+    const pastedTail = [
+      "Operator pasted reproduction details:",
+      "pnpm test --filter failing-suite",
+      "Error: expected 200, received 500",
+    ].join("\n");
+
+    await writeFile(
+      path.join(runsDir, "run-107.json"),
+      `${JSON.stringify(
+        createRun({
+          id: "run-107",
+          issue: {
+            owner: "openclaw",
+            repo: "openclawcode",
+            number: 107,
+            title: "History references",
+            body: "Preserve pasted history references",
+          },
+          updatedAt: "2026-04-02T12:00:00.000Z",
+          history: ["Planning completed", pastedTail, "Verification approved for human review"],
+        }),
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    runtime.log.mockClear();
+    await openclawCodeWorkflowHistoryShowCommand(
+      {
+        owner: "openclaw",
+        repo: "openclawcode",
+        repoRoot,
+        stateDir,
+        limit: 5,
+        json: true,
+      },
+      runtime,
+    );
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.entries[0]).toMatchObject({
+      issueKey: "openclaw/openclawcode#107",
+      historyTail: [
+        "Planning completed",
+        "Operator pasted reproduction details:",
+        "Verification approved for human review",
+      ],
+      historyTailReferences: [
+        {
+          tailIndex: 1,
+          historyIndex: 1,
+          summary: "Operator pasted reproduction details:",
+          relativeArtifactPath: expect.stringMatching(
+            /^\.openclawcode[\\/]history-tail-refs[\\/]run-107[\\/]/,
+          ),
+        },
+      ],
+    });
   });
 
   it("reports a stable operator status snapshot for tracked queue and status state", async () => {
