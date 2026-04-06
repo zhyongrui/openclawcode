@@ -92,6 +92,8 @@ describe("background session resume helpers", () => {
       "resumeAgent: coder",
       `resumeTranscript: ${transcriptPath}`,
       "resumeTranscriptExists: yes",
+      "transcriptHandoff: detached_resume",
+      "transcriptHandoffSummary: Transcript remains the live detached handoff and can still be used for direct resume or recovery.",
       "completionRouting: detached_delivery",
       "completionRoutingSummary: Detached completion will still be delivered or queued back to the owner session.",
       'continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
@@ -114,6 +116,11 @@ describe("background session resume helpers", () => {
       agentId: "coder",
       transcriptPath,
       transcriptExists: true,
+      transcriptHandoff: {
+        mode: "detached_resume",
+        summary:
+          "Transcript remains the live detached handoff and can still be used for direct resume or recovery.",
+      },
       completionRouting: {
         mode: "detached_delivery",
         summary: "Detached completion will still be delivered or queued back to the owner session.",
@@ -150,6 +157,8 @@ describe("background session resume helpers", () => {
       "  resumeAgent: coder",
       `  resumeTranscript: ${transcriptPath}`,
       "  resumeTranscriptExists: yes",
+      "  transcriptHandoff: detached_resume",
+      "  transcriptHandoffSummary: Transcript remains the live detached handoff and can still be used for direct resume or recovery.",
       "  completionRouting: detached_delivery",
       "  completionRoutingSummary: Detached completion will still be delivered or queued back to the owner session.",
       '  continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
@@ -161,6 +170,8 @@ describe("background session resume helpers", () => {
       "  resumeAgent: main",
       "  resumeTranscript: n/a",
       "  resumeTranscriptExists: no",
+      "  transcriptHandoff: missing",
+      "  transcriptHandoffSummary: Detached transcript snapshot is missing; direct transcript recovery is unavailable.",
       "  completionRouting: detached_delivery",
       "  completionRoutingSummary: Detached completion will still be delivered or queued back to the owner session.",
       '  continueWith: openclaw sessions continue agent:main:missing --message "Continue from the latest background task state."',
@@ -186,6 +197,11 @@ describe("background session resume helpers", () => {
         agentId: "coder",
         transcriptPath,
         transcriptExists: true,
+        transcriptHandoff: {
+          mode: "detached_resume",
+          summary:
+            "Transcript remains the live detached handoff and can still be used for direct resume or recovery.",
+        },
         completionRouting: {
           mode: "detached_delivery",
           summary:
@@ -207,6 +223,11 @@ describe("background session resume helpers", () => {
         agentId: "main",
         transcriptPath: null,
         transcriptExists: false,
+        transcriptHandoff: {
+          mode: "missing",
+          summary:
+            "Detached transcript snapshot is missing; direct transcript recovery is unavailable.",
+        },
         completionRouting: {
           mode: "detached_delivery",
           summary:
@@ -236,6 +257,10 @@ describe("background session resume helpers", () => {
     });
 
     expect(lines).toContain("completionRouting: foreground_reattached");
+    expect(lines).toContain("transcriptHandoff: foreground_history");
+    expect(lines).toContain(
+      "transcriptHandoffSummary: Transcript remains available as detached history, but live continuation now belongs to the foreground reattached session.",
+    );
     expect(lines).toContain(
       "completionRoutingSummary: Detached completion stays with the foreground reattached session instead of detached delivery.",
     );
@@ -243,5 +268,24 @@ describe("background session resume helpers", () => {
     expect(lines).toContain(
       'reattachWith: openclaw sessions reattach agent:coder:acp:child --message "Continue from the latest background task state."',
     );
+  });
+
+  it("surfaces missing transcript semantics after foreground reattach", () => {
+    const detail = describeBackgroundSessionResume({
+      cfg: {} as never,
+      sessionKey: "agent:main:missing",
+      completionRouting: {
+        mode: "foreground_reattached",
+        summary:
+          "Detached completion stays with the foreground reattached session instead of detached delivery.",
+        reattachedAt: Date.parse("2026-04-05T03:00:00Z"),
+      },
+    });
+
+    expect(detail?.transcriptHandoff).toEqual({
+      mode: "missing",
+      summary:
+        "Detached transcript snapshot is missing; live continuation now belongs to the foreground reattached session.",
+    });
   });
 });

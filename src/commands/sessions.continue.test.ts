@@ -118,6 +118,9 @@ describe("sessionsContinueCommand", () => {
             sessionKey: string;
             transcriptPath: string | null;
             transcriptExists: boolean;
+            transcriptHandoff?: {
+              mode: string;
+            };
             continueWith: string;
             reattachWith: string;
           } | null;
@@ -155,6 +158,9 @@ describe("sessionsContinueCommand", () => {
             sessionKey: "agent:coder:acp:child",
             transcriptPath: "/tmp/missing-transcript.jsonl",
             transcriptExists: false,
+            transcriptHandoff: {
+              mode: "missing",
+            },
             continueWith:
               'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
             reattachWith:
@@ -249,6 +255,7 @@ describe("sessionsContinueCommand", () => {
       expect(output).toContain("resumeSessionKey: agent:coder:acp:child");
       expect(output).toContain("resumeTranscript: /tmp/missing-transcript-continue.jsonl");
       expect(output).toContain("resumeTranscriptExists: no");
+      expect(output).toContain("transcriptHandoff: missing");
       expect(output).toContain(
         'continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       );

@@ -148,6 +148,9 @@ describe("sessionsShowCommand", () => {
         sessionId: string;
         transcriptExists: boolean;
         transcriptPath: string;
+        transcriptHandoff?: {
+          mode: string;
+        };
         model: string;
       };
       relatedTaskCount: number;
@@ -159,6 +162,9 @@ describe("sessionsShowCommand", () => {
         sessionId?: string;
         transcriptPath: string | null;
         transcriptExists: boolean;
+        transcriptHandoff?: {
+          mode: string;
+        };
         continueWith: string;
       } | null;
       resumeLines: string[];
@@ -179,6 +185,9 @@ describe("sessionsShowCommand", () => {
         sessionId: "sess-child-123",
         transcriptExists: true,
         transcriptPath,
+        transcriptHandoff: {
+          mode: "detached_resume",
+        },
         model: "gpt-5.4",
       },
       relatedTaskCount: 1,
@@ -202,6 +211,9 @@ describe("sessionsShowCommand", () => {
         sessionId: "sess-child-123",
         transcriptPath,
         transcriptExists: true,
+        transcriptHandoff: {
+          mode: "detached_resume",
+        },
         continueWith:
           'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       },
@@ -210,6 +222,7 @@ describe("sessionsShowCommand", () => {
     expect(payload.resumeLines).toContain("resumeSessionId: sess-child-123");
     expect(payload.resumeLines).toContain(`resumeTranscript: ${transcriptPath}`);
     expect(payload.resumeLines).toContain("resumeTranscriptExists: yes");
+    expect(payload.resumeLines).toContain("transcriptHandoff: detached_resume");
     expect(payload.resumeLines).toContain(
       'continueWith: openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
     );

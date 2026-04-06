@@ -16,6 +16,7 @@ import { agentCommand } from "./agent.js";
 import { resolveSessionKeyForRequest } from "./agent/session.js";
 import {
   type BackgroundSessionResumeDetail,
+  type BackgroundSessionTranscriptHandoff,
   describeBackgroundSessionResume,
   formatBackgroundSessionResumeLines,
 } from "./background-session-resume.js";
@@ -46,6 +47,7 @@ type BackgroundAcceptedHandoff = {
   agentId?: string;
   transcriptPath?: string | null;
   transcriptExists?: boolean;
+  transcriptHandoff?: BackgroundSessionTranscriptHandoff;
   waitWith?: string;
   continueWith?: string;
   reattachWith?: string;
@@ -169,6 +171,7 @@ function buildAcceptedBackgroundHandoff(params: {
       ? {
           transcriptPath: resumeDetail.transcriptPath,
           transcriptExists: resumeDetail.transcriptExists,
+          transcriptHandoff: resumeDetail.transcriptHandoff,
         }
       : {}),
     ...(params.runId ? { waitWith: buildWaitCommand(params.runId) } : {}),
@@ -211,6 +214,10 @@ function logAcceptedBackgroundRun(
   }
   if (typeof handoff.transcriptExists === "boolean") {
     runtime.log(`transcriptExists: ${handoff.transcriptExists ? "yes" : "no"}`);
+  }
+  if (handoff.transcriptHandoff) {
+    runtime.log(`transcriptHandoff: ${handoff.transcriptHandoff.mode}`);
+    runtime.log(`transcriptHandoffSummary: ${handoff.transcriptHandoff.summary}`);
   }
   if (handoff.waitWith) {
     runtime.log(`wait: ${handoff.waitWith}`);

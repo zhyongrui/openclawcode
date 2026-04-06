@@ -342,6 +342,10 @@ Implemented:
 - detached-session resume and handoff surfaces now also expose explicit
   completion-routing metadata, including whether completion remains in detached
   delivery or stays with a foreground-reattached session
+- those same detached-session resume and handoff surfaces now also expose
+  transcript handoff semantics, distinguishing a live detached resume
+  transcript from a reattached history-only transcript snapshot or a missing
+  recovery artifact
 - `openclaw sessions reattach <lookup>` now provides a first-class foreground
   reattach command that reuses the same lookup rules and shared resume message
   as the detached-session continuation flow
@@ -353,8 +357,8 @@ Not implemented yet:
 
 - a richer "background my currently interactive TUI/Control-UI turn" affordance
   beyond the CLI entrypoint
-- session transcript handoff and recovery UX matching ClaudeCode's
-  `LocalMainSessionTask` pattern
+- richer session transcript recovery UX matching ClaudeCode's
+  `LocalMainSessionTask` pattern beyond the new handoff semantics
 
 This keeps the first step deliberately narrow: make detached-session provenance
 durable and inspectable first, then build the foreground-to-background

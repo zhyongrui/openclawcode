@@ -71,11 +71,15 @@ Completed in this wave:
 - detached task terminal delivery now suppresses detached delivery after a
   foreground reattach and records that terminal state as reattached instead of
   queueing another detached notification
+- detached-session resume/handoff surfaces now also expose transcript handoff
+  semantics, so operators and automation can distinguish a still-live detached
+  transcript from a reattached history-only transcript snapshot or a missing
+  recovery artifact
 
 Staged next:
 
 - TUI / Control UI affordance for backgrounding the currently interactive turn
-- transcript handoff semantics for reattach versus stay-detached completion
+- richer transcript recovery UX beyond the new handoff semantics
 
 ### 3. History and session-local operator UX
 
@@ -287,6 +291,8 @@ Staged next:
 - [x] Ship the first operator-facing detached-session lifecycle view.
 - [x] Ship first-class detached-session reattach and reattach-aware completion
   routing.
+- [x] Ship transcript handoff semantics for detached versus reattached session
+  recovery surfaces.
 
 ## Explicit non-goals
 

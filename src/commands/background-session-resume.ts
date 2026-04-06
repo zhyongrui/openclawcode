@@ -34,12 +34,18 @@ export type BackgroundSessionCompletionRouting = {
   reattachedAt?: number;
 };
 
+export type BackgroundSessionTranscriptHandoff = {
+  mode: "detached_resume" | "foreground_history" | "missing";
+  summary: string;
+};
+
 export type BackgroundSessionResumeDetail = {
   sessionKey: string;
   sessionId?: string;
   agentId?: string;
   transcriptPath: string | null;
   transcriptExists: boolean;
+  transcriptHandoff: BackgroundSessionTranscriptHandoff;
   completionRouting: BackgroundSessionCompletionRouting;
   continueWith: string;
   reattachWith: string;
@@ -137,6 +143,34 @@ export function buildBackgroundSessionCompletionRouting(params?: {
   };
 }
 
+export function buildBackgroundSessionTranscriptHandoff(params: {
+  transcriptExists: boolean;
+  completionRouting?: BackgroundSessionCompletionRouting;
+}): BackgroundSessionTranscriptHandoff {
+  const completionRouting = params.completionRouting ?? buildBackgroundSessionCompletionRouting();
+  if (!params.transcriptExists) {
+    return {
+      mode: "missing",
+      summary:
+        completionRouting.mode === "foreground_reattached"
+          ? "Detached transcript snapshot is missing; live continuation now belongs to the foreground reattached session."
+          : "Detached transcript snapshot is missing; direct transcript recovery is unavailable.",
+    };
+  }
+  if (completionRouting.mode === "foreground_reattached") {
+    return {
+      mode: "foreground_history",
+      summary:
+        "Transcript remains available as detached history, but live continuation now belongs to the foreground reattached session.",
+    };
+  }
+  return {
+    mode: "detached_resume",
+    summary:
+      "Transcript remains the live detached handoff and can still be used for direct resume or recovery.",
+  };
+}
+
 export function describeBackgroundSessionResume(params: {
   cfg: OpenClawConfig;
   sessionKey?: string;
@@ -156,18 +190,24 @@ export function describeBackgroundSessionResume(params: {
           target: params.target,
         }
       : resolveBackgroundSessionEntry(params.cfg, sessionKey);
+  const transcriptState = resolveBackgroundSessionTranscriptState({
+    sessionKey,
+    entry: resolved.entry,
+    target: resolved.target,
+  });
+  const completionRouting = params.completionRouting ?? buildBackgroundSessionCompletionRouting();
   return {
     sessionKey,
     ...(resolved.entry?.sessionId?.trim() ? { sessionId: resolved.entry.sessionId.trim() } : {}),
     ...((parseAgentSessionKey(sessionKey)?.agentId ?? resolved.target?.agentId)
       ? { agentId: parseAgentSessionKey(sessionKey)?.agentId ?? resolved.target?.agentId }
       : {}),
-    ...resolveBackgroundSessionTranscriptState({
-      sessionKey,
-      entry: resolved.entry,
-      target: resolved.target,
+    ...transcriptState,
+    transcriptHandoff: buildBackgroundSessionTranscriptHandoff({
+      transcriptExists: transcriptState.transcriptExists,
+      completionRouting,
     }),
-    completionRouting: params.completionRouting ?? buildBackgroundSessionCompletionRouting(),
+    completionRouting,
     continueWith: buildContinueWithCommand(sessionKey),
     reattachWith: buildReattachWithCommand(sessionKey),
     resumeWith: buildResumeWithCommand({
@@ -211,6 +251,8 @@ export function formatBackgroundSessionResumeLines(params: {
   }
   lines.push(`${indent}resumeTranscript: ${detail.transcriptPath ?? "n/a"}`);
   lines.push(`${indent}resumeTranscriptExists: ${detail.transcriptExists ? "yes" : "no"}`);
+  lines.push(`${indent}transcriptHandoff: ${detail.transcriptHandoff.mode}`);
+  lines.push(`${indent}transcriptHandoffSummary: ${detail.transcriptHandoff.summary}`);
   lines.push(`${indent}completionRouting: ${detail.completionRouting.mode}`);
   lines.push(`${indent}completionRoutingSummary: ${detail.completionRouting.summary}`);
   if (detail.completionRouting.reattachedAt) {
@@ -272,6 +314,7 @@ export function formatBackgroundChildSessionGroupLines(params: {
     const detailLines = formatBackgroundSessionResumeLines({
       cfg: params.cfg,
       sessionKey: childSession.sessionKey,
+      completionRouting: childSession.completionRouting,
       indent: "  ",
     }).filter((line) => !line.startsWith("  resumeSessionKey: "));
     lines.push(...detailLines);

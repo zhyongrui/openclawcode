@@ -7,6 +7,7 @@ import { cancelFlowById, getFlowTaskSummary } from "../tasks/task-executor.js";
 import type { TaskFlowRecord, TaskFlowStatus } from "../tasks/task-flow-registry.types.js";
 import {
   buildBackgroundSessionCompletionRouting,
+  buildBackgroundSessionTranscriptHandoff,
   describeBackgroundChildSessions,
   formatBackgroundChildSessionGroupLines,
 } from "./background-session-resume.js";
@@ -306,6 +307,10 @@ export async function flowsShowCommand(
     sessionKeys: tasks.map((task) => task.childSessionKey),
     completionRoutingBySessionKey,
   });
+  const transcriptHandoff = buildBackgroundSessionTranscriptHandoff({
+    transcriptExists: childSessions.some((session) => session.transcriptExists),
+    completionRouting,
+  });
 
   if (opts.json) {
     runtime.log(
@@ -314,6 +319,7 @@ export async function flowsShowCommand(
           lookup,
           resolvedBy: resolution?.resolvedBy ?? null,
           ...flow,
+          transcriptHandoff,
           completionRouting,
           detachedLifecycle,
           childSessions,
@@ -336,6 +342,8 @@ export async function flowsShowCommand(
     `goal: ${safeFlowDisplayText(flow.goal)}`,
     `currentStep: ${safeFlowDisplayText(flow.currentStep)}`,
     `owner: ${safeFlowDisplayText(flow.ownerKey)}`,
+    `transcriptHandoff: ${transcriptHandoff.mode}`,
+    `transcriptHandoffSummary: ${safeFlowDisplayText(transcriptHandoff.summary)}`,
     `completionRouting: ${completionRouting.mode}`,
     `completionRoutingSummary: ${safeFlowDisplayText(completionRouting.summary)}`,
     ...(detachedLifecycle

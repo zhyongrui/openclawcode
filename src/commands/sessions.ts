@@ -30,6 +30,7 @@ import { agentCliCommand } from "./agent-via-gateway.js";
 import {
   DEFAULT_BACKGROUND_RESUME_MESSAGE,
   buildBackgroundSessionCompletionRouting,
+  buildBackgroundSessionTranscriptHandoff,
   type BackgroundSessionResumeDetail,
   describeBackgroundSessionResume,
   formatBackgroundSessionResumeLines,
@@ -59,6 +60,7 @@ type SessionListRow = SessionRow & {
   target: SessionStoreTarget;
   transcriptPath: string | null;
   transcriptExists: boolean;
+  transcriptHandoff: ReturnType<typeof buildBackgroundSessionTranscriptHandoff>;
   lifecycle: SessionLifecycleAssessment;
   resume?: BackgroundSessionResumeDetail;
 };
@@ -263,6 +265,10 @@ function buildSessionListRows(params: {
           ...resolvedRow,
           transcriptPath: snapshot?.transcriptPath ?? null,
           transcriptExists: snapshot?.transcriptExists ?? false,
+          transcriptHandoff: buildBackgroundSessionTranscriptHandoff({
+            transcriptExists: snapshot?.transcriptExists ?? false,
+            completionRouting: snapshot?.completionRouting,
+          }),
           resume: snapshot?.resumeDetail,
           lifecycle:
             snapshot?.lifecycle ??
@@ -585,6 +591,7 @@ function buildSessionShowPayload(params: {
   configContextTokens: number;
   transcriptPath: string;
   transcriptExists: boolean;
+  transcriptHandoff: ReturnType<typeof buildBackgroundSessionTranscriptHandoff>;
   relatedTasks: ReturnType<typeof listTasksForRelatedSessionKey>;
   relatedTaskFlows: ReturnType<typeof listTaskFlowsForOwnerKey>;
   lifecycle: SessionLifecycleAssessment;
@@ -615,6 +622,7 @@ function buildSessionShowPayload(params: {
         row.contextTokens ?? lookupContextTokens(model) ?? params.configContextTokens ?? null,
       transcriptPath: params.transcriptPath,
       transcriptExists: params.transcriptExists,
+      transcriptHandoff: params.transcriptHandoff,
       flags: {
         thinkingLevel: row.thinkingLevel ?? null,
         verboseLevel: row.verboseLevel ?? null,
@@ -859,6 +867,10 @@ export async function sessionsShowCommand(
   const resumeDetail = snapshot?.resumeDetail;
   const completionRouting =
     snapshot?.completionRouting ?? buildBackgroundSessionCompletionRouting();
+  const transcriptHandoff = buildBackgroundSessionTranscriptHandoff({
+    transcriptExists: transcript.transcriptExists,
+    completionRouting,
+  });
   const resumeLines = formatBackgroundSessionResumeLines({
     cfg,
     sessionKey: match.sessionKey,
@@ -884,6 +896,7 @@ export async function sessionsShowCommand(
     configContextTokens,
     transcriptPath: transcript.transcriptPath ?? "n/a",
     transcriptExists: transcript.transcriptExists,
+    transcriptHandoff,
     relatedTasks,
     relatedTaskFlows,
     lifecycle,
@@ -913,6 +926,8 @@ export async function sessionsShowCommand(
   );
   runtime.log(`transcript: ${transcript.transcriptPath ?? "n/a"}`);
   runtime.log(`transcriptExists: ${transcript.transcriptExists ? "yes" : "no"}`);
+  runtime.log(`transcriptHandoff: ${transcriptHandoff.mode}`);
+  runtime.log(`transcriptHandoffSummary: ${transcriptHandoff.summary}`);
   runtime.log(`lifecycle: ${lifecycle.status}`);
   runtime.log(`lifecycleSummary: ${lifecycle.summary}`);
   runtime.log(`completionRouting: ${completionRouting.mode}`);

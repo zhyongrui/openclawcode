@@ -159,6 +159,10 @@ describe("agentCliCommand", () => {
       expect(runtime.log).toHaveBeenCalledWith("agent: main");
       expect(runtime.log).toHaveBeenCalledWith(`transcript: ${transcriptPath}`);
       expect(runtime.log).toHaveBeenCalledWith("transcriptExists: yes");
+      expect(runtime.log).toHaveBeenCalledWith("transcriptHandoff: detached_resume");
+      expect(runtime.log).toHaveBeenCalledWith(
+        "transcriptHandoffSummary: Transcript remains the live detached handoff and can still be used for direct resume or recovery.",
+      );
       expect(runtime.log).toHaveBeenCalledWith(
         'continue: openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
       );
@@ -236,6 +240,10 @@ describe("agentCliCommand", () => {
           agentId?: string;
           transcriptPath?: string | null;
           transcriptExists?: boolean;
+          transcriptHandoff?: {
+            mode?: string;
+            summary?: string;
+          };
           waitWith?: string;
           continueWith?: string;
           reattachWith?: string;
@@ -246,6 +254,10 @@ describe("agentCliCommand", () => {
             agentId?: string;
             transcriptPath: string | null;
             transcriptExists: boolean;
+            transcriptHandoff: {
+              mode: string;
+              summary: string;
+            };
             completionRouting: {
               mode: string;
               summary: string;
@@ -268,6 +280,11 @@ describe("agentCliCommand", () => {
           agentId: "main",
           transcriptPath: path.join(dir, "sess-bg-json-1.jsonl"),
           transcriptExists: false,
+          transcriptHandoff: {
+            mode: "missing",
+            summary:
+              "Detached transcript snapshot is missing; direct transcript recovery is unavailable.",
+          },
           waitWith: "openclaw gateway call agent.wait --run-id run-bg-json-1",
           continueWith:
             'openclaw sessions continue agent:main:main --message "Continue from the latest background task state."',
@@ -281,6 +298,11 @@ describe("agentCliCommand", () => {
             agentId: "main",
             transcriptPath: path.join(dir, "sess-bg-json-1.jsonl"),
             transcriptExists: false,
+            transcriptHandoff: {
+              mode: "missing",
+              summary:
+                "Detached transcript snapshot is missing; direct transcript recovery is unavailable.",
+            },
             completionRouting: {
               mode: "detached_delivery",
             },

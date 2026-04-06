@@ -3,6 +3,7 @@ import { info } from "../globals.js";
 import type { RuntimeEnv } from "../runtime.js";
 import {
   buildBackgroundSessionCompletionRouting,
+  buildBackgroundSessionTranscriptHandoff,
   describeBackgroundSessionResume,
   formatBackgroundSessionResumeLines,
 } from "./background-session-resume.js";
@@ -417,6 +418,10 @@ export async function tasksShowCommand(
   const completionRouting = buildBackgroundSessionCompletionRouting({
     reattachedAt: task.reattachedAt,
   });
+  const transcriptHandoff = buildBackgroundSessionTranscriptHandoff({
+    transcriptExists: sessionResume?.transcriptExists ?? false,
+    completionRouting,
+  });
 
   if (opts.json) {
     runtime.log(
@@ -425,6 +430,7 @@ export async function tasksShowCommand(
           lookup,
           resolvedBy: resolution?.resolvedBy ?? null,
           ...task,
+          transcriptHandoff,
           completionRouting,
           sessionLifecycle,
           sessionResume: sessionResume ?? null,
@@ -451,6 +457,8 @@ export async function tasksShowCommand(
     `notify: ${task.notifyPolicy}`,
     `ownerKey: ${task.ownerKey}`,
     `childSessionKey: ${task.childSessionKey ?? "n/a"}`,
+    `transcriptHandoff: ${transcriptHandoff.mode}`,
+    `transcriptHandoffSummary: ${transcriptHandoff.summary}`,
     `completionRouting: ${completionRouting.mode}`,
     `completionRoutingSummary: ${completionRouting.summary}`,
     ...(sessionLifecycle

@@ -159,6 +159,9 @@ describe("tasksListCommand detached session lifecycle", () => {
           sessionKey: string;
           transcriptPath: string | null;
           transcriptExists: boolean;
+          transcriptHandoff?: {
+            mode: string;
+          };
           continueWith: string;
         } | null;
       }>;
@@ -174,6 +177,9 @@ describe("tasksListCommand detached session lifecycle", () => {
         sessionKey: "agent:coder:acp:child",
         transcriptPath: null,
         transcriptExists: false,
+        transcriptHandoff: {
+          mode: "missing",
+        },
         continueWith:
           'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       },

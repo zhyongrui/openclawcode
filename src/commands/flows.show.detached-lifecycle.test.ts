@@ -151,6 +151,10 @@ describe("flowsShowCommand detached session lifecycle", () => {
     expect(output).toContain("resolvedBy: flow_id");
     expect(output).toContain("sessionLifecycle: missing_transcript");
     expect(output).toContain("sessionLifecycleSummary: Transcript file is missing");
+    expect(output).toContain("transcriptHandoff: missing");
+    expect(output).toContain(
+      "transcriptHandoffSummary: Detached transcript snapshot is missing; direct transcript recovery is unavailable.",
+    );
     expect(output).toContain("completionRouting: detached_delivery");
     expect(output).toContain("Child sessions:");
     expect(output).toContain("resumeTranscript: n/a");
@@ -171,11 +175,17 @@ describe("flowsShowCommand detached session lifecycle", () => {
       completionRouting?: {
         mode: string;
       } | null;
+      transcriptHandoff?: {
+        mode: string;
+      } | null;
       childSessions?: Array<{
         sessionKey: string;
         sessionId?: string;
         transcriptPath: string | null;
         transcriptExists: boolean;
+        transcriptHandoff?: {
+          mode: string;
+        };
         completionRouting?: {
           mode: string;
         };
@@ -194,11 +204,17 @@ describe("flowsShowCommand detached session lifecycle", () => {
       completionRouting: {
         mode: "detached_delivery",
       },
+      transcriptHandoff: {
+        mode: "missing",
+      },
       childSessions: [
         {
           sessionKey: "agent:coder:acp:child",
           transcriptPath: null,
           transcriptExists: false,
+          transcriptHandoff: {
+            mode: "missing",
+          },
           completionRouting: {
             mode: "detached_delivery",
           },
@@ -221,6 +237,10 @@ describe("flowsShowCommand detached session lifecycle", () => {
 
     const textRun = makeRuntime();
     await flowsShowCommand({ lookup: flow.flowId, json: false }, textRun.runtime);
+    expect(textRun.logs.join("\n")).toContain("transcriptHandoff: missing");
+    expect(textRun.logs.join("\n")).toContain(
+      "transcriptHandoffSummary: Detached transcript snapshot is missing; live continuation now belongs to the foreground reattached session.",
+    );
     expect(textRun.logs.join("\n")).toContain("completionRouting: foreground_reattached");
     expect(textRun.logs.join("\n")).toContain("reattachedAt: 2026-04-03T11:58:30.000Z");
 
@@ -228,9 +248,11 @@ describe("flowsShowCommand detached session lifecycle", () => {
     await flowsShowCommand({ lookup: flow.flowId, json: true }, jsonRun.runtime);
     const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as {
       reattachedAt?: number;
+      transcriptHandoff?: { mode?: string };
       completionRouting?: { mode?: string };
     };
     expect(payload.reattachedAt).toBe(reattachedAt);
+    expect(payload.transcriptHandoff?.mode).toBe("missing");
     expect(payload.completionRouting?.mode).toBe("foreground_reattached");
   });
 
