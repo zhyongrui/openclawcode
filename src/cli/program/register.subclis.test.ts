@@ -1,7 +1,6 @@
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  awaitPendingSubCliRegistrations,
   loadValidatedConfigForPluginRegistration,
   registerSubCliByName,
   registerSubCliCommands,
@@ -33,6 +32,7 @@ const { registerQaCli } = vi.hoisted(() => ({
 
 const pluginsCliModule = vi.hoisted(() => ({
   loadValidatedConfigForPluginRegistration: vi.fn(async () => null),
+  registerPluginCliCommandsFromValidatedConfig: vi.fn(async () => undefined),
 }));
 
 const { inferAction, registerCapabilityCli } = vi.hoisted(() => {
@@ -75,6 +75,8 @@ describe("registerSubCliCommands", () => {
     nodesAction.mockClear();
     pluginsCliModule.loadValidatedConfigForPluginRegistration.mockReset();
     pluginsCliModule.loadValidatedConfigForPluginRegistration.mockResolvedValue(null);
+    pluginsCliModule.registerPluginCliCommandsFromValidatedConfig.mockReset();
+    pluginsCliModule.registerPluginCliCommandsFromValidatedConfig.mockResolvedValue(undefined);
     registerCapabilityCli.mockClear();
     inferAction.mockClear();
   });
@@ -108,20 +110,6 @@ describe("registerSubCliCommands", () => {
     expect(names).toContain("clawbot");
     expect(names).toContain("qa");
     expect(registerAcpCli).not.toHaveBeenCalled();
-  });
-
-  it("awaits eager subcommand registration when lazy subcommands are disabled", async () => {
-    process.env.OPENCLAW_DISABLE_LAZY_SUBCOMMANDS = "1";
-    const program = createRegisteredProgram(["node", "openclaw", "acp"]);
-
-    await awaitPendingSubCliRegistrations(program);
-
-    expect(program.commands.map((cmd) => cmd.name())).toContain("acp");
-
-    await program.parseAsync(["acp"], { from: "user" });
-
-    expect(registerAcpCli).toHaveBeenCalledTimes(1);
-    expect(acpAction).toHaveBeenCalledTimes(1);
   });
 
   it("returns null for plugin registration when the config snapshot is invalid", async () => {
