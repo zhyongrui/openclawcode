@@ -4,6 +4,7 @@
     "declaration": true,
     "declarationMap": false,
     "emitDeclarationOnly": true,
+    "incremental": true,
     "noEmit": false,
     "noEmitOnError": false,
     "outDir": "dist/plugin-sdk",
@@ -11,7 +12,7 @@
     "tsBuildInfoFile": "dist/plugin-sdk/.tsbuildinfo"
   },
   "include": [
-    "src/plugin-sdk/**/*.ts",
+    "src/**/*.ts",
     "extensions/zalouser/src/zca-js-exports.d.ts",
     "src/types/**/*.d.ts",
     "packages/memory-host-sdk/src/**/*.ts"

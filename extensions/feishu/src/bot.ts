@@ -42,6 +42,7 @@ import {
   buildPairingReply,
 } from "../../../src/pairing/pairing-messages.js";
 import { getGlobalHookRunner } from "../../../src/plugins/hook-runner-global.js";
+import { normalizeOptionalString } from "openclaw/plugin-sdk/text-runtime";
 import { resolveFeishuRuntimeAccount } from "./accounts.js";
 import {
   checkBotMentioned,
@@ -584,7 +585,7 @@ export async function handleFeishuMessage(params: {
   let ctx = parseFeishuMessageEvent(event, botOpenId, botName);
   const isGroup = ctx.chatType === "group";
   const isDirect = !isGroup;
-  const senderUserId = event.sender.sender_id.user_id?.trim() || undefined;
+  const senderUserId = normalizeOptionalString(event.sender.sender_id.user_id);
 
   // Handle merge_forward messages: fetch full message via API then expand sub-messages
   if (event.message.message_type === "merge_forward") {
@@ -1411,7 +1412,7 @@ export async function handleFeishuMessage(params: {
         CommandAuthorized: commandAuthorized,
         OriginatingChannel: "feishu" as const,
         OriginatingTo: feishuTo,
-        GroupSystemPrompt: isGroup ? groupConfig?.systemPrompt?.trim() || undefined : undefined,
+        GroupSystemPrompt: isGroup ? normalizeOptionalString(groupConfig?.systemPrompt) : undefined,
         ...mediaPayload,
       });
     };

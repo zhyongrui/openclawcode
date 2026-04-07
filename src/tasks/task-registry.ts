@@ -6,6 +6,7 @@ import { requestHeartbeatNow } from "../infra/heartbeat-wake.js";
 import { enqueueSystemEvent } from "../infra/system-events.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { parseAgentSessionKey } from "../routing/session-key.js";
+import { normalizeOptionalString } from "../shared/string-coerce.js";
 import { normalizeDeliveryContext } from "../utils/delivery-context.js";
 import { isDeliverableMessageChannel } from "../utils/message-channel.js";
 import {
@@ -123,11 +124,6 @@ function assertTaskOwner(params: { ownerKey: string; scopeKind: TaskScopeKind })
   }
 }
 
-function normalizeOwnerKey(ownerKey?: string): string | undefined {
-  const trimmed = ownerKey?.trim();
-  return trimmed ? trimmed : undefined;
-}
-
 function assertParentFlowLinkAllowed(params: {
   ownerKey: string;
   scopeKind: TaskScopeKind;
@@ -150,7 +146,7 @@ function assertParentFlowLinkAllowed(params: {
       flowId,
     });
   }
-  if (normalizeOwnerKey(flow.ownerKey) !== normalizeOwnerKey(params.ownerKey)) {
+  if (normalizeOptionalString(flow.ownerKey) !== normalizeOptionalString(params.ownerKey)) {
     throw new ParentFlowLinkError(
       "owner_key_mismatch",
       "Task ownerKey must match parent flow ownerKey.",
@@ -404,11 +400,6 @@ function addRunIdIndex(taskId: string, runId?: string) {
   ids.add(taskId);
 }
 
-function normalizeSessionIndexKey(sessionKey?: string): string | undefined {
-  const trimmed = sessionKey?.trim();
-  return trimmed ? trimmed : undefined;
-}
-
 function addIndexedKey(index: Map<string, Set<string>>, key: string, taskId: string) {
   let ids = index.get(key);
   if (!ids) {
@@ -433,15 +424,15 @@ function getTaskRelatedSessionIndexKeys(task: Pick<TaskRecord, "ownerKey" | "chi
   return [
     ...new Set(
       [
-        normalizeSessionIndexKey(task.ownerKey),
-        normalizeSessionIndexKey(task.childSessionKey),
+        normalizeOptionalString(task.ownerKey),
+        normalizeOptionalString(task.childSessionKey),
       ].filter(Boolean) as string[],
     ),
   ];
 }
 
 function addOwnerKeyIndex(taskId: string, task: Pick<TaskRecord, "ownerKey">) {
-  const key = normalizeSessionIndexKey(task.ownerKey);
+  const key = normalizeOptionalString(task.ownerKey);
   if (!key) {
     return;
   }
@@ -449,7 +440,7 @@ function addOwnerKeyIndex(taskId: string, task: Pick<TaskRecord, "ownerKey">) {
 }
 
 function deleteOwnerKeyIndex(taskId: string, task: Pick<TaskRecord, "ownerKey">) {
-  const key = normalizeSessionIndexKey(task.ownerKey);
+  const key = normalizeOptionalString(task.ownerKey);
   if (!key) {
     return;
   }
@@ -534,8 +525,8 @@ function taskRunScopeKey(
   return [
     task.runtime,
     task.scopeKind,
-    normalizeComparableText(task.ownerKey),
-    normalizeComparableText(task.childSessionKey),
+    normalizeOptionalString(task.ownerKey) ?? "",
+    normalizeOptionalString(task.childSessionKey) ?? "",
   ].join("\u0000");
 }
 
@@ -547,17 +538,17 @@ function getTasksByRunScope(params: {
   const matches = getTasksByRunId(params.runId).filter(
     (task) => !params.runtime || task.runtime === params.runtime,
   );
-  const sessionKey = normalizeSessionIndexKey(params.sessionKey);
+  const sessionKey = normalizeOptionalString(params.sessionKey);
   if (sessionKey) {
     const childMatches = matches.filter(
-      (task) => normalizeSessionIndexKey(task.childSessionKey) === sessionKey,
+      (task) => normalizeOptionalString(task.childSessionKey) === sessionKey,
     );
     if (childMatches.length > 0) {
       return childMatches;
     }
     const ownerMatches = matches.filter(
       (task) =>
-        task.scopeKind === "session" && normalizeSessionIndexKey(task.ownerKey) === sessionKey,
+        task.scopeKind === "session" && normalizeOptionalString(task.ownerKey) === sessionKey,
     );
     return ownerMatches;
   }
@@ -573,9 +564,10 @@ function getPeerTasksForDelivery(task: TaskRecord): TaskRecord[] {
     (candidate) =>
       candidate.runtime === task.runtime &&
       candidate.scopeKind === task.scopeKind &&
-      normalizeComparableText(candidate.ownerKey) === normalizeComparableText(task.ownerKey) &&
-      normalizeComparableText(candidate.childSessionKey) ===
-        normalizeComparableText(task.childSessionKey),
+      (normalizeOptionalString(candidate.ownerKey) ?? "") ===
+        (normalizeOptionalString(task.ownerKey) ?? "") &&
+      (normalizeOptionalString(candidate.childSessionKey) ?? "") ===
+        (normalizeOptionalString(task.childSessionKey) ?? ""),
   );
 }
 
@@ -592,10 +584,6 @@ function pickPreferredRunIdTask(matches: TaskRecord[]): TaskRecord | undefined {
     }
     return left.createdAt - right.createdAt;
   })[0];
-}
-
-function normalizeComparableText(value: string | undefined): string {
-  return value?.trim() ?? "";
 }
 
 function compareTasksNewestFirst(
@@ -625,18 +613,21 @@ function findExistingTaskForCreate(params: {
         (task) =>
           task.runtime === params.runtime &&
           task.scopeKind === params.scopeKind &&
-          normalizeComparableText(task.ownerKey) === normalizeComparableText(params.ownerKey) &&
-          normalizeComparableText(task.childSessionKey) ===
-            normalizeComparableText(params.childSessionKey) &&
-          normalizeComparableText(task.parentFlowId) ===
-            normalizeComparableText(params.parentFlowId),
+          (normalizeOptionalString(task.ownerKey) ?? "") ===
+            (normalizeOptionalString(params.ownerKey) ?? "") &&
+          (normalizeOptionalString(task.childSessionKey) ?? "") ===
+            (normalizeOptionalString(params.childSessionKey) ?? "") &&
+          (normalizeOptionalString(task.parentFlowId) ?? "") ===
+            (normalizeOptionalString(params.parentFlowId) ?? ""),
       )
     : [];
   const exact = runId
     ? runScopeMatches.find(
         (task) =>
-          normalizeComparableText(task.label) === normalizeComparableText(params.label) &&
-          normalizeComparableText(task.task) === normalizeComparableText(params.task),
+          (normalizeOptionalString(task.label) ?? "") ===
+            (normalizeOptionalString(params.label) ?? "") &&
+          (normalizeOptionalString(task.task) ?? "") ===
+            (normalizeOptionalString(params.task) ?? ""),
       )
     : undefined;
   if (exact) {
@@ -707,11 +698,11 @@ function mergeExistingTaskForCreate(
   }
   const nextLabel = params.label?.trim();
   if (params.preferMetadata) {
-    if (nextLabel && normalizeComparableText(existing.label) !== nextLabel) {
+    if (nextLabel && (normalizeOptionalString(existing.label) ?? "") !== nextLabel) {
       patch.label = nextLabel;
     }
     const nextTask = params.task.trim();
-    if (nextTask && normalizeComparableText(existing.task) !== nextTask) {
+    if (nextTask && (normalizeOptionalString(existing.task) ?? "") !== nextTask) {
       patch.task = nextTask;
     }
   } else if (nextLabel && !existing.label?.trim()) {
@@ -769,7 +760,7 @@ function getLinkedFlowForDelivery(task: TaskRecord) {
   if (!flow) {
     return undefined;
   }
-  if (normalizeOwnerKey(flow.ownerKey) !== normalizeOwnerKey(task.ownerKey)) {
+  if (normalizeOptionalString(flow.ownerKey) !== normalizeOptionalString(task.ownerKey)) {
     return undefined;
   }
   return flow;
@@ -889,9 +880,9 @@ function updateTask(taskId: string, patch: Partial<TaskRecord>): TaskRecord | nu
     next.cleanupAfter = terminalAt + DEFAULT_TASK_RETENTION_MS;
   }
   const sessionIndexChanged =
-    normalizeSessionIndexKey(current.ownerKey) !== normalizeSessionIndexKey(next.ownerKey) ||
-    normalizeSessionIndexKey(current.childSessionKey) !==
-      normalizeSessionIndexKey(next.childSessionKey);
+    normalizeOptionalString(current.ownerKey) !== normalizeOptionalString(next.ownerKey) ||
+    normalizeOptionalString(current.childSessionKey) !==
+      normalizeOptionalString(next.childSessionKey);
   const parentFlowIndexChanged = current.parentFlowId?.trim() !== next.parentFlowId?.trim();
   tasks.set(taskId, next);
   if (patch.runId && patch.runId !== current.runId) {
@@ -1485,18 +1476,18 @@ export function createTaskRecord(params: {
     taskId,
     runtime: params.runtime,
     originKind: params.originKind,
-    originSessionKey: params.originSessionKey?.trim() || undefined,
-    taskKind: params.taskKind?.trim() || undefined,
-    sourceId: params.sourceId?.trim() || undefined,
+    originSessionKey: normalizeOptionalString(params.originSessionKey),
+    taskKind: normalizeOptionalString(params.taskKind),
+    sourceId: normalizeOptionalString(params.sourceId),
     requesterSessionKey,
-    parentFlowId: params.parentFlowId?.trim() || undefined,
+    parentFlowId: normalizeOptionalString(params.parentFlowId),
     ownerKey,
     scopeKind,
     childSessionKey: params.childSessionKey,
-    parentTaskId: params.parentTaskId?.trim() || undefined,
-    agentId: params.agentId?.trim() || undefined,
-    runId: params.runId?.trim() || undefined,
-    label: params.label?.trim() || undefined,
+    parentTaskId: normalizeOptionalString(params.parentTaskId),
+    agentId: normalizeOptionalString(params.agentId),
+    runId: normalizeOptionalString(params.runId),
+    label: normalizeOptionalString(params.label),
     task: params.task,
     status,
     deliveryStatus,
@@ -1900,7 +1891,7 @@ export function findLatestTaskForSessionKey(sessionKey: string): TaskRecord | un
 
 export function listTasksForSessionKey(sessionKey: string): TaskRecord[] {
   ensureTaskRegistryReady();
-  const key = normalizeSessionIndexKey(sessionKey);
+  const key = normalizeOptionalString(sessionKey);
   if (!key) {
     return [];
   }
@@ -1930,7 +1921,7 @@ export function findLatestTaskForFlowId(flowId: string): TaskRecord | undefined 
 
 export function listTasksForOwnerKey(ownerKey: string): TaskRecord[] {
   ensureTaskRegistryReady();
-  const key = normalizeSessionIndexKey(ownerKey);
+  const key = normalizeOptionalString(ownerKey);
   if (!key) {
     return [];
   }
@@ -1953,7 +1944,7 @@ export function findLatestTaskForRelatedSessionKey(sessionKey: string): TaskReco
 
 export function listTasksForRelatedSessionKey(sessionKey: string): TaskRecord[] {
   ensureTaskRegistryReady();
-  const key = normalizeSessionIndexKey(sessionKey);
+  const key = normalizeOptionalString(sessionKey);
   if (!key) {
     return [];
   }
