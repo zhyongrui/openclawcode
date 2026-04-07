@@ -37,6 +37,8 @@ type EventHandlerContext = {
   isLocalRunId?: (runId: string) => boolean;
   forgetLocalRunId?: (runId: string) => void;
   clearLocalRunIds?: () => void;
+  isBackgroundRunId?: (runId: string) => boolean;
+  forgetBackgroundRunId?: (runId: string) => void;
   isLocalBtwRunId?: (runId: string) => boolean;
   forgetLocalBtwRunId?: (runId: string) => void;
   clearLocalBtwRunIds?: () => void;
@@ -55,6 +57,8 @@ export function createEventHandlers(context: EventHandlerContext) {
     isLocalRunId,
     forgetLocalRunId,
     clearLocalRunIds,
+    isBackgroundRunId,
+    forgetBackgroundRunId,
     isLocalBtwRunId,
     forgetLocalBtwRunId,
     clearLocalBtwRunIds,
@@ -223,6 +227,25 @@ export function createEventHandlers(context: EventHandlerContext) {
     if (!isSameSessionKey(evt.sessionKey, state.currentSessionKey)) {
       return;
     }
+    if (isBackgroundRunId?.(evt.runId)) {
+      if (evt.state === "final" || evt.state === "aborted" || evt.state === "error") {
+        forgetBackgroundRunId?.(evt.runId);
+        if (evt.state === "final") {
+          chatLog.addSystem(`background run completed: ${evt.runId}`);
+        } else if (evt.state === "aborted") {
+          chatLog.addSystem(`background run aborted: ${evt.runId}`);
+        } else {
+          const detail = evt.errorMessage?.trim();
+          chatLog.addSystem(
+            detail
+              ? `background run failed: ${evt.runId}\n${detail}`
+              : `background run failed: ${evt.runId}`,
+          );
+        }
+        tui.requestRender();
+      }
+      return;
+    }
     if (finalizedRuns.has(evt.runId)) {
       if (evt.state === "delta") {
         return;
@@ -325,6 +348,9 @@ export function createEventHandlers(context: EventHandlerContext) {
     }
     const evt = payload as AgentEvent;
     syncSessionKey();
+    if (isBackgroundRunId?.(evt.runId)) {
+      return;
+    }
     // Agent events (tool streaming, lifecycle) are emitted per-run. Filter against the
     // active chat run id, not the session id. Tool results can arrive after the chat
     // final event, so accept finalized runs for tool updates.

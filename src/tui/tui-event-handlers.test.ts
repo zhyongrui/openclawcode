@@ -81,6 +81,7 @@ describe("tui-event-handlers: handleAgentEvent", () => {
     const loadHistory = vi.fn();
     const localRunIds = new Set<string>();
     const localBtwRunIds = new Set<string>();
+    const backgroundRunIds = new Set<string>();
     const noteLocalRunId = (runId: string) => {
       localRunIds.add(runId);
     };
@@ -93,6 +94,11 @@ describe("tui-event-handlers: handleAgentEvent", () => {
     const forgetLocalBtwRunId = localBtwRunIds.delete.bind(localBtwRunIds);
     const isLocalBtwRunId = localBtwRunIds.has.bind(localBtwRunIds);
     const clearLocalBtwRunIds = localBtwRunIds.clear.bind(localBtwRunIds);
+    const noteBackgroundRunId = (runId: string) => {
+      backgroundRunIds.add(runId);
+    };
+    const forgetBackgroundRunId = backgroundRunIds.delete.bind(backgroundRunIds);
+    const isBackgroundRunId = backgroundRunIds.has.bind(backgroundRunIds);
 
     return {
       chatLog,
@@ -103,9 +109,12 @@ describe("tui-event-handlers: handleAgentEvent", () => {
       loadHistory,
       noteLocalRunId,
       noteLocalBtwRunId,
+      noteBackgroundRunId,
       forgetLocalRunId,
       isLocalRunId,
       clearLocalRunIds,
+      forgetBackgroundRunId,
+      isBackgroundRunId,
       forgetLocalBtwRunId,
       isLocalBtwRunId,
       clearLocalBtwRunIds,
@@ -130,6 +139,8 @@ describe("tui-event-handlers: handleAgentEvent", () => {
       noteLocalRunId: context.noteLocalRunId,
       isLocalRunId: context.isLocalRunId,
       forgetLocalRunId: context.forgetLocalRunId,
+      isBackgroundRunId: context.isBackgroundRunId,
+      forgetBackgroundRunId: context.forgetBackgroundRunId,
       isLocalBtwRunId: context.isLocalBtwRunId,
       forgetLocalBtwRunId: context.forgetLocalBtwRunId,
       clearLocalBtwRunIds: context.clearLocalBtwRunIds,
@@ -302,6 +313,48 @@ describe("tui-event-handlers: handleAgentEvent", () => {
       text: "nothing important",
       isError: undefined,
     });
+  });
+
+  it("suppresses background run chat events so they do not bind the foreground slot", () => {
+    const { state, chatLog, loadHistory, noteBackgroundRunId, handleChatEvent } =
+      createHandlersHarness({
+        state: { activeChatRunId: "run-main" },
+      });
+
+    noteBackgroundRunId("run-bg");
+    handleChatEvent({
+      runId: "run-bg",
+      sessionKey: state.currentSessionKey,
+      state: "delta",
+      message: { content: "hidden" },
+    });
+    handleChatEvent({
+      runId: "run-bg",
+      sessionKey: state.currentSessionKey,
+      state: "final",
+      message: { content: [{ type: "text", text: "done" }] },
+    });
+
+    expect(chatLog.updateAssistant).not.toHaveBeenCalled();
+    expect(loadHistory).not.toHaveBeenCalled();
+    expect(state.activeChatRunId).toBe("run-main");
+    expect(chatLog.addSystem).toHaveBeenCalledWith("background run completed: run-bg");
+  });
+
+  it("suppresses background run agent events", () => {
+    const { chatLog, tui, noteBackgroundRunId, handleAgentEvent } = createHandlersHarness({
+      state: { activeChatRunId: "run-main" },
+    });
+
+    noteBackgroundRunId("run-bg");
+    handleAgentEvent({
+      runId: "run-bg",
+      stream: "tool",
+      data: { phase: "start", toolCallId: "tc-bg", name: "exec" },
+    });
+
+    expect(chatLog.startTool).not.toHaveBeenCalled();
+    expect(tui.requestRender).not.toHaveBeenCalled();
   });
 
   it("does not cross-match canonical session keys from different agents", () => {

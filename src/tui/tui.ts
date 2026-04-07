@@ -230,6 +230,7 @@ export async function runTui(opts: TuiOptions) {
   let pairingHintShown = false;
   const localRunIds = new Set<string>();
   const localBtwRunIds = new Set<string>();
+  const backgroundRunIds = new Set<string>();
 
   const deliverDefault = opts.deliver ?? false;
   const autoMessage = opts.message?.trim();
@@ -412,6 +413,25 @@ export async function runTui(opts: TuiOptions) {
   const clearLocalBtwRunIds = () => {
     localBtwRunIds.clear();
   };
+
+  const noteBackgroundRunId = (runId: string) => {
+    if (!runId) {
+      return;
+    }
+    backgroundRunIds.add(runId);
+    if (backgroundRunIds.size > 200) {
+      const [first] = backgroundRunIds;
+      if (first) {
+        backgroundRunIds.delete(first);
+      }
+    }
+  };
+
+  const forgetBackgroundRunId = (runId: string) => {
+    backgroundRunIds.delete(runId);
+  };
+
+  const isBackgroundRunId = (runId: string) => backgroundRunIds.has(runId);
 
   const client = await GatewayChatClient.connect({
     url: opts.url,
@@ -741,6 +761,8 @@ export async function runTui(opts: TuiOptions) {
     isLocalRunId,
     forgetLocalRunId,
     clearLocalRunIds,
+    isBackgroundRunId,
+    forgetBackgroundRunId,
     isLocalBtwRunId,
     forgetLocalBtwRunId,
     clearLocalBtwRunIds,
@@ -757,30 +779,37 @@ export async function runTui(opts: TuiOptions) {
     });
   };
 
-  const { handleCommand, sendMessage, openModelSelector, openAgentSelector, openSessionSelector } =
-    createCommandHandlers({
-      client,
-      chatLog,
-      tui,
-      opts,
-      state,
-      deliverDefault,
-      openOverlay,
-      closeOverlay,
-      refreshSessionInfo,
-      applySessionInfoFromPatch,
-      loadHistory,
-      setSession,
-      refreshAgents,
-      abortActive,
-      setActivityStatus,
-      formatSessionKey,
-      noteLocalRunId,
-      noteLocalBtwRunId,
-      forgetLocalRunId,
-      forgetLocalBtwRunId,
-      requestExit,
-    });
+  const {
+    handleCommand,
+    sendBackgroundMessage,
+    sendMessage,
+    openModelSelector,
+    openAgentSelector,
+    openSessionSelector,
+  } = createCommandHandlers({
+    client,
+    chatLog,
+    tui,
+    opts,
+    state,
+    deliverDefault,
+    openOverlay,
+    closeOverlay,
+    refreshSessionInfo,
+    applySessionInfoFromPatch,
+    loadHistory,
+    setSession,
+    refreshAgents,
+    abortActive,
+    setActivityStatus,
+    formatSessionKey,
+    noteLocalRunId,
+    noteLocalBtwRunId,
+    noteBackgroundRunId,
+    forgetLocalRunId,
+    forgetLocalBtwRunId,
+    requestExit,
+  });
 
   const { runLocalShellLine } = createLocalShellRunner({
     chatLog,
@@ -853,6 +882,17 @@ export async function runTui(opts: TuiOptions) {
   editor.onCtrlT = () => {
     showThinking = !showThinking;
     void loadHistory();
+  };
+  editor.onCtrlB = () => {
+    const message = editor.getText().trim();
+    if (!message) {
+      setActivityStatus("nothing to background");
+      tui.requestRender();
+      return;
+    }
+    editor.setText("");
+    editor.addToHistory(message);
+    void sendBackgroundMessage(message);
   };
 
   tui.addInputListener((data) => {

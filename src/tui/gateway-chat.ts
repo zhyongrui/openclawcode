@@ -37,6 +37,14 @@ export type ChatSendOptions = {
   runId?: string;
 };
 
+export type BackgroundAgentStartOptions = {
+  sessionKey: string;
+  message: string;
+  thinking?: string;
+  timeoutMs?: number;
+  runId?: string;
+};
+
 export type GatewayEvent = {
   event: string;
   payload?: unknown;
@@ -209,6 +217,22 @@ export class GatewayChatClient {
       idempotencyKey: runId,
     });
     return { runId };
+  }
+
+  async startBackgroundAgent(opts: BackgroundAgentStartOptions) {
+    const runId = opts.runId ?? randomUUID();
+    return await this.client.request<{
+      runId?: string;
+      sessionKey?: string;
+      sessionId?: string;
+    }>("agent", {
+      sessionKey: opts.sessionKey,
+      message: opts.message,
+      thinking: opts.thinking,
+      deliver: false,
+      timeoutMs: opts.timeoutMs,
+      idempotencyKey: runId,
+    });
   }
 
   async abortChat(opts: { sessionKey: string; runId: string }) {

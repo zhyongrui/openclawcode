@@ -1,6 +1,7 @@
 import { Editor, Key, matchesKey } from "@mariozechner/pi-tui";
 
 export class CustomEditor extends Editor {
+  onCtrlB?: () => void;
   onEscape?: () => void;
   onCtrlC?: () => void;
   onCtrlD?: () => void;
@@ -44,6 +45,10 @@ export class CustomEditor extends Editor {
     }
     if (matchesKey(data, Key.shift("tab")) && this.onShiftTab) {
       this.onShiftTab();
+      return;
+    }
+    if (matchesKey(data, Key.ctrl("b")) && this.onCtrlB) {
+      this.onCtrlB();
       return;
     }
     if (matchesKey(data, Key.escape) && this.onEscape && !this.isShowingAutocomplete()) {

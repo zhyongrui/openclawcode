@@ -29,4 +29,15 @@ describe("CustomEditor", () => {
 
     expect(onAltUp).toHaveBeenCalledTimes(1);
   });
+
+  it("routes ctrl+b to the background handler", () => {
+    const tui = { requestRender: vi.fn() } as unknown as TUI;
+    const editor = new CustomEditor(tui, editorTheme);
+    const onCtrlB = vi.fn();
+    editor.onCtrlB = onCtrlB;
+
+    editor.handleInput("\u0002");
+
+    expect(onCtrlB).toHaveBeenCalledTimes(1);
+  });
 });

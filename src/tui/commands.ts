@@ -115,6 +115,7 @@ export function getSlashCommands(options: SlashCommandOptions = {}): SlashComman
       description: "Set group activation",
       getArgumentCompletions: activationCompletions,
     },
+    { name: "background", description: "Start a background run" },
     { name: "abort", description: "Abort active run" },
     { name: "new", description: "Reset the session" },
     { name: "reset", description: "Reset the session" },
@@ -160,9 +161,11 @@ export function helpText(options: SlashCommandOptions = {}): string {
     "/elevated <on|off|ask|full>",
     "/elev <on|off|ask|full>",
     "/activation <mention|always>",
+    "/background <message>",
     "/new or /reset",
     "/abort",
     "/settings",
+    "Ctrl+B send current draft in background",
     "/exit",
   ].join("\n");
 }

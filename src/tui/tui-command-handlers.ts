@@ -45,6 +45,7 @@ type CommandHandlerContext = {
   applySessionInfoFromPatch: (result: SessionsPatchResult) => void;
   noteLocalRunId: (runId: string) => void;
   noteLocalBtwRunId?: (runId: string) => void;
+  noteBackgroundRunId?: (runId: string) => void;
   forgetLocalRunId?: (runId: string) => void;
   forgetLocalBtwRunId?: (runId: string) => void;
   requestExit: () => void;
@@ -73,6 +74,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
     formatSessionKey,
     applySessionInfoFromPatch,
     noteLocalBtwRunId,
+    noteBackgroundRunId,
     forgetLocalRunId,
     forgetLocalBtwRunId,
     requestExit,
@@ -493,6 +495,13 @@ export function createCommandHandlers(context: CommandHandlerContext) {
       case "abort":
         await abortActive();
         break;
+      case "background":
+        if (!args) {
+          chatLog.addSystem("usage: /background <message>");
+          break;
+        }
+        await sendBackgroundMessage(args);
+        break;
       case "settings":
         openSettings();
         break;
@@ -503,6 +512,50 @@ export function createCommandHandlers(context: CommandHandlerContext) {
       default:
         await sendMessage(raw);
         break;
+    }
+    tui.requestRender();
+  };
+
+  const sendBackgroundMessage = async (text: string) => {
+    const message = text.trim();
+    if (!message) {
+      chatLog.addSystem("background send requires a message");
+      tui.requestRender();
+      return;
+    }
+    if (!state.isConnected) {
+      chatLog.addSystem("not connected to gateway — message not sent");
+      setActivityStatus("disconnected");
+      tui.requestRender();
+      return;
+    }
+    try {
+      chatLog.addUser(message);
+      tui.requestRender();
+      const accepted = await client.startBackgroundAgent({
+        sessionKey: state.currentSessionKey,
+        message,
+        thinking: opts.thinking,
+        timeoutMs: opts.timeoutMs,
+      });
+      const runId = typeof accepted?.runId === "string" ? accepted.runId : null;
+      if (runId) {
+        noteBackgroundRunId?.(runId);
+      }
+      const lines = ["background run started"];
+      if (runId) {
+        lines.push(`run: ${runId}`);
+      }
+      lines.push(
+        `session: ${typeof accepted?.sessionKey === "string" ? accepted.sessionKey : state.currentSessionKey}`,
+      );
+      if (typeof accepted?.sessionId === "string" && accepted.sessionId.trim()) {
+        lines.push(`session id: ${accepted.sessionId}`);
+      }
+      lines.push("stay in this TUI and use /sessions or /session <key> when you want to revisit it");
+      chatLog.addSystem(lines.join("\n"));
+    } catch (err) {
+      chatLog.addSystem(`background failed: ${String(err)}`);
     }
     tui.requestRender();
   };
@@ -558,6 +611,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
 
   return {
     handleCommand,
+    sendBackgroundMessage,
     sendMessage,
     openModelSelector,
     openAgentSelector,

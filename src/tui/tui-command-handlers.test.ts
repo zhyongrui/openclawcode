@@ -7,6 +7,7 @@ type SetSessionMock = ReturnType<typeof vi.fn> & ((key: string) => Promise<void>
 
 function createHarness(params?: {
   sendChat?: ReturnType<typeof vi.fn>;
+  startBackgroundAgent?: ReturnType<typeof vi.fn>;
   getGatewayStatus?: ReturnType<typeof vi.fn>;
   patchSession?: ReturnType<typeof vi.fn>;
   resetSession?: ReturnType<typeof vi.fn>;
@@ -19,6 +20,8 @@ function createHarness(params?: {
   activeChatRunId?: string | null;
 }) {
   const sendChat = params?.sendChat ?? vi.fn().mockResolvedValue({ runId: "r1" });
+  const startBackgroundAgent =
+    params?.startBackgroundAgent ?? vi.fn().mockResolvedValue({ runId: "bg-1" });
   const getGatewayStatus = params?.getGatewayStatus ?? vi.fn().mockResolvedValue({});
   const patchSession = params?.patchSession ?? vi.fn().mockResolvedValue({});
   const resetSession = params?.resetSession ?? vi.fn().mockResolvedValue({ ok: true });
@@ -28,6 +31,7 @@ function createHarness(params?: {
   const requestRender = vi.fn();
   const noteLocalRunId = vi.fn();
   const noteLocalBtwRunId = vi.fn();
+  const noteBackgroundRunId = vi.fn();
   const loadHistory =
     params?.loadHistory ?? (vi.fn().mockResolvedValue(undefined) as LoadHistoryMock);
   const refreshSessionInfo = params?.refreshSessionInfo ?? vi.fn().mockResolvedValue(undefined);
@@ -42,7 +46,7 @@ function createHarness(params?: {
   };
 
   const { handleCommand } = createCommandHandlers({
-    client: { sendChat, getGatewayStatus, patchSession, resetSession } as never,
+    client: { sendChat, startBackgroundAgent, getGatewayStatus, patchSession, resetSession } as never,
     chatLog: { addUser, addSystem } as never,
     tui: { requestRender } as never,
     opts: {},
@@ -60,6 +64,7 @@ function createHarness(params?: {
     applySessionInfoFromPatch: applySessionInfoFromPatch as never,
     noteLocalRunId,
     noteLocalBtwRunId,
+    noteBackgroundRunId,
     forgetLocalRunId: vi.fn(),
     forgetLocalBtwRunId: vi.fn(),
     requestExit: vi.fn(),
@@ -69,6 +74,7 @@ function createHarness(params?: {
     handleCommand,
     getGatewayStatus,
     sendChat,
+    startBackgroundAgent,
     patchSession,
     resetSession,
     setSession,
@@ -81,6 +87,7 @@ function createHarness(params?: {
     setActivityStatus,
     noteLocalRunId,
     noteLocalBtwRunId,
+    noteBackgroundRunId,
     state,
   };
 }
@@ -193,6 +200,43 @@ describe("tui command handlers", () => {
         message: "/btw what changed?",
       }),
     );
+  });
+
+  it("starts /background without taking the foreground slot", async () => {
+    const { handleCommand, startBackgroundAgent, sendChat, addUser, addSystem, noteBackgroundRunId, state } =
+      createHarness({
+        activeChatRunId: "run-main",
+        startBackgroundAgent: vi.fn().mockResolvedValue({
+          runId: "run-bg",
+          sessionKey: "agent:main:main",
+          sessionId: "session-bg",
+        }),
+      });
+
+    await handleCommand("/background inspect this later");
+
+    expect(sendChat).not.toHaveBeenCalled();
+    expect(addUser).toHaveBeenCalledWith("inspect this later");
+    expect(startBackgroundAgent).toHaveBeenCalledWith({
+      sessionKey: "agent:main:main",
+      message: "inspect this later",
+      thinking: undefined,
+      timeoutMs: undefined,
+    });
+    expect(noteBackgroundRunId).toHaveBeenCalledWith("run-bg");
+    expect(state.activeChatRunId).toBe("run-main");
+    expect(addSystem).toHaveBeenCalledWith(
+      expect.stringContaining("background run started"),
+    );
+  });
+
+  it("shows usage for empty /background", async () => {
+    const { handleCommand, startBackgroundAgent, addSystem } = createHarness();
+
+    await handleCommand("/background");
+
+    expect(startBackgroundAgent).not.toHaveBeenCalled();
+    expect(addSystem).toHaveBeenCalledWith("usage: /background <message>");
   });
 
   it("creates unique session for /new and resets shared session for /reset", async () => {

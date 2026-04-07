@@ -85,10 +85,9 @@ Completed in this wave:
 - Control UI chat now exposes a first-class `Background` action plus
   `/background <message>`, and the client suppresses transcript/tool streaming
   for those accepted runs while keeping Sessions as the operator handoff lane
-
-Staged next:
-
-- TUI affordance for backgrounding the currently interactive turn
+- TUI now exposes `/background <message>` plus `Ctrl+B` to detach the current
+  draft, and it suppresses transcript/tool/lifecycle updates for those accepted
+  background runs so the foreground session stays interactive
 
 ### 3. History and session-local operator UX
 
