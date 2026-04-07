@@ -81,12 +81,15 @@ import { loadNodes } from "./controllers/nodes.ts";
 import { loadPresence } from "./controllers/presence.ts";
 import {
   clearSessionInspect,
-  deleteSessionsAndRefresh,
   loadSessionInspect,
-  loadSessions,
-  patchSession,
   reattachSessionInspect,
   sendSessionInspectFollowup,
+  branchSessionFromCheckpoint,
+  deleteSessionsAndRefresh,
+  patchSession,
+  restoreSessionFromCheckpoint,
+  toggleSessionCompactionCheckpoints,
+  loadSessions,
 } from "./controllers/sessions.ts";
 import {
   closeClawHubDetail,
@@ -856,6 +859,11 @@ export function renderApp(state: AppViewState) {
                 inspectActionLoading: state.sessionsInspectActionLoading,
                 inspectActionError: state.sessionsInspectActionError,
                 inspectActionStatus: state.sessionsInspectActionStatus,
+                expandedCheckpointKey: state.sessionsExpandedCheckpointKey,
+                checkpointItemsByKey: state.sessionsCheckpointItemsByKey,
+                checkpointLoadingKey: state.sessionsCheckpointLoadingKey,
+                checkpointBusyKey: state.sessionsCheckpointBusyKey,
+                checkpointErrorByKey: state.sessionsCheckpointErrorByKey,
                 onFiltersChange: (next) => {
                   state.sessionsFilterActive = next.activeMinutes;
                   state.sessionsFilterLimit = next.limit;
@@ -940,6 +948,21 @@ export function renderApp(state: AppViewState) {
                   switchChatSession(state, sessionKey);
                   state.setTab("chat" as import("./navigation.ts").Tab);
                 },
+                onToggleCheckpointDetails: (sessionKey) =>
+                  toggleSessionCompactionCheckpoints(state, sessionKey),
+                onBranchFromCheckpoint: async (sessionKey, checkpointId) => {
+                  const nextKey = await branchSessionFromCheckpoint(
+                    state,
+                    sessionKey,
+                    checkpointId,
+                  );
+                  if (nextKey) {
+                    switchChatSession(state, nextKey);
+                    state.setTab("chat" as import("./navigation.ts").Tab);
+                  }
+                },
+                onRestoreCheckpoint: (sessionKey, checkpointId) =>
+                  restoreSessionFromCheckpoint(state, sessionKey, checkpointId),
               }),
             )
           : nothing}

@@ -200,6 +200,14 @@ import {
   SessionsAbortParamsSchema,
   type SessionsCompactParams,
   SessionsCompactParamsSchema,
+  type SessionsCompactionBranchParams,
+  SessionsCompactionBranchParamsSchema,
+  type SessionsCompactionGetParams,
+  SessionsCompactionGetParamsSchema,
+  type SessionsCompactionListParams,
+  SessionsCompactionListParamsSchema,
+  type SessionsCompactionRestoreParams,
+  SessionsCompactionRestoreParamsSchema,
   type SessionsCreateParams,
   SessionsCreateParamsSchema,
   type SessionsDeleteParams,
@@ -388,6 +396,18 @@ export const validateSessionsDeleteParams = ajv.compile<SessionsDeleteParams>(
 export const validateSessionsCompactParams = ajv.compile<SessionsCompactParams>(
   SessionsCompactParamsSchema,
 );
+export const validateSessionsCompactionListParams = ajv.compile<SessionsCompactionListParams>(
+  SessionsCompactionListParamsSchema,
+);
+export const validateSessionsCompactionGetParams = ajv.compile<SessionsCompactionGetParams>(
+  SessionsCompactionGetParamsSchema,
+);
+export const validateSessionsCompactionBranchParams = ajv.compile<SessionsCompactionBranchParams>(
+  SessionsCompactionBranchParamsSchema,
+);
+export const validateSessionsCompactionRestoreParams = ajv.compile<SessionsCompactionRestoreParams>(
+  SessionsCompactionRestoreParamsSchema,
+);
 export const validateSessionsUsageParams =
   ajv.compile<SessionsUsageParams>(SessionsUsageParamsSchema);
 export const validateConfigGetParams = ajv.compile<ConfigGetParams>(ConfigGetParamsSchema);
@@ -564,6 +584,10 @@ export {
   SessionsListParamsSchema,
   SessionsPreviewParamsSchema,
   SessionsResolveParamsSchema,
+  SessionsCompactionListParamsSchema,
+  SessionsCompactionGetParamsSchema,
+  SessionsCompactionBranchParamsSchema,
+  SessionsCompactionRestoreParamsSchema,
   SessionsCreateParamsSchema,
   SessionsSendParamsSchema,
   SessionsAbortParamsSchema,

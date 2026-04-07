@@ -27,10 +27,8 @@ import type { OpenClawConfig } from "../config/config.js";
 import { describeGatewayServiceRestart, resolveGatewayService } from "../daemon/service.js";
 import { isSystemdUserServiceAvailable } from "../daemon/systemd.js";
 import { ensureControlUiAssetsBuilt } from "../infra/control-ui-assets.js";
-import {
-  writeRuntimeStdout,
-  type RuntimeEnv,
-} from "../runtime.js";
+import { formatErrorMessage } from "../infra/errors.js";
+import type { OutputRuntimeEnv, RuntimeEnv } from "../runtime.js";
 import { restoreTerminalState } from "../terminal/restore.js";
 import { runTui } from "../tui/tui.js";
 import { resolveUserPath } from "../utils.js";
@@ -43,6 +41,14 @@ import {
 import { getPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
 import type { WizardPrompter } from "./prompts.js";
 import { setupWizardShellCompletion } from "./setup.completion.js";
+
+function writeRuntimeStdout(runtime: RuntimeEnv, value: string) {
+  if (typeof (runtime as Partial<OutputRuntimeEnv>).writeStdout === "function") {
+    (runtime as OutputRuntimeEnv).writeStdout(value);
+    return;
+  }
+  runtime.log(value);
+}
 import { resolveSetupSecretInputString } from "./setup.secret-input.js";
 import { runOnboardingOpenClawCode } from "./setup.code.js";
 import type { GatewayWizardSettings, WizardFlow } from "./setup.types.js";
@@ -340,7 +346,7 @@ export async function finalizeSetupWizard(
           });
         }
       } catch (err) {
-        installError = err instanceof Error ? err.message : String(err);
+        installError = formatErrorMessage(err);
       } finally {
         progress.stop(
           installError ? "Gateway service install failed." : "Gateway service installed.",
@@ -455,7 +461,7 @@ export async function finalizeSetupWizard(
       await prompter.note(
         [
           "Could not resolve gateway.auth.password SecretRef for setup auth.",
-          error instanceof Error ? error.message : String(error),
+          formatErrorMessage(error),
         ].join("\n"),
         "Gateway auth",
       );

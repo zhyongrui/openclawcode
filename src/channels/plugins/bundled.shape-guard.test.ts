@@ -7,6 +7,7 @@ import { loadPluginManifestRegistry } from "../../plugins/manifest-registry.js";
 
 afterEach(() => {
   vi.resetModules();
+  vi.doUnmock("../../plugins/bundled-channel-runtime.js");
   vi.doUnmock("../../plugins/bundled-plugin-metadata.js");
   vi.doUnmock("../../plugins/discovery.js");
   vi.doUnmock("../../plugins/manifest-registry.js");
@@ -20,12 +21,12 @@ describe("bundled channel entry shape guards", () => {
     .map((plugin) => plugin.rootDir);
 
   it("treats missing bundled discovery results as empty", async () => {
-    vi.doMock("../../plugins/bundled-plugin-metadata.js", async (importOriginal) => {
+    vi.doMock("../../plugins/bundled-channel-runtime.js", async (importOriginal) => {
       const actual =
-        await importOriginal<typeof import("../../plugins/bundled-plugin-metadata.js")>();
+        await importOriginal<typeof import("../../plugins/bundled-channel-runtime.js")>();
       return {
         ...actual,
-        listBundledPluginMetadata: () => [],
+        listBundledChannelPluginMetadata: () => [],
       };
     });
 
@@ -37,6 +38,27 @@ describe("bundled channel entry shape guards", () => {
     expect(bundled.listBundledChannelPlugins()).toEqual([]);
     expect(bundled.listBundledChannelSetupPlugins()).toEqual([]);
   });
+
+  it("loads real bundled channel entries from the source tree", async () => {
+    const bundled = await importFreshModule<typeof import("./bundled.js")>(
+      import.meta.url,
+      "./bundled.js?scope=real-bundled-source-tree",
+    );
+
+    expect(bundled.requireBundledChannelPlugin("slack").id).toBe("slack");
+    expect(() =>
+      bundled.setBundledChannelRuntime("line", {
+        channel: {
+          line: {
+            listLineAccountIds: () => [],
+            resolveDefaultLineAccountId: () => undefined,
+            resolveLineAccount: () => null,
+          },
+        },
+      } as never),
+    ).not.toThrow();
+  });
+
   it("keeps channel entrypoints on the dedicated entry-contract SDK surface", () => {
     const offenders: string[] = [];
 

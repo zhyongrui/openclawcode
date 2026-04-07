@@ -1,15 +1,17 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { formatErrorMessage } from "../../infra/errors.js";
+import { resolveOpenClawPackageRootSync } from "../../infra/openclaw-root.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import type {
   BundledChannelEntryContract,
   BundledChannelSetupEntryContract,
 } from "../../plugin-sdk/channel-entry-contract.js";
 import {
-  listBundledPluginMetadata,
-  resolveBundledPluginGeneratedPath,
-  type BundledPluginMetadata,
-} from "../../plugins/bundled-plugin-metadata.js";
+  listBundledChannelPluginMetadata,
+  resolveBundledChannelGeneratedPath,
+  type BundledChannelPluginMetadata,
+} from "../../plugins/bundled-channel-runtime.js";
 import type { PluginRuntime } from "../../plugins/runtime/types.js";
 import { isJavaScriptModulePath, loadChannelPluginModule } from "./module-loader.js";
 import type { ChannelId, ChannelPlugin } from "./types.js";
@@ -21,7 +23,15 @@ type GeneratedBundledChannelEntry = {
 };
 
 const log = createSubsystemLogger("channels");
-const OPENCLAW_PACKAGE_ROOT = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
+const OPENCLAW_PACKAGE_ROOT =
+  resolveOpenClawPackageRootSync({
+    argv1: process.argv[1],
+    cwd: process.cwd(),
+    moduleUrl: import.meta.url.startsWith("file:") ? import.meta.url : undefined,
+  }) ??
+  (import.meta.url.startsWith("file:")
+    ? path.resolve(fileURLToPath(new URL("../../..", import.meta.url)))
+    : process.cwd());
 
 function resolveChannelPluginModuleEntry(
   moduleExport: unknown,
@@ -74,7 +84,7 @@ function resolveChannelSetupModuleEntry(
 }
 
 function resolveBundledChannelBoundaryRoot(params: {
-  metadata: BundledPluginMetadata;
+  metadata: BundledChannelPluginMetadata;
   modulePath: string;
 }): string {
   const distRoot = path.resolve(
@@ -89,11 +99,29 @@ function resolveBundledChannelBoundaryRoot(params: {
   return path.resolve(OPENCLAW_PACKAGE_ROOT, "extensions", params.metadata.dirName);
 }
 
+function resolveGeneratedBundledChannelModulePath(params: {
+  metadata: BundledChannelPluginMetadata;
+  entry: BundledChannelPluginMetadata["source"] | BundledChannelPluginMetadata["setupSource"];
+}): string | null {
+  if (!params.entry) {
+    return null;
+  }
+  const resolved = resolveBundledChannelGeneratedPath(
+    OPENCLAW_PACKAGE_ROOT,
+    params.entry,
+    params.metadata.dirName,
+  );
+  if (resolved) {
+    return resolved;
+  }
+  return null;
+}
+
 function loadGeneratedBundledChannelModule(params: {
-  metadata: BundledPluginMetadata;
-  entry: BundledPluginMetadata["source"] | BundledPluginMetadata["setupSource"];
+  metadata: BundledChannelPluginMetadata;
+  entry: BundledChannelPluginMetadata["source"] | BundledChannelPluginMetadata["setupSource"];
 }): unknown {
-  const modulePath = resolveBundledPluginGeneratedPath(OPENCLAW_PACKAGE_ROOT, params.entry);
+  const modulePath = resolveGeneratedBundledChannelModulePath(params);
   if (!modulePath) {
     throw new Error(`missing generated module for bundled channel ${params.metadata.manifest.id}`);
   }
@@ -115,7 +143,7 @@ function loadGeneratedBundledChannelModule(params: {
 function loadGeneratedBundledChannelEntries(): readonly GeneratedBundledChannelEntry[] {
   const entries: GeneratedBundledChannelEntry[] = [];
 
-  for (const metadata of listBundledPluginMetadata({
+  for (const metadata of listBundledChannelPluginMetadata({
     includeChannelConfigs: false,
     includeSyntheticChannelConfigs: false,
   })) {
@@ -150,7 +178,7 @@ function loadGeneratedBundledChannelEntries(): readonly GeneratedBundledChannelE
         ...(setupEntry ? { setupEntry } : {}),
       });
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
+      const detail = formatErrorMessage(error);
       log.warn(`[channels] failed to load bundled channel ${metadata.manifest.id}: ${detail}`);
     }
   }

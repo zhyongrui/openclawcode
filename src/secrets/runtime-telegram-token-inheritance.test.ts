@@ -3,9 +3,14 @@ import type { AuthProfileStore } from "../agents/auth-profiles.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { createEmptyPluginRegistry } from "../plugins/registry.js";
 import { setActivePluginRegistry } from "../plugins/runtime.js";
+import { loadBundledChannelSecretContractApi } from "./channel-contract-api.js";
 
-vi.mock("../channels/plugins/bootstrap-registry.js", async () => {
-  const telegramSecrets = await import("../../extensions/telegram/src/secret-contract.ts");
+const telegramSecrets = loadBundledChannelSecretContractApi("telegram");
+if (!telegramSecrets?.collectRuntimeConfigAssignments) {
+  throw new Error("Missing Telegram secret contract api");
+}
+
+vi.mock("../channels/plugins/bootstrap-registry.js", () => {
   return {
     getBootstrapChannelPlugin: (id: string) =>
       id === "telegram"

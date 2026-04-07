@@ -37,6 +37,11 @@ function createState(request: RequestFn, overrides: Partial<SessionsState> = {})
     sessionsInspectActionLoading: false,
     sessionsInspectActionError: null,
     sessionsInspectActionStatus: null,
+    sessionsExpandedCheckpointKey: null,
+    sessionsCheckpointItemsByKey: {},
+    sessionsCheckpointLoadingKey: null,
+    sessionsCheckpointBusyKey: null,
+    sessionsCheckpointErrorByKey: {},
     ...overrides,
   };
 }

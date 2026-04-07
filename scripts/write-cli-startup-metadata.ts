@@ -25,6 +25,7 @@ const rootDir = path.resolve(scriptDir, "..");
 const distDir = path.join(rootDir, "dist");
 const outputPath = path.join(distDir, "cli-startup-metadata.json");
 const extensionsDir = path.join(rootDir, "extensions");
+const ROOT_HELP_RENDER_TIMEOUT_MS = 60_000;
 const CORE_CHANNEL_ORDER = [
   "telegram",
   "whatsapp",
@@ -201,7 +202,7 @@ export async function renderBundledRootHelpText(
     cwd: _distDirOverride,
     encoding: "utf8",
     env: renderContext.env,
-    timeout: 30_000,
+    timeout: ROOT_HELP_RENDER_TIMEOUT_MS,
   });
   if (result.error) {
     throw result.error;
@@ -241,7 +242,7 @@ function renderSourceRootHelpText(
       cwd: rootDir,
       encoding: "utf8",
       env: renderContext.env,
-      timeout: 30_000,
+      timeout: ROOT_HELP_RENDER_TIMEOUT_MS,
     },
   );
   if (result.error) {

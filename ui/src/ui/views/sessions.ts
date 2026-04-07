@@ -4,7 +4,12 @@ import { formatRelativeTimestamp } from "../format.ts";
 import { icons } from "../icons.ts";
 import { pathForTab } from "../navigation.ts";
 import { formatSessionTokens } from "../presenter.ts";
-import type { GatewaySessionRow, SessionInspectResult, SessionsListResult } from "../types.ts";
+import type {
+  GatewaySessionRow,
+  SessionCompactionCheckpoint,
+  SessionInspectResult,
+  SessionsListResult,
+} from "../types.ts";
 
 export type SessionsProps = {
   loading: boolean;
@@ -29,6 +34,11 @@ export type SessionsProps = {
   inspectActionLoading: boolean;
   inspectActionError: string | null;
   inspectActionStatus: string | null;
+  expandedCheckpointKey: string | null;
+  checkpointItemsByKey: Record<string, SessionCompactionCheckpoint[]>;
+  checkpointLoadingKey: string | null;
+  checkpointBusyKey: string | null;
+  checkpointErrorByKey: Record<string, string>;
   onFiltersChange: (next: {
     activeMinutes: string;
     limit: string;
@@ -61,6 +71,9 @@ export type SessionsProps = {
   onDeselectAll: () => void;
   onDeleteSelected: () => void;
   onNavigateToChat?: (sessionKey: string) => void;
+  onToggleCheckpointDetails: (sessionKey: string) => void;
+  onBranchFromCheckpoint: (sessionKey: string, checkpointId: string) => void | Promise<void>;
+  onRestoreCheckpoint: (sessionKey: string, checkpointId: string) => void | Promise<void>;
 };
 
 const THINK_LEVELS = ["", "off", "minimal", "low", "medium", "high", "xhigh"] as const;
@@ -193,6 +206,36 @@ function sortRows(
 function paginateRows<T>(rows: T[], page: number, pageSize: number): T[] {
   const start = page * pageSize;
   return rows.slice(start, start + pageSize);
+}
+
+function formatCheckpointReason(reason: SessionCompactionCheckpoint["reason"]): string {
+  switch (reason) {
+    case "manual":
+      return "manual";
+    case "auto-threshold":
+      return "auto-threshold";
+    case "overflow-retry":
+      return "overflow retry";
+    case "timeout-retry":
+      return "timeout retry";
+    default:
+      return reason;
+  }
+}
+
+function formatCheckpointDelta(checkpoint: SessionCompactionCheckpoint): string {
+  if (
+    typeof checkpoint.tokensBefore === "number" &&
+    typeof checkpoint.tokensAfter === "number" &&
+    Number.isFinite(checkpoint.tokensBefore) &&
+    Number.isFinite(checkpoint.tokensAfter)
+  ) {
+    return `${checkpoint.tokensBefore.toLocaleString()} → ${checkpoint.tokensAfter.toLocaleString()} tokens`;
+  }
+  if (typeof checkpoint.tokensBefore === "number" && Number.isFinite(checkpoint.tokensBefore)) {
+    return `${checkpoint.tokensBefore.toLocaleString()} tokens before`;
+  }
+  return "token delta unavailable";
 }
 
 export function renderSessions(props: SessionsProps) {
@@ -362,6 +405,7 @@ export function renderSessions(props: SessionsProps) {
                 <th>Label</th>
                 ${sortHeader("kind", "Kind")} ${sortHeader("updated", "Updated")}
                 ${sortHeader("tokens", "Tokens")}
+                <th>Compaction</th>
                 <th>Thinking</th>
                 <th>Fast</th>
                 <th>Verbose</th>
@@ -381,19 +425,7 @@ export function renderSessions(props: SessionsProps) {
                       </td>
                     </tr>
                   `
-                : paginated.map((row) =>
-                    renderRow(
-                      row,
-                      props.basePath,
-                      props.onPatch,
-                      props.selectedKeys.has(row.key),
-                      props.onToggleSelect,
-                      props.loading,
-                      props.inspectKey === row.key,
-                      props.onInspect,
-                      props.onNavigateToChat,
-                    ),
-                  )}
+                : paginated.flatMap((row) => renderRows(row, props))}
             </tbody>
           </table>
         </div>
@@ -434,17 +466,7 @@ export function renderSessions(props: SessionsProps) {
   `;
 }
 
-function renderRow(
-  row: GatewaySessionRow,
-  basePath: string,
-  onPatch: SessionsProps["onPatch"],
-  selected: boolean,
-  onToggleSelect: SessionsProps["onToggleSelect"],
-  disabled: boolean,
-  inspected: boolean,
-  onInspect: SessionsProps["onInspect"],
-  onNavigateToChat?: (sessionKey: string) => void,
-) {
+function renderRows(row: GatewaySessionRow, props: SessionsProps) {
   const updated = row.updatedAt ? formatRelativeTimestamp(row.updatedAt) : t("common.na");
   const rawThinking = row.thinkingLevel ?? "";
   const isBinaryThinking = isBinaryThinkingProvider(row.modelProvider);
@@ -456,6 +478,11 @@ function renderRow(
   const verboseLevels = withCurrentLabeledOption(VERBOSE_LEVELS, verbose);
   const reasoning = row.reasoningLevel ?? "";
   const reasoningLevels = withCurrentOption(REASONING_LEVELS, reasoning);
+  const latestCheckpoint = row.latestCompactionCheckpoint;
+  const checkpointCount = row.compactionCheckpointCount ?? 0;
+  const isExpanded = props.expandedCheckpointKey === row.key;
+  const checkpointItems = props.checkpointItemsByKey[row.key] ?? [];
+  const checkpointError = props.checkpointErrorByKey[row.key];
   const displayName =
     typeof row.displayName === "string" && row.displayName.trim().length > 0
       ? row.displayName.trim()
@@ -467,7 +494,7 @@ function renderRow(
   );
   const canLink = row.kind !== "global";
   const chatUrl = canLink
-    ? `${pathForTab("chat", basePath)}?session=${encodeURIComponent(row.key)}`
+    ? `${pathForTab("chat", props.basePath)}?session=${encodeURIComponent(row.key)}`
     : null;
   const badgeClass =
     row.kind === "direct"
@@ -478,13 +505,13 @@ function renderRow(
           ? "data-table-badge--global"
           : "data-table-badge--unknown";
 
-  return html`
-    <tr>
+  return [
+    html`<tr>
       <td class="data-table-checkbox-col">
         <input
           type="checkbox"
-          .checked=${selected}
-          @change=${() => onToggleSelect(row.key)}
+          .checked=${props.selectedKeys.has(row.key)}
+          @change=${() => props.onToggleSelect(row.key)}
           aria-label="Select session"
         />
       </td>
@@ -505,9 +532,9 @@ function renderRow(
                   ) {
                     return;
                   }
-                  if (onNavigateToChat) {
+                  if (props.onNavigateToChat) {
                     e.preventDefault();
-                    onNavigateToChat(row.key);
+                    props.onNavigateToChat(row.key);
                   }
                 }}
                 >${row.key}</a
@@ -521,12 +548,12 @@ function renderRow(
       <td>
         <input
           .value=${row.label ?? ""}
-          ?disabled=${disabled}
+          ?disabled=${props.loading}
           placeholder="(optional)"
           style="width: 100%; max-width: 140px; padding: 6px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm);"
           @change=${(e: Event) => {
             const value = (e.target as HTMLInputElement).value.trim();
-            onPatch(row.key, { label: value || null });
+            props.onPatch(row.key, { label: value || null });
           }}
         />
       </td>
@@ -536,12 +563,36 @@ function renderRow(
       <td>${updated}</td>
       <td>${formatSessionTokens(row)}</td>
       <td>
+        <div style="display: grid; gap: 6px;">
+          <span class="muted" style="font-size: 12px;">
+            ${checkpointCount > 0
+              ? `${checkpointCount} checkpoint${checkpointCount === 1 ? "" : "s"}`
+              : "none"}
+          </span>
+          ${latestCheckpoint
+            ? html`
+                <span style="font-size: 12px;">
+                  ${formatCheckpointReason(latestCheckpoint.reason)} ·
+                  ${formatRelativeTimestamp(latestCheckpoint.createdAt)}
+                </span>
+              `
+            : nothing}
+          <button
+            class="btn btn--sm"
+            ?disabled=${props.checkpointLoadingKey === row.key}
+            @click=${() => props.onToggleCheckpointDetails(row.key)}
+          >
+            ${isExpanded ? "Hide checkpoints" : "Show checkpoints"}
+          </button>
+        </div>
+      </td>
+      <td>
         <select
-          ?disabled=${disabled}
+          ?disabled=${props.loading}
           style="padding: 6px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 90px;"
           @change=${(e: Event) => {
             const value = (e.target as HTMLSelectElement).value;
-            onPatch(row.key, {
+            props.onPatch(row.key, {
               thinkingLevel: resolveThinkLevelPatchValue(value, isBinaryThinking),
             });
           }}
@@ -556,11 +607,11 @@ function renderRow(
       </td>
       <td>
         <select
-          ?disabled=${disabled}
+          ?disabled=${props.loading}
           style="padding: 6px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 90px;"
           @change=${(e: Event) => {
             const value = (e.target as HTMLSelectElement).value;
-            onPatch(row.key, { fastMode: value === "" ? null : value === "on" });
+            props.onPatch(row.key, { fastMode: value === "" ? null : value === "on" });
           }}
         >
           ${fastLevels.map(
@@ -573,11 +624,11 @@ function renderRow(
       </td>
       <td>
         <select
-          ?disabled=${disabled}
+          ?disabled=${props.loading}
           style="padding: 6px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 90px;"
           @change=${(e: Event) => {
             const value = (e.target as HTMLSelectElement).value;
-            onPatch(row.key, { verboseLevel: value || null });
+            props.onPatch(row.key, { verboseLevel: value || null });
           }}
         >
           ${verboseLevels.map(
@@ -590,11 +641,11 @@ function renderRow(
       </td>
       <td>
         <select
-          ?disabled=${disabled}
+          ?disabled=${props.loading}
           style="padding: 6px 10px; font-size: 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 90px;"
           @change=${(e: Event) => {
             const value = (e.target as HTMLSelectElement).value;
-            onPatch(row.key, { reasoningLevel: value || null });
+            props.onPatch(row.key, { reasoningLevel: value || null });
           }}
         >
           ${reasoningLevels.map(
@@ -607,15 +658,86 @@ function renderRow(
       </td>
       <td>
         <button
-          class="btn btn--sm ${inspected ? "active" : ""}"
-          ?disabled=${disabled}
-          @click=${() => onInspect(row.key)}
+          class="btn btn--sm ${props.inspectKey === row.key ? "active" : ""}"
+          ?disabled=${props.loading}
+          @click=${() => props.onInspect(row.key)}
         >
-          ${inspected ? "Inspecting" : "Inspect"}
+          ${props.inspectKey === row.key ? "Inspecting" : "Inspect"}
         </button>
       </td>
-    </tr>
-  `;
+    </tr>`,
+    ...(isExpanded
+      ? [
+          html`<tr>
+            <td colspan="11" style="padding: 0;">
+              <div
+                style="padding: 14px 16px; border-top: 1px solid var(--border); background: var(--surface-2, rgba(127, 127, 127, 0.05));"
+              >
+                ${props.checkpointLoadingKey === row.key
+                  ? html`<div class="muted">Loading checkpoints…</div>`
+                  : checkpointError
+                    ? html`<div class="callout danger">${checkpointError}</div>`
+                    : checkpointItems.length === 0
+                      ? html`<div class="muted">
+                          No compaction checkpoints recorded for this session.
+                        </div>`
+                      : html`
+                          <div style="display: grid; gap: 10px;">
+                            ${checkpointItems.map(
+                              (checkpoint) => html`
+                                <div
+                                  style="border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; display: grid; gap: 8px;"
+                                >
+                                  <div
+                                    style="display: flex; gap: 8px; justify-content: space-between; align-items: center; flex-wrap: wrap;"
+                                  >
+                                    <strong>
+                                      ${formatCheckpointReason(checkpoint.reason)} ·
+                                      ${formatRelativeTimestamp(checkpoint.createdAt)}
+                                    </strong>
+                                    <span class="muted" style="font-size: 12px;">
+                                      ${formatCheckpointDelta(checkpoint)}
+                                    </span>
+                                  </div>
+                                  ${checkpoint.summary
+                                    ? html`<div style="white-space: pre-wrap;">
+                                        ${checkpoint.summary}
+                                      </div>`
+                                    : html`<div class="muted">No summary captured.</div>`}
+                                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <button
+                                      class="btn btn--sm"
+                                      ?disabled=${props.checkpointBusyKey ===
+                                      checkpoint.checkpointId}
+                                      @click=${() =>
+                                        props.onBranchFromCheckpoint(
+                                          row.key,
+                                          checkpoint.checkpointId,
+                                        )}
+                                    >
+                                      Branch from checkpoint
+                                    </button>
+                                    <button
+                                      class="btn btn--sm"
+                                      ?disabled=${props.checkpointBusyKey ===
+                                      checkpoint.checkpointId}
+                                      @click=${() =>
+                                        props.onRestoreCheckpoint(row.key, checkpoint.checkpointId)}
+                                    >
+                                      Restore
+                                    </button>
+                                  </div>
+                                </div>
+                              `,
+                            )}
+                          </div>
+                        `}
+              </div>
+            </td>
+          </tr>`,
+        ]
+      : []),
+  ];
 }
 
 function renderInspectPanel(props: SessionsProps) {
