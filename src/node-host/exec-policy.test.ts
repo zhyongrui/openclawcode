@@ -79,6 +79,7 @@ describe("evaluateSystemRunPolicy", () => {
     const denied = expectDeniedDecision(
       evaluateSystemRunPolicy(buildPolicyParams({ security: "deny" })),
     );
+    expect(denied.outcome).toBe("deny");
     expect(denied.eventReason).toBe("security=deny");
     expect(denied.errorMessage).toBe("SYSTEM_RUN_DISABLED: security=deny");
   });
@@ -87,6 +88,7 @@ describe("evaluateSystemRunPolicy", () => {
     const denied = expectDeniedDecision(
       evaluateSystemRunPolicy(buildPolicyParams({ ask: "always" })),
     );
+    expect(denied.outcome).toBe("approval_required");
     expect(denied.eventReason).toBe("approval-required");
     expect(denied.requiresAsk).toBe(true);
   });
@@ -101,6 +103,7 @@ describe("evaluateSystemRunPolicy", () => {
         }),
       ),
     );
+    expect(denied.outcome).toBe("approval_required");
     expect(denied.eventReason).toBe("approval-required");
     expect(denied.requiresAsk).toBe(true);
   });
@@ -123,6 +126,7 @@ describe("evaluateSystemRunPolicy", () => {
     const denied = expectDeniedDecision(
       evaluateSystemRunPolicy(buildPolicyParams({ analysisOk: false, allowlistSatisfied: false })),
     );
+    expect(denied.outcome).toBe("deny");
     expect(denied.eventReason).toBe("allowlist-miss");
     expect(denied.errorMessage).toBe("SYSTEM_RUN_DENIED: allowlist miss");
   });
@@ -150,6 +154,7 @@ describe("evaluateSystemRunPolicy", () => {
     const allowed = expectAllowedDecision(
       evaluateSystemRunPolicy(buildPolicyParams({ ask: "on-miss" })),
     );
+    expect(allowed.outcome).toBe("run");
     expect(allowed.requiresAsk).toBe(false);
     expect(allowed.analysisOk).toBe(true);
     expect(allowed.allowlistSatisfied).toBe(true);

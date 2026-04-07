@@ -243,11 +243,18 @@ Completed in this wave:
 - one contract doc that defines the effective execution request model
 - explicit escalation outcomes: `run`, `approval_required`, `deny`
 - documented role of `systemRunPlan` for node-host approvals
+- typed escalation outcomes now propagate through node-host `exec.denied`
+  payloads and gateway approval-guard errors instead of staying implicit in
+  per-call denial messages
+- operator-facing system events now distinguish `Exec approval required ...`
+  from `Exec denied ...`, so UI and terminal operators can tell a retryable
+  approval boundary from a hard policy denial
 
 Staged next:
 
 - converge more call sites onto one shared effective execution request shape
-- expose typed escalation outcomes more uniformly in operator-facing flows
+- expose typed escalation outcomes more uniformly in the remaining
+  operator-facing flows
 
 ### 8. Config-surface discipline
 

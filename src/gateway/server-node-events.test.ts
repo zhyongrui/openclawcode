@@ -291,6 +291,7 @@ describe("node exec events", () => {
         runId: "run-3",
         command: "rm -rf /",
         reason: "allowlist-miss",
+        outcome: "deny",
       }),
     });
 
@@ -302,6 +303,25 @@ describe("node exec events", () => {
       reason: "exec-event",
       sessionKey: "agent:demo:main",
     });
+  });
+
+  it("formats approval-required exec.denied events distinctly", async () => {
+    const ctx = buildCtx();
+    await handleNodeEvent(ctx, "node-4", {
+      event: "exec.denied",
+      payloadJSON: JSON.stringify({
+        sessionKey: "agent:demo:main",
+        runId: "run-4",
+        command: "npm publish",
+        reason: "approval-required",
+        outcome: "approval_required",
+      }),
+    });
+
+    expect(enqueueSystemEventMock).toHaveBeenCalledWith(
+      "Exec approval required (node=node-4 id=run-4, approval-required): npm publish",
+      { sessionKey: "agent:demo:main", contextKey: "exec:run-4" },
+    );
   });
 
   it("suppresses exec.started when notifyOnExit is false", async () => {

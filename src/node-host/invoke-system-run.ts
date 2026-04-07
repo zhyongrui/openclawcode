@@ -28,6 +28,10 @@ import { normalizeSystemRunApprovalPlan } from "../infra/system-run-approval-bin
 import { resolveSystemRunCommandRequest } from "../infra/system-run-command.js";
 import { logWarn } from "../logger.js";
 import { normalizeOptionalString } from "../shared/string-coerce.js";
+import {
+  resolveSystemRunDeniedOutcome,
+  type SystemRunDeniedReason,
+} from "../infra/system-run-outcome.js";
 import { evaluateSystemRunPolicy, resolveExecApprovalDecision } from "./exec-policy.js";
 import {
   applyOutputTruncation,
@@ -56,14 +60,6 @@ type SystemRunInvokeResult = {
   payloadJSON?: string | null;
   error?: { code?: string; message?: string } | null;
 };
-
-type SystemRunDeniedReason =
-  | "security=deny"
-  | "approval-required"
-  | "allowlist-miss"
-  | "execution-plan-miss"
-  | "companion-unavailable"
-  | "permission:screenRecording";
 
 type SystemRunExecutionContext = {
   sessionKey: string;
@@ -185,6 +181,7 @@ async function sendSystemRunDenied(
       sessionKey: execution.sessionKey,
       runId: execution.runId,
       host: "node",
+      outcome: resolveSystemRunDeniedOutcome(params.reason),
       command: execution.commandText,
       reason: params.reason,
       suppressNotifyOnExit: execution.suppressNotifyOnExit,

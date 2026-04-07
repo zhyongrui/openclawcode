@@ -82,6 +82,7 @@ describe("sanitizeSystemRunParamsForForwarding", () => {
     result: ReturnType<typeof sanitizeSystemRunParamsForForwarding>,
     code: string,
     messageSubstring?: string,
+    outcome?: "approval_required" | "deny",
   ) {
     expect(result.ok).toBe(false);
     if (result.ok) {
@@ -91,6 +92,9 @@ describe("sanitizeSystemRunParamsForForwarding", () => {
       expect(result.message).toContain(messageSubstring);
     }
     expect(result.details?.code).toBe(code);
+    if (outcome) {
+      expect(result.details?.outcome).toBe(outcome);
+    }
   }
 
   test("rejects cmd.exe /c trailing-arg mismatch against rawCommand", () => {
@@ -390,7 +394,7 @@ describe("sanitizeSystemRunParamsForForwarding", () => {
       execApprovalManager: approvalManager,
       nowMs: now,
     });
-    expectRejectedForwardingResult(second, "APPROVAL_REQUIRED");
+    expectRejectedForwardingResult(second, "APPROVAL_REQUIRED", undefined, "approval_required");
   });
 
   test("rejects approval ids that do not bind a nodeId", () => {

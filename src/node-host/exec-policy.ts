@@ -1,4 +1,5 @@
 import { requiresExecApproval, type ExecAsk, type ExecSecurity } from "../infra/exec-approvals.js";
+import { resolveSystemRunDeniedOutcome } from "../infra/system-run-outcome.js";
 
 export type ExecApprovalDecision = "allow-once" | "allow-always" | null;
 
@@ -12,9 +13,11 @@ export type SystemRunPolicyDecision = {
   approvedByAsk: boolean;
 } & (
   | {
+      outcome: "run";
       allowed: true;
     }
   | {
+      outcome: Exclude<ReturnType<typeof resolveSystemRunDeniedOutcome>, "run">;
       allowed: false;
       eventReason: "security=deny" | "approval-required" | "allowlist-miss";
       errorMessage: string;
@@ -70,6 +73,7 @@ export function evaluateSystemRunPolicy(params: {
 
   if (params.security === "deny") {
     return {
+      outcome: "deny",
       allowed: false,
       eventReason: "security=deny",
       errorMessage: "SYSTEM_RUN_DISABLED: security=deny",
@@ -92,6 +96,7 @@ export function evaluateSystemRunPolicy(params: {
   });
   if (requiresAsk && !approvedByAsk) {
     return {
+      outcome: "approval_required",
       allowed: false,
       eventReason: "approval-required",
       errorMessage: "SYSTEM_RUN_DENIED: approval required",
@@ -108,6 +113,7 @@ export function evaluateSystemRunPolicy(params: {
   if (params.security === "allowlist" && (!analysisOk || !allowlistSatisfied) && !approvedByAsk) {
     if (params.durableApprovalSatisfied) {
       return {
+        outcome: "run",
         allowed: true,
         analysisOk,
         allowlistSatisfied,
@@ -119,6 +125,7 @@ export function evaluateSystemRunPolicy(params: {
       };
     }
     return {
+      outcome: resolveSystemRunDeniedOutcome("allowlist-miss"),
       allowed: false,
       eventReason: "allowlist-miss",
       errorMessage: formatSystemRunAllowlistMissMessage({
@@ -136,6 +143,7 @@ export function evaluateSystemRunPolicy(params: {
   }
 
   return {
+    outcome: "run",
     allowed: true,
     analysisOk,
     allowlistSatisfied,

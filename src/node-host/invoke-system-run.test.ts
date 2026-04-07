@@ -110,7 +110,7 @@ describe("handleSystemRunInvoke mac app exec host routing", () => {
     expect(params.sendNodeEvent).toHaveBeenCalledWith(
       expect.anything(),
       "exec.denied",
-      expect.objectContaining({ reason: "approval-required" }),
+      expect.objectContaining({ reason: "approval-required", outcome: "approval_required" }),
     );
     expectInvokeErrorMessage(params.sendInvokeResult, {
       message: "SYSTEM_RUN_DENIED: approval required",

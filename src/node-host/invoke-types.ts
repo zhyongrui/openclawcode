@@ -1,4 +1,5 @@
 import type { SkillBinTrustEntry, SystemRunApprovalPlan } from "../infra/exec-approvals.js";
+import type { SystemRunEscalationOutcome } from "../infra/system-run-outcome.js";
 
 export type SystemRunParams = {
   command: string[];
@@ -30,6 +31,7 @@ export type ExecEventPayload = {
   sessionKey: string;
   runId: string;
   host: string;
+  outcome?: SystemRunEscalationOutcome;
   command?: string;
   exitCode?: number;
   timedOut?: boolean;
