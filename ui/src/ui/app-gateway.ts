@@ -20,7 +20,7 @@ import { shouldReloadHistoryForFinalEvent } from "./chat-event-reload.ts";
 import { formatConnectError } from "./connect-error.ts";
 import { loadAgents } from "./controllers/agents.ts";
 import { loadAssistantIdentity } from "./controllers/assistant-identity.ts";
-import { loadChatHistory } from "./controllers/chat.ts";
+import { isBackgroundChatRun, loadChatHistory } from "./controllers/chat.ts";
 import { handleChatEvent, type ChatEventPayload } from "./controllers/chat.ts";
 import { loadDevices } from "./controllers/devices.ts";
 import type { ExecApprovalRequest } from "./controllers/exec-approval.ts";
@@ -84,6 +84,7 @@ type GatewayHost = {
   serverVersion: string | null;
   sessionKey: string;
   chatRunId: string | null;
+  chatBackgroundRunIds: Set<string>;
   refreshSessionsAfterChat: Set<string>;
   execApprovalQueue: ExecApprovalRequest[];
   execApprovalError: string | null;
@@ -352,7 +353,19 @@ function handleChatGatewayEvent(host: GatewayHost, payload: ChatEventPayload | u
       payload.sessionKey,
     );
   }
+  const wasBackgroundRun = isBackgroundChatRun(host as unknown as OpenClawApp, payload?.runId);
   const state = handleChatEvent(host as unknown as OpenClawApp, payload);
+  if (wasBackgroundRun) {
+    if (
+      payload &&
+      (payload.state === "final" || payload.state === "aborted" || payload.state === "error")
+    ) {
+      void loadSessions(host as unknown as OpenClawApp, {
+        activeMinutes: CHAT_SESSIONS_ACTIVE_MINUTES,
+      });
+    }
+    return;
+  }
   const historyReloaded = handleTerminalChatEvent(host, payload, state);
   if (state === "final" && !historyReloaded && shouldReloadHistoryForFinalEvent(payload)) {
     void loadChatHistory(host as unknown as OpenClawApp);

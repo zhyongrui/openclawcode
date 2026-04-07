@@ -49,6 +49,7 @@ const COMMAND_ICON_OVERRIDES: Partial<Record<string, IconName>> = {
   kill: "x",
   steer: "send",
   tts: "volume2",
+  background: "arrowDown",
 };
 
 const LOCAL_COMMANDS = new Set([
@@ -71,6 +72,15 @@ const LOCAL_COMMANDS = new Set([
 ]);
 
 const UI_ONLY_COMMANDS: SlashCommandDef[] = [
+  {
+    key: "background",
+    name: "background",
+    description: "Start a background run from the current chat",
+    args: "<message>",
+    icon: "arrowDown",
+    category: "session",
+    executeLocal: true,
+  },
   {
     key: "clear",
     name: "clear",

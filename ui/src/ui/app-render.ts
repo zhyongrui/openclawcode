@@ -1573,6 +1573,7 @@ export function renderApp(state: AppViewState) {
                 state.chatStream = null;
                 state.chatStreamStartedAt = null;
                 state.chatRunId = null;
+                state.chatBackgroundRunIds.clear();
                 state.chatQueue = [];
                 state.resetToolStream();
                 state.resetChatScroll();
@@ -1626,6 +1627,7 @@ export function renderApp(state: AppViewState) {
               attachments: state.chatAttachments,
               onAttachmentsChange: (next) => (state.chatAttachments = next),
               onSend: () => state.handleSendChat(),
+              onBackgroundSend: () => state.handleBackgroundChat(),
               canAbort: Boolean(state.chatRunId),
               onAbort: () => void state.handleAbortChat(),
               onQueueRemove: (id) => state.removeQueuedMessage(id),
@@ -1651,6 +1653,7 @@ export function renderApp(state: AppViewState) {
                 state.chatMessages = [];
                 state.chatStream = null;
                 state.chatRunId = null;
+                state.chatBackgroundRunIds.clear();
                 state.applySettings({
                   ...state.settings,
                   sessionKey: state.sessionKey,

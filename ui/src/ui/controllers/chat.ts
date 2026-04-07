@@ -43,6 +43,7 @@ export type ChatState = {
   chatMessage: string;
   chatAttachments: ChatAttachment[];
   chatRunId: string | null;
+  chatBackgroundRunIds: Set<string>;
   chatStream: string | null;
   chatStreamStartedAt: number | null;
   lastError: string | null;
@@ -111,6 +112,124 @@ function dataUrlToBase64(dataUrl: string): { content: string; mimeType: string }
   return { mimeType: match[1], content: match[2] };
 }
 
+type PreparedOutgoingChatMessage = {
+  now: number;
+  msg: string;
+  contentBlocks: Array<{ type: string; text?: string; source?: unknown }>;
+  apiAttachments?: Array<{ type: "image"; mimeType: string; content: string }>;
+};
+
+function prepareOutgoingChatMessage(
+  message: string,
+  attachments?: ChatAttachment[],
+  options?: { requireText?: boolean },
+): PreparedOutgoingChatMessage | null {
+  const msg = message.trim();
+  const hasAttachments = attachments && attachments.length > 0;
+  if ((!msg && !hasAttachments) || (options?.requireText && !msg)) {
+    return null;
+  }
+
+  const contentBlocks: Array<{ type: string; text?: string; source?: unknown }> = [];
+  if (msg) {
+    contentBlocks.push({ type: "text", text: msg });
+  }
+  if (hasAttachments) {
+    for (const att of attachments) {
+      contentBlocks.push({
+        type: "image",
+        source: { type: "base64", media_type: att.mimeType, data: att.dataUrl },
+      });
+    }
+  }
+
+  const apiAttachments = hasAttachments
+    ? attachments
+        .map((att) => {
+          const parsed = dataUrlToBase64(att.dataUrl);
+          if (!parsed) {
+            return null;
+          }
+          return {
+            type: "image" as const,
+            mimeType: parsed.mimeType,
+            content: parsed.content,
+          };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    : undefined;
+
+  return {
+    now: Date.now(),
+    msg,
+    contentBlocks,
+    apiAttachments,
+  };
+}
+
+function appendUserChatMessage(state: ChatState, prepared: PreparedOutgoingChatMessage) {
+  state.chatMessages = [
+    ...state.chatMessages,
+    {
+      role: "user",
+      content: prepared.contentBlocks,
+      timestamp: prepared.now,
+    },
+  ];
+}
+
+function appendSystemChatMessage(state: ChatState, content: string) {
+  state.chatMessages = [
+    ...state.chatMessages,
+    {
+      role: "system",
+      content,
+      timestamp: Date.now(),
+    },
+  ];
+}
+
+function buildBackgroundAcceptedMessage(params: {
+  runId?: string | null;
+  sessionKey?: string | null;
+  sessionId?: string | null;
+}) {
+  const lines = ["Background run started."];
+  if (params.runId) {
+    lines.push(`Run: \`${params.runId}\``);
+  }
+  if (params.sessionKey) {
+    lines.push(`Session: \`${params.sessionKey}\``);
+  }
+  if (params.sessionId) {
+    lines.push(`Session ID: \`${params.sessionId}\``);
+  }
+  lines.push("Open Sessions to inspect progress or foreground reattach.");
+  return lines.join("\n");
+}
+
+function buildBackgroundTerminalMessage(
+  payload: Pick<ChatEventPayload, "runId" | "state" | "errorMessage">,
+) {
+  if (payload.state === "final") {
+    return `Background run completed: \`${payload.runId}\`. Open Sessions to inspect the result.`;
+  }
+  if (payload.state === "aborted") {
+    return `Background run stopped: \`${payload.runId}\`.`;
+  }
+  const detail = payload.errorMessage?.trim();
+  return detail
+    ? `Background run failed: \`${payload.runId}\`.\n${detail}`
+    : `Background run failed: \`${payload.runId}\`.`;
+}
+
+export function isBackgroundChatRun(
+  state: Pick<ChatState, "chatBackgroundRunIds">,
+  runId: string | null | undefined,
+): boolean {
+  return typeof runId === "string" && state.chatBackgroundRunIds.has(runId);
+}
+
 type AssistantMessageNormalizationOptions = {
   roleRequirement: "required" | "optional";
   roleCaseSensitive?: boolean;
@@ -168,69 +287,26 @@ export async function sendChatMessage(
   if (!state.client || !state.connected) {
     return null;
   }
-  const msg = message.trim();
-  const hasAttachments = attachments && attachments.length > 0;
-  if (!msg && !hasAttachments) {
+  const prepared = prepareOutgoingChatMessage(message, attachments);
+  if (!prepared) {
     return null;
   }
-
-  const now = Date.now();
-
-  // Build user message content blocks
-  const contentBlocks: Array<{ type: string; text?: string; source?: unknown }> = [];
-  if (msg) {
-    contentBlocks.push({ type: "text", text: msg });
-  }
-  // Add image previews to the message for display
-  if (hasAttachments) {
-    for (const att of attachments) {
-      contentBlocks.push({
-        type: "image",
-        source: { type: "base64", media_type: att.mimeType, data: att.dataUrl },
-      });
-    }
-  }
-
-  state.chatMessages = [
-    ...state.chatMessages,
-    {
-      role: "user",
-      content: contentBlocks,
-      timestamp: now,
-    },
-  ];
+  appendUserChatMessage(state, prepared);
 
   state.chatSending = true;
   state.lastError = null;
   const runId = generateUUID();
   state.chatRunId = runId;
   state.chatStream = "";
-  state.chatStreamStartedAt = now;
-
-  // Convert attachments to API format
-  const apiAttachments = hasAttachments
-    ? attachments
-        .map((att) => {
-          const parsed = dataUrlToBase64(att.dataUrl);
-          if (!parsed) {
-            return null;
-          }
-          return {
-            type: "image",
-            mimeType: parsed.mimeType,
-            content: parsed.content,
-          };
-        })
-        .filter((a): a is NonNullable<typeof a> => a !== null)
-    : undefined;
+  state.chatStreamStartedAt = prepared.now;
 
   try {
     await state.client.request("chat.send", {
       sessionKey: state.sessionKey,
-      message: msg,
+      message: prepared.msg,
       deliver: false,
       idempotencyKey: runId,
-      attachments: apiAttachments,
+      attachments: prepared.apiAttachments,
     });
     return runId;
   } catch (err) {
@@ -238,6 +314,71 @@ export async function sendChatMessage(
     state.chatRunId = null;
     state.chatStream = null;
     state.chatStreamStartedAt = null;
+    state.lastError = error;
+    state.chatMessages = [
+      ...state.chatMessages,
+      {
+        role: "assistant",
+        content: [{ type: "text", text: "Error: " + error }],
+        timestamp: Date.now(),
+      },
+    ];
+    return null;
+  } finally {
+    state.chatSending = false;
+  }
+}
+
+export async function sendBackgroundChatMessage(
+  state: ChatState,
+  message: string,
+  attachments?: ChatAttachment[],
+): Promise<{ runId: string | null; sessionKey?: string; sessionId?: string } | null> {
+  if (!state.client || !state.connected) {
+    return null;
+  }
+  const prepared = prepareOutgoingChatMessage(message, attachments, { requireText: true });
+  if (!prepared) {
+    return null;
+  }
+
+  appendUserChatMessage(state, prepared);
+  state.chatSending = true;
+  state.lastError = null;
+  const idempotencyKey = generateUUID();
+
+  try {
+    const accepted = await state.client.request<{
+      runId?: string;
+      sessionKey?: string;
+      sessionId?: string;
+    }>("agent", {
+      sessionKey: state.sessionKey,
+      message: prepared.msg,
+      deliver: false,
+      idempotencyKey,
+      attachments: prepared.apiAttachments,
+    });
+    const runId = typeof accepted?.runId === "string" ? accepted.runId : null;
+    if (runId) {
+      state.chatBackgroundRunIds.add(runId);
+    }
+    appendSystemChatMessage(
+      state,
+      buildBackgroundAcceptedMessage({
+        runId,
+        sessionKey:
+          typeof accepted?.sessionKey === "string" ? accepted.sessionKey : state.sessionKey,
+        sessionId: typeof accepted?.sessionId === "string" ? accepted.sessionId : undefined,
+      }),
+    );
+    return {
+      runId,
+      sessionKey: typeof accepted?.sessionKey === "string" ? accepted.sessionKey : state.sessionKey,
+      sessionId: typeof accepted?.sessionId === "string" ? accepted.sessionId : undefined,
+    };
+  } catch (err) {
+    const error = formatConnectError(err);
     state.lastError = error;
     state.chatMessages = [
       ...state.chatMessages,
@@ -275,6 +416,14 @@ export function handleChatEvent(state: ChatState, payload?: ChatEventPayload) {
     return null;
   }
   if (payload.sessionKey !== state.sessionKey) {
+    return null;
+  }
+  if (isBackgroundChatRun(state, payload.runId)) {
+    if (payload.state === "delta") {
+      return null;
+    }
+    state.chatBackgroundRunIds.delete(payload.runId);
+    appendSystemChatMessage(state, buildBackgroundTerminalMessage(payload));
     return null;
   }
 

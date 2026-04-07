@@ -28,6 +28,7 @@ export type ToolStreamEntry = {
 type ToolStreamHost = {
   sessionKey: string;
   chatRunId: string | null;
+  chatBackgroundRunIds: Set<string>;
   chatStream: string | null;
   chatStreamStartedAt: number | null;
   chatStreamSegments: Array<{ text: string; ts: number }>;
@@ -445,6 +446,9 @@ function handleLifecycleFallbackEvent(host: CompactionHost, payload: AgentEventP
 
 export function handleAgentEvent(host: ToolStreamHost, payload?: AgentEventPayload) {
   if (!payload) {
+    return;
+  }
+  if (host.chatBackgroundRunIds.has(payload.runId)) {
     return;
   }
 

@@ -4,6 +4,7 @@ import {
   abortChatRun,
   handleChatEvent,
   loadChatHistory,
+  sendBackgroundChatMessage,
   sendChatMessage,
   type ChatEventPayload,
   type ChatState,
@@ -16,6 +17,7 @@ function createState(overrides: Partial<ChatState> = {}): ChatState {
     chatMessage: "",
     chatMessages: [],
     chatRunId: null,
+    chatBackgroundRunIds: new Set<string>(),
     chatSending: false,
     chatStream: null,
     chatStreamStartedAt: null,
@@ -80,6 +82,38 @@ describe("handleChatEvent", () => {
     expect(handleChatEvent(state, payload)).toBe(null);
     expect(state.chatRunId).toBe("run-user");
     expect(state.chatStream).toBe("Hello");
+  });
+
+  it("suppresses background run deltas and terminal transcript rendering", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatBackgroundRunIds: new Set(["run-bg"]),
+      chatMessages: [{ role: "user", content: [{ type: "text", text: "do it later" }] }],
+    });
+
+    expect(
+      handleChatEvent(state, {
+        runId: "run-bg",
+        sessionKey: "main",
+        state: "delta",
+        message: { role: "assistant", content: [{ type: "text", text: "partial" }] },
+      }),
+    ).toBeNull();
+    expect(state.chatMessages).toHaveLength(1);
+
+    expect(
+      handleChatEvent(state, {
+        runId: "run-bg",
+        sessionKey: "main",
+        state: "final",
+        message: { role: "assistant", content: [{ type: "text", text: "done" }] },
+      }),
+    ).toBeNull();
+    expect(state.chatBackgroundRunIds.has("run-bg")).toBe(false);
+    expect(state.chatMessages.at(-1)).toMatchObject({
+      role: "system",
+      content: expect.stringContaining("Background run completed"),
+    });
   });
 
   it("ignores NO_REPLY delta updates", () => {
@@ -579,6 +613,45 @@ describe("sendChatMessage", () => {
           text: expect.stringContaining("origin not allowed"),
         },
       ],
+    });
+  });
+});
+
+describe("sendBackgroundChatMessage", () => {
+  it("starts a background agent run and tracks the accepted run id", async () => {
+    const request = vi.fn().mockResolvedValue({
+      runId: "run-bg",
+      sessionKey: "main",
+      sessionId: "session-1",
+    });
+    const state = createState({
+      connected: true,
+      client: { request } as unknown as ChatState["client"],
+    });
+
+    const result = await sendBackgroundChatMessage(state, "work in background");
+
+    expect(result).toEqual({
+      runId: "run-bg",
+      sessionKey: "main",
+      sessionId: "session-1",
+    });
+    expect(request).toHaveBeenCalledWith("agent", {
+      sessionKey: "main",
+      message: "work in background",
+      deliver: false,
+      idempotencyKey: expect.any(String),
+      attachments: undefined,
+    });
+    expect(state.chatRunId).toBeNull();
+    expect(state.chatBackgroundRunIds.has("run-bg")).toBe(true);
+    expect(state.chatMessages[0]).toMatchObject({
+      role: "user",
+      content: [{ type: "text", text: "work in background" }],
+    });
+    expect(state.chatMessages[1]).toMatchObject({
+      role: "system",
+      content: expect.stringContaining("Background run started"),
     });
   });
 });

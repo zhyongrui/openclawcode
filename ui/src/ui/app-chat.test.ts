@@ -12,6 +12,7 @@ vi.mock("./app-settings.ts", () => ({
 }));
 
 let handleSendChat: typeof import("./app-chat.ts").handleSendChat;
+let handleBackgroundChat: typeof import("./app-chat.ts").handleBackgroundChat;
 let refreshChatAvatar: typeof import("./app-chat.ts").refreshChatAvatar;
 let clearPendingQueueItemsForRun: typeof import("./app-chat.ts").clearPendingQueueItemsForRun;
 
@@ -19,7 +20,7 @@ async function loadChatHelpers(params?: { reload?: boolean }): Promise<void> {
   if (params?.reload) {
     vi.resetModules();
   }
-  ({ handleSendChat, refreshChatAvatar, clearPendingQueueItemsForRun } =
+  ({ handleSendChat, handleBackgroundChat, refreshChatAvatar, clearPendingQueueItemsForRun } =
     await import("./app-chat.ts"));
 }
 
@@ -33,6 +34,7 @@ function makeHost(overrides?: Partial<ChatHost>): ChatHost {
     chatAttachments: [],
     chatQueue: [],
     chatRunId: null,
+    chatBackgroundRunIds: new Set<string>(),
     chatSending: false,
     lastError: null,
     sessionKey: "agent:main",
@@ -221,6 +223,88 @@ describe("handleSendChat", () => {
         text: "follow up",
       }),
     ]);
+  });
+
+  it("starts a background run for /background without taking the foreground slot", async () => {
+    const request = vi.fn(async (method: string, _params?: unknown) => {
+      if (method === "agent") {
+        return {
+          runId: "run-bg",
+          sessionKey: "main",
+          sessionId: "session-1",
+        };
+      }
+      if (method === "sessions.list") {
+        return {
+          ts: 0,
+          path: "",
+          count: 0,
+          defaults: { modelProvider: "openai", model: "gpt-5", contextTokens: null },
+          sessions: [],
+        };
+      }
+      throw new Error(`Unexpected request: ${method}`);
+    });
+    const host = makeHost({
+      client: { request } as unknown as ChatHost["client"],
+      sessionKey: "main",
+      chatMessage: "/background inspect the failing job",
+    });
+
+    await handleSendChat(host);
+
+    expect(request).toHaveBeenNthCalledWith(1, "agent", {
+      sessionKey: "main",
+      message: "inspect the failing job",
+      deliver: false,
+      idempotencyKey: expect.any(String),
+      attachments: undefined,
+    });
+    expect(host.chatRunId).toBeNull();
+    expect(host.chatBackgroundRunIds.has("run-bg")).toBe(true);
+    expect(host.chatMessages.at(-1)).toMatchObject({
+      role: "system",
+      content: expect.stringContaining("Background run started"),
+    });
+  });
+});
+
+describe("handleBackgroundChat", () => {
+  beforeAll(async () => {
+    await loadChatHelpers();
+  });
+
+  it("sends the current draft as a background run", async () => {
+    const request = vi.fn(async (method: string, _params?: unknown) => {
+      if (method === "agent") {
+        return { runId: "run-bg", sessionKey: "main" };
+      }
+      if (method === "sessions.list") {
+        return {
+          ts: 0,
+          path: "",
+          count: 0,
+          defaults: { modelProvider: "openai", model: "gpt-5", contextTokens: null },
+          sessions: [],
+        };
+      }
+      throw new Error(`Unexpected request: ${method}`);
+    });
+    const host = makeHost({
+      client: { request } as unknown as ChatHost["client"],
+      sessionKey: "main",
+      chatMessage: "continue in the background",
+    });
+
+    await handleBackgroundChat(host);
+
+    expect(host.chatMessage).toBe("");
+    expect(host.chatRunId).toBeNull();
+    expect(host.chatBackgroundRunIds.has("run-bg")).toBe(true);
+    expect(host.chatMessages[0]).toMatchObject({
+      role: "user",
+      content: [{ type: "text", text: "continue in the background" }],
+    });
   });
 });
 

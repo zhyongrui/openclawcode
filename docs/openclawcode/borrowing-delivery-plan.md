@@ -82,10 +82,13 @@ Completed in this wave:
   transcript preview, shared resume/handoff lines, related task/TaskFlow
   context, detached follow-up, and first-class foreground reattach actions via
   gateway `sessions.inspect` / `sessions.reattach`
+- Control UI chat now exposes a first-class `Background` action plus
+  `/background <message>`, and the client suppresses transcript/tool streaming
+  for those accepted runs while keeping Sessions as the operator handoff lane
 
 Staged next:
 
-- TUI / Control UI affordance for backgrounding the currently interactive turn
+- TUI affordance for backgrounding the currently interactive turn
 
 ### 3. History and session-local operator UX
 

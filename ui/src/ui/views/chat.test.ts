@@ -228,6 +228,7 @@ function createProps(overrides: Partial<ChatProps> = {}): ChatProps {
     onToggleFocusMode: () => undefined,
     onDraftChange: () => undefined,
     onSend: () => undefined,
+    onBackgroundSend: () => undefined,
     onQueueRemove: () => undefined,
     onNewSession: () => undefined,
     agentsList: null,
@@ -749,6 +750,28 @@ describe("chat view", () => {
     newSessionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(onNewSession).toHaveBeenCalledTimes(1);
     expect(container.textContent).not.toContain("Stop");
+  });
+
+  it("shows a background send button and dispatches it for non-empty drafts", () => {
+    const container = document.createElement("div");
+    const onBackgroundSend = vi.fn();
+    render(
+      renderChat(
+        createProps({
+          draft: "run this later",
+          onBackgroundSend,
+        }),
+      ),
+      container,
+    );
+
+    const button = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Send in background"]',
+    );
+    expect(button).not.toBeNull();
+    expect(button?.disabled).toBe(false);
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onBackgroundSend).toHaveBeenCalledTimes(1);
   });
 
   it("shows sender labels from sanitized gateway messages instead of generic You", () => {

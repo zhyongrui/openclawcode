@@ -13,6 +13,7 @@ function createHost(overrides?: Partial<MutableHost>): MutableHost {
   return {
     sessionKey: "main",
     chatRunId: null,
+    chatBackgroundRunIds: new Set<string>(),
     chatStream: null,
     chatStreamStartedAt: null,
     chatStreamSegments: [],
@@ -85,6 +86,46 @@ describe("app-tool-stream fallback lifecycle handling", () => {
       },
     });
 
+    expect(host.fallbackStatus).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("ignores tool and lifecycle events for suppressed background runs", () => {
+    vi.useFakeTimers();
+    const host = createHost({
+      chatBackgroundRunIds: new Set(["run-bg"]),
+    });
+
+    handleAgentEvent(host, {
+      runId: "run-bg",
+      seq: 1,
+      stream: "tool",
+      ts: Date.now(),
+      sessionKey: "main",
+      data: {
+        toolCallId: "tool-1",
+        name: "shell",
+        phase: "start",
+        args: { cmd: "pwd" },
+      },
+    });
+    handleAgentEvent(host, {
+      runId: "run-bg",
+      seq: 2,
+      stream: "lifecycle",
+      ts: Date.now(),
+      sessionKey: "main",
+      data: {
+        phase: "fallback",
+        selectedProvider: "fireworks",
+        selectedModel: "kimi",
+        activeProvider: "deepinfra",
+        activeModel: "kimi",
+      },
+    });
+
+    expect(host.toolStreamOrder).toEqual([]);
+    expect(host.chatToolMessages).toEqual([]);
     expect(host.fallbackStatus).toBeNull();
     vi.useRealTimers();
   });

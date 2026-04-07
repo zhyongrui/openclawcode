@@ -80,6 +80,7 @@ export type ChatProps = {
   onDraftChange: (next: string) => void;
   onRequestUpdate?: () => void;
   onSend: () => void;
+  onBackgroundSend?: () => void;
   onAbort?: () => void;
   onQueueRemove: (id: string) => void;
   onNewSession: () => void;
@@ -902,6 +903,7 @@ export function renderChat(props: ChatProps) {
   const deleted = getDeletedMessages(props.sessionKey);
   const inputHistory = getInputHistory(props.sessionKey);
   const hasAttachments = (props.attachments?.length ?? 0) > 0;
+  const canBackgroundSend = Boolean(props.onBackgroundSend && props.draft.trim());
   const tokens = tokenEstimate(props.draft);
 
   const placeholder = props.connected
@@ -1381,6 +1383,15 @@ export function renderChat(props: ChatProps) {
                   </button>
                 `
               : html`
+                  <button
+                    class="btn btn--ghost"
+                    @click=${() => props.onBackgroundSend?.()}
+                    ?disabled=${!props.connected || props.sending || !canBackgroundSend}
+                    title="Send in background"
+                    aria-label="Send in background"
+                  >
+                    BG
+                  </button>
                   <button
                     class="chat-send-btn"
                     @click=${() => {

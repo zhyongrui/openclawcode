@@ -16,6 +16,7 @@ import {
 } from "./app-channels.ts";
 import {
   handleAbortChat as handleAbortChatInternal,
+  handleBackgroundChat as handleBackgroundChatInternal,
   handleSendChat as handleSendChatInternal,
   removeQueuedMessage as removeQueuedMessageInternal,
 } from "./app-chat.ts";
@@ -487,6 +488,7 @@ export class OpenClawApp extends LitElement {
   private logsScrollFrame: number | null = null;
   private toolStreamById = new Map<string, ToolStreamEntry>();
   private toolStreamOrder: string[] = [];
+  chatBackgroundRunIds = new Set<string>();
   refreshSessionsAfterChat = new Set<string>();
   basePath = "";
   private popStateHandler = () =>
@@ -664,6 +666,17 @@ export class OpenClawApp extends LitElement {
   ) {
     await handleSendChatInternal(
       this as unknown as Parameters<typeof handleSendChatInternal>[0],
+      messageOverride,
+      opts,
+    );
+  }
+
+  async handleBackgroundChat(
+    messageOverride?: string,
+    opts?: Parameters<typeof handleBackgroundChatInternal>[2],
+  ) {
+    await handleBackgroundChatInternal(
+      this as unknown as Parameters<typeof handleBackgroundChatInternal>[0],
       messageOverride,
       opts,
     );

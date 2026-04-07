@@ -4,7 +4,12 @@ import { resetToolStream } from "./app-tool-stream.ts";
 import type { OpenClawApp } from "./app.ts";
 import { executeSlashCommand } from "./chat/slash-command-executor.ts";
 import { parseSlashCommand } from "./chat/slash-commands.ts";
-import { abortChatRun, loadChatHistory, sendChatMessage } from "./controllers/chat.ts";
+import {
+  abortChatRun,
+  loadChatHistory,
+  sendBackgroundChatMessage,
+  sendChatMessage,
+} from "./controllers/chat.ts";
 import { loadModels } from "./controllers/models.ts";
 import { loadSessions } from "./controllers/sessions.ts";
 import type { GatewayBrowserClient, GatewayHelloOk } from "./gateway.ts";
@@ -24,6 +29,7 @@ export type ChatHost = {
   chatAttachments: ChatAttachment[];
   chatQueue: ChatQueueItem[];
   chatRunId: string | null;
+  chatBackgroundRunIds: Set<string>;
   chatSending: boolean;
   lastError?: string | null;
   sessionKey: string;
@@ -172,6 +178,44 @@ async function sendChatMessageNow(
   return ok;
 }
 
+async function sendBackgroundChatMessageNow(
+  host: ChatHost,
+  message: string,
+  opts?: {
+    previousDraft?: string;
+    attachments?: ChatAttachment[];
+    previousAttachments?: ChatAttachment[];
+  },
+) {
+  resetChatScroll(host as unknown as Parameters<typeof resetChatScroll>[0]);
+  const result = await sendBackgroundChatMessage(
+    host as unknown as OpenClawApp,
+    message,
+    opts?.attachments,
+  );
+  const ok = Boolean(result);
+  if (!ok && opts?.previousDraft != null) {
+    host.chatMessage = opts.previousDraft;
+  }
+  if (!ok && opts?.previousAttachments) {
+    host.chatAttachments = opts.previousAttachments;
+  }
+  if (ok) {
+    setLastActiveSessionKey(
+      host as unknown as Parameters<typeof setLastActiveSessionKey>[0],
+      host.sessionKey,
+    );
+    void loadSessions(host as unknown as OpenClawApp, {
+      activeMinutes: CHAT_SESSIONS_ACTIVE_MINUTES,
+    });
+  }
+  scheduleChatScroll(host as unknown as Parameters<typeof scheduleChatScroll>[0], true);
+  if (ok && !host.chatRunId) {
+    void flushChatQueue(host);
+  }
+  return ok;
+}
+
 async function flushChatQueue(host: ChatHost) {
   if (!host.connected || isChatBusy(host)) {
     return;
@@ -285,6 +329,47 @@ export async function handleSendChat(
   });
 }
 
+export async function handleBackgroundChat(
+  host: ChatHost,
+  messageOverride?: string,
+  opts?: { restoreDraft?: boolean },
+) {
+  if (!host.connected) {
+    return;
+  }
+  const previousDraft = host.chatMessage;
+  const message = (messageOverride ?? host.chatMessage).trim();
+  const attachments = host.chatAttachments ?? [];
+  const attachmentsToSend = messageOverride == null ? attachments : [];
+
+  if (!message) {
+    return;
+  }
+
+  if (messageOverride == null) {
+    host.chatMessage = "";
+    host.chatAttachments = [];
+  }
+
+  if (isChatBusy(host)) {
+    enqueueChatMessage(host, `/background ${message}`, undefined, false, {
+      args: message,
+      name: "background",
+    });
+    return;
+  }
+
+  await sendBackgroundChatMessageNow(host, message, {
+    previousDraft: messageOverride == null ? previousDraft : undefined,
+    attachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
+    previousAttachments: messageOverride == null ? attachments : undefined,
+  });
+
+  if (messageOverride && opts?.restoreDraft && previousDraft.trim()) {
+    host.chatMessage = previousDraft;
+  }
+}
+
 function shouldQueueLocalSlashCommand(name: string): boolean {
   return !["stop", "focus", "export-session", "steer", "redirect"].includes(name);
 }
@@ -317,6 +402,18 @@ async function dispatchSlashCommand(
       return;
     case "clear":
       await clearChatHistory(host);
+      return;
+    case "background":
+      if (!args.trim()) {
+        if (sendOpts?.previousDraft != null) {
+          host.chatMessage = sendOpts.previousDraft;
+        }
+        injectCommandResult(host, "Usage: `/background <message>`");
+        return;
+      }
+      await sendBackgroundChatMessageNow(host, args, {
+        previousDraft: sendOpts?.previousDraft,
+      });
       return;
     case "focus":
       host.onSlashAction?.("toggle-focus");
