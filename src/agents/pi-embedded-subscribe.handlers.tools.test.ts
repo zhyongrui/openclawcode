@@ -594,6 +594,51 @@ describe("handleToolExecutionEnd derived tool events", () => {
     );
   });
 
+  it("treats exec approval required followups as denied approval resolution events", async () => {
+    const { ctx, onAgentEvent } = createTestContext();
+
+    await handleToolExecutionStart(
+      ctx as never,
+      {
+        type: "tool_execution_start",
+        toolName: "exec",
+        toolCallId: "tool-exec-approval-required",
+        args: { command: "npm publish" },
+      } as never,
+    );
+
+    await handleToolExecutionEnd(
+      ctx as never,
+      {
+        type: "tool_execution_end",
+        toolName: "exec",
+        toolCallId: "tool-exec-approval-required",
+        isError: false,
+        result: {
+          details: {
+            status: "failed",
+            aggregated:
+              "Exec approval required (gateway id=req-1, approval-timeout): npm publish",
+          },
+        },
+      } as never,
+    );
+
+    expect(onAgentEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stream: "approval",
+        data: expect.objectContaining({
+          phase: "resolved",
+          kind: "exec",
+          status: "denied",
+          itemId: "command:tool-exec-approval-required",
+          toolCallId: "tool-exec-approval-required",
+          message: "npm publish",
+        }),
+      }),
+    );
+  });
+
   it("emits patch summary events for apply_patch results", async () => {
     const { ctx, onAgentEvent } = createTestContext();
 

@@ -43,6 +43,7 @@ let enforceStrictInlineEvalApprovalBoundary: typeof import("./bash-tools.exec-ho
 let resolveExecHostApprovalContext: typeof import("./bash-tools.exec-host-shared.js").resolveExecHostApprovalContext;
 let resolveExecApprovalUnavailableState: typeof import("./bash-tools.exec-host-shared.js").resolveExecApprovalUnavailableState;
 let buildExecApprovalPendingToolResult: typeof import("./bash-tools.exec-host-shared.js").buildExecApprovalPendingToolResult;
+let buildExecApprovalBlockedResult: typeof import("./bash-tools.exec-host-shared.js").buildExecApprovalBlockedResult;
 let sendExecApprovalFollowup: typeof import("./bash-tools.exec-approval-followup.js").sendExecApprovalFollowup;
 let logWarn: typeof import("../logger.js").logWarn;
 
@@ -54,6 +55,7 @@ beforeAll(async () => {
     resolveExecHostApprovalContext,
     resolveExecApprovalUnavailableState,
     buildExecApprovalPendingToolResult,
+    buildExecApprovalBlockedResult,
   } = await import("./bash-tools.exec-host-shared.js"));
   ({ sendExecApprovalFollowup } = await import("./bash-tools.exec-approval-followup.js"));
   ({ logWarn } = await import("../logger.js"));
@@ -238,6 +240,28 @@ describe("enforceStrictInlineEvalApprovalBoundary", () => {
       approvedByAsk: true,
       deniedReason: null,
     });
+  });
+});
+
+describe("buildExecApprovalBlockedResult", () => {
+  it("uses the approval-required label for timeout-like approval boundaries", () => {
+    expect(
+      buildExecApprovalBlockedResult({
+        location: "gateway id=req-1",
+        reason: "approval-timeout",
+        command: "python3 -c 'print(1)'",
+      }),
+    ).toBe("Exec approval required (gateway id=req-1, approval-timeout): python3 -c 'print(1)'");
+  });
+
+  it("keeps the denied label for hard user denials", () => {
+    expect(
+      buildExecApprovalBlockedResult({
+        location: "gateway id=req-1",
+        reason: "user-denied",
+        command: "python3 -c 'print(1)'",
+      }),
+    ).toBe("Exec denied (gateway id=req-1, user-denied): python3 -c 'print(1)'");
   });
 });
 

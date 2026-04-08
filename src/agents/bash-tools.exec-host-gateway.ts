@@ -24,6 +24,7 @@ import {
   registerExecApprovalRequestForHostOrThrow,
 } from "./bash-tools.exec-approval-request.js";
 import {
+  buildExecApprovalBlockedResult,
   buildDefaultExecApprovalRequestArgs,
   buildHeadlessExecApprovalDeniedMessage,
   buildExecApprovalFollowupTarget,
@@ -289,15 +290,19 @@ export async function processGatewayAllowlist(
     });
 
     void (async () => {
-      const decision = await resolveApprovalDecisionOrUndefined({
-        approvalId,
-        preResolvedDecision,
-        onFailure: () =>
-          void sendExecApprovalFollowupResult(
-            followupTarget,
-            `Exec denied (gateway id=${approvalId}, approval-request-failed): ${params.command}`,
-          ),
-      });
+        const decision = await resolveApprovalDecisionOrUndefined({
+          approvalId,
+          preResolvedDecision,
+          onFailure: () =>
+            void sendExecApprovalFollowupResult(
+              followupTarget,
+              buildExecApprovalBlockedResult({
+                location: `gateway id=${approvalId}`,
+                reason: "approval-request-failed",
+                command: params.command,
+              }),
+            ),
+        });
       if (decision === undefined) {
         return;
       }
@@ -361,7 +366,11 @@ export async function processGatewayAllowlist(
       if (deniedReason) {
         await sendExecApprovalFollowupResult(
           followupTarget,
-          `Exec denied (gateway id=${approvalId}, ${deniedReason}): ${params.command}`,
+          buildExecApprovalBlockedResult({
+            location: `gateway id=${approvalId}`,
+            reason: deniedReason,
+            command: params.command,
+          }),
         );
         return;
       }

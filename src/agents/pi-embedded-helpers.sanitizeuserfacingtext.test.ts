@@ -88,6 +88,17 @@ describe("sanitizeUserFacingText", () => {
     ).toBe("Command did not run: approval timed out.");
   });
 
+  it("rewrites exec approval required payloads with errorContext", () => {
+    expect(
+      sanitizeUserFacingText(
+        "Exec approval required (gateway id=req-1, approval-timeout): bash -lc ls",
+        {
+          errorContext: true,
+        },
+      ),
+    ).toBe("Command did not run: approval timed out.");
+  });
+
   it("sanitizes raw API error payloads", () => {
     const raw = '{"type":"error","error":{"message":"Something exploded","type":"server_error"}}';
     expect(sanitizeUserFacingText(raw, { errorContext: true })).toBe(

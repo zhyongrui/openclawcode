@@ -23,7 +23,7 @@ export type ExecApprovalResult =
       raw: string;
     };
 
-const EXEC_DENIED_RE = /^exec denied \(([^)]*)\):(?:\s*([\s\S]*))?$/i;
+const EXEC_DENIED_RE = /^exec (?:denied|approval required) \(([^)]*)\):(?:\s*([\s\S]*))?$/i;
 const EXEC_FINISHED_RE = /^exec finished \(([^)]*)\)(?:\n([\s\S]*))?$/i;
 const EXEC_COMPLETED_RE = /^exec completed:\s*([\s\S]*)$/i;
 

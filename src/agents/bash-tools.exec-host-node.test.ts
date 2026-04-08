@@ -52,6 +52,15 @@ const createExecApprovalDecisionStateMock = vi.hoisted(() =>
 );
 const buildExecApprovalPendingToolResultMock = vi.hoisted(() => vi.fn());
 const sendExecApprovalFollowupResultMock = vi.hoisted(() => vi.fn(async () => undefined));
+const buildExecApprovalBlockedResultMock = vi.hoisted(() =>
+  vi.fn(
+    (params: {
+      location: string;
+      reason: string;
+      command: string;
+    }) => `Exec approval required (${params.location}, ${params.reason}): ${params.command}`,
+  ),
+);
 const enforceStrictInlineEvalApprovalBoundaryMock = vi.hoisted(() =>
   vi.fn(
     (value: {
@@ -123,6 +132,7 @@ vi.mock("./bash-tools.exec-host-shared.js", () => ({
   createExecApprovalDecisionState: createExecApprovalDecisionStateMock,
   enforceStrictInlineEvalApprovalBoundary: enforceStrictInlineEvalApprovalBoundaryMock,
   sendExecApprovalFollowupResult: sendExecApprovalFollowupResultMock,
+  buildExecApprovalBlockedResult: buildExecApprovalBlockedResultMock,
   buildExecApprovalPendingToolResult: buildExecApprovalPendingToolResultMock,
   buildHeadlessExecApprovalDeniedMessage: vi.fn(() => "denied"),
 }));
@@ -222,6 +232,11 @@ describe("executeNodeHostCommand", () => {
       approvedByAsk: false,
       deniedReason: null,
     });
+    buildExecApprovalBlockedResultMock.mockReset();
+    buildExecApprovalBlockedResultMock.mockImplementation(
+      (params: { location: string; reason: string; command: string }) =>
+        `Exec approval required (${params.location}, ${params.reason}): ${params.command}`,
+    );
     buildExecApprovalPendingToolResultMock.mockReset();
     buildExecApprovalPendingToolResultMock.mockReturnValue({
       content: [],
@@ -314,7 +329,7 @@ describe("executeNodeHostCommand", () => {
     await vi.waitFor(() => {
       expect(sendExecApprovalFollowupResultMock).toHaveBeenCalledWith(
         { approvalId: "approval-1" },
-        "Exec denied (node=node-1 id=approval-1, approval-timeout): python3 -c 'print(1)'",
+        "Exec approval required (node=node-1 id=approval-1, approval-timeout): python3 -c 'print(1)'",
       );
     });
     expect(callGatewayToolMock).toHaveBeenCalledTimes(1);

@@ -22,7 +22,7 @@ afterEach(() => {
 describe("exec approval followup", () => {
   it("uses an explicit denial prompt when the command did not run", () => {
     const prompt = buildExecApprovalFollowupPrompt(
-      "Exec denied (gateway id=req-1, user-denied): uname -a",
+      "Exec approval required (gateway id=req-1, approval-timeout): uname -a",
     );
 
     expect(prompt).toContain("did not run");
@@ -182,7 +182,8 @@ describe("exec approval followup", () => {
       turnSourceTo: "-100123",
       turnSourceAccountId: "default",
       turnSourceThreadId: "789",
-      resultText: "Exec denied (gateway id=req-denied-resume-failed, approval-timeout): uname -a",
+      resultText:
+        "Exec approval required (gateway id=req-denied-resume-failed, approval-timeout): uname -a",
     });
 
     expect(sendMessage).toHaveBeenCalledWith(
@@ -202,7 +203,8 @@ describe("exec approval followup", () => {
         turnSourceChannel: "telegram",
         turnSourceTo: "123",
         turnSourceAccountId: "default",
-        resultText: "Exec denied (gateway id=req-denied-subagent, approval-timeout): uname -a",
+        resultText:
+          "Exec approval required (gateway id=req-denied-subagent, approval-timeout): uname -a",
       }),
     ).resolves.toBe(false);
 
@@ -211,6 +213,7 @@ describe("exec approval followup", () => {
   });
 
   it.each([
+    "Exec approval required (gateway id=req-denied-nosession, approval-timeout): uname -a",
     "Exec denied (gateway id=req-denied-nosession, approval-timeout): uname -a",
     "exec denied (gateway id=req-denied-nosession, approval-timeout): uname -a",
   ])("does not mirror raw denied followups without a session: %s", async (resultText) => {

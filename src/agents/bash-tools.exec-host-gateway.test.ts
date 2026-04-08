@@ -53,6 +53,15 @@ const resolveExecHostApprovalContextMock = vi.hoisted(() =>
 );
 const runExecProcessMock = vi.hoisted(() => vi.fn());
 const sendExecApprovalFollowupResultMock = vi.hoisted(() => vi.fn(async () => undefined));
+const buildExecApprovalBlockedResultMock = vi.hoisted(() =>
+  vi.fn(
+    (params: {
+      location: string;
+      reason: string;
+      command: string;
+    }) => `Exec approval required (${params.location}, ${params.reason}): ${params.command}`,
+  ),
+);
 const enforceStrictInlineEvalApprovalBoundaryMock = vi.hoisted(() =>
   vi.fn(
     (value: {
@@ -99,6 +108,7 @@ vi.mock("./bash-tools.exec-host-shared.js", () => ({
   resolveExecHostApprovalContext: resolveExecHostApprovalContextMock,
   buildDefaultExecApprovalRequestArgs: vi.fn(() => ({})),
   buildHeadlessExecApprovalDeniedMessage: vi.fn(() => "denied"),
+  buildExecApprovalBlockedResult: buildExecApprovalBlockedResultMock,
   buildExecApprovalFollowupTarget: buildExecApprovalFollowupTargetMock,
   buildExecApprovalPendingToolResult: buildExecApprovalPendingToolResultMock,
   createExecApprovalDecisionState: createExecApprovalDecisionStateMock,
@@ -170,6 +180,11 @@ describe("processGatewayAllowlist", () => {
     });
     runExecProcessMock.mockReset();
     sendExecApprovalFollowupResultMock.mockReset();
+    buildExecApprovalBlockedResultMock.mockReset();
+    buildExecApprovalBlockedResultMock.mockImplementation(
+      (params: { location: string; reason: string; command: string }) =>
+        `Exec approval required (${params.location}, ${params.reason}): ${params.command}`,
+    );
     enforceStrictInlineEvalApprovalBoundaryMock.mockReset();
     enforceStrictInlineEvalApprovalBoundaryMock.mockImplementation(
       (value: { approvedByAsk: boolean; deniedReason: string | null }) => value,
@@ -342,7 +357,7 @@ describe("processGatewayAllowlist", () => {
     await vi.waitFor(() => {
       expect(sendExecApprovalFollowupResultMock).toHaveBeenCalledWith(
         null,
-        "Exec denied (gateway id=req-1, approval-timeout): python3 -c 'print(1)'",
+        "Exec approval required (gateway id=req-1, approval-timeout): python3 -c 'print(1)'",
       );
     });
     expect(runExecProcessMock).not.toHaveBeenCalled();
@@ -388,7 +403,7 @@ describe("processGatewayAllowlist", () => {
     await vi.waitFor(() => {
       expect(sendExecApprovalFollowupResultMock).toHaveBeenCalledWith(
         null,
-        "Exec denied (gateway id=req-1, approval-timeout): python3 -c 'print(1)'",
+        "Exec approval required (gateway id=req-1, approval-timeout): python3 -c 'print(1)'",
       );
     });
     expect(runExecProcessMock).not.toHaveBeenCalled();

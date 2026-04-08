@@ -322,7 +322,11 @@ export async function executeNodeHostCommand(
           onFailure: () =>
             void execHostShared.sendExecApprovalFollowupResult(
               followupTarget,
-              `Exec denied (node=${nodeId} id=${approvalId}, approval-request-failed): ${params.command}`,
+              execHostShared.buildExecApprovalBlockedResult({
+                location: `node=${nodeId} id=${approvalId}`,
+                reason: "approval-request-failed",
+                command: params.command,
+              }),
             ),
         });
         if (decision === undefined) {
@@ -364,7 +368,11 @@ export async function executeNodeHostCommand(
         if (deniedReason) {
           await execHostShared.sendExecApprovalFollowupResult(
             followupTarget,
-            `Exec denied (node=${nodeId} id=${approvalId}, ${deniedReason}): ${params.command}`,
+            execHostShared.buildExecApprovalBlockedResult({
+              location: `node=${nodeId} id=${approvalId}`,
+              reason: deniedReason,
+              command: params.command,
+            }),
           );
           return;
         }

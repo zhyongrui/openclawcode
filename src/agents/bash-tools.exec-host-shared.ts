@@ -394,6 +394,26 @@ export function buildHeadlessExecApprovalDeniedMessage(params: {
   ].join("\n");
 }
 
+export function isExecApprovalRequiredResultReason(reason: string): boolean {
+  const normalized = reason.trim().toLowerCase();
+  return (
+    normalized.includes("approval-timeout") ||
+    normalized.includes("allowlist-miss") ||
+    normalized.includes("approval-request-failed")
+  );
+}
+
+export function buildExecApprovalBlockedResult(params: {
+  location: string;
+  reason: string;
+  command: string;
+}): string {
+  const label = isExecApprovalRequiredResultReason(params.reason)
+    ? "Exec approval required"
+    : "Exec denied";
+  return `${label} (${params.location}, ${params.reason}): ${params.command}`;
+}
+
 export async function sendExecApprovalFollowupResult(
   target: ExecApprovalFollowupTarget,
   resultText: string,

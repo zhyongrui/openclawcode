@@ -258,6 +258,11 @@ Completed in this wave:
 - gateway `exec.approval.get` / `exec.approval.list` now reuse one shared
   operator-facing response view so approval readers see the same canonical
   command, preview, cwd, and session metadata that approval writers stored
+- async exec-approval followup results now distinguish approval-boundary blocks
+  from hard denials in agent/operator-facing text too, so gateway/node followup
+  completions say `Exec approval required ...` for timeout, allowlist-miss, and
+  approval-request-failed paths instead of flattening everything to
+  `Exec denied ...`
 
 Staged next:
 

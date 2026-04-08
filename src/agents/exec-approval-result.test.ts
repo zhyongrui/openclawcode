@@ -17,6 +17,19 @@ describe("parseExecApprovalResultText", () => {
     });
   });
 
+  it("parses approval-required results as denied outcomes", () => {
+    expect(
+      parseExecApprovalResultText(
+        "Exec approval required (gateway id=req-1, approval-timeout): bash -lc ls",
+      ),
+    ).toEqual({
+      kind: "denied",
+      raw: "Exec approval required (gateway id=req-1, approval-timeout): bash -lc ls",
+      metadata: "gateway id=req-1, approval-timeout",
+      body: "bash -lc ls",
+    });
+  });
+
   it("parses finished results", () => {
     expect(
       parseExecApprovalResultText("Exec finished (gateway id=req-1, code 0)\nall good"),
@@ -48,6 +61,7 @@ describe("isExecDeniedResultText", () => {
   it.each([
     "Exec denied (gateway id=req-1, approval-timeout): uname -a",
     "exec denied (gateway id=req-1, approval-timeout): uname -a",
+    "Exec approval required (gateway id=req-1, approval-timeout): uname -a",
   ])("matches denied payloads: %s", (input) => {
     expect(isExecDeniedResultText(input)).toBe(true);
   });
@@ -61,6 +75,10 @@ describe("formatExecDeniedUserMessage", () => {
   it.each([
     [
       "Exec denied (gateway id=req-1, approval-timeout): uname -a",
+      "Command did not run: approval timed out.",
+    ],
+    [
+      "Exec approval required (gateway id=req-1, approval-timeout): uname -a",
       "Command did not run: approval timed out.",
     ],
     [
