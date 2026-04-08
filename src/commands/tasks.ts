@@ -171,7 +171,7 @@ function formatTaskRows(
       formatTaskStatusCell(task.status, rich),
       task.deliveryStatus.padEnd(DELIVERY_PAD),
       shortToken(task.runId, RUN_PAD).padEnd(RUN_PAD),
-      truncate(task.childSessionKey?.trim() || "n/a", 36).padEnd(36),
+      truncate(normalizeOptionalString(task.childSessionKey) || "n/a", 36).padEnd(36),
       formatTaskSessionLifecycleCell(task.sessionLifecycle, rich),
       summary,
     ].join(" ");

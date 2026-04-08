@@ -1,5 +1,5 @@
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnyAgentTool } from "./pi-tools.types.js";
 
 const mocks = vi.hoisted(() => ({
@@ -24,19 +24,21 @@ function createToolHarness() {
 }
 
 async function loadModule() {
-  return await import("./pi-tools.read.js");
+  ({ wrapToolWorkspaceRootGuardWithOptions } = await import("./pi-tools.read.js"));
 }
+
+let wrapToolWorkspaceRootGuardWithOptions: typeof import("./pi-tools.read.js").wrapToolWorkspaceRootGuardWithOptions;
 
 describe("wrapToolWorkspaceRootGuardWithOptions", () => {
   const root = "/tmp/root";
 
+  beforeAll(loadModule);
+
   beforeEach(() => {
     mocks.assertSandboxPath.mockClear();
-    vi.resetModules();
   });
 
   it("maps container workspace paths to host workspace root", async () => {
-    const { wrapToolWorkspaceRootGuardWithOptions } = await loadModule();
     const { execute, tool } = createToolHarness();
     const wrapped = wrapToolWorkspaceRootGuardWithOptions(tool, root, {
       containerWorkdir: "/workspace",
@@ -53,7 +55,6 @@ describe("wrapToolWorkspaceRootGuardWithOptions", () => {
   });
 
   it("maps file:// container workspace paths to host workspace root", async () => {
-    const { wrapToolWorkspaceRootGuardWithOptions } = await loadModule();
     const { execute, tool } = createToolHarness();
     const wrapped = wrapToolWorkspaceRootGuardWithOptions(tool, root, {
       containerWorkdir: "/workspace",
@@ -70,7 +71,6 @@ describe("wrapToolWorkspaceRootGuardWithOptions", () => {
   });
 
   it("does not remap remote-host file:// paths", async () => {
-    const { wrapToolWorkspaceRootGuardWithOptions } = await loadModule();
     const { tool } = createToolHarness();
     const wrapped = wrapToolWorkspaceRootGuardWithOptions(tool, root, {
       containerWorkdir: "/workspace",
@@ -86,7 +86,6 @@ describe("wrapToolWorkspaceRootGuardWithOptions", () => {
   });
 
   it("maps @-prefixed container workspace paths to host workspace root", async () => {
-    const { wrapToolWorkspaceRootGuardWithOptions } = await loadModule();
     const { execute, tool } = createToolHarness();
     const wrapped = wrapToolWorkspaceRootGuardWithOptions(tool, root, {
       containerWorkdir: "/workspace",
@@ -131,7 +130,6 @@ describe("wrapToolWorkspaceRootGuardWithOptions", () => {
   });
 
   it("normalizes @-prefixed absolute paths before guard checks", async () => {
-    const { wrapToolWorkspaceRootGuardWithOptions } = await loadModule();
     const { tool } = createToolHarness();
     const wrapped = wrapToolWorkspaceRootGuardWithOptions(tool, root, {
       containerWorkdir: "/workspace",
@@ -147,7 +145,6 @@ describe("wrapToolWorkspaceRootGuardWithOptions", () => {
   });
 
   it("does not remap absolute paths outside the configured container workdir", async () => {
-    const { wrapToolWorkspaceRootGuardWithOptions } = await loadModule();
     const { tool } = createToolHarness();
     const wrapped = wrapToolWorkspaceRootGuardWithOptions(tool, root, {
       containerWorkdir: "/workspace",

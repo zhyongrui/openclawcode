@@ -14,6 +14,7 @@ import {
 } from "openclaw/plugin-sdk/setup";
 import type { PluginEntryConfig } from "../../../src/config/types.plugins.js";
 import { getPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
+import { normalizeOptionalLowercaseString } from "openclaw/plugin-sdk/text-runtime";
 import {
   inspectFeishuCredentials,
   listFeishuAccountIds,
@@ -320,7 +321,7 @@ function isFeishuConfigured(cfg: OpenClawConfig, accountId?: string | null): boo
       return false;
     }
     const rec = value as Record<string, unknown>;
-    const source = normalizeString(rec.source)?.toLowerCase();
+    const source = normalizeOptionalLowercaseString(normalizeString(rec.source));
     const id = normalizeString(rec.id);
     if (source === "env" && id) {
       return Boolean(normalizeString(process.env[id]));

@@ -18,6 +18,7 @@ import { hasConfiguredModelFallbacks } from "../agent-scope.js";
 import {
   type AuthProfileFailureReason,
   markAuthProfileFailure,
+  resolveAuthProfileEligibility,
   markAuthProfileGood,
   markAuthProfileUsed,
 } from "../auth-profiles.js";
@@ -294,6 +295,17 @@ export async function runEmbeddedPiAgent(
           lockedProfileId = undefined;
         }
       }
+      if (lockedProfileId) {
+        const eligibility = resolveAuthProfileEligibility({
+          cfg: params.config,
+          store: authStore,
+          provider,
+          profileId: lockedProfileId,
+        });
+        if (!eligibility.eligible) {
+          throw new Error(`Auth profile "${lockedProfileId}" is not configured for ${provider}.`);
+        }
+      }
       const profileOrder = shouldPreferExplicitConfigApiKeyAuth(params.config, provider)
         ? []
         : resolveAuthProfileOrder({
@@ -302,9 +314,6 @@ export async function runEmbeddedPiAgent(
             provider,
             preferredProfile: preferredProfileId,
           });
-      if (lockedProfileId && !profileOrder.includes(lockedProfileId)) {
-        throw new Error(`Auth profile "${lockedProfileId}" is not configured for ${provider}.`);
-      }
       const profileCandidates = lockedProfileId
         ? [lockedProfileId]
         : profileOrder.length > 0
@@ -678,6 +687,7 @@ export async function runEmbeddedPiAgent(
           const {
             aborted,
             promptError,
+            promptErrorSource,
             preflightRecovery,
             timedOut,
             timedOutDuringCompaction,
@@ -805,6 +815,7 @@ export async function runEmbeddedPiAgent(
                     extraSystemPrompt: params.extraSystemPrompt,
                     ownerNumbers: params.ownerNumbers,
                   }),
+                  ...(attempt.promptCache ? { promptCache: attempt.promptCache } : {}),
                   runId: params.runId,
                   trigger: "timeout_recovery",
                   diagId: timeoutDiagId,
@@ -946,6 +957,7 @@ export async function runEmbeddedPiAgent(
                     extraSystemPrompt: params.extraSystemPrompt,
                     ownerNumbers: params.ownerNumbers,
                   }),
+                  ...(attempt.promptCache ? { promptCache: attempt.promptCache } : {}),
                   runId: params.runId,
                   trigger: "overflow",
                   ...(observedOverflowTokens !== undefined
@@ -1086,9 +1098,13 @@ export async function runEmbeddedPiAgent(
             };
           }
 
-          if (promptError && !aborted) {
+          if (promptError && !aborted && promptErrorSource !== "compaction") {
             // Normalize wrapped errors (e.g. abort-wrapped RESOURCE_EXHAUSTED) into
             // FailoverError so rate-limit classification works even for nested shapes.
+            //
+            // promptErrorSource === "compaction" means the model call already completed and the
+            // abort happened only while waiting for compaction/retry cleanup. Retrying from here
+            // would replay that completed tool turn as a fresh prompt attempt.
             const normalizedPromptFailover = coerceToFailoverError(promptError, {
               provider: activeErrorContext.provider,
               model: activeErrorContext.model,

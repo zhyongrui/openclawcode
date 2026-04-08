@@ -15,6 +15,7 @@ import { loadSessions } from "./controllers/sessions.ts";
 import type { GatewayBrowserClient, GatewayHelloOk } from "./gateway.ts";
 import { normalizeBasePath } from "./navigation.ts";
 import { parseAgentSessionKey } from "./session-key.ts";
+import { normalizeLowercaseStringOrEmpty } from "./string-coerce.ts";
 import type { ChatModelOverride, ModelCatalogEntry } from "./types.ts";
 import type { SessionsListResult } from "./types.ts";
 import type { ChatAttachment, ChatQueueItem } from "./ui-types.ts";
@@ -57,7 +58,7 @@ export function isChatStopCommand(text: string) {
   if (!trimmed) {
     return false;
   }
-  const normalized = trimmed.toLowerCase();
+  const normalized = normalizeLowercaseStringOrEmpty(trimmed);
   if (normalized === "/stop") {
     return true;
   }
@@ -75,7 +76,7 @@ function isChatResetCommand(text: string) {
   if (!trimmed) {
     return false;
   }
-  const normalized = trimmed.toLowerCase();
+  const normalized = normalizeLowercaseStringOrEmpty(trimmed);
   if (normalized === "/new" || normalized === "/reset") {
     return true;
   }

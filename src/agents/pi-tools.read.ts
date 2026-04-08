@@ -452,18 +452,17 @@ function normalizeToolPathCandidate(filePath: string): string | null {
   }
 
   try {
-    return fileURLToPath(candidate);
-  } catch {
-    try {
-      const parsed = new URL(candidate);
-      if (parsed.protocol !== "file:") {
-        return null;
-      }
-      const pathname = decodeURIComponent(parsed.pathname || "");
-      return pathname.startsWith("/") ? pathname : null;
-    } catch {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "file:") {
       return null;
     }
+    const hostname = parsed.hostname.trim().toLowerCase();
+    if (hostname && hostname !== "localhost") {
+      return candidate;
+    }
+    return fileURLToPath(parsed);
+  } catch {
+    return null;
   }
 }
 
@@ -656,7 +655,7 @@ export function wrapToolWorkspaceRootGuardWithOptions(
     execute: async (toolCallId, args, signal, onUpdate) => {
       const record = getToolParamsRecord(args);
       const filePath = record?.path;
-      let nextArgs = normalized ?? args;
+      let nextArgs = args;
       if (typeof filePath === "string" && filePath.trim()) {
         const sandboxPath = mapContainerPathToWorkspaceRoot({
           filePath,

@@ -598,8 +598,8 @@ export const handleNodeEvent = async (ctx: NodeEventContext, nodeId: string, evt
           ? obj.exitCode
           : undefined;
       const timedOut = obj.timedOut === true;
-      const output = typeof obj.output === "string" ? obj.output.trim() : "";
-      const reason = typeof obj.reason === "string" ? obj.reason.trim() : "";
+      const output = normalizeOptionalString(obj.output) ?? "";
+      const reason = normalizeOptionalString(obj.reason) ?? "";
       const outcome = normalizeSystemRunEscalationOutcome(obj.outcome);
 
       let text = "";

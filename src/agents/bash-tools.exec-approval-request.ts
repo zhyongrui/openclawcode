@@ -1,5 +1,6 @@
 import type { ExecAsk, ExecSecurity, SystemRunApprovalPlan } from "../infra/exec-approvals.js";
 import { resolveExecApprovalEffectiveRequest } from "../infra/exec-approval-effective-request.js";
+import { normalizeLowercaseStringOrEmpty } from "../shared/string-coerce.js";
 import {
   DEFAULT_APPROVAL_REQUEST_TIMEOUT_MS,
   DEFAULT_APPROVAL_TIMEOUT_MS,
@@ -44,14 +45,18 @@ function buildExecApprovalRequestToolParams(
     agentId: params.agentId,
     sessionKey: params.sessionKey,
   });
-  const canonicalCommand = effectiveRequest.ok ? effectiveRequest.effective.commandText : params.command;
+  const canonicalCommand = effectiveRequest.ok
+    ? effectiveRequest.effective.commandText
+    : params.command;
   const canonicalCommandArgv = effectiveRequest.ok
     ? effectiveRequest.effective.commandArgv
     : params.commandArgv;
   const canonicalPlan = effectiveRequest.ok
     ? effectiveRequest.effective.systemRunPlan ?? params.systemRunPlan
     : params.systemRunPlan;
-  const canonicalCwd = effectiveRequest.ok ? effectiveRequest.effective.cwd ?? params.cwd : params.cwd;
+  const canonicalCwd = effectiveRequest.ok
+    ? effectiveRequest.effective.cwd ?? params.cwd
+    : params.cwd;
   const canonicalNodeId = effectiveRequest.ok
     ? effectiveRequest.effective.nodeId ?? params.nodeId
     : params.nodeId;
@@ -148,7 +153,7 @@ export async function waitForExecApprovalDecision(id: string): Promise<string | 
     return parseDecision(decisionResult).value;
   } catch (err) {
     // Timeout/cleanup path: treat missing/expired as no decision so askFallback applies.
-    const message = String(err).toLowerCase();
+    const message = normalizeLowercaseStringOrEmpty(String(err));
     if (message.includes("approval expired or not found")) {
       return null;
     }
