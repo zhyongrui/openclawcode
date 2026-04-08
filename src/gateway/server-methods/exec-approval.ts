@@ -1,6 +1,5 @@
 import {
   resolveExecApprovalCommandDisplay,
-  sanitizeExecApprovalDisplayText,
 } from "../../infra/exec-approval-command-display.js";
 import type { ExecApprovalForwarder } from "../../infra/exec-approval-forwarder.js";
 import {
@@ -12,10 +11,9 @@ import {
   type ExecApprovalResolved,
 } from "../../infra/exec-approvals.js";
 import {
-  buildSystemRunApprovalBinding,
-  buildSystemRunApprovalEnvBinding,
-} from "../../infra/system-run-approval-binding.js";
-import { resolveSystemRunApprovalRequestContext } from "../../infra/system-run-approval-context.js";
+  buildExecApprovalRequestPayload,
+  resolveExecApprovalEffectiveRequest,
+} from "../../infra/exec-approval-effective-request.js";
 import type { ExecApprovalManager } from "../exec-approval-manager.js";
 import {
   ErrorCodes,
@@ -131,10 +129,9 @@ export function createExecApprovalHandlers(
       const timeoutMs =
         typeof p.timeoutMs === "number" ? p.timeoutMs : DEFAULT_EXEC_APPROVAL_TIMEOUT_MS;
       const explicitId = typeof p.id === "string" && p.id.trim().length > 0 ? p.id.trim() : null;
-      const host = typeof p.host === "string" ? p.host.trim() : "";
-      const nodeId = typeof p.nodeId === "string" ? p.nodeId.trim() : "";
-      const approvalContext = resolveSystemRunApprovalRequestContext({
-        host,
+      const effectiveRequest = resolveExecApprovalEffectiveRequest({
+        host: p.host,
+        nodeId: p.nodeId,
         command: p.command,
         commandArgv: p.commandArgv,
         systemRunPlan: p.systemRunPlan,
@@ -142,53 +139,14 @@ export function createExecApprovalHandlers(
         agentId: p.agentId,
         sessionKey: p.sessionKey,
       });
-      const effectiveCommandArgv = approvalContext.commandArgv;
-      const effectiveCwd = approvalContext.cwd;
-      const effectiveAgentId = approvalContext.agentId;
-      const effectiveSessionKey = approvalContext.sessionKey;
-      const effectiveCommandText = approvalContext.commandText;
-      if (host === "node" && !nodeId) {
+      if (!effectiveRequest.ok) {
         respond(
           false,
           undefined,
-          errorShape(ErrorCodes.INVALID_REQUEST, "nodeId is required for host=node"),
+          errorShape(ErrorCodes.INVALID_REQUEST, effectiveRequest.message),
         );
         return;
       }
-      if (host === "node" && !approvalContext.plan) {
-        respond(
-          false,
-          undefined,
-          errorShape(ErrorCodes.INVALID_REQUEST, "systemRunPlan is required for host=node"),
-        );
-        return;
-      }
-      if (!effectiveCommandText) {
-        respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "command is required"));
-        return;
-      }
-      if (
-        host === "node" &&
-        (!Array.isArray(effectiveCommandArgv) || effectiveCommandArgv.length === 0)
-      ) {
-        respond(
-          false,
-          undefined,
-          errorShape(ErrorCodes.INVALID_REQUEST, "commandArgv is required for host=node"),
-        );
-        return;
-      }
-      const envBinding = buildSystemRunApprovalEnvBinding(p.env);
-      const systemRunBinding =
-        host === "node"
-          ? buildSystemRunApprovalBinding({
-              argv: effectiveCommandArgv,
-              cwd: effectiveCwd,
-              agentId: effectiveAgentId,
-              sessionKey: effectiveSessionKey,
-              env: p.env,
-            })
-          : null;
       if (explicitId && manager.getSnapshot(explicitId)) {
         respond(
           false,
@@ -197,32 +155,18 @@ export function createExecApprovalHandlers(
         );
         return;
       }
-      const request = {
-        command: sanitizeExecApprovalDisplayText(effectiveCommandText),
-        commandPreview:
-          host === "node" || !approvalContext.commandPreview
-            ? undefined
-            : sanitizeExecApprovalDisplayText(approvalContext.commandPreview),
-        commandArgv: host === "node" ? undefined : effectiveCommandArgv,
-        envKeys: envBinding.envKeys.length > 0 ? envBinding.envKeys : undefined,
-        systemRunBinding: systemRunBinding?.binding ?? null,
-        systemRunPlan: approvalContext.plan,
-        cwd: effectiveCwd ?? null,
-        nodeId: host === "node" ? nodeId : null,
-        host: host || null,
-        security: p.security ?? null,
-        ask: p.ask ?? null,
+      const request = buildExecApprovalRequestPayload({
+        effective: effectiveRequest.effective,
+        env: p.env,
+        security: p.security,
+        ask: p.ask,
         allowedDecisions: resolveExecApprovalAllowedDecisions({ ask: p.ask ?? null }),
-        agentId: effectiveAgentId ?? null,
-        resolvedPath: p.resolvedPath ?? null,
-        sessionKey: effectiveSessionKey ?? null,
-        turnSourceChannel:
-          typeof p.turnSourceChannel === "string" ? p.turnSourceChannel.trim() || null : null,
-        turnSourceTo: typeof p.turnSourceTo === "string" ? p.turnSourceTo.trim() || null : null,
-        turnSourceAccountId:
-          typeof p.turnSourceAccountId === "string" ? p.turnSourceAccountId.trim() || null : null,
-        turnSourceThreadId: p.turnSourceThreadId ?? null,
-      };
+        resolvedPath: p.resolvedPath,
+        turnSourceChannel: p.turnSourceChannel,
+        turnSourceTo: p.turnSourceTo,
+        turnSourceAccountId: p.turnSourceAccountId,
+        turnSourceThreadId: p.turnSourceThreadId,
+      });
       const record = manager.create(request, timeoutMs, explicitId);
       record.requestedByConnId = client?.connId ?? null;
       record.requestedByDeviceId = client?.connect?.device?.id ?? null;

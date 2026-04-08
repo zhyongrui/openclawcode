@@ -1,4 +1,5 @@
 import type { ExecAsk, ExecSecurity, SystemRunApprovalPlan } from "../infra/exec-approvals.js";
+import { resolveExecApprovalEffectiveRequest } from "../infra/exec-approval-effective-request.js";
 import {
   DEFAULT_APPROVAL_REQUEST_TIMEOUT_MS,
   DEFAULT_APPROVAL_TIMEOUT_MS,
@@ -33,20 +34,47 @@ type ExecApprovalRequestToolParams = RequestExecApprovalDecisionParams & {
 function buildExecApprovalRequestToolParams(
   params: RequestExecApprovalDecisionParams,
 ): ExecApprovalRequestToolParams {
+  const effectiveRequest = resolveExecApprovalEffectiveRequest({
+    host: params.host,
+    nodeId: params.nodeId,
+    command: params.command,
+    commandArgv: params.commandArgv,
+    systemRunPlan: params.systemRunPlan,
+    cwd: params.cwd,
+    agentId: params.agentId,
+    sessionKey: params.sessionKey,
+  });
+  const canonicalCommand = effectiveRequest.ok ? effectiveRequest.effective.commandText : params.command;
+  const canonicalCommandArgv = effectiveRequest.ok
+    ? effectiveRequest.effective.commandArgv
+    : params.commandArgv;
+  const canonicalPlan = effectiveRequest.ok
+    ? effectiveRequest.effective.systemRunPlan ?? params.systemRunPlan
+    : params.systemRunPlan;
+  const canonicalCwd = effectiveRequest.ok ? effectiveRequest.effective.cwd ?? params.cwd : params.cwd;
+  const canonicalNodeId = effectiveRequest.ok
+    ? effectiveRequest.effective.nodeId ?? params.nodeId
+    : params.nodeId;
+  const canonicalAgentId = effectiveRequest.ok
+    ? effectiveRequest.effective.agentId ?? params.agentId
+    : params.agentId;
+  const canonicalSessionKey = effectiveRequest.ok
+    ? effectiveRequest.effective.sessionKey ?? params.sessionKey
+    : params.sessionKey;
   return {
     id: params.id,
-    ...(params.command ? { command: params.command } : {}),
-    ...(params.commandArgv ? { commandArgv: params.commandArgv } : {}),
-    systemRunPlan: params.systemRunPlan,
+    ...(canonicalCommand ? { command: canonicalCommand } : {}),
+    ...(canonicalCommandArgv ? { commandArgv: canonicalCommandArgv } : {}),
+    systemRunPlan: canonicalPlan,
     env: params.env,
-    cwd: params.cwd,
-    nodeId: params.nodeId,
+    cwd: canonicalCwd,
+    nodeId: canonicalNodeId,
     host: params.host,
     security: params.security,
     ask: params.ask,
-    agentId: params.agentId,
+    agentId: canonicalAgentId,
     resolvedPath: params.resolvedPath,
-    sessionKey: params.sessionKey,
+    sessionKey: canonicalSessionKey,
     turnSourceChannel: params.turnSourceChannel,
     turnSourceTo: params.turnSourceTo,
     turnSourceAccountId: params.turnSourceAccountId,

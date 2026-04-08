@@ -249,10 +249,16 @@ Completed in this wave:
 - operator-facing system events now distinguish `Exec approval required ...`
   from `Exec denied ...`, so UI and terminal operators can tell a retryable
   approval boundary from a hard policy denial
+- gateway `exec.approval.request` handling and agent-side approval registration
+  now share one effective exec-approval request shape, so node approvals reuse
+  the same canonical command/cwd/agent/session fields derived from
+  `systemRunPlan` before request storage or transport
+- approval request payload assembly now lives behind one shared helper instead
+  of duplicating node-vs-gateway request shaping across gateway and agent code
 
 Staged next:
 
-- converge more call sites onto one shared effective execution request shape
+- converge more execution call sites onto the shared effective request helpers
 - expose typed escalation outcomes more uniformly in the remaining
   operator-facing flows
 

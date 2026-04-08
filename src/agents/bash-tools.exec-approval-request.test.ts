@@ -110,6 +110,74 @@ describe("requestExecApprovalDecision", () => {
     ).resolves.toBeNull();
   });
 
+  it("uses canonical node plan fields when registering approval requests", async () => {
+    vi.mocked(callGatewayTool)
+      .mockResolvedValueOnce({
+        status: "accepted",
+        id: "approval-id",
+        expiresAtMs: DEFAULT_APPROVAL_TIMEOUT_MS,
+      })
+      .mockResolvedValueOnce({ decision: "allow-once" });
+
+    await expect(
+      requestExecApprovalDecision({
+        id: "approval-id",
+        command: "echo stale",
+        commandArgv: ["echo", "stale"],
+        systemRunPlan: {
+          argv: ["/usr/bin/echo", "ok"],
+          cwd: "/real/cwd",
+          commandText: "/usr/bin/echo ok",
+          commandPreview: "echo ok",
+          agentId: "main",
+          sessionKey: "agent:main:main",
+        },
+        cwd: "/tmp/link",
+        nodeId: "node-1",
+        host: "node",
+        security: "allowlist",
+        ask: "always",
+        agentId: "stale-agent",
+        sessionKey: "stale-session",
+      }),
+    ).resolves.toBe("allow-once");
+
+    expect(callGatewayTool).toHaveBeenNthCalledWith(
+      1,
+      "exec.approval.request",
+      { timeoutMs: DEFAULT_APPROVAL_REQUEST_TIMEOUT_MS },
+      {
+        id: "approval-id",
+        command: "/usr/bin/echo ok",
+        commandArgv: ["/usr/bin/echo", "ok"],
+        systemRunPlan: {
+          argv: ["/usr/bin/echo", "ok"],
+          cwd: "/real/cwd",
+          commandText: "/usr/bin/echo ok",
+          commandPreview: "echo ok",
+          agentId: "main",
+          sessionKey: "agent:main:main",
+        },
+        env: undefined,
+        cwd: "/real/cwd",
+        nodeId: "node-1",
+        host: "node",
+        security: "allowlist",
+        ask: "always",
+        agentId: "main",
+        resolvedPath: undefined,
+        sessionKey: "agent:main:main",
+        turnSourceChannel: undefined,
+        turnSourceTo: undefined,
+        turnSourceAccountId: undefined,
+        turnSourceThreadId: undefined,
+        timeoutMs: DEFAULT_APPROVAL_TIMEOUT_MS,
+        twoPhase: true,
+      },
+      { expectFinal: false },
+    );
+  });
+
   it("uses registration response id when waiting for decision", async () => {
     vi.mocked(callGatewayTool)
       .mockResolvedValueOnce({
