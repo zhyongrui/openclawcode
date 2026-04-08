@@ -1,15 +1,14 @@
 import type { ChannelApprovalKind } from "../channels/plugins/types.adapters.js";
-import { resolveExecApprovalCommandDisplay } from "./exec-approval-command-display.js";
 import {
   buildExecApprovalActionDescriptors,
   type ExecApprovalActionDescriptor,
 } from "./exec-approval-reply.js";
 import {
-  resolveExecApprovalRequestAllowedDecisions,
   type ExecApprovalDecision,
   type ExecApprovalRequest,
   type ExecApprovalResolved,
 } from "./exec-approvals.js";
+import { buildExecApprovalResponseView } from "./exec-approval-response-view.js";
 import type { PluginApprovalRequest, PluginApprovalResolved } from "./plugin-approvals.js";
 
 type ApprovalRequest = ExecApprovalRequest | PluginApprovalRequest;
@@ -90,19 +89,19 @@ export type ResolvedApprovalView = ExecApprovalResolvedView | PluginApprovalReso
 export type ExpiredApprovalView = ExecApprovalExpiredView | PluginApprovalExpiredView;
 export type ApprovalViewModel = PendingApprovalView | ResolvedApprovalView | ExpiredApprovalView;
 
-function buildExecMetadata(request: ExecApprovalRequest): ApprovalMetadataView[] {
+function buildExecMetadata(view: ReturnType<typeof buildExecApprovalResponseView>): ApprovalMetadataView[] {
   const metadata: ApprovalMetadataView[] = [];
-  if (request.request.agentId) {
-    metadata.push({ label: "Agent", value: request.request.agentId });
+  if (view.agentId) {
+    metadata.push({ label: "Agent", value: view.agentId });
   }
-  if (request.request.cwd) {
-    metadata.push({ label: "CWD", value: request.request.cwd });
+  if (view.cwd) {
+    metadata.push({ label: "CWD", value: view.cwd });
   }
-  if (request.request.host) {
-    metadata.push({ label: "Host", value: request.request.host });
+  if (view.host) {
+    metadata.push({ label: "Host", value: view.host });
   }
-  if (Array.isArray(request.request.envKeys) && request.request.envKeys.length > 0) {
-    metadata.push({ label: "Env Overrides", value: request.request.envKeys.join(", ") });
+  if (Array.isArray(view.envKeys) && view.envKeys.length > 0) {
+    metadata.push({ label: "Env Overrides", value: view.envKeys.join(", ") });
   }
   return metadata;
 }
@@ -130,23 +129,23 @@ function buildExecViewBase<TPhase extends ApprovalPhase>(
   request: ExecApprovalRequest,
   phase: TPhase,
 ): ExecApprovalViewBase & { phase: TPhase } {
-  const { commandText, commandPreview } = resolveExecApprovalCommandDisplay(request.request);
+  const responseView = buildExecApprovalResponseView(request);
   return {
     approvalId: request.id,
     approvalKind: "exec",
     phase,
     title: phase === "pending" ? "Exec Approval Required" : "Exec Approval",
     description: phase === "pending" ? "A command needs your approval." : null,
-    metadata: buildExecMetadata(request),
+    metadata: buildExecMetadata(responseView),
     ask: request.request.ask ?? null,
-    agentId: request.request.agentId ?? null,
-    commandText,
-    commandPreview,
-    cwd: request.request.cwd ?? null,
-    envKeys: request.request.envKeys ?? undefined,
-    host: request.request.host ?? null,
-    nodeId: request.request.nodeId ?? null,
-    sessionKey: request.request.sessionKey ?? null,
+    agentId: responseView.agentId,
+    commandText: responseView.commandText,
+    commandPreview: responseView.commandPreview,
+    cwd: responseView.cwd,
+    envKeys: responseView.envKeys ?? undefined,
+    host: responseView.host,
+    nodeId: responseView.nodeId,
+    sessionKey: responseView.sessionKey,
   };
 }
 
@@ -185,7 +184,7 @@ export function buildPendingApprovalView(request: ApprovalRequest): PendingAppro
     actions: buildExecApprovalActionDescriptors({
       approvalCommandId: execRequest.id,
       ask: execRequest.request.ask,
-      allowedDecisions: resolveExecApprovalRequestAllowedDecisions(execRequest.request),
+      allowedDecisions: buildExecApprovalResponseView(execRequest).allowedDecisions,
     }),
     expiresAtMs: execRequest.expiresAtMs,
   };

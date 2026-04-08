@@ -258,6 +258,9 @@ Completed in this wave:
 - gateway `exec.approval.get` / `exec.approval.list` now reuse one shared
   operator-facing response view so approval readers see the same canonical
   command, preview, cwd, and session metadata that approval writers stored
+- approval-native view models and forwarded fallback approval payloads now
+  reuse that same shared response view, so approval readers across RPC, native
+  clients, and chat forwarding consume one canonical exec approval display shape
 - node-side `system.run` approval bypass validation now reuses that shared
   canonical request shaping, so approval forwarding and request storage derive
   node command/cwd/agent/session fields from the same helper instead of a

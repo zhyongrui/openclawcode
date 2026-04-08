@@ -20,13 +20,12 @@ import {
   type DeliverableMessageChannel,
 } from "../utils/message-channel.js";
 import { matchesApprovalRequestFilters } from "./approval-request-filters.js";
-import { resolveExecApprovalCommandDisplay } from "./exec-approval-command-display.js";
 import { formatExecApprovalExpiresIn } from "./exec-approval-reply.js";
 import {
-  resolveExecApprovalRequestAllowedDecisions,
   type ExecApprovalRequest,
   type ExecApprovalResolved,
 } from "./exec-approvals.js";
+import { buildExecApprovalResponseView } from "./exec-approval-response-view.js";
 import {
   approvalDecisionLabel,
   buildPluginApprovalExpiredMessage,
@@ -222,32 +221,30 @@ function formatApprovalCommand(command: string): { inline: boolean; text: string
 }
 
 function buildRequestMessage(request: ExecApprovalRequest, nowMs: number) {
-  const allowedDecisions = resolveExecApprovalRequestAllowedDecisions(request.request);
-  const decisionText = allowedDecisions.join("|");
+  const responseView = buildExecApprovalResponseView(request);
+  const decisionText = responseView.allowedDecisions.join("|");
   const lines: string[] = ["🔒 Exec approval required", `ID: ${request.id}`];
-  const command = formatApprovalCommand(
-    resolveExecApprovalCommandDisplay(request.request).commandText,
-  );
+  const command = formatApprovalCommand(responseView.commandText);
   if (command.inline) {
     lines.push(`Command: ${command.text}`);
   } else {
     lines.push("Command:");
     lines.push(command.text);
   }
-  if (request.request.cwd) {
-    lines.push(`CWD: ${request.request.cwd}`);
+  if (responseView.cwd) {
+    lines.push(`CWD: ${responseView.cwd}`);
   }
-  if (request.request.nodeId) {
-    lines.push(`Node: ${request.request.nodeId}`);
+  if (responseView.nodeId) {
+    lines.push(`Node: ${responseView.nodeId}`);
   }
-  if (Array.isArray(request.request.envKeys) && request.request.envKeys.length > 0) {
-    lines.push(`Env overrides: ${request.request.envKeys.join(", ")}`);
+  if (Array.isArray(responseView.envKeys) && responseView.envKeys.length > 0) {
+    lines.push(`Env overrides: ${responseView.envKeys.join(", ")}`);
   }
-  if (request.request.host) {
-    lines.push(`Host: ${request.request.host}`);
+  if (responseView.host) {
+    lines.push(`Host: ${responseView.host}`);
   }
-  if (request.request.agentId) {
-    lines.push(`Agent: ${request.request.agentId}`);
+  if (responseView.agentId) {
+    lines.push(`Agent: ${responseView.agentId}`);
   }
   if (request.request.security) {
     lines.push(`Security: ${request.request.security}`);
@@ -258,12 +255,12 @@ function buildRequestMessage(request: ExecApprovalRequest, nowMs: number) {
   lines.push(`Expires in: ${formatExecApprovalExpiresIn(request.expiresAtMs, nowMs)}`);
   lines.push("Mode: foreground (interactive approvals available in this chat).");
   lines.push(
-    allowedDecisions.includes("allow-always")
+    responseView.allowedDecisions.includes("allow-always")
       ? "Background mode note: non-interactive runs cannot wait for chat approvals; use pre-approved policy (allow-always or ask=off)."
       : "Background mode note: non-interactive runs cannot wait for chat approvals; the effective policy still requires per-run approval unless ask=off.",
   );
   lines.push(`Reply with: /approve <id> ${decisionText}`);
-  if (!allowedDecisions.includes("allow-always")) {
+  if (!responseView.allowedDecisions.includes("allow-always")) {
     lines.push(
       "Allow Always is unavailable because the effective policy requires approval every time.",
     );
@@ -390,6 +387,7 @@ function buildExecPendingPayload(params: {
   target: ForwardTarget;
   nowMs: number;
 }): ReplyPayload {
+  const responseView = buildExecApprovalResponseView(params.request);
   return buildApprovalRenderPayload({
     target: params.target,
     renderParams: params,
@@ -399,9 +397,9 @@ function buildExecPendingPayload(params: {
         approvalId: params.request.id,
         approvalSlug: params.request.id.slice(0, 8),
         text: buildRequestMessage(params.request, params.nowMs),
-        agentId: params.request.request.agentId ?? null,
-        allowedDecisions: resolveExecApprovalRequestAllowedDecisions(params.request.request),
-        sessionKey: params.request.request.sessionKey ?? null,
+        agentId: responseView.agentId,
+        allowedDecisions: responseView.allowedDecisions,
+        sessionKey: responseView.sessionKey,
       }),
   });
 }
