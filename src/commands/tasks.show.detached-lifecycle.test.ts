@@ -2,6 +2,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: vi.fn(),
+}));
+
+vi.mock("openai", () => ({
+  default: vi.fn(),
+  AzureOpenAI: vi.fn(),
+}));
+
 import { configureTaskFlowRegistryRuntime } from "../tasks/task-flow-registry.store.js";
 import { configureTaskRegistryRuntime } from "../tasks/task-registry.store.js";
 import { createManagedTaskFlow, resetTaskFlowRegistryForTests } from "../tasks/task-flow-runtime-internal.js";
@@ -285,6 +295,41 @@ describe("tasksShowCommand detached session lifecycle", () => {
       lookup: "run-detached-2",
       resolvedBy: "run_id",
       taskId: task.taskId,
+    });
+  });
+
+  it("sanitizes exec approval boundary fields in text output while keeping JSON raw", async () => {
+    const task = createTaskRecord({
+      runtime: "acp",
+      ownerKey: "agent:main:main",
+      scopeKind: "session",
+      runId: "run-approval-show",
+      label: "Approval show task",
+      task: "Approval show task",
+      status: "failed",
+      deliveryStatus: "pending",
+      notifyPolicy: "done_only",
+      error: "Exec approval required (gateway id=req-2, approval-timeout): npm publish",
+      progressSummary: "Exec approval required (gateway id=req-2, approval-timeout): npm publish",
+      terminalSummary: "Exec approval required (gateway id=req-2, approval-timeout): npm publish",
+    });
+
+    const textRun = makeRuntime();
+    await tasksShowCommand({ lookup: task.taskId, json: false }, textRun.runtime);
+    const output = textRun.logs.join("\n");
+    expect(output).toContain("progressSummary: Command did not run: approval timed out.");
+    expect(output).toContain("terminalSummary: Command did not run: approval timed out.");
+    expect(output).not.toContain("Exec approval required (gateway id=req-2, approval-timeout)");
+
+    const jsonRun = makeRuntime();
+    await tasksShowCommand({ lookup: task.taskId, json: true }, jsonRun.runtime);
+    const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as {
+      progressSummary?: string;
+      terminalSummary?: string;
+    };
+    expect(payload).toMatchObject({
+      progressSummary: "Exec approval required (gateway id=req-2, approval-timeout): npm publish",
+      terminalSummary: "Exec approval required (gateway id=req-2, approval-timeout): npm publish",
     });
   });
 });

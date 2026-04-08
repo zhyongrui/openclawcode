@@ -263,6 +263,9 @@ Completed in this wave:
   completions say `Exec approval required ...` for timeout, allowlist-miss, and
   approval-request-failed paths instead of flattening everything to
   `Exec denied ...`
+- CLI `tasks list` / `tasks show` text views now sanitize those approval-boundary
+  terminal summaries and progress lines through the same task-status path, while
+  JSON output still preserves the raw stored payload for automation callers
 
 Staged next:
 

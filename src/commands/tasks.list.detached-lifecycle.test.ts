@@ -2,6 +2,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: vi.fn(),
+}));
+
+vi.mock("openai", () => ({
+  default: vi.fn(),
+  AzureOpenAI: vi.fn(),
+}));
+
 import { configureTaskFlowRegistryRuntime } from "../tasks/task-flow-registry.store.js";
 import { configureTaskRegistryRuntime } from "../tasks/task-registry.store.js";
 import { createManagedTaskFlow, resetTaskFlowRegistryForTests } from "../tasks/task-flow-runtime-internal.js";
@@ -183,6 +193,38 @@ describe("tasksListCommand detached session lifecycle", () => {
         continueWith:
           'openclaw sessions continue agent:coder:acp:child --message "Continue from the latest background task state."',
       },
+    });
+  });
+
+  it("sanitizes exec approval boundary summaries in text output while leaving JSON raw", async () => {
+    const task = createTaskRecord({
+      runtime: "acp",
+      ownerKey: "agent:main:main",
+      scopeKind: "session",
+      runId: "run-approval-required",
+      label: "Approval task",
+      task: "Approval task",
+      status: "succeeded",
+      terminalOutcome: "blocked",
+      terminalSummary: "Exec approval required (gateway id=req-1, approval-timeout): bash -lc ls",
+      deliveryStatus: "pending",
+      notifyPolicy: "done_only",
+    });
+
+    const textRun = makeRuntime();
+    await tasksListCommand({}, textRun.runtime);
+    const output = textRun.logs.join("\n");
+    expect(output).toContain("Command did not run: approval timed out.");
+    expect(output).not.toContain("Exec approval required (gateway id=req-1, approval-timeout)");
+
+    const jsonRun = makeRuntime();
+    await tasksListCommand({ json: true }, jsonRun.runtime);
+    const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as {
+      tasks?: Array<{ taskId?: string; terminalSummary?: string }>;
+    };
+
+    expect(payload.tasks?.find((entry) => entry.taskId === task.taskId)).toMatchObject({
+      terminalSummary: "Exec approval required (gateway id=req-1, approval-timeout): bash -lc ls",
     });
   });
 });

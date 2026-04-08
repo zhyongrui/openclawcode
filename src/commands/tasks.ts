@@ -49,6 +49,7 @@ import {
   reconcileTaskLookupToken,
 } from "../tasks/task-registry.reconcile.js";
 import { summarizeTaskRecords } from "../tasks/task-registry.summary.js";
+import { sanitizeTaskStatusText } from "../tasks/task-status.js";
 import type { TaskNotifyPolicy, TaskRecord } from "../tasks/task-registry.types.js";
 import { isRich, theme } from "../terminal/theme.js";
 
@@ -157,13 +158,15 @@ function formatTaskRows(
   ].join(" ");
   const lines = [rich ? theme.heading(header) : header];
   for (const task of tasks) {
-    const summary = truncate(
-      task.terminalSummary?.trim() ||
-        task.progressSummary?.trim() ||
-        task.label?.trim() ||
-        task.task.trim(),
-      80,
-    );
+    const summary =
+      truncate(
+        sanitizeTaskStatusText(task.terminalSummary, { errorContext: true }) ||
+          sanitizeTaskStatusText(task.progressSummary) ||
+          sanitizeTaskStatusText(task.label) ||
+          sanitizeTaskStatusText(task.task) ||
+          "",
+        80,
+      ) || "";
     const line = [
       shortToken(task.taskId).padEnd(ID_PAD),
       task.runtime.padEnd(RUNTIME_PAD),
@@ -481,9 +484,33 @@ export async function tasksShowCommand(
     `lastEventAt: ${task.lastEventAt ? new Date(task.lastEventAt).toISOString() : "n/a"}`,
     `reattachedAt: ${task.reattachedAt ? new Date(task.reattachedAt).toISOString() : "n/a"}`,
     `cleanupAfter: ${task.cleanupAfter ? new Date(task.cleanupAfter).toISOString() : "n/a"}`,
-    ...(task.error ? [`error: ${task.error}`] : []),
-    ...(task.progressSummary ? [`progressSummary: ${task.progressSummary}`] : []),
-    ...(task.terminalSummary ? [`terminalSummary: ${task.terminalSummary}`] : []),
+    ...(sanitizeTaskStatusText(task.error, { errorContext: true })
+      ? [`error: ${sanitizeTaskStatusText(task.error, { errorContext: true })}`]
+      : []),
+    ...(sanitizeTaskStatusText(task.progressSummary, {
+      errorContext:
+        task.status === "failed" ||
+        task.status === "lost" ||
+        task.status === "timed_out" ||
+        task.terminalOutcome === "blocked",
+    })
+      ? [
+          `progressSummary: ${sanitizeTaskStatusText(task.progressSummary, {
+            errorContext:
+              task.status === "failed" ||
+              task.status === "lost" ||
+              task.status === "timed_out" ||
+              task.terminalOutcome === "blocked",
+          })}`,
+        ]
+      : []),
+    ...(sanitizeTaskStatusText(task.terminalSummary, { errorContext: true })
+      ? [
+          `terminalSummary: ${sanitizeTaskStatusText(task.terminalSummary, {
+            errorContext: true,
+          })}`,
+        ]
+      : []),
     ...formatBackgroundSessionResumeLines({
       cfg,
       sessionKey: task.childSessionKey,
