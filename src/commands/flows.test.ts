@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RuntimeEnv } from "../runtime.js";
+
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: vi.fn(),
+}));
+
+vi.mock("openai", () => ({
+  default: vi.fn(),
+  AzureOpenAI: vi.fn(),
+}));
+
 import { configureTaskFlowRegistryRuntime } from "../tasks/task-flow-registry.store.js";
 import { createRunningTaskRun } from "../tasks/task-executor.js";
 import {
@@ -209,7 +219,7 @@ describe("flows commands", () => {
     expect(lines).toContain("goal: Investigate\\nqueue\\tstate");
     expect(lines).toContain("currentStep: spawn_child");
     expect(lines).toContain("owner: agent:main:owner");
-    expect(lines).toContain("state: Waiting on child\\nforged: yes");
+    expect(lines).toContain("state: Waiting on child forged: yes");
     expect(lines.some((line) => line.includes("run-child-3") && line.includes("Collect\\nlogs"))).toBe(
       true,
     );

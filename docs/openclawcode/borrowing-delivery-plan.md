@@ -266,6 +266,9 @@ Completed in this wave:
 - CLI `tasks list` / `tasks show` text views now sanitize those approval-boundary
   terminal summaries and progress lines through the same task-status path, while
   JSON output still preserves the raw stored payload for automation callers
+- `flows show` text state summaries now sanitize blocked exec-approval boundary
+  payloads through the same task-status path as tasks, while JSON flow detail
+  output still preserves the raw blocked summary for automation callers
 
 Staged next:
 

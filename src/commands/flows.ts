@@ -22,6 +22,7 @@ import {
   listTaskFlowRecords,
   resolveTaskFlowForLookupToken,
 } from "../tasks/task-flow-runtime-internal.js";
+import { sanitizeTaskStatusText } from "../tasks/task-status.js";
 import { sanitizeTerminalText } from "../terminal/safe-text.js";
 import { isRich, theme } from "../terminal/theme.js";
 
@@ -57,6 +58,17 @@ function safeFlowDisplayText(value: string | undefined, maxChars?: number): stri
     return "n/a";
   }
   return typeof maxChars === "number" ? truncate(sanitized, maxChars) : sanitized;
+}
+
+function safeFlowStateDisplayText(
+  value: string | undefined,
+  flow: Pick<TaskFlowRecord, "status">,
+): string {
+  const sanitized =
+    sanitizeTaskStatusText(value, {
+      errorContext: flow.status === "blocked" || flow.status === "failed" || flow.status === "lost",
+    }) || "";
+  return safeFlowDisplayText(sanitized);
 }
 
 function shortToken(value: string | undefined, maxChars = ID_PAD): string {
@@ -354,7 +366,7 @@ export async function flowsShowCommand(
         ]
       : []),
     `notify: ${flow.notifyPolicy}`,
-    ...(stateSummary ? [`state: ${safeFlowDisplayText(stateSummary)}`] : []),
+    ...(stateSummary ? [`state: ${safeFlowStateDisplayText(stateSummary, flow)}`] : []),
     ...(flow.cancelRequestedAt
       ? [`cancelRequestedAt: ${new Date(flow.cancelRequestedAt).toISOString()}`]
       : []),

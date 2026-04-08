@@ -2,6 +2,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: vi.fn(),
+}));
+
+vi.mock("openai", () => ({
+  default: vi.fn(),
+  AzureOpenAI: vi.fn(),
+}));
+
 import { configureTaskFlowRegistryRuntime } from "../tasks/task-flow-registry.store.js";
 import { createRunningTaskRun } from "../tasks/task-executor.js";
 import { configureTaskRegistryRuntime } from "../tasks/task-registry.store.js";
@@ -278,6 +288,33 @@ describe("flowsShowCommand detached session lifecycle", () => {
       lookup: "agent:coder:acp:owner-lookup",
       resolvedBy: "owner_key",
       flowId: flow.flowId,
+    });
+  });
+
+  it("sanitizes exec approval boundary state in text output while keeping JSON raw", async () => {
+    const flow = createManagedTaskFlow({
+      ownerKey: "agent:main:main",
+      controllerId: "tests/flows-show",
+      goal: "Publish package",
+      status: "blocked",
+      blockedSummary: "Exec approval required (gateway id=req-3, approval-timeout): npm publish",
+      createdAt: Date.now() - 60_000,
+      updatedAt: Date.now() - 30_000,
+    });
+
+    const textRun = makeRuntime();
+    await flowsShowCommand({ lookup: flow.flowId, json: false }, textRun.runtime);
+    const output = textRun.logs.join("\n");
+    expect(output).toContain("state: Command did not run: approval timed out.");
+    expect(output).not.toContain("Exec approval required (gateway id=req-3, approval-timeout)");
+
+    const jsonRun = makeRuntime();
+    await flowsShowCommand({ lookup: flow.flowId, json: true }, jsonRun.runtime);
+    const payload = JSON.parse(jsonRun.logs[0] ?? "{}") as {
+      blockedSummary?: string;
+    };
+    expect(payload).toMatchObject({
+      blockedSummary: "Exec approval required (gateway id=req-3, approval-timeout): npm publish",
     });
   });
 });

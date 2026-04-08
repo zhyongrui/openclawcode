@@ -2,6 +2,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: vi.fn(),
+}));
+
+vi.mock("openai", () => ({
+  default: vi.fn(),
+  AzureOpenAI: vi.fn(),
+}));
+
 import { configureTaskFlowRegistryRuntime } from "../tasks/task-flow-registry.store.js";
 import { configureTaskRegistryRuntime } from "../tasks/task-registry.store.js";
 import { createManagedTaskFlow, resetTaskFlowRegistryForTests } from "../tasks/task-flow-runtime-internal.js";
