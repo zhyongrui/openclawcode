@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   buildExecApprovalRequestPayload,
+  resolveNodeExecApprovalRuntimeRequest,
   resolveExecApprovalEffectiveRequest,
 } from "./exec-approval-effective-request.js";
 
@@ -135,6 +136,68 @@ describe("buildExecApprovalRequestPayload", () => {
       turnSourceTo: null,
       turnSourceAccountId: null,
       turnSourceThreadId: "thread-1",
+    });
+  });
+});
+
+describe("resolveNodeExecApprovalRuntimeRequest", () => {
+  test("uses canonical node runtime plan fields for approval forwarding", () => {
+    expect(
+      resolveNodeExecApprovalRuntimeRequest({
+        nodeId: "node-1",
+        command: ["echo", "stale"],
+        rawCommand: "echo stale",
+        cwd: "/tmp/link",
+        agentId: "stale-agent",
+        sessionKey: "stale-session",
+        systemRunPlan: {
+          argv: ["/usr/bin/echo", "ok"],
+          cwd: "/real/cwd",
+          commandText: "/usr/bin/echo ok",
+          commandPreview: "echo ok",
+          agentId: "main",
+          sessionKey: "agent:main:main",
+        },
+      }),
+    ).toEqual({
+      ok: true,
+      effective: {
+        host: "node",
+        nodeId: "node-1",
+        commandText: "/usr/bin/echo ok",
+        commandPreview: "echo ok",
+        commandArgv: ["/usr/bin/echo", "ok"],
+        systemRunPlan: {
+          argv: ["/usr/bin/echo", "ok"],
+          cwd: "/real/cwd",
+          commandText: "/usr/bin/echo ok",
+          commandPreview: "echo ok",
+          agentId: "main",
+          sessionKey: "agent:main:main",
+        },
+        cwd: "/real/cwd",
+        agentId: "main",
+        sessionKey: "agent:main:main",
+      },
+    });
+  });
+
+  test("surfaces node runtime command validation errors", () => {
+    expect(
+      resolveNodeExecApprovalRuntimeRequest({
+        nodeId: "node-1",
+        command: ["echo", "SAFE&&whoami"],
+        rawCommand: "echo",
+      }),
+    ).toEqual({
+      ok: false,
+      message: "INVALID_REQUEST: rawCommand does not match command",
+      details: {
+        code: "RAW_COMMAND_MISMATCH",
+        rawCommand: "echo",
+        inferred: "echo SAFE&&whoami",
+        formattedArgv: "echo SAFE&&whoami",
+      },
     });
   });
 });

@@ -1,6 +1,16 @@
 import crypto from "node:crypto";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { WebSocket } from "ws";
+
+vi.mock("@anthropic-ai/sdk", () => ({
+  default: vi.fn(),
+}));
+
+vi.mock("openai", () => ({
+  default: vi.fn(),
+  AzureOpenAI: vi.fn(),
+}));
+
 import {
   deriveDeviceIdFromPublicKey,
   type DeviceIdentity,

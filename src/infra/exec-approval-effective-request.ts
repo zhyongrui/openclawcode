@@ -4,7 +4,10 @@ import {
 } from "./system-run-approval-binding.js";
 import { sanitizeExecApprovalDisplayText } from "./exec-approval-command-display.js";
 import type { ExecApprovalDecision, ExecApprovalRequestPayload } from "./exec-approvals.js";
-import { resolveSystemRunApprovalRequestContext } from "./system-run-approval-context.js";
+import {
+  resolveSystemRunApprovalRequestContext,
+  resolveSystemRunApprovalRuntimeContext,
+} from "./system-run-approval-context.js";
 import {
   normalizeOptionalString,
   normalizeOptionalThreadValue,
@@ -72,6 +75,52 @@ export function resolveExecApprovalEffectiveRequest(params: {
       cwd: approvalContext.cwd ?? null,
       agentId: approvalContext.agentId ?? null,
       sessionKey: approvalContext.sessionKey ?? null,
+    },
+  };
+}
+
+export function resolveNodeExecApprovalRuntimeRequest(params: {
+  nodeId?: unknown;
+  command?: unknown;
+  rawCommand?: unknown;
+  systemRunPlan?: unknown;
+  cwd?: unknown;
+  agentId?: unknown;
+  sessionKey?: unknown;
+}):
+  | { ok: true; effective: ExecApprovalEffectiveRequest }
+  | { ok: false; message: string; details?: Record<string, unknown> } {
+  const nodeId = normalizeOptionalString(params.nodeId) ?? null;
+  if (!nodeId) {
+    return { ok: false, message: "nodeId is required for host=node" };
+  }
+  const runtimeContext = resolveSystemRunApprovalRuntimeContext({
+    plan: params.systemRunPlan,
+    command: params.command,
+    rawCommand: params.rawCommand,
+    cwd: params.cwd,
+    agentId: params.agentId,
+    sessionKey: params.sessionKey,
+  });
+  if (!runtimeContext.ok) {
+    return {
+      ok: false,
+      message: runtimeContext.message,
+      details: runtimeContext.details,
+    };
+  }
+  return {
+    ok: true,
+    effective: {
+      host: "node",
+      nodeId,
+      commandText: runtimeContext.commandText,
+      commandPreview: runtimeContext.plan?.commandPreview ?? null,
+      commandArgv: runtimeContext.argv.length > 0 ? runtimeContext.argv : undefined,
+      systemRunPlan: runtimeContext.plan,
+      cwd: runtimeContext.cwd,
+      agentId: runtimeContext.agentId,
+      sessionKey: runtimeContext.sessionKey,
     },
   };
 }

@@ -1,4 +1,4 @@
-import { resolveSystemRunApprovalRuntimeContext } from "../infra/system-run-approval-context.js";
+import { resolveNodeExecApprovalRuntimeRequest } from "../infra/exec-approval-effective-request.js";
 import { resolveSystemRunCommandRequest } from "../infra/system-run-command.js";
 import { asNullableRecord } from "../shared/record-coerce.js";
 import { normalizeNullableString } from "../shared/string-coerce.js";
@@ -199,53 +199,54 @@ export function sanitizeSystemRunParamsForForwarding(opts: {
     });
   }
 
-  const runtimeContext = resolveSystemRunApprovalRuntimeContext({
-    plan: snapshot.request.systemRunPlan ?? null,
+  const effectiveRequest = resolveNodeExecApprovalRuntimeRequest({
+    nodeId: targetNodeId,
     command: p.command,
     rawCommand: p.rawCommand,
+    systemRunPlan: snapshot.request.systemRunPlan ?? null,
     cwd: p.cwd,
     agentId: p.agentId,
     sessionKey: p.sessionKey,
   });
-  if (!runtimeContext.ok) {
+  if (!effectiveRequest.ok) {
     return {
       ok: false,
-      message: runtimeContext.message,
-      details: runtimeContext.details,
+      message: effectiveRequest.message,
+      details: effectiveRequest.details,
     };
   }
-  if (runtimeContext.plan) {
-    next.command = [...runtimeContext.plan.argv];
-    next.systemRunPlan = runtimeContext.plan;
-    if (runtimeContext.commandText) {
-      next.rawCommand = runtimeContext.commandText;
+  if (effectiveRequest.effective.systemRunPlan) {
+    next.command = [...(effectiveRequest.effective.commandArgv ?? [])];
+    next.systemRunPlan = effectiveRequest.effective.systemRunPlan;
+    if (effectiveRequest.effective.commandText) {
+      next.rawCommand = effectiveRequest.effective.commandText;
     } else {
       delete next.rawCommand;
     }
-    if (runtimeContext.cwd) {
-      next.cwd = runtimeContext.cwd;
+    if (effectiveRequest.effective.cwd) {
+      next.cwd = effectiveRequest.effective.cwd;
     } else {
       delete next.cwd;
     }
-    if (runtimeContext.agentId) {
-      next.agentId = runtimeContext.agentId;
+    if (effectiveRequest.effective.agentId) {
+      next.agentId = effectiveRequest.effective.agentId;
     } else {
       delete next.agentId;
     }
-    if (runtimeContext.sessionKey) {
-      next.sessionKey = runtimeContext.sessionKey;
+    if (effectiveRequest.effective.sessionKey) {
+      next.sessionKey = effectiveRequest.effective.sessionKey;
     } else {
       delete next.sessionKey;
     }
   }
 
   const approvalMatch = evaluateSystemRunApprovalMatch({
-    argv: runtimeContext.argv,
+    argv: effectiveRequest.effective.commandArgv ?? [],
     request: snapshot.request,
     binding: {
-      cwd: runtimeContext.cwd,
-      agentId: runtimeContext.agentId,
-      sessionKey: runtimeContext.sessionKey,
+      cwd: effectiveRequest.effective.cwd,
+      agentId: effectiveRequest.effective.agentId,
+      sessionKey: effectiveRequest.effective.sessionKey,
       env: p.env,
     },
   });
