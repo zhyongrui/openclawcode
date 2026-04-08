@@ -261,6 +261,9 @@ Completed in this wave:
 - approval-native view models and forwarded fallback approval payloads now
   reuse that same shared response view, so approval readers across RPC, native
   clients, and chat forwarding consume one canonical exec approval display shape
+- tool-stream deterministic exec approval prompts now reuse one shared
+  pending-reply details helper instead of manually remapping approval-pending
+  fields into reply payload arguments at each emission site
 - node-side `system.run` approval bypass validation now reuses that shared
   canonical request shaping, so approval forwarding and request storage derive
   node command/cwd/agent/session fields from the same helper instead of a

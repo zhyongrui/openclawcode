@@ -54,6 +54,21 @@ export type ExecApprovalPendingReplyParams = {
   nowMs?: number;
 };
 
+export type ExecApprovalPendingReplyDetails = {
+  warningText?: string;
+  approvalId: string;
+  approvalSlug: string;
+  allowedDecisions?: readonly ExecApprovalReplyDecision[];
+  command: string;
+  cwd?: string;
+  host: ExecHost;
+  nodeId?: string;
+  agentId?: string | null;
+  sessionKey?: string | null;
+  expiresAtMs?: number;
+  nowMs?: number;
+};
+
 export type ExecApprovalUnavailableReplyParams = {
   warningText?: string;
   channel?: string;
@@ -361,6 +376,25 @@ export function buildExecApprovalPendingReplyPayload(
       },
     },
   };
+}
+
+export function buildExecApprovalPendingReplyPayloadFromDetails(
+  details: ExecApprovalPendingReplyDetails,
+): ReplyPayload {
+  return buildExecApprovalPendingReplyPayload({
+    warningText: details.warningText,
+    approvalId: details.approvalId,
+    approvalSlug: details.approvalSlug,
+    allowedDecisions: details.allowedDecisions,
+    command: details.command,
+    cwd: details.cwd,
+    host: details.host,
+    nodeId: details.nodeId,
+    agentId: details.agentId,
+    sessionKey: details.sessionKey,
+    expiresAtMs: details.expiresAtMs,
+    nowMs: details.nowMs,
+  });
 }
 
 export function buildExecApprovalUnavailableReplyPayload(

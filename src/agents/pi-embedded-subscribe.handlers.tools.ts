@@ -13,7 +13,7 @@ import {
   emitAgentPatchSummaryEvent,
 } from "../infra/agent-events.js";
 import {
-  buildExecApprovalPendingReplyPayload,
+  buildExecApprovalPendingReplyPayloadFromDetails,
   buildExecApprovalUnavailableReplyPayload,
 } from "../infra/exec-approval-reply.js";
 import type { ExecApprovalDecision } from "../infra/exec-approvals.js";
@@ -431,19 +431,7 @@ async function emitToolResultOutput(params: {
     }
     ctx.state.deterministicApprovalPromptPending = true;
     try {
-      await ctx.params.onToolResult(
-        buildExecApprovalPendingReplyPayload({
-          approvalId: approvalPending.approvalId,
-          approvalSlug: approvalPending.approvalSlug,
-          allowedDecisions: approvalPending.allowedDecisions,
-          command: approvalPending.command,
-          cwd: approvalPending.cwd,
-          host: approvalPending.host,
-          nodeId: approvalPending.nodeId,
-          expiresAtMs: approvalPending.expiresAtMs,
-          warningText: approvalPending.warningText,
-        }),
-      );
+      await ctx.params.onToolResult(buildExecApprovalPendingReplyPayloadFromDetails(approvalPending));
       ctx.state.deterministicApprovalPromptSent = true;
     } catch {
       ctx.state.deterministicApprovalPromptSent = false;

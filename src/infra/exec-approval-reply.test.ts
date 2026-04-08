@@ -41,6 +41,7 @@ import {
   buildExecApprovalCommandText,
   buildExecApprovalInteractiveReply,
   buildExecApprovalPendingReplyPayload,
+  buildExecApprovalPendingReplyPayloadFromDetails,
   buildExecApprovalUnavailableReplyPayload,
   getExecApprovalApproverDmNoticeText,
   getExecApprovalReplyMetadata,
@@ -352,6 +353,38 @@ describe("exec approval reply helpers", () => {
         sessionKey: "agent:ops-agent:matrix:channel:!room:example.org",
       },
     });
+  });
+
+  it("builds pending replies directly from structured approval details", () => {
+    const payload = buildExecApprovalPendingReplyPayloadFromDetails({
+      approvalId: "req-detail",
+      approvalSlug: "slug-detail",
+      allowedDecisions: ["allow-once", "deny"],
+      command: "npm publish",
+      cwd: "/tmp/work",
+      host: "node",
+      nodeId: "node-1",
+      warningText: "Heads up.",
+      expiresAtMs: 4000,
+      nowMs: 2000,
+      agentId: "ops-agent",
+      sessionKey: "agent:ops-agent:main",
+    });
+
+    expect(payload.channelData).toEqual({
+      execApproval: {
+        approvalId: "req-detail",
+        approvalSlug: "slug-detail",
+        approvalKind: "exec",
+        agentId: "ops-agent",
+        allowedDecisions: ["allow-once", "deny"],
+        sessionKey: "agent:ops-agent:main",
+      },
+    });
+    expect(payload.text).toContain("Heads up.");
+    expect(payload.text).toContain("```txt\n/approve slug-detail allow-once\n```");
+    expect(payload.text).toContain("```sh\nnpm publish\n```");
+    expect(payload.text).toContain("Host: node\nNode: node-1\nCWD: /tmp/work\nExpires in: 2s");
   });
 
   it("uses a longer fence for commands containing triple backticks", () => {
