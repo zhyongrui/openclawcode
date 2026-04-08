@@ -255,6 +255,9 @@ Completed in this wave:
   `systemRunPlan` before request storage or transport
 - approval request payload assembly now lives behind one shared helper instead
   of duplicating node-vs-gateway request shaping across gateway and agent code
+- gateway `exec.approval.get` / `exec.approval.list` now reuse one shared
+  operator-facing response view so approval readers see the same canonical
+  command, preview, cwd, and session metadata that approval writers stored
 
 Staged next:
 

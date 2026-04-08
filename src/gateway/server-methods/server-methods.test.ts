@@ -607,6 +607,9 @@ describe("exec approval handlers", () => {
         host: "gateway",
         nodeId: null,
         agentId: null,
+        cwd: "/tmp",
+        resolvedPath: null,
+        sessionKey: null,
       }),
       undefined,
     );
@@ -644,6 +647,9 @@ describe("exec approval handlers", () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: "approval-list-1",
+          commandText: "echo ok",
+          allowedDecisions: expect.arrayContaining(["allow-once", "allow-always", "deny"]),
+          cwd: "/tmp",
           request: expect.objectContaining({
             command: "echo ok",
           }),
@@ -656,6 +662,63 @@ describe("exec approval handlers", () => {
     await resolveExecApproval({
       handlers,
       id: "approval-list-1",
+      respond: resolveRespond,
+      context,
+    });
+    await requestPromise;
+  });
+
+  it("returns canonical node approval details from exec.approval.get", async () => {
+    const { handlers, broadcasts, respond, context } = createExecApprovalFixture();
+
+    const requestPromise = requestExecApproval({
+      handlers,
+      respond,
+      context,
+      params: {
+        twoPhase: true,
+        command: "echo stale",
+        commandArgv: ["echo", "stale"],
+        cwd: "/tmp/link",
+        agentId: "stale-agent",
+        sessionKey: "stale-session",
+        systemRunPlan: {
+          argv: ["/usr/bin/echo", "ok"],
+          cwd: "/real/cwd",
+          commandText: "/usr/bin/echo ok",
+          commandPreview: "echo ok",
+          agentId: "main",
+          sessionKey: "agent:main:main",
+        },
+      },
+    });
+
+    const requested = broadcasts.find((entry) => entry.event === "exec.approval.requested");
+    const id = (requested?.payload as { id?: string })?.id ?? "";
+    expect(id).not.toBe("");
+
+    const getRespond = vi.fn();
+    await getExecApproval({ handlers, id, respond: getRespond });
+
+    expect(getRespond).toHaveBeenCalledWith(
+      true,
+      expect.objectContaining({
+        id,
+        commandText: "/usr/bin/echo ok",
+        commandPreview: "echo ok",
+        host: "node",
+        nodeId: "node-1",
+        agentId: "main",
+        cwd: "/real/cwd",
+        sessionKey: "agent:main:main",
+      }),
+      undefined,
+    );
+
+    const resolveRespond = vi.fn();
+    await resolveExecApproval({
+      handlers,
+      id,
       respond: resolveRespond,
       context,
     });

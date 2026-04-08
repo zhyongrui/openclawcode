@@ -1,6 +1,3 @@
-import {
-  resolveExecApprovalCommandDisplay,
-} from "../../infra/exec-approval-command-display.js";
 import type { ExecApprovalForwarder } from "../../infra/exec-approval-forwarder.js";
 import {
   DEFAULT_EXEC_APPROVAL_TIMEOUT_MS,
@@ -14,6 +11,7 @@ import {
   buildExecApprovalRequestPayload,
   resolveExecApprovalEffectiveRequest,
 } from "../../infra/exec-approval-effective-request.js";
+import { buildExecApprovalResponseView } from "../../infra/exec-approval-response-view.js";
 import { normalizeOptionalString } from "../../shared/string-coerce.js";
 import type { ExecApprovalManager } from "../exec-approval-manager.js";
 import {
@@ -74,21 +72,9 @@ export function createExecApprovalHandlers(
         respondPendingApprovalLookupError({ respond, response: resolved.response });
         return;
       }
-      const { commandText, commandPreview } = resolveExecApprovalCommandDisplay(
-        resolved.snapshot.request,
-      );
       respond(
         true,
-        {
-          id: resolved.approvalId,
-          commandText,
-          commandPreview,
-          allowedDecisions: resolveExecApprovalRequestAllowedDecisions(resolved.snapshot.request),
-          host: resolved.snapshot.request.host ?? null,
-          nodeId: resolved.snapshot.request.nodeId ?? null,
-          agentId: resolved.snapshot.request.agentId ?? null,
-          expiresAtMs: resolved.snapshot.expiresAtMs,
-        },
+        buildExecApprovalResponseView(resolved.snapshot),
         undefined,
       );
     },
@@ -96,10 +82,8 @@ export function createExecApprovalHandlers(
       respond(
         true,
         manager.listPendingRecords().map((record) => ({
-          id: record.id,
+          ...buildExecApprovalResponseView(record),
           request: record.request,
-          createdAtMs: record.createdAtMs,
-          expiresAtMs: record.expiresAtMs,
         })),
         undefined,
       );
