@@ -573,8 +573,7 @@ export const handleNodeEvent = async (ctx: NodeEventContext, nodeId: string, evt
       if (!obj) {
         return;
       }
-      const sessionKeyRaw =
-        typeof obj.sessionKey === "string" ? obj.sessionKey.trim() : `node-${nodeId}`;
+      const sessionKeyRaw = normalizeOptionalString(obj.sessionKey) ?? `node-${nodeId}`;
       if (!sessionKeyRaw) {
         return;
       }
@@ -591,15 +590,15 @@ export const handleNodeEvent = async (ctx: NodeEventContext, nodeId: string, evt
         return;
       }
 
-      const runId = typeof obj.runId === "string" ? obj.runId.trim() : "";
-      const command = typeof obj.command === "string" ? obj.command.trim() : "";
+      const runId = normalizeOptionalString(obj.runId) ?? "";
+      const command = sanitizeInboundSystemTags(normalizeOptionalString(obj.command) ?? "");
       const exitCode =
         typeof obj.exitCode === "number" && Number.isFinite(obj.exitCode)
           ? obj.exitCode
           : undefined;
       const timedOut = obj.timedOut === true;
-      const output = normalizeOptionalString(obj.output) ?? "";
-      const reason = normalizeOptionalString(obj.reason) ?? "";
+      const output = sanitizeInboundSystemTags(normalizeOptionalString(obj.output) ?? "");
+      const reason = sanitizeInboundSystemTags(normalizeOptionalString(obj.reason) ?? "");
       const outcome = normalizeSystemRunEscalationOutcome(obj.outcome);
 
       let text = "";
@@ -627,7 +626,11 @@ export const handleNodeEvent = async (ctx: NodeEventContext, nodeId: string, evt
         }
       }
 
-      enqueueSystemEvent(text, { sessionKey, contextKey: runId ? `exec:${runId}` : "exec" });
+      enqueueSystemEvent(text, {
+        sessionKey,
+        contextKey: runId ? `exec:${runId}` : "exec",
+        trusted: false,
+      });
       // Scope wakes only for canonical agent sessions. Synthetic node-* fallback
       // keys should keep legacy unscoped behavior so enabled non-main heartbeat
       // agents still run when no explicit agent session is provided.

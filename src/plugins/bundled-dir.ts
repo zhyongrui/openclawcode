@@ -53,6 +53,36 @@ function hasUsableBundledPluginTree(pluginsDir: string): boolean {
   }
 }
 
+function runningSourceTypeScriptProcess(): boolean {
+  const argv1 = process.argv[1]?.toLowerCase();
+  if (
+    argv1?.endsWith(".ts") ||
+    argv1?.endsWith(".tsx") ||
+    argv1?.endsWith(".mts") ||
+    argv1?.endsWith(".cts")
+  ) {
+    return true;
+  }
+
+  for (let index = 0; index < process.execArgv.length; index += 1) {
+    const arg = process.execArgv[index]?.toLowerCase();
+    if (!arg) {
+      continue;
+    }
+    if (arg === "tsx" || arg.includes("tsx/register")) {
+      return true;
+    }
+    if ((arg === "--import" || arg === "--loader") && process.execArgv[index + 1]) {
+      const next = process.execArgv[index + 1].toLowerCase();
+      if (next === "tsx" || next.includes("tsx/")) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 function resolveBundledDirFromPackageRoot(
   packageRoot: string,
   preferSourceCheckout: boolean,
@@ -117,7 +147,10 @@ export function resolveBundledPluginsDir(
     return resolvedOverride;
   }
 
-  const preferSourceCheckout = Boolean(env.VITEST) || env.OPENCLAW_WATCH_MODE === "1";
+  const preferSourceCheckout =
+    Boolean(env.VITEST) ||
+    env.OPENCLAW_WATCH_MODE === "1" ||
+    runningSourceTypeScriptProcess();
 
   try {
     const explicitPackageRoot =

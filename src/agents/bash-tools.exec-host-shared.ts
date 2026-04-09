@@ -90,6 +90,11 @@ export type ExecApprovalFollowupTarget = {
   turnSourceThreadId?: string | number;
 };
 
+export type ExecApprovalFollowupResultDeps = {
+  sendExecApprovalFollowup?: typeof sendExecApprovalFollowup;
+  logWarn?: typeof logWarn;
+};
+
 export type DefaultExecApprovalRequestArgs = {
   warnings: string[];
   approvalRunningNoticeMs: number;
@@ -417,8 +422,11 @@ export function buildExecApprovalBlockedResult(params: {
 export async function sendExecApprovalFollowupResult(
   target: ExecApprovalFollowupTarget,
   resultText: string,
+  deps: ExecApprovalFollowupResultDeps = {},
 ): Promise<void> {
-  await sendExecApprovalFollowup({
+  const send = deps.sendExecApprovalFollowup ?? sendExecApprovalFollowup;
+  const warn = deps.logWarn ?? logWarn;
+  await send({
     approvalId: target.approvalId,
     sessionKey: target.sessionKey,
     turnSourceChannel: target.turnSourceChannel,
@@ -432,7 +440,7 @@ export async function sendExecApprovalFollowupResult(
     if (!rememberExecApprovalFollowupFailureKey(key)) {
       return;
     }
-    logWarn(`exec approval followup dispatch failed (id=${target.approvalId}): ${message}`);
+    warn(`exec approval followup dispatch failed (id=${target.approvalId}): ${message}`);
   });
 }
 
