@@ -321,7 +321,7 @@ describe("node exec events", () => {
 
     expect(enqueueSystemEventMock).toHaveBeenCalledWith(
       "Exec approval required (node=node-4 id=run-4, approval-required): npm publish",
-      { sessionKey: "agent:demo:main", contextKey: "exec:run-4" },
+      { sessionKey: "agent:demo:main", contextKey: "exec:run-4", trusted: false },
     );
   });
 
