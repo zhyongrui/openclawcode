@@ -1,7 +1,5 @@
 import {
-  buildExecApprovalPendingReplyPayload,
-  resolveExecApprovalRequestAllowedDecisions,
-  resolveExecApprovalCommandDisplay,
+  buildExecApprovalPendingReplyPayloadFromRequest,
 } from "openclaw/plugin-sdk/approval-reply-runtime";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
 import type { ExecApprovalRequest } from "openclaw/plugin-sdk/infra-runtime";
@@ -30,16 +28,8 @@ export function buildTelegramExecApprovalPendingPayload(params: {
   request: ExecApprovalRequest;
   nowMs: number;
 }) {
-  return buildExecApprovalPendingReplyPayload({
-    approvalId: params.request.id,
-    approvalSlug: params.request.id.slice(0, 8),
-    approvalCommandId: params.request.id,
-    command: resolveExecApprovalCommandDisplay(params.request.request).commandText,
-    cwd: params.request.request.cwd ?? undefined,
-    host: params.request.request.host === "node" ? "node" : "gateway",
-    nodeId: params.request.request.nodeId ?? undefined,
-    allowedDecisions: resolveExecApprovalRequestAllowedDecisions(params.request.request),
-    expiresAtMs: params.request.expiresAtMs,
+  return buildExecApprovalPendingReplyPayloadFromRequest({
+    request: params.request,
     nowMs: params.nowMs,
   });
 }

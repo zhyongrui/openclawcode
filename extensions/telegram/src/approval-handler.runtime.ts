@@ -4,11 +4,12 @@ import type {
 } from "openclaw/plugin-sdk/approval-handler-runtime";
 import { createChannelApprovalNativeRuntimeAdapter } from "openclaw/plugin-sdk/approval-handler-runtime";
 import { buildChannelApprovalNativeTargetKey } from "openclaw/plugin-sdk/approval-native-runtime";
-import { buildPluginApprovalPendingReplyPayload } from "openclaw/plugin-sdk/approval-reply-runtime";
+import {
+  buildExecApprovalPendingReplyPayloadFromRequest,
+  buildPluginApprovalPendingReplyPayload,
+} from "openclaw/plugin-sdk/approval-reply-runtime";
 import {
   buildApprovalInteractiveReplyFromActionDescriptors,
-  buildExecApprovalPendingReplyPayload,
-  type ExecApprovalPendingReplyParams,
   type ExecApprovalRequest,
   type PluginApprovalRequest,
 } from "openclaw/plugin-sdk/infra-runtime";
@@ -69,20 +70,10 @@ function buildPendingPayload(params: {
           request: params.request as PluginApprovalRequest,
           nowMs: params.nowMs,
         })
-      : buildExecApprovalPendingReplyPayload({
-          approvalId: params.request.id,
-          approvalSlug: params.request.id.slice(0, 8),
-          approvalCommandId: params.request.id,
-          command: params.view.approvalKind === "exec" ? params.view.commandText : "",
-          cwd: params.view.approvalKind === "exec" ? (params.view.cwd ?? undefined) : undefined,
-          host:
-            params.view.approvalKind === "exec" && params.view.host === "node" ? "node" : "gateway",
-          nodeId:
-            params.view.approvalKind === "exec" ? (params.view.nodeId ?? undefined) : undefined,
-          allowedDecisions: params.view.actions.map((action) => action.decision),
-          expiresAtMs: params.request.expiresAtMs,
+      : buildExecApprovalPendingReplyPayloadFromRequest({
+          request: params.request as ExecApprovalRequest,
           nowMs: params.nowMs,
-        } satisfies ExecApprovalPendingReplyParams);
+        });
   return {
     text: payload.text ?? "",
     buttons: resolveTelegramInlineButtons({

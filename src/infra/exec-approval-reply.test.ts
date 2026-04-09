@@ -42,6 +42,7 @@ import {
   buildExecApprovalInteractiveReply,
   buildExecApprovalPendingReplyPayload,
   buildExecApprovalPendingReplyPayloadFromDetails,
+  buildExecApprovalPendingReplyPayloadFromRequest,
   buildExecApprovalUnavailableReplyPayload,
   getExecApprovalApproverDmNoticeText,
   getExecApprovalReplyMetadata,
@@ -385,6 +386,43 @@ describe("exec approval reply helpers", () => {
     expect(payload.text).toContain("```txt\n/approve slug-detail allow-once\n```");
     expect(payload.text).toContain("```sh\nnpm publish\n```");
     expect(payload.text).toContain("Host: node\nNode: node-1\nCWD: /tmp/work\nExpires in: 2s");
+  });
+
+  it("builds pending replies from canonical exec approval requests", () => {
+    const payload = buildExecApprovalPendingReplyPayloadFromRequest({
+      request: {
+        id: "approval-1234",
+        request: {
+          command: "bash safe\u200B.sh",
+          ask: "always",
+          host: "node",
+          nodeId: "node-1",
+          cwd: "/tmp/work",
+          agentId: "ops-agent",
+          sessionKey: "agent:ops-agent:main",
+        },
+        createdAtMs: 100,
+        expiresAtMs: 4000,
+      },
+      nowMs: 2000,
+    });
+
+    expect(payload.channelData).toEqual({
+      execApproval: {
+        approvalId: "approval-1234",
+        approvalSlug: "approval",
+        approvalKind: "exec",
+        agentId: "ops-agent",
+        allowedDecisions: ["allow-once", "deny"],
+        sessionKey: "agent:ops-agent:main",
+      },
+    });
+    expect(payload.text).toContain("```txt\n/approve approval allow-once\n```");
+    expect(payload.text).toContain("```sh\nbash safe\\u{200B}.sh\n```");
+    expect(payload.text).toContain("Host: node\nNode: node-1\nCWD: /tmp/work\nExpires in: 2s");
+    expect(payload.text).toContain(
+      "The effective approval policy requires approval every time, so Allow Always is unavailable.",
+    );
   });
 
   it("uses a longer fence for commands containing triple backticks", () => {

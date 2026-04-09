@@ -12,17 +12,21 @@ describe("telegramApprovalNativeRuntime", () => {
       request: {
         id: "req-1",
         request: {
-          command: "echo hi",
+          command: "bash safe\u200B.sh",
+          ask: "always",
+          host: "node",
+          nodeId: "node-1",
+          cwd: "/tmp/work",
         },
         createdAtMs: 0,
-        expiresAtMs: 60_000,
+        expiresAtMs: 4_000,
       },
       approvalKind: "exec",
-      nowMs: 0,
+      nowMs: 2_000,
       view: {
         approvalKind: "exec",
         approvalId: "req-1",
-        commandText: "echo hi",
+        commandText: "view text should not win",
         actions: [
           {
             decision: "allow-once",
@@ -42,6 +46,9 @@ describe("telegramApprovalNativeRuntime", () => {
 
     expect(payload.text).toContain("/approve req-1 allow-once");
     expect(payload.text).not.toContain("allow-always");
+    expect(payload.text).toContain("```sh\nbash safe\\u{200B}.sh\n```");
+    expect(payload.text).toContain("Host: node\nNode: node-1\nCWD: /tmp/work\nExpires in: 2s");
+    expect(payload.text).not.toContain("view text should not win");
     expect(payload.buttons?.[0]?.map((button) => button.text)).toEqual(["Allow Once", "Deny"]);
   });
 

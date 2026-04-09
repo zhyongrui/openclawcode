@@ -9,9 +9,11 @@ import {
   listNativeExecApprovalClientLabels,
   supportsNativeExecApprovalClient,
 } from "./exec-approval-surface.js";
+import { buildExecApprovalResponseView } from "./exec-approval-response-view.js";
 import {
   resolveExecApprovalAllowedDecisions,
   type ExecApprovalDecision,
+  type ExecApprovalRequest,
   type ExecHost,
 } from "./exec-approvals.js";
 
@@ -66,6 +68,12 @@ export type ExecApprovalPendingReplyDetails = {
   agentId?: string | null;
   sessionKey?: string | null;
   expiresAtMs?: number;
+  nowMs?: number;
+};
+
+export type ExecApprovalPendingReplyRequestParams = {
+  warningText?: string;
+  request: ExecApprovalRequest;
   nowMs?: number;
 };
 
@@ -394,6 +402,26 @@ export function buildExecApprovalPendingReplyPayloadFromDetails(
     sessionKey: details.sessionKey,
     expiresAtMs: details.expiresAtMs,
     nowMs: details.nowMs,
+  });
+}
+
+export function buildExecApprovalPendingReplyPayloadFromRequest(
+  params: ExecApprovalPendingReplyRequestParams,
+): ReplyPayload {
+  const responseView = buildExecApprovalResponseView(params.request);
+  return buildExecApprovalPendingReplyPayloadFromDetails({
+    warningText: params.warningText,
+    approvalId: responseView.id,
+    approvalSlug: responseView.id.slice(0, 8),
+    allowedDecisions: responseView.allowedDecisions,
+    command: responseView.commandText,
+    cwd: responseView.cwd ?? undefined,
+    host: responseView.host === "node" ? "node" : "gateway",
+    nodeId: responseView.nodeId ?? undefined,
+    agentId: responseView.agentId,
+    sessionKey: responseView.sessionKey,
+    expiresAtMs: responseView.expiresAtMs,
+    nowMs: params.nowMs,
   });
 }
 

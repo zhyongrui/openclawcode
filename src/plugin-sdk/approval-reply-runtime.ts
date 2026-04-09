@@ -2,10 +2,12 @@ export {
   buildApprovalInteractiveReplyFromActionDescriptors,
   buildExecApprovalActionDescriptors,
   buildExecApprovalPendingReplyPayload,
+  buildExecApprovalPendingReplyPayloadFromRequest,
   getExecApprovalApproverDmNoticeText,
   getExecApprovalReplyMetadata,
   type ExecApprovalActionDescriptor,
   type ExecApprovalPendingReplyParams,
+  type ExecApprovalPendingReplyRequestParams,
   type ExecApprovalReplyDecision,
   type ExecApprovalReplyMetadata,
 } from "../infra/exec-approval-reply.js";

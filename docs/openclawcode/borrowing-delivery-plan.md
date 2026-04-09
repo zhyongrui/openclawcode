@@ -279,6 +279,10 @@ Completed in this wave:
 - `flows show` text state summaries now sanitize blocked exec-approval boundary
   payloads through the same task-status path as tasks, while JSON flow detail
   output still preserves the raw blocked summary for automation callers
+- Telegram forwarded and native exec approval prompts now reuse one shared
+  request-to-reply helper, so channel delivery consumes the same canonical
+  command, cwd, host, node, and session shaping instead of rebuilding those
+  fields from raw request payloads inside the extension
 
 Staged next:
 
