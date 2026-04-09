@@ -6,8 +6,9 @@ import type {
 import { createChannelApprovalNativeRuntimeAdapter } from "openclaw/plugin-sdk/approval-handler-runtime";
 import { buildChannelApprovalNativeTargetKey } from "openclaw/plugin-sdk/approval-native-runtime";
 import {
-  buildExecApprovalPendingReplyPayload,
+  buildExecApprovalPendingReplyPayloadFromRequest,
   buildPluginApprovalPendingReplyPayload,
+  getExecApprovalReplyMetadata,
   type ExecApprovalReplyDecision,
 } from "openclaw/plugin-sdk/approval-reply-runtime";
 import { buildPluginApprovalResolvedReplyPayload } from "openclaw/plugin-sdk/approval-runtime";
@@ -145,44 +146,23 @@ async function prepareTarget(
 }
 
 function buildPendingApprovalContent(params: {
+  request: ExecApprovalRequest | PluginApprovalRequest;
   view: PendingApprovalView;
   nowMs: number;
 }): PendingApprovalContent {
-  const allowedDecisions = params.view.actions.map((action) => action.decision);
   const payload =
     params.view.approvalKind === "plugin"
       ? buildPluginApprovalPendingReplyPayload({
-          request: {
-            id: params.view.approvalId,
-            request: {
-              title: params.view.title,
-              description: params.view.description ?? "",
-              severity: params.view.severity,
-              toolName: params.view.toolName ?? undefined,
-              pluginId: params.view.pluginId ?? undefined,
-              agentId: params.view.agentId ?? undefined,
-            },
-            createdAtMs: 0,
-            expiresAtMs: params.view.expiresAtMs,
-          } satisfies PluginApprovalRequest,
+          request: params.request as PluginApprovalRequest,
           nowMs: params.nowMs,
-          allowedDecisions,
+          allowedDecisions: params.view.actions.map((action) => action.decision),
         })
-      : buildExecApprovalPendingReplyPayload({
-          approvalId: params.view.approvalId,
-          approvalSlug: params.view.approvalId.slice(0, 8),
-          approvalCommandId: params.view.approvalId,
-          ask: params.view.ask ?? undefined,
-          agentId: params.view.agentId ?? undefined,
-          allowedDecisions,
-          command: params.view.commandText,
-          cwd: params.view.cwd ?? undefined,
-          host: params.view.host === "node" ? "node" : "gateway",
-          nodeId: params.view.nodeId ?? undefined,
-          sessionKey: params.view.sessionKey ?? undefined,
-          expiresAtMs: params.view.expiresAtMs,
+      : buildExecApprovalPendingReplyPayloadFromRequest({
+          request: params.request as ExecApprovalRequest,
           nowMs: params.nowMs,
         });
+  const allowedDecisions =
+    getExecApprovalReplyMetadata(payload)?.allowedDecisions ?? params.view.actions.map((action) => action.decision);
   const hint = buildMatrixApprovalReactionHint(allowedDecisions);
   const text = payload.text ?? "";
   return {
@@ -257,8 +237,9 @@ export const matrixApprovalNativeRuntime = createChannelApprovalNativeRuntimeAda
     },
   },
   presentation: {
-    buildPendingPayload: ({ view, nowMs }) =>
+    buildPendingPayload: ({ request, view, nowMs }) =>
       buildPendingApprovalContent({
+        request: request as ExecApprovalRequest | PluginApprovalRequest,
         view,
         nowMs,
       }),

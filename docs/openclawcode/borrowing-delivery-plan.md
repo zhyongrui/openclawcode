@@ -283,6 +283,10 @@ Completed in this wave:
   request-to-reply helper, so channel delivery consumes the same canonical
   command, cwd, host, node, and session shaping instead of rebuilding those
   fields from raw request payloads inside the extension
+- Matrix native exec approval prompts now also reuse that shared
+  request-to-reply helper, so reaction-driven pending payloads consume the
+  same canonical command, host, node, and session shaping instead of mapping
+  those fields back out of native approval views
 
 Staged next:
 
