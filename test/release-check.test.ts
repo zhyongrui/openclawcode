@@ -291,6 +291,7 @@ describe("collectMissingPackPaths", () => {
       expect.arrayContaining([
         "dist/channel-catalog.json",
         "dist/control-ui/index.html",
+        "qa/scenarios/index.md",
         "scripts/npm-runner.mjs",
         "scripts/postinstall-bundled-plugins.mjs",
         bundledDistPluginFile("diffs", "assets/viewer-runtime.js"),
@@ -322,6 +323,7 @@ describe("collectMissingPackPaths", () => {
         "dist/plugin-sdk/root-alias.cjs",
         "dist/build-info.json",
         "dist/channel-catalog.json",
+        "qa/scenarios/index.md",
       ]),
     ).toEqual([]);
   });

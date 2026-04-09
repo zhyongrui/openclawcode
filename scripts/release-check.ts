@@ -43,6 +43,7 @@ const requiredPathGroups = [
   "dist/build-info.json",
   "dist/channel-catalog.json",
   "dist/control-ui/index.html",
+  "qa/scenarios/index.md",
 ];
 const forbiddenPrefixes = [
   "dist-runtime/",
