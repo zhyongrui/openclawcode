@@ -19,6 +19,7 @@ import {
   openclawCodeOperatorProgramInitCommand,
   openclawCodeOperatorProgramShowCommand,
   openclawCodePolicyShowCommand,
+  openclawCodeRecommendCommand,
   openclawCodeRepoPlanCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
   openclawCodeWorkflowHistoryShowCommand,
@@ -8763,6 +8764,50 @@ describe("openclawCodeRepoPlanCommand", () => {
     expect(payload.mode).toBe("new");
     expect(payload.createdRepository.repo).toBe("igallery-app");
     expect(payload.nextAction).toBe("openclaw code bootstrap --repo acme/igallery-app --json");
+  });
+});
+
+describe("openclawCodeRecommendCommand", () => {
+  const runtime = createTestRuntime();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("prints a machine-readable recommendation payload", async () => {
+    await openclawCodeRecommendCommand(
+      {
+        request: "Make the setup flow feel more proactive for vague user requests",
+        json: true,
+      },
+      runtime,
+    );
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.contractVersion).toBe(1);
+    expect(payload.inputKind).toBe("goal");
+    expect(payload.recommendedApproach).toContain("discovery-and-recommendation layer");
+    expect(payload.suggestedFirstSlice).toContain("openclaw code recommend");
+  });
+
+  it("prints a readable execution recommendation summary", async () => {
+    await openclawCodeRecommendCommand(
+      {
+        request: "Add `foo` to openclaw code run --json in src/commands/openclawcode.ts",
+      },
+      runtime,
+    );
+
+    const lines = runtime.log.mock.calls.map((call) => String(call[0]));
+    expect(lines).toContain("Input kind: execution-ready");
+    expect(lines.some((line) => line.startsWith("Recommended approach: "))).toBe(true);
+    expect(lines.some((line) => line.startsWith("Next step: draft-spec"))).toBe(true);
+  });
+
+  it("rejects empty requests", async () => {
+    await expect(openclawCodeRecommendCommand({}, runtime)).rejects.toThrow(
+      "Pass a request as positional text or with --prompt.",
+    );
   });
 });
 

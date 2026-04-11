@@ -16,6 +16,7 @@ export * from "./pre-code-discipline.js";
 export * from "./project-progress.js";
 export * from "./promotion-artifacts.js";
 export * from "./quality-gate.js";
+export * from "./recommendation.js";
 export * from "./role-routing.js";
 export * from "./roles/index.js";
 export {

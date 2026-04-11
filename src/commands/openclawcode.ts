@@ -42,6 +42,7 @@ import {
   assessValidationIssueImplementation,
   buildOperatorProgramSummary,
   buildOpenClawCodeCapabilityMapSnapshot,
+  buildOpenClawCodeRecommendation,
   classifyValidationIssue,
   FileSystemWorkflowRunStore,
   buildValidationIssueDraft,
@@ -102,6 +103,7 @@ import {
   buildOpenClawCodePolicySnapshot,
   resolveAutoMergeDisposition,
   resolveAutoMergePolicy,
+  type OpenClawCodeRecommendation,
   type OpenClawCodeOperatorStatusSnapshot,
   recordProjectRuntimeSteeringOverride,
   projectRuntimeSteeringStageIds,
@@ -188,6 +190,11 @@ export interface OpenClawCodeRepoPlanOpts {
   visibility?: "public" | "private";
   description?: string;
   limit?: number;
+  json?: boolean;
+}
+
+export interface OpenClawCodeRecommendOpts {
+  request?: string;
   json?: boolean;
 }
 
@@ -1993,6 +2000,23 @@ export async function openclawCodeRepoPlanCommand(
   runtime.log(`Next action: ${payload.nextAction}`);
 }
 
+export async function openclawCodeRecommendCommand(
+  opts: OpenClawCodeRecommendOpts,
+  runtime: RuntimeEnv,
+): Promise<void> {
+  const request = opts.request?.trim();
+  if (!request) {
+    throw new Error("Pass a request as positional text or with --prompt.");
+  }
+
+  const recommendation = buildOpenClawCodeRecommendation(request);
+  logOpenClawCodeRecommendation({
+    recommendation,
+    runtime,
+    json: Boolean(opts.json),
+  });
+}
+
 function logProjectBlueprintSummary(params: {
   summary: Awaited<ReturnType<typeof readProjectBlueprint>>;
   runtime: RuntimeEnv;
@@ -2757,6 +2781,39 @@ function logOpenClawCodeCapabilityMap(params: {
   for (const role of snapshot.runtimeRoles) {
     runtime.log(`- ${role.roleId} | stages=${role.steeringStages.join(", ")}`);
   }
+}
+
+function logOpenClawCodeRecommendation(params: {
+  recommendation: OpenClawCodeRecommendation;
+  runtime: RuntimeEnv;
+  json?: boolean;
+}): void {
+  const { recommendation, runtime } = params;
+  if (params.json) {
+    runtime.log(JSON.stringify(recommendation, null, 2));
+    return;
+  }
+
+  runtime.log(`Recommendation contract version: ${recommendation.contractVersion}`);
+  runtime.log(`Input kind: ${recommendation.inputKind}`);
+  runtime.log(`Work type: ${recommendation.workType}`);
+  runtime.log(
+    `Signals: broadScope=${recommendation.signals.broadScope ? "yes" : "no"} | publicSurface=${recommendation.signals.publicSurface ? "yes" : "no"} | riskySurface=${recommendation.signals.riskySurface ? "yes" : "no"} | missingSuccessCriteria=${recommendation.signals.missingSuccessCriteria ? "yes" : "no"} | multiGoal=${recommendation.signals.multiGoal ? "yes" : "no"}`,
+  );
+  runtime.log(`Inferred goal: ${recommendation.inferredGoal}`);
+  runtime.log(`Recommended approach: ${recommendation.recommendedApproach}`);
+  runtime.log(`Why: ${recommendation.rationale}`);
+  runtime.log(`Alternatives: ${recommendation.alternatives.length}`);
+  for (const alternative of recommendation.alternatives) {
+    runtime.log(`- ${alternative.approach} | when=${alternative.when} | tradeoff=${alternative.tradeoff}`);
+  }
+  runtime.log(`Open questions: ${recommendation.openQuestions.length}`);
+  for (const question of recommendation.openQuestions) {
+    runtime.log(`- ${question}`);
+  }
+  runtime.log(`Suggested first slice: ${recommendation.suggestedFirstSlice}`);
+  runtime.log(`Next step: ${recommendation.nextStep}`);
+  runtime.log(`Next-step reason: ${recommendation.nextStepReason}`);
 }
 
 function logOpenClawCodePolicySnapshot(params: { runtime: RuntimeEnv; json?: boolean }): void {

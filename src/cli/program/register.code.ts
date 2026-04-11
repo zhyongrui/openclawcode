@@ -21,6 +21,7 @@ import {
   openclawCodeCapabilityMapShowCommand,
   openclawCodeOperatorProgramInitCommand,
   openclawCodeOperatorProgramShowCommand,
+  openclawCodeRecommendCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
   openclawCodeWorkflowHistoryShowCommand,
   openclawCodePolicyShowCommand,
@@ -68,6 +69,10 @@ export function registerCodeCommands(program: Command) {
         `
 ${theme.heading("Examples:")}
 ${formatHelpExamples([
+  [
+    'openclaw code recommend "Make the setup flow feel more proactive" --json',
+    "Recommend a concrete first implementation slice for a vague product request.",
+  ],
   [
     'openclaw code repo-plan --project "Shared image gallery for iOS and web"',
     "Suggest a few GitHub repo names for a new project before bootstrap.",
@@ -231,6 +236,28 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
     )
     .action(() => {
       code.help({ error: true });
+    });
+
+  code
+    .command("recommend")
+    .description("Recommend an implementation path for a goal, problem, or partial solution")
+    .argument("[request...]", "Goal, problem, or execution request to analyze")
+    .option("--prompt <text>", "Explicit request text; overrides positional input when provided")
+    .option("--json", "Output JSON", false)
+    .action(async (request, opts) => {
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        const explicitPrompt = (opts.prompt as string | undefined)?.trim();
+        const positional = Array.isArray(request)
+          ? request.join(" ").trim()
+          : String(request ?? "").trim();
+        await openclawCodeRecommendCommand(
+          {
+            request: explicitPrompt || positional || undefined,
+            json: Boolean(opts.json),
+          },
+          defaultRuntime,
+        );
+      });
     });
 
   code

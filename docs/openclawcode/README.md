@@ -52,6 +52,7 @@ Recommended reading order:
 46. `mvp-runbook.md`
 47. `webhook-operations.md`
 48. `third-party-skill-evaluation.md`
+49. `proactive-engineering-partner-v2.md`
 
 Development logs live in `dev-log/`.
 
@@ -67,6 +68,10 @@ For the chat-native version of the first setup step, see
 For the Feishu operator-binding design that compares QR-based binding against
 the current Quick actions fallback, see
 `feishu-qr-operator-binding-design.md`.
+
+For the next product direction that makes `openclawcode` behave more like a
+proactive senior engineering partner, see
+`proactive-engineering-partner-v2.md`.
 
 ## Current Status
 
@@ -177,6 +182,14 @@ loop with:
 - a local builder/verifier runtime adapter built on top of OpenClaw's embedded
   agent entrypoint
 - an `openclaw code run ...` CLI path for issue-driven execution
+- a first proactive recommendation surface via
+  `openclaw code recommend "<request>"`, including:
+  - input-shape classification for goal, problem, partial-solution, and
+    execution-ready requests
+  - one default recommendation plus conditional alternatives
+  - high-value open questions only when they materially affect scope or risk
+  - a suggested first slice and explicit next step, including machine-readable
+    JSON output
 - an `openclaw code bootstrap --repo owner/repo` CLI path for low-touch target
   repo bootstrap, including:
   - target repo clone/attach
