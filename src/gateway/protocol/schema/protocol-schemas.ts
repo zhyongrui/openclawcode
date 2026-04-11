@@ -5,6 +5,7 @@ import {
   AgentIdentityResultSchema,
   AgentParamsSchema,
   AgentWaitParamsSchema,
+  MessageActionParamsSchema,
   PollParamsSchema,
   SendParamsSchema,
   WakeParamsSchema,
@@ -62,6 +63,11 @@ import {
   WebLoginStartParamsSchema,
   WebLoginWaitParamsSchema,
 } from "./channels.js";
+import {
+  CommandEntrySchema,
+  CommandsListParamsSchema,
+  CommandsListResultSchema,
+} from "./commands.js";
 import {
   ConfigApplyParamsSchema,
   ConfigGetParamsSchema,
@@ -204,6 +210,7 @@ export const ProtocolSchemas = {
   Snapshot: SnapshotSchema,
   ErrorShape: ErrorShapeSchema,
   AgentEvent: AgentEventSchema,
+  MessageActionParams: MessageActionParamsSchema,
   SendParams: SendParamsSchema,
   PollParams: PollParamsSchema,
   AgentParams: AgentParamsSchema,
@@ -303,6 +310,9 @@ export const ProtocolSchemas = {
   ModelChoice: ModelChoiceSchema,
   ModelsListParams: ModelsListParamsSchema,
   ModelsListResult: ModelsListResultSchema,
+  CommandEntry: CommandEntrySchema,
+  CommandsListParams: CommandsListParamsSchema,
+  CommandsListResult: CommandsListResultSchema,
   SkillsStatusParams: SkillsStatusParamsSchema,
   ToolsCatalogParams: ToolsCatalogParamsSchema,
   ToolCatalogProfile: ToolCatalogProfileSchema,

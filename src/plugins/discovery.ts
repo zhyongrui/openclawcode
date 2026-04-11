@@ -8,6 +8,7 @@ import {
 } from "../shared/string-coerce.js";
 import { resolveUserPath } from "../utils.js";
 import { detectBundleManifestFormat, loadBundleManifest } from "./bundle-manifest.js";
+import type { PluginBundleFormat, PluginDiagnostic, PluginFormat } from "./manifest-types.js";
 import {
   BUNDLED_PLUGIN_METADATA,
   resolveBundledPluginGeneratedLocation,
@@ -23,8 +24,8 @@ import {
   type PackageManifest,
 } from "./manifest.js";
 import { formatPosixMode, isPathInside, safeRealpathSync, safeStatSync } from "./path-safety.js";
+import type { PluginOrigin } from "./plugin-origin.types.js";
 import { resolvePluginCacheInputs, resolvePluginSourceRoots } from "./roots.js";
-import type { PluginBundleFormat, PluginDiagnostic, PluginFormat, PluginOrigin } from "./types.js";
 
 const EXTENSION_EXTS = new Set([".ts", ".js", ".mts", ".cts", ".mjs", ".cjs"]);
 const SCANNED_DIRECTORY_IGNORE_NAMES = new Set([

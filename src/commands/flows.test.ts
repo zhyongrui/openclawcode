@@ -23,13 +23,9 @@ import {
 } from "../tasks/task-registry.js";
 import { flowsCancelCommand, flowsListCommand, flowsShowCommand } from "./flows.js";
 
-vi.mock("../config/config.js", async () => {
-  const actual = await vi.importActual<typeof import("../config/config.js")>("../config/config.js");
-  return {
-    ...actual,
-    loadConfig: vi.fn(() => ({})),
-  };
-});
+vi.mock("../config/config.js", () => ({
+  loadConfig: vi.fn(() => ({})),
+}));
 
 function createRuntime(): RuntimeEnv {
   return {

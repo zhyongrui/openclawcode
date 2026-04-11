@@ -648,34 +648,42 @@ export function wrapToolWorkspaceRootGuardWithOptions(
   root: string,
   options?: {
     containerWorkdir?: string;
+    pathParamKeys?: readonly string[];
+    normalizeGuardedPathParams?: boolean;
   },
 ): AnyAgentTool {
+  const pathParamKeys =
+    options?.pathParamKeys && options.pathParamKeys.length > 0 ? options.pathParamKeys : ["path"];
   return {
     ...tool,
     execute: async (toolCallId, args, signal, onUpdate) => {
       const record = getToolParamsRecord(args);
-      const filePath = record?.path;
-      let nextArgs = args;
-      if (typeof filePath === "string" && filePath.trim()) {
+      let normalizedRecord: Record<string, unknown> | undefined;
+      for (const key of pathParamKeys) {
+        const filePath = record?.[key];
+        if (typeof filePath !== "string" || !filePath.trim()) {
+          continue;
+        }
         const sandboxPath = mapContainerPathToWorkspaceRoot({
           filePath,
           root,
           containerWorkdir: options?.containerWorkdir,
         });
-        await assertSandboxPath({ filePath: sandboxPath, cwd: root, root });
+        const sandboxResult = await assertSandboxPath({ filePath: sandboxPath, cwd: root, root });
         const canonicalPath = canonicalizeWorkspaceToolPath({
           originalPath: filePath,
-          mappedPath: sandboxPath,
+          mappedPath: sandboxResult.resolved,
           root,
         });
-        if (canonicalPath !== filePath && record) {
-          nextArgs = {
-            ...record,
-            path: canonicalPath,
-          };
+        if (record && (options?.normalizeGuardedPathParams || canonicalPath !== filePath)) {
+          normalizedRecord ??= { ...record };
+          normalizedRecord[key] =
+            options?.normalizeGuardedPathParams && canonicalPath === filePath
+              ? sandboxResult.resolved
+              : canonicalPath;
         }
       }
-      return tool.execute(toolCallId, nextArgs, signal, onUpdate);
+      return tool.execute(toolCallId, normalizedRecord ?? args, signal, onUpdate);
     },
   };
 }
@@ -780,7 +788,7 @@ export function createOpenClawReadTool(
         signal,
         maxBytes: resolveAdaptiveReadMaxBytes(options),
       });
-      const filePath = typeof record?.path === "string" ? String(record.path) : "<unknown>";
+      const filePath = typeof record?.path === "string" ? record.path : "<unknown>";
       const strippedDetailsResult = stripReadTruncationContentDetails(result);
       const normalizedResult = await normalizeReadImageResult(strippedDetailsResult, filePath);
       return sanitizeToolResultImages(

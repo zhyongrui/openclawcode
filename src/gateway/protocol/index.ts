@@ -8,6 +8,8 @@ import {
   type AgentIdentityResult,
   AgentIdentityResultSchema,
   AgentParamsSchema,
+  type MessageActionParams,
+  MessageActionParamsSchema,
   type AgentSummary,
   AgentSummarySchema,
   type AgentsFileEntry,
@@ -56,6 +58,11 @@ import {
   ChannelsStatusParamsSchema,
   type ChannelsStatusResult,
   ChannelsStatusResultSchema,
+  type CommandEntry,
+  type CommandsListParams,
+  CommandsListParamsSchema,
+  type CommandsListResult,
+  CommandsListResultSchema,
   type ChatAbortParams,
   ChatAbortParamsSchema,
   type ChatEvent,
@@ -301,10 +308,13 @@ const ajv = new (AjvPkg as unknown as new (opts?: object) => import("ajv").defau
   removeAdditional: false,
 });
 
+export const validateCommandsListParams = ajv.compile<CommandsListParams>(CommandsListParamsSchema);
 export const validateConnectParams = ajv.compile<ConnectParams>(ConnectParamsSchema);
 export const validateRequestFrame = ajv.compile<RequestFrame>(RequestFrameSchema);
 export const validateResponseFrame = ajv.compile<ResponseFrame>(ResponseFrameSchema);
 export const validateEventFrame = ajv.compile<EventFrame>(EventFrameSchema);
+export const validateMessageActionParams =
+  ajv.compile<MessageActionParams>(MessageActionParamsSchema);
 export const validateSendParams = ajv.compile(SendParamsSchema);
 export const validatePollParams = ajv.compile<PollParams>(PollParamsSchema);
 export const validateAgentParams = ajv.compile(AgentParamsSchema);
@@ -560,6 +570,7 @@ export {
   ErrorShapeSchema,
   StateVersionSchema,
   AgentEventSchema,
+  MessageActionParamsSchema,
   ChatEventSchema,
   SendParamsSchema,
   PollParamsSchema,
@@ -637,6 +648,8 @@ export {
   AgentsFilesSetResultSchema,
   AgentsListParamsSchema,
   AgentsListResultSchema,
+  CommandsListParamsSchema,
+  CommandsListResultSchema,
   ModelsListParamsSchema,
   SkillsStatusParamsSchema,
   ToolsCatalogParamsSchema,
@@ -740,6 +753,9 @@ export type {
   AgentsFilesSetResult,
   AgentsListParams,
   AgentsListResult,
+  CommandsListParams,
+  CommandsListResult,
+  CommandEntry,
   SkillsStatusParams,
   ToolsCatalogParams,
   ToolsCatalogResult,
