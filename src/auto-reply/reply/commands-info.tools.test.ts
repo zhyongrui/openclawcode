@@ -195,6 +195,7 @@ async function loadToolsHarness(options?: {
     buildThreadingToolContext: () => ({
       currentChannelId: "channel-123",
       currentMessageId: "message-456",
+      replyToMode: "all" as const,
     }),
   }));
   vi.doMock("./reply-threading.js", () => ({
@@ -309,6 +310,48 @@ describe("handleToolsCommand", () => {
     await handleToolsCommand(params, true);
 
     expect(resolveToolsMock).toHaveBeenCalledWith(expect.objectContaining({ groupId: undefined }));
+  });
+
+  it("prefers the target session entry for tool inventory group metadata", async () => {
+    const { buildCommandTestParams, handleToolsCommand, resolveToolsMock } =
+      await loadToolsHarness();
+    const params = buildCommandTestParams("/tools", buildConfig(), undefined, {
+      workspaceDir: "/tmp",
+    });
+    params.sessionEntry = {
+      sessionId: "wrapper-session",
+      updatedAt: Date.now(),
+      groupId: "wrapper-group",
+      groupChannel: "#wrapper",
+      space: "wrapper-space",
+    };
+    params.sessionStore = {
+      [params.sessionKey]: {
+        sessionId: "target-session",
+        updatedAt: Date.now(),
+        groupId: "target-group",
+        groupChannel: "#target",
+        space: "target-space",
+      },
+    };
+    params.ctx = {
+      ...params.ctx,
+      From: "telegram:group:abc123",
+      Provider: "telegram",
+      Surface: "telegram",
+      GroupChannel: "#ctx",
+      GroupSpace: "ctx-space",
+    };
+
+    await handleToolsCommand(params, true);
+
+    expect(resolveToolsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        groupId: "target-group",
+        groupChannel: "#target",
+        groupSpace: "target-space",
+      }),
+    );
   });
 
   it("renders the detailed tool list in verbose mode", async () => {
@@ -557,5 +600,51 @@ describe("handleToolsCommand", () => {
       shouldContinue: false,
       reply: { text: "Couldn't load available tools right now. Try again in a moment." },
     });
+  });
+
+  it("uses the canonical target session agent for /tools inventory", async () => {
+    const { resolveSessionAgentId } = await import("../../agents/agent-scope.js");
+    vi.mocked(resolveSessionAgentId).mockReturnValue("target");
+    const { buildCommandTestParams, handleToolsCommand, resolveToolsMock } =
+      await loadToolsHarness();
+    const params = buildCommandTestParams("/tools", buildConfig(), undefined, {
+      workspaceDir: "/tmp",
+    });
+    params.agentId = "main";
+    params.sessionKey = "agent:target:whatsapp:direct:12345";
+
+    const result = await handleToolsCommand(params, true);
+
+    expect(result?.shouldContinue).toBe(false);
+    expect(resolveToolsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "target",
+        sessionKey: "agent:target:whatsapp:direct:12345",
+      }),
+    );
+  });
+
+  it("does not forward a stale ambient agentDir for session-bound /tools", async () => {
+    const { resolveSessionAgentId } = await import("../../agents/agent-scope.js");
+    vi.mocked(resolveSessionAgentId).mockReturnValue("target");
+    const { buildCommandTestParams, handleToolsCommand, resolveToolsMock } =
+      await loadToolsHarness();
+    const params = buildCommandTestParams("/tools", buildConfig(), undefined, {
+      workspaceDir: "/tmp",
+    });
+    params.agentId = "main";
+    params.agentDir = "/tmp/agents/main/agent";
+    params.sessionKey = "agent:target:whatsapp:direct:12345";
+
+    const result = await handleToolsCommand(params, true);
+
+    expect(result?.shouldContinue).toBe(false);
+    expect(resolveToolsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "target",
+        agentDir: undefined,
+        sessionKey: "agent:target:whatsapp:direct:12345",
+      }),
+    );
   });
 });

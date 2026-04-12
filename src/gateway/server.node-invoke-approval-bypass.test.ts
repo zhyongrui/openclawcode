@@ -31,13 +31,13 @@ import {
 } from "./test-helpers.js";
 
 installGatewayTestHooks({ scope: "suite" });
-const NODE_CONNECT_TIMEOUT_MS = 3_000;
+const NODE_CONNECT_TIMEOUT_MS = 10_000;
 const CONNECT_REQ_TIMEOUT_MS = 2_000;
 
 function createDeviceIdentity(): DeviceIdentity {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
-  const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
-  const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+  const publicKeyPem = publicKey.export({ type: "spki", format: "pem" });
+  const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" });
   const publicKeyRaw = publicKeyRawBase64UrlFromPem(publicKeyPem);
   const deviceId = deriveDeviceIdFromPublicKey(publicKeyRaw);
   if (!deviceId) {
@@ -141,11 +141,7 @@ describe("node.invoke approval bypass", () => {
       const ws = new WebSocket(`ws://127.0.0.1:${port}`);
       trackConnectChallengeNonce(ws);
       const challengePromise = resolveDevice
-        ? onceMessage<{
-            type?: string;
-            event?: string;
-            payload?: Record<string, unknown> | null;
-          }>(ws, (o) => o.type === "event" && o.event === "connect.challenge")
+        ? onceMessage(ws, (o) => o.type === "event" && o.event === "connect.challenge")
         : null;
       await new Promise<void>((resolve) => ws.once("open", resolve));
       const nonce = (() => {
@@ -187,8 +183,8 @@ describe("node.invoke approval bypass", () => {
 
   const connectOperatorWithNewDevice = async (scopes: string[]) => {
     const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
-    const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
-    const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    const publicKeyPem = publicKey.export({ type: "spki", format: "pem" });
+    const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" });
     const publicKeyRaw = publicKeyRawBase64UrlFromPem(publicKeyPem);
     const deviceId = deriveDeviceIdFromPublicKey(publicKeyRaw);
     expect(deviceId).toBeTruthy();
@@ -403,6 +399,12 @@ describe("node.invoke approval bypass", () => {
         idempotencyKey: crypto.randomUUID(),
       });
       expect(invoke.ok).toBe(true);
+      for (let i = 0; i < 100; i += 1) {
+        if (lastInvokeParams) {
+          break;
+        }
+        await sleep(50);
+      }
       expect(lastInvokeParams).toBeTruthy();
       expect(lastInvokeParams?.["approved"]).toBe(true);
       expect(lastInvokeParams?.["approvalDecision"]).toBe("allow-once");

@@ -150,6 +150,27 @@ type PreparedOutgoingChatMessage = {
   apiAttachments?: Array<{ type: "image"; mimeType: string; content: string }>;
 };
 
+function buildApiAttachments(
+  attachments?: ChatAttachment[],
+): Array<{ type: "image"; mimeType: string; content: string }> | undefined {
+  const hasAttachments = attachments && attachments.length > 0;
+  return hasAttachments
+    ? attachments
+        .map((att) => {
+          const parsed = dataUrlToBase64(att.dataUrl);
+          if (!parsed) {
+            return null;
+          }
+          return {
+            type: "image" as const,
+            mimeType: parsed.mimeType,
+            content: parsed.content,
+          };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    : undefined;
+}
+
 function prepareOutgoingChatMessage(
   message: string,
   attachments?: ChatAttachment[],
@@ -174,21 +195,7 @@ function prepareOutgoingChatMessage(
     }
   }
 
-  const apiAttachments = hasAttachments
-    ? attachments
-        .map((att) => {
-          const parsed = dataUrlToBase64(att.dataUrl);
-          if (!parsed) {
-            return null;
-          }
-          return {
-            type: "image" as const,
-            mimeType: parsed.mimeType,
-            content: parsed.content,
-          };
-        })
-        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
-    : undefined;
+  const apiAttachments = buildApiAttachments(attachments);
 
   return {
     now: Date.now(),
@@ -259,6 +266,19 @@ export function isBackgroundChatRun(
   runId: string | null | undefined,
 ): boolean {
   return typeof runId === "string" && state.chatBackgroundRunIds.has(runId);
+}
+
+async function requestChatSend(
+  state: ChatState,
+  params: { message: string; attachments?: ChatAttachment[]; runId: string },
+) {
+  await state.client!.request("chat.send", {
+    sessionKey: state.sessionKey,
+    message: params.message,
+    deliver: false,
+    idempotencyKey: params.runId,
+    attachments: buildApiAttachments(params.attachments),
+  });
 }
 
 type AssistantMessageNormalizationOptions = {
@@ -332,12 +352,10 @@ export async function sendChatMessage(
   state.chatStreamStartedAt = prepared.now;
 
   try {
-    await state.client.request("chat.send", {
-      sessionKey: state.sessionKey,
+    await requestChatSend(state, {
       message: prepared.msg,
-      deliver: false,
-      idempotencyKey: runId,
-      attachments: prepared.apiAttachments,
+      attachments,
+      runId,
     });
     return runId;
   } catch (err) {
@@ -422,6 +440,30 @@ export async function sendBackgroundChatMessage(
     return null;
   } finally {
     state.chatSending = false;
+  }
+}
+
+export async function sendDetachedChatMessage(
+  state: ChatState,
+  message: string,
+  attachments?: ChatAttachment[],
+): Promise<string | null> {
+  if (!state.client || !state.connected) {
+    return null;
+  }
+  const msg = message.trim();
+  const hasAttachments = attachments && attachments.length > 0;
+  if (!msg && !hasAttachments) {
+    return null;
+  }
+  state.lastError = null;
+  const runId = generateUUID();
+  try {
+    await requestChatSend(state, { message: msg, attachments, runId });
+    return runId;
+  } catch (err) {
+    state.lastError = formatConnectError(err);
+    return null;
   }
 }
 

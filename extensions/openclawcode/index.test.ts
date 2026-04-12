@@ -2063,6 +2063,11 @@ describe("openclawcode extension", () => {
 
       expect(result?.text).toContain("waiting for confirmation");
       expect(result?.text).toContain("Intake mode: feature");
+      expect(result?.text).toContain("Recommended mode: spec");
+      expect(result?.text).toContain("Implementation shape: spec-first");
+      expect(result?.text).toContain(
+        "Recommended path: Write down the contract or seam change first, then implement one compatible slice.",
+      );
       expect(result?.text).toContain(
         "Priority question: What exact behavior, contract, or operator surface should change?",
       );
@@ -2080,6 +2085,56 @@ describe("openclawcode extension", () => {
         title: "Expose issueCount in openclaw code run --json output",
         bodySynthesized: true,
         scopedDrafts: [],
+        specDraftSummary: {
+          recommendedMode: "spec",
+          implementationShape: "spec-first",
+          riskLevel: "medium",
+          nextStep: "draft-spec",
+        },
+      });
+    } finally {
+      await fs.rm(fixture.repoRoot, { recursive: true, force: true });
+      await fs.rm(fixture.stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("surfaces discovery-first blocking guidance for risky one-line intake requests", async () => {
+    const fixture = await registerPluginFixture();
+    try {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      const result = await fixture.commands.get("occode-intake")?.handler({
+        channel: "feishu",
+        isAuthorizedSender: true,
+        commandBody: [
+          "/occode-intake",
+          "Rotate webhook signing secrets without breaking production delivery retries",
+        ].join("\n"),
+        args: "",
+        to: "user:intake-chat",
+        config: {},
+      });
+
+      expect(result?.text).toContain("Recommended mode: discover");
+      expect(result?.text).toContain("Spec risk: high");
+      expect(result?.text).toContain(
+        "Blocking question: What rollout, compatibility, or safety constraints must stay true during this change?",
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      const snapshot = await fixture.store.snapshot();
+      expect(snapshot.pendingIntakeDrafts[0]).toMatchObject({
+        title: "Rotate webhook signing secrets without breaking production delivery retries",
+        bodySynthesized: true,
+        specDraftSummary: {
+          recommendedMode: "discover",
+          implementationShape: "spec-first",
+          riskLevel: "high",
+          nextStep: "ask-user",
+          blockingQuestion:
+            "What rollout, compatibility, or safety constraints must stay true during this change?",
+        },
       });
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
@@ -2216,6 +2271,9 @@ describe("openclawcode extension", () => {
       expect(String(requestPayload.body)).toContain(
         "Q: What exact behavior, contract, or operator surface should change?",
       );
+      expect(String(requestPayload.body)).toContain("Implementation recommendation");
+      expect(String(requestPayload.body)).toContain("Recommended mode: spec");
+      expect(String(requestPayload.body)).toContain("Implementation shape: spec-first");
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
@@ -2255,6 +2313,7 @@ describe("openclawcode extension", () => {
       expect(preview?.text).toContain(
         "Title: Expose issueCount and issueRepo in openclaw code run --json output",
       );
+      expect(preview?.text).toContain("Recommended mode: spec");
       expect(preview?.text).toContain("Body preview:");
       expect(preview?.text).toContain("Scoped drafts: 2");
       expect(preview?.text).toContain("Use /occode-intake-preview zhyongrui/openclawcode");
@@ -2509,9 +2568,12 @@ describe("openclawcode extension", () => {
       });
 
       expect(confirmed?.text).toContain("Issue: zhyongrui/openclawcode#223");
-      expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      const requestPayload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+      expect(requestPayload).toMatchObject({
         title: "Expose issueRepo in openclaw code run --json output",
       });
+      expect(String(requestPayload.body)).toContain("Implementation recommendation");
+      expect(String(requestPayload.body)).toContain("Recommended mode: spec");
 
       const snapshot = await fixture.store.snapshot();
       expect(snapshot.pendingIntakeDrafts).toEqual([]);

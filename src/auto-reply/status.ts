@@ -20,14 +20,15 @@ import type {
 } from "../agents/tools-effective-inventory.js";
 import { derivePromptTokens, normalizeUsage, type UsageLike } from "../agents/usage.js";
 import { resolveChannelModelOverride } from "../channels/model-overrides.js";
-import type { OpenClawConfig } from "../config/config.js";
 import {
   resolveMainSessionKey,
+  resolveSessionPluginDebugLines,
   resolveSessionFilePath,
   resolveSessionFilePathOptions,
   type SessionEntry,
   type SessionScope,
 } from "../config/sessions.js";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { readLatestSessionUsageFromTranscript } from "../gateway/session-utils.fs.js";
 import { formatTimeAgo } from "../infra/format-time/format-relative.ts";
 import { resolveCommitHash } from "../infra/git-commit.js";
@@ -472,7 +473,7 @@ export function buildStatusMessage(args: StatusArgs): string {
       initialFallbackState.active &&
       normalizeLowercaseStringOrEmpty(runtimeModelRaw) ===
         normalizeLowercaseStringOrEmpty(
-          normalizeOptionalString(String(entry?.fallbackNoticeActiveModel ?? "")) ?? "",
+          normalizeOptionalString(entry?.fallbackNoticeActiveModel ?? "") ?? "",
         );
     const runtimeMatchesSelectedModel =
       normalizeLowercaseStringOrEmpty(runtimeModelRaw) ===
@@ -679,6 +680,8 @@ export function buildStatusMessage(args: StatusArgs): string {
   const queueDetails = formatQueueDetails(args.queue);
   const verboseLabel =
     verboseLevel === "full" ? "verbose:full" : verboseLevel === "on" ? "verbose" : null;
+  const pluginDebugLines = verboseLevel !== "off" ? resolveSessionPluginDebugLines(entry) : [];
+  const pluginStatusLine = pluginDebugLines.length > 0 ? pluginDebugLines.join(" · ") : null;
   const elevatedLabel =
     elevatedLevel && elevatedLevel !== "off"
       ? elevatedLevel === "on"
@@ -839,6 +842,7 @@ export function buildStatusMessage(args: StatusArgs): string {
     args.subagentsLine,
     args.taskLine,
     `⚙️ ${optionsLine}`,
+    pluginStatusLine ? `🧩 ${pluginStatusLine}` : null,
     voiceLine,
     activationLine,
   ]

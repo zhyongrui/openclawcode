@@ -281,7 +281,7 @@ export class GatewayChatClient {
   }
 
   async listModels(): Promise<GatewayModelChoice[]> {
-    const res = await this.client.request<{ models?: GatewayModelChoice[] }>("models.list");
+    const res = await this.client.request("models.list");
     return Array.isArray(res?.models) ? res.models : [];
   }
 }

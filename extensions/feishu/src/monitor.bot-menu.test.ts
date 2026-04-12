@@ -180,7 +180,7 @@ describe("Feishu bot menu handler", () => {
       createBotMenuEvent({ eventKey: "quick-actions", timestamp: "1700000000001" }),
     );
     let settled = false;
-    pending.finally(() => {
+    void pending.finally(() => {
       settled = true;
     });
 

@@ -1,95 +1,23 @@
-import type { ChannelApprovalKind } from "../channels/plugins/types.adapters.js";
-import {
-  buildExecApprovalActionDescriptors,
-  type ExecApprovalActionDescriptor,
-} from "./exec-approval-reply.js";
-import {
-  type ExecApprovalDecision,
-  type ExecApprovalRequest,
-  type ExecApprovalResolved,
-} from "./exec-approvals.js";
+import type {
+  ApprovalMetadataView,
+  ApprovalRequest,
+  ApprovalResolved,
+  ExecApprovalViewBase,
+  ExpiredApprovalView,
+  PendingApprovalView,
+  PluginApprovalViewBase,
+  ResolvedApprovalView,
+} from "./approval-view-model.types.js";
+import { buildExecApprovalActionDescriptors } from "./exec-approval-reply.js";
 import { buildExecApprovalResponseView } from "./exec-approval-response-view.js";
-import type { PluginApprovalRequest, PluginApprovalResolved } from "./plugin-approvals.js";
+import type { ExecApprovalRequest } from "./exec-approvals.js";
+import type { PluginApprovalRequest } from "./plugin-approvals.js";
 
-type ApprovalRequest = ExecApprovalRequest | PluginApprovalRequest;
-type ApprovalResolved = ExecApprovalResolved | PluginApprovalResolved;
 type ApprovalPhase = "pending" | "resolved" | "expired";
 
-export type ApprovalActionView = ExecApprovalActionDescriptor;
-
-export type ApprovalMetadataView = {
-  label: string;
-  value: string;
-};
-
-type ApprovalViewBase = {
-  approvalId: string;
-  approvalKind: ChannelApprovalKind;
-  phase: "pending" | "resolved" | "expired";
-  title: string;
-  description?: string | null;
-  metadata: ApprovalMetadataView[];
-};
-
-type ExecApprovalViewBase = ApprovalViewBase & {
-  approvalKind: "exec";
-  ask?: string | null;
-  agentId?: string | null;
-  commandText: string;
-  commandPreview?: string | null;
-  cwd?: string | null;
-  envKeys?: readonly string[];
-  host?: string | null;
-  nodeId?: string | null;
-  sessionKey?: string | null;
-};
-
-export type ExecApprovalPendingView = ExecApprovalViewBase & {
-  phase: "pending";
-  actions: ApprovalActionView[];
-  expiresAtMs: number;
-};
-
-export type ExecApprovalResolvedView = ExecApprovalViewBase & {
-  phase: "resolved";
-  decision: ExecApprovalDecision;
-  resolvedBy?: string | null;
-};
-
-export type ExecApprovalExpiredView = ExecApprovalViewBase & {
-  phase: "expired";
-};
-
-type PluginApprovalViewBase = ApprovalViewBase & {
-  approvalKind: "plugin";
-  agentId?: string | null;
-  pluginId?: string | null;
-  toolName?: string | null;
-  severity: "info" | "warning" | "critical";
-};
-
-export type PluginApprovalPendingView = PluginApprovalViewBase & {
-  phase: "pending";
-  actions: ApprovalActionView[];
-  expiresAtMs: number;
-};
-
-export type PluginApprovalResolvedView = PluginApprovalViewBase & {
-  phase: "resolved";
-  decision: ExecApprovalDecision;
-  resolvedBy?: string | null;
-};
-
-export type PluginApprovalExpiredView = PluginApprovalViewBase & {
-  phase: "expired";
-};
-
-export type PendingApprovalView = ExecApprovalPendingView | PluginApprovalPendingView;
-export type ResolvedApprovalView = ExecApprovalResolvedView | PluginApprovalResolvedView;
-export type ExpiredApprovalView = ExecApprovalExpiredView | PluginApprovalExpiredView;
-export type ApprovalViewModel = PendingApprovalView | ResolvedApprovalView | ExpiredApprovalView;
-
-function buildExecMetadata(view: ReturnType<typeof buildExecApprovalResponseView>): ApprovalMetadataView[] {
+function buildExecMetadata(
+  view: ReturnType<typeof buildExecApprovalResponseView>,
+): ApprovalMetadataView[] {
   const metadata: ApprovalMetadataView[] = [];
   if (view.agentId) {
     metadata.push({ label: "Agent", value: view.agentId });
@@ -179,12 +107,13 @@ export function buildPendingApprovalView(request: ApprovalRequest): PendingAppro
     };
   }
   const execRequest = request as ExecApprovalRequest;
+  const responseView = buildExecApprovalResponseView(execRequest);
   return {
     ...buildExecViewBase(execRequest, "pending"),
     actions: buildExecApprovalActionDescriptors({
       approvalCommandId: execRequest.id,
       ask: execRequest.request.ask,
-      allowedDecisions: buildExecApprovalResponseView(execRequest).allowedDecisions,
+      allowedDecisions: responseView.allowedDecisions,
     }),
     expiresAtMs: execRequest.expiresAtMs,
   };
