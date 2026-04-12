@@ -2271,6 +2271,9 @@ describe("openclawcode extension", () => {
       expect(String(requestPayload.body)).toContain(
         "Q: What exact behavior, contract, or operator surface should change?",
       );
+      expect(String(requestPayload.body)).toContain("Implementation recommendation");
+      expect(String(requestPayload.body)).toContain("Recommended mode: spec");
+      expect(String(requestPayload.body)).toContain("Implementation shape: spec-first");
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
@@ -2565,9 +2568,12 @@ describe("openclawcode extension", () => {
       });
 
       expect(confirmed?.text).toContain("Issue: zhyongrui/openclawcode#223");
-      expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      const requestPayload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+      expect(requestPayload).toMatchObject({
         title: "Expose issueRepo in openclaw code run --json output",
       });
+      expect(String(requestPayload.body)).toContain("Implementation recommendation");
+      expect(String(requestPayload.body)).toContain("Recommended mode: spec");
 
       const snapshot = await fixture.store.snapshot();
       expect(snapshot.pendingIntakeDrafts).toEqual([]);

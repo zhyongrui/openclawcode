@@ -4797,6 +4797,40 @@ function materializePendingIntakeDraftBody(params: {
   ].join("\n");
 }
 
+function materializePendingIntakeIssueBody(params: {
+  body: string;
+  clarificationResponses?: Array<{
+    question: string;
+    answer: string;
+    answeredAt: string;
+  }>;
+  specDraftSummary?: OpenClawCodePendingIntakeSpecDraftSummary;
+}): string {
+  const baseBody = materializePendingIntakeDraftBody({
+    body: params.body,
+    clarificationResponses: params.clarificationResponses,
+  });
+  if (!params.specDraftSummary) {
+    return baseBody;
+  }
+  return [
+    baseBody,
+    "",
+    "Implementation recommendation",
+    `Recommended mode: ${params.specDraftSummary.recommendedMode}`,
+    `Implementation shape: ${params.specDraftSummary.implementationShape}`,
+    `Recommended path: ${params.specDraftSummary.recommendedApproach}`,
+    `Next step: ${params.specDraftSummary.nextStep}`,
+    `Next step reason: ${params.specDraftSummary.nextStepReason}`,
+    `Risk level: ${params.specDraftSummary.riskLevel}`,
+    params.specDraftSummary.blockingQuestion
+      ? `Blocking question: ${params.specDraftSummary.blockingQuestion}`
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function parseRepoScopedMultilineBody(params: {
   commandBody: string;
   commandName: string;
@@ -8640,9 +8674,18 @@ export default {
           destination,
           draft: {
             title: draft.title,
-            body: materializePendingIntakeDraftBody({
+            body: materializePendingIntakeIssueBody({
               body: draft.body,
               clarificationResponses: draft.clarificationResponses,
+              specDraftSummary:
+                draft.specDraftSummary ??
+                buildChatIntakeSpecDraftSummary({
+                  title: draft.title,
+                  body: draft.body,
+                  sourceRequest: draft.sourceRequest,
+                  bodySynthesized: draft.bodySynthesized,
+                  clarificationResponses: draft.clarificationResponses,
+                }),
             }),
           },
         });
