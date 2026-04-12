@@ -17,6 +17,14 @@ import {
   resolveAutoMergePolicy,
 } from "../../openclawcode/index.js";
 import type { WorkflowPreCodeDisciplineStatus } from "../../openclawcode/index.js";
+import {
+  OPENCLAWCODE_RECOMMENDATION_IMPLEMENTATION_SHAPES,
+  OPENCLAWCODE_RECOMMENDATION_MODES,
+  OPENCLAWCODE_RECOMMENDATION_NEXT_STEP_IDS,
+  type OpenClawCodeRecommendationImplementationShape,
+  type OpenClawCodeRecommendationMode,
+  type OpenClawCodeRecommendationNextStep,
+} from "../../openclawcode/recommendation.js";
 import type { OpenClawCodeScopedIssueDraft } from "./chatops.js";
 import type { OpenClawCodeChatopsRunRequest } from "./chatops.js";
 
@@ -45,6 +53,7 @@ export interface OpenClawCodePendingIntakeDraft {
   sourceRequest: string;
   bodySynthesized: boolean;
   scopedDrafts: OpenClawCodeScopedIssueDraft[];
+  specDraftSummary?: OpenClawCodePendingIntakeSpecDraftSummary;
   clarificationQuestions: string[];
   clarificationSuggestions: string[];
   clarificationResponses: OpenClawCodePendingIntakeClarificationResponse[];
@@ -52,10 +61,64 @@ export interface OpenClawCodePendingIntakeDraft {
   updatedAt: string;
 }
 
+export interface OpenClawCodePendingIntakeSpecDraftSummary {
+  recommendedMode: OpenClawCodeRecommendationMode;
+  implementationShape: OpenClawCodeRecommendationImplementationShape;
+  recommendedApproach: string;
+  nextStep: OpenClawCodeRecommendationNextStep;
+  nextStepReason: string;
+  riskLevel: "low" | "medium" | "high";
+  blockingQuestion: string | null;
+  openQuestionCount: number;
+}
+
 export interface OpenClawCodePendingIntakeClarificationResponse {
   question: string;
   answer: string;
   answeredAt: string;
+}
+
+const PENDING_INTAKE_SPEC_DRAFT_RISK_LEVELS = ["low", "medium", "high"] as const;
+
+function normalizePendingIntakeSpecDraftSummary(
+  raw: unknown,
+): OpenClawCodePendingIntakeSpecDraftSummary | undefined {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  const candidate = raw as Partial<OpenClawCodePendingIntakeSpecDraftSummary>;
+  if (
+    !OPENCLAWCODE_RECOMMENDATION_MODES.includes(
+      candidate.recommendedMode as OpenClawCodeRecommendationMode,
+    ) ||
+    !OPENCLAWCODE_RECOMMENDATION_IMPLEMENTATION_SHAPES.includes(
+      candidate.implementationShape as OpenClawCodeRecommendationImplementationShape,
+    ) ||
+    typeof candidate.recommendedApproach !== "string" ||
+    !OPENCLAWCODE_RECOMMENDATION_NEXT_STEP_IDS.includes(
+      candidate.nextStep as OpenClawCodeRecommendationNextStep,
+    ) ||
+    typeof candidate.nextStepReason !== "string" ||
+    !PENDING_INTAKE_SPEC_DRAFT_RISK_LEVELS.includes(
+      candidate.riskLevel as (typeof PENDING_INTAKE_SPEC_DRAFT_RISK_LEVELS)[number],
+    ) ||
+    (candidate.blockingQuestion !== null && typeof candidate.blockingQuestion !== "string") ||
+    typeof candidate.openQuestionCount !== "number"
+  ) {
+    return undefined;
+  }
+
+  return {
+    recommendedMode: candidate.recommendedMode as OpenClawCodeRecommendationMode,
+    implementationShape:
+      candidate.implementationShape as OpenClawCodeRecommendationImplementationShape,
+    recommendedApproach: candidate.recommendedApproach,
+    nextStep: candidate.nextStep as OpenClawCodeRecommendationNextStep,
+    nextStepReason: candidate.nextStepReason,
+    riskLevel: candidate.riskLevel as (typeof PENDING_INTAKE_SPEC_DRAFT_RISK_LEVELS)[number],
+    blockingQuestion: candidate.blockingQuestion as string | null,
+    openQuestionCount: candidate.openQuestionCount,
+  };
 }
 
 export type OpenClawCodeSetupSessionStage =
@@ -404,6 +467,7 @@ function normalizePendingIntakeDraft(raw: unknown): OpenClawCodePendingIntakeDra
           ];
         })
       : [],
+    specDraftSummary: normalizePendingIntakeSpecDraftSummary(candidate.specDraftSummary),
     clarificationQuestions: Array.isArray(candidate.clarificationQuestions)
       ? candidate.clarificationQuestions.filter(
           (value): value is string => typeof value === "string",

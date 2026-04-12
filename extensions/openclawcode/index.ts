@@ -40,6 +40,7 @@ import {
   type OpenClawCodeGitHubDeliveryRecord,
   type OpenClawCodeIssueStatusSnapshot,
   type OpenClawCodeDeferredRuntimeReroute,
+  type OpenClawCodePendingIntakeSpecDraftSummary,
 } from "../../src/integrations/openclaw-plugin/index.js";
 import {
   readProjectAutonomousLoopArtifact,
@@ -88,6 +89,7 @@ import {
   readProjectProgressArtifact,
   writeProjectProgressArtifact,
 } from "../../src/openclawcode/project-progress.js";
+import { buildOpenClawCodeSpecDraft } from "../../src/openclawcode/recommendation.js";
 import {
   readProjectPromotionReceiptArtifact,
   readProjectRollbackReceiptArtifact,
@@ -4545,6 +4547,46 @@ type ChatIntakeClarificationReport = {
   suggestions: string[];
 };
 
+function buildChatIntakeSpecDraftSummary(params: {
+  title: string;
+  body: string;
+  sourceRequest?: string;
+  bodySynthesized: boolean;
+  clarificationResponses?: Array<{
+    question: string;
+    answer: string;
+    answeredAt: string;
+  }>;
+}): OpenClawCodePendingIntakeSpecDraftSummary {
+  const baseRequest =
+    params.sourceRequest?.trim() ||
+    (params.bodySynthesized ? params.title.trim() : [params.title, params.body].join("\n").trim());
+  const request = [
+    baseRequest,
+    ...(params.clarificationResponses ?? []).flatMap((response) =>
+      response.answer.trim()
+        ? [`Q: ${response.question}`, `A: ${response.answer.trim()}`]
+        : [],
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const specDraft = buildOpenClawCodeSpecDraft(request);
+  const blockingQuestion =
+    specDraft.openQuestions.find((question) => question.blocking)?.question ?? null;
+
+  return {
+    recommendedMode: specDraft.recommendedMode,
+    implementationShape: specDraft.implementationShape,
+    recommendedApproach: specDraft.recommendedApproach.summary,
+    nextStep: specDraft.nextStep,
+    nextStepReason: specDraft.nextStepReason,
+    riskLevel: specDraft.executionSpec.riskLevel,
+    blockingQuestion,
+    openQuestionCount: specDraft.openQuestions.length,
+  };
+}
+
 function analyzeChatIntakeDraft(params: {
   title: string;
   body: string;
@@ -4667,6 +4709,7 @@ function buildPendingIntakeDraftMessage(params: {
       title: string;
       reason: string;
     }>;
+    specDraftSummary?: OpenClawCodePendingIntakeSpecDraftSummary;
   };
   clarification: ChatIntakeClarificationReport;
   introLine?: string;
@@ -4682,12 +4725,30 @@ function buildPendingIntakeDraftMessage(params: {
     `Intake mode: ${params.clarification.kind}`,
     `Title: ${params.draft.title}`,
     `Body source: ${params.draft.bodySynthesized ? "generated from one-line intake" : "edited draft"}`,
+    params.draft.specDraftSummary
+      ? `Recommended mode: ${params.draft.specDraftSummary.recommendedMode}`
+      : undefined,
+    params.draft.specDraftSummary
+      ? `Implementation shape: ${params.draft.specDraftSummary.implementationShape}`
+      : undefined,
+    params.draft.specDraftSummary
+      ? `Recommended path: ${params.draft.specDraftSummary.recommendedApproach}`
+      : undefined,
+    params.draft.specDraftSummary
+      ? `Spec risk: ${params.draft.specDraftSummary.riskLevel}`
+      : undefined,
+    params.draft.specDraftSummary
+      ? `Next step: ${params.draft.specDraftSummary.nextStep} | ${params.draft.specDraftSummary.nextStepReason}`
+      : undefined,
     "Body preview:",
     materializedBody,
     `Clarification answers: ${clarificationResponses.length}`,
     ...clarificationResponses
       .slice(-2)
       .map((response) => `- Answered: ${trimToSingleLine(response.question)}`),
+    params.draft.specDraftSummary?.blockingQuestion
+      ? `Blocking question: ${params.draft.specDraftSummary.blockingQuestion}`
+      : undefined,
     params.clarification.priorityQuestion
       ? `Priority question: ${params.clarification.priorityQuestion}`
       : undefined,
@@ -8057,6 +8118,13 @@ export default {
             body: command.draft.body,
             bodySynthesized: command.draft.bodySynthesized,
           });
+          const specDraftSummary = buildChatIntakeSpecDraftSummary({
+            title: command.draft.title,
+            body: command.draft.body,
+            sourceRequest: command.draft.sourceRequest,
+            bodySynthesized: command.draft.bodySynthesized,
+            clarificationResponses: [],
+          });
           const scopedDrafts = deriveScopedChatIssueDrafts(command.draft.title);
           await store.upsertPendingIntakeDraft({
             ...draftHandle,
@@ -8065,6 +8133,7 @@ export default {
             sourceRequest: command.draft.sourceRequest,
             bodySynthesized: command.draft.bodySynthesized,
             scopedDrafts,
+            specDraftSummary,
             clarificationQuestions: clarification.questions,
             clarificationSuggestions: clarification.suggestions,
             clarificationResponses: [],
@@ -8078,6 +8147,7 @@ export default {
                 ...command.draft,
                 clarificationResponses: [],
                 scopedDrafts,
+                specDraftSummary,
               },
               clarification,
             }),
@@ -8164,6 +8234,13 @@ export default {
           body: nextBody,
           bodySynthesized: false,
         });
+        const specDraftSummary = buildChatIntakeSpecDraftSummary({
+          title: nextTitle,
+          body: nextBody,
+          sourceRequest: parsed.body,
+          bodySynthesized: false,
+          clarificationResponses: [],
+        });
         await store.upsertPendingIntakeDraft({
           ...existing,
           ...draftHandle,
@@ -8172,6 +8249,7 @@ export default {
           sourceRequest: parsed.body,
           bodySynthesized: false,
           scopedDrafts: [],
+          specDraftSummary,
           clarificationQuestions: clarification.questions,
           clarificationSuggestions: clarification.suggestions,
           clarificationResponses: [],
@@ -8186,6 +8264,7 @@ export default {
               bodySynthesized: false,
               clarificationResponses: [],
               scopedDrafts: [],
+              specDraftSummary,
             },
             clarification,
           }),
@@ -8275,9 +8354,17 @@ export default {
           bodySynthesized: existing.bodySynthesized,
           answeredQuestions: clarificationResponses.map((response) => response.question),
         });
+        const specDraftSummary = buildChatIntakeSpecDraftSummary({
+          title: existing.title,
+          body: existing.body,
+          sourceRequest: existing.sourceRequest,
+          bodySynthesized: existing.bodySynthesized,
+          clarificationResponses,
+        });
         await store.upsertPendingIntakeDraft({
           ...existing,
           ...draftHandle,
+          specDraftSummary,
           clarificationQuestions: clarification.questions,
           clarificationSuggestions: clarification.suggestions,
           clarificationResponses,
@@ -8292,6 +8379,7 @@ export default {
               bodySynthesized: existing.bodySynthesized,
               clarificationResponses,
               scopedDrafts: existing.scopedDrafts,
+              specDraftSummary,
             },
             clarification,
             introLine: `openclawcode refreshed the pending chat intake draft for ${formatRepoKey(parsed.repo)} after recording a clarification answer.`,
@@ -8352,7 +8440,17 @@ export default {
           title: draft.title,
           body: draft.body,
           bodySynthesized: draft.bodySynthesized,
+          answeredQuestions: draft.clarificationResponses.map((response) => response.question),
         });
+        const specDraftSummary =
+          draft.specDraftSummary ??
+          buildChatIntakeSpecDraftSummary({
+            title: draft.title,
+            body: draft.body,
+            sourceRequest: draft.sourceRequest,
+            bodySynthesized: draft.bodySynthesized,
+            clarificationResponses: draft.clarificationResponses,
+          });
         return {
           text: buildPendingIntakeDraftMessage({
             repo,
@@ -8362,6 +8460,7 @@ export default {
               bodySynthesized: draft.bodySynthesized,
               clarificationResponses: draft.clarificationResponses,
               scopedDrafts: draft.scopedDrafts,
+              specDraftSummary,
             },
             clarification,
             introLine: `openclawcode is holding a pending chat intake draft for ${formatRepoKey(repo)}.`,
@@ -8449,13 +8548,23 @@ export default {
           body: selected.body,
           bodySynthesized: false,
         });
+        const sourceRequest = [selected.title, selected.body].filter(Boolean).join("\n").trim();
+        const specDraftSummary = buildChatIntakeSpecDraftSummary({
+          title: selected.title,
+          body: selected.body,
+          sourceRequest,
+          bodySynthesized: false,
+          clarificationResponses: [],
+        });
         await store.upsertPendingIntakeDraft({
           ...existing,
           ...draftHandle,
           title: selected.title,
           body: selected.body,
+          sourceRequest,
           bodySynthesized: false,
           scopedDrafts: [],
+          specDraftSummary,
           clarificationQuestions: clarification.questions,
           clarificationSuggestions: clarification.suggestions,
           clarificationResponses: [],
@@ -8470,6 +8579,7 @@ export default {
               bodySynthesized: false,
               clarificationResponses: [],
               scopedDrafts: [],
+              specDraftSummary,
             },
             clarification,
           }),
