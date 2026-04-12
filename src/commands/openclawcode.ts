@@ -43,6 +43,7 @@ import {
   buildOperatorProgramSummary,
   buildOpenClawCodeCapabilityMapSnapshot,
   buildOpenClawCodeRecommendation,
+  buildOpenClawCodeSpecDraft,
   classifyValidationIssue,
   FileSystemWorkflowRunStore,
   buildValidationIssueDraft,
@@ -104,6 +105,7 @@ import {
   resolveAutoMergeDisposition,
   resolveAutoMergePolicy,
   type OpenClawCodeRecommendation,
+  type OpenClawCodeSpecDraft,
   type OpenClawCodeOperatorStatusSnapshot,
   recordProjectRuntimeSteeringOverride,
   projectRuntimeSteeringStageIds,
@@ -194,6 +196,11 @@ export interface OpenClawCodeRepoPlanOpts {
 }
 
 export interface OpenClawCodeRecommendOpts {
+  request?: string;
+  json?: boolean;
+}
+
+export interface OpenClawCodeSpecDraftOpts {
   request?: string;
   json?: boolean;
 }
@@ -2017,6 +2024,23 @@ export async function openclawCodeRecommendCommand(
   });
 }
 
+export async function openclawCodeSpecDraftCommand(
+  opts: OpenClawCodeSpecDraftOpts,
+  runtime: RuntimeEnv,
+): Promise<void> {
+  const request = opts.request?.trim();
+  if (!request) {
+    throw new Error("Pass a request as positional text or with --prompt.");
+  }
+
+  const specDraft = buildOpenClawCodeSpecDraft(request);
+  logOpenClawCodeSpecDraft({
+    specDraft,
+    runtime,
+    json: Boolean(opts.json),
+  });
+}
+
 function logProjectBlueprintSummary(params: {
   summary: Awaited<ReturnType<typeof readProjectBlueprint>>;
   runtime: RuntimeEnv;
@@ -2814,6 +2838,63 @@ function logOpenClawCodeRecommendation(params: {
   runtime.log(`Suggested first slice: ${recommendation.suggestedFirstSlice}`);
   runtime.log(`Next step: ${recommendation.nextStep}`);
   runtime.log(`Next-step reason: ${recommendation.nextStepReason}`);
+}
+
+function logOpenClawCodeSpecDraft(params: {
+  specDraft: OpenClawCodeSpecDraft;
+  runtime: RuntimeEnv;
+  json?: boolean;
+}): void {
+  const { specDraft, runtime } = params;
+  if (params.json) {
+    runtime.log(JSON.stringify(specDraft, null, 2));
+    return;
+  }
+
+  runtime.log(`Spec draft contract version: ${specDraft.contractVersion}`);
+  runtime.log(`Source kind: ${specDraft.sourceKind}`);
+  runtime.log(`Work type: ${specDraft.workType}`);
+  runtime.log(`Recommended mode: ${specDraft.recommendedMode}`);
+  runtime.log(`Implementation shape: ${specDraft.implementationShape}`);
+  runtime.log(`Inferred goal: ${specDraft.inferredGoal}`);
+  runtime.log(`Recommended approach: ${specDraft.recommendedApproach.summary}`);
+  runtime.log(`Why: ${specDraft.recommendedApproach.rationale}`);
+  runtime.log(`Open questions: ${specDraft.openQuestions.length}`);
+  for (const question of specDraft.openQuestions) {
+    runtime.log(
+      `- ${question.question} | blocking=${question.blocking ? "yes" : "no"} | why=${question.whyItMatters}`,
+    );
+  }
+  runtime.log(`Execution spec summary: ${specDraft.executionSpec.summary}`);
+  runtime.log(`Execution spec risk level: ${specDraft.executionSpec.riskLevel}`);
+  runtime.log(`Scope: ${specDraft.executionSpec.scope.length}`);
+  for (const item of specDraft.executionSpec.scope) {
+    runtime.log(`- scope: ${item}`);
+  }
+  runtime.log(`Out of scope: ${specDraft.executionSpec.outOfScope.length}`);
+  for (const item of specDraft.executionSpec.outOfScope) {
+    runtime.log(`- out-of-scope: ${item}`);
+  }
+  runtime.log(`Acceptance criteria: ${specDraft.executionSpec.acceptanceCriteria.length}`);
+  for (const criterion of specDraft.executionSpec.acceptanceCriteria) {
+    runtime.log(
+      `- ${criterion.id} | required=${criterion.required ? "yes" : "no"} | ${criterion.text}`,
+    );
+  }
+  runtime.log(`Test plan: ${specDraft.executionSpec.testPlan.length}`);
+  for (const step of specDraft.executionSpec.testPlan) {
+    runtime.log(`- test: ${step}`);
+  }
+  runtime.log(`Risks: ${specDraft.executionSpec.risks.length}`);
+  for (const risk of specDraft.executionSpec.risks) {
+    runtime.log(`- risk: ${risk}`);
+  }
+  runtime.log(`Assumptions: ${specDraft.executionSpec.assumptions.length}`);
+  for (const assumption of specDraft.executionSpec.assumptions) {
+    runtime.log(`- assumption: ${assumption}`);
+  }
+  runtime.log(`Next step: ${specDraft.nextStep}`);
+  runtime.log(`Next-step reason: ${specDraft.nextStepReason}`);
 }
 
 function logOpenClawCodePolicySnapshot(params: { runtime: RuntimeEnv; json?: boolean }): void {

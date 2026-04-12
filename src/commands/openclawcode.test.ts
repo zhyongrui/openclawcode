@@ -20,6 +20,7 @@ import {
   openclawCodeOperatorProgramShowCommand,
   openclawCodePolicyShowCommand,
   openclawCodeRecommendCommand,
+  openclawCodeSpecDraftCommand,
   openclawCodeRepoPlanCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
   openclawCodeWorkflowHistoryShowCommand,
@@ -8806,6 +8807,50 @@ describe("openclawCodeRecommendCommand", () => {
 
   it("rejects empty requests", async () => {
     await expect(openclawCodeRecommendCommand({}, runtime)).rejects.toThrow(
+      "Pass a request as positional text or with --prompt.",
+    );
+  });
+});
+
+describe("openclawCodeSpecDraftCommand", () => {
+  const runtime = createTestRuntime();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("prints a machine-readable spec draft payload", async () => {
+    await openclawCodeSpecDraftCommand(
+      {
+        request: "Add `foo` to openclaw code run --json in src/commands/openclawcode.ts",
+        json: true,
+      },
+      runtime,
+    );
+
+    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    expect(payload.contractVersion).toBe(1);
+    expect(payload.recommendedMode).toBe("spec");
+    expect(payload.implementationShape).toBe("spec-first");
+    expect(payload.executionSpec.acceptanceCriteria.length).toBeGreaterThan(0);
+  });
+
+  it("prints a readable spec draft summary", async () => {
+    await openclawCodeSpecDraftCommand(
+      {
+        request: "Make the setup flow feel more proactive for vague user requests",
+      },
+      runtime,
+    );
+
+    const lines = runtime.log.mock.calls.map((call) => String(call[0]));
+    expect(lines).toContain("Recommended mode: discover");
+    expect(lines.some((line) => line.startsWith("Implementation shape: spec-first"))).toBe(true);
+    expect(lines.some((line) => line.startsWith("Execution spec summary: "))).toBe(true);
+  });
+
+  it("rejects empty requests", async () => {
+    await expect(openclawCodeSpecDraftCommand({}, runtime)).rejects.toThrow(
       "Pass a request as positional text or with --prompt.",
     );
   });

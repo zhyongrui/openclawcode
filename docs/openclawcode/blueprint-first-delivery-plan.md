@@ -70,6 +70,18 @@ Acceptance:
 
 Current foothold:
 
+- `openclaw code recommend` now classifies vague or partial requests into:
+  - input kind
+  - recommended approach
+  - bounded alternatives
+  - open questions
+  - next-step guidance
+- `openclaw code spec-draft` now turns the same recommendation-first intake
+  into a structured execution-spec draft with:
+  - recommended mode
+  - implementation shape
+  - draft acceptance criteria
+  - risks, assumptions, and test-plan scaffolding
 - `openclaw code blueprint-clarify` now produces deterministic clarification
   questions and proactive suggestions from the current blueprint scaffold
 - `openclaw code blueprint-show --json` now exposes revision and defaulted

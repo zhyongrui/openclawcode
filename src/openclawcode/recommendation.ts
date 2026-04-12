@@ -1,4 +1,5 @@
 export const OPENCLAWCODE_RECOMMENDATION_CONTRACT_VERSION = 1;
+export const OPENCLAWCODE_SPEC_DRAFT_CONTRACT_VERSION = 1;
 
 export const OPENCLAWCODE_RECOMMENDATION_INPUT_KINDS = [
   "goal",
@@ -20,12 +21,25 @@ export const OPENCLAWCODE_RECOMMENDATION_NEXT_STEP_IDS = [
   "start-build",
 ] as const;
 
+export const OPENCLAWCODE_RECOMMENDATION_MODES = ["discover", "spec", "build"] as const;
+export const OPENCLAWCODE_RECOMMENDATION_IMPLEMENTATION_SHAPES = [
+  "patch",
+  "refactor",
+  "new-slice",
+  "spec-first",
+  "research",
+] as const;
+
 export type OpenClawCodeRecommendationInputKind =
   (typeof OPENCLAWCODE_RECOMMENDATION_INPUT_KINDS)[number];
 export type OpenClawCodeRecommendationWorkType =
   (typeof OPENCLAWCODE_RECOMMENDATION_WORK_TYPES)[number];
 export type OpenClawCodeRecommendationNextStep =
   (typeof OPENCLAWCODE_RECOMMENDATION_NEXT_STEP_IDS)[number];
+export type OpenClawCodeRecommendationMode =
+  (typeof OPENCLAWCODE_RECOMMENDATION_MODES)[number];
+export type OpenClawCodeRecommendationImplementationShape =
+  (typeof OPENCLAWCODE_RECOMMENDATION_IMPLEMENTATION_SHAPES)[number];
 
 export interface OpenClawCodeRecommendationAlternative {
   approach: string;
@@ -53,6 +67,41 @@ export interface OpenClawCodeRecommendation {
   alternatives: OpenClawCodeRecommendationAlternative[];
   openQuestions: string[];
   suggestedFirstSlice: string;
+  nextStep: OpenClawCodeRecommendationNextStep;
+  nextStepReason: string;
+}
+
+export interface OpenClawCodeSpecDraftQuestion {
+  question: string;
+  whyItMatters: string;
+  blocking: boolean;
+}
+
+export interface OpenClawCodeSpecDraft {
+  contractVersion: number;
+  request: string;
+  sourceKind: OpenClawCodeRecommendationInputKind;
+  workType: OpenClawCodeRecommendationWorkType;
+  recommendedMode: OpenClawCodeRecommendationMode;
+  implementationShape: OpenClawCodeRecommendationImplementationShape;
+  inferredGoal: string;
+  recommendedApproach: {
+    summary: string;
+    rationale: string;
+  };
+  alternatives: OpenClawCodeRecommendationAlternative[];
+  openQuestions: OpenClawCodeSpecDraftQuestion[];
+  executionSpec: {
+    summary: string;
+    scope: string[];
+    outOfScope: string[];
+    acceptanceCriteria: Array<{ id: string; text: string; required: boolean }>;
+    testPlan: string[];
+    risks: string[];
+    assumptions: string[];
+    openQuestions: string[];
+    riskLevel: "low" | "medium" | "high";
+  };
   nextStep: OpenClawCodeRecommendationNextStep;
   nextStepReason: string;
 }
@@ -351,6 +400,221 @@ function buildSuggestedFirstSlice(params: {
   return 'Add `openclaw code recommend "<request>"` so the system classifies the request, recommends one path, lists open questions, and names the next step.';
 }
 
+function resolveRecommendedMode(
+  nextStep: OpenClawCodeRecommendationNextStep,
+): OpenClawCodeRecommendationMode {
+  switch (nextStep) {
+    case "start-build":
+      return "build";
+    case "draft-spec":
+      return "spec";
+    default:
+      return "discover";
+  }
+}
+
+function resolveImplementationShape(params: {
+  inputKind: OpenClawCodeRecommendationInputKind;
+  workType: OpenClawCodeRecommendationWorkType;
+  signals: OpenClawCodeRecommendationSignals;
+}): OpenClawCodeRecommendationImplementationShape {
+  const { inputKind, workType, signals } = params;
+  if (workType === "research") {
+    return "research";
+  }
+  if (
+    signals.riskySurface ||
+    signals.broadScope ||
+    signals.publicSurface ||
+    signals.multiGoal ||
+    signals.missingSuccessCriteria
+  ) {
+    return "spec-first";
+  }
+  if (workType === "refactor") {
+    return "refactor";
+  }
+  if (workType === "bugfix" || inputKind === "execution-ready") {
+    return "patch";
+  }
+  return "new-slice";
+}
+
+function buildSpecDraftQuestions(params: {
+  recommendation: OpenClawCodeRecommendation;
+}): OpenClawCodeSpecDraftQuestion[] {
+  const { recommendation } = params;
+  const questions: OpenClawCodeSpecDraftQuestion[] = [];
+  const baseBlocking = recommendation.nextStep === "ask-user";
+  if (recommendation.signals.missingSuccessCriteria) {
+    questions.push({
+      question: "What exact user-visible behavior should the first slice change?",
+      whyItMatters:
+        "The first slice cannot produce credible acceptance criteria until the target behavior is explicit.",
+      blocking: true,
+    });
+  }
+  if (recommendation.signals.multiGoal) {
+    questions.push({
+      question: "Which outcome matters first if this request needs to be split into separate slices?",
+      whyItMatters:
+        "This decides whether the work should stay in one patch or be decomposed before implementation.",
+      blocking: true,
+    });
+  }
+  if (recommendation.signals.riskySurface) {
+    questions.push({
+      question: "What rollout, compatibility, or safety constraints must stay true during this change?",
+      whyItMatters:
+        "Risky surfaces need explicit guardrails before the spec can safely hand off to implementation.",
+      blocking: true,
+    });
+  }
+  if (
+    questions.length === 0 &&
+    recommendation.openQuestions.length > 0 &&
+    recommendation.openQuestions[0]
+  ) {
+    questions.push({
+      question: recommendation.openQuestions[0],
+      whyItMatters:
+        "This decides whether the next slice should stop at recommendation or continue into scoped execution work.",
+      blocking: baseBlocking,
+    });
+  }
+  return questions.slice(0, 3);
+}
+
+function buildSpecDraftScope(params: {
+  recommendation: OpenClawCodeRecommendation;
+}): string[] {
+  const { recommendation } = params;
+  const scope = [
+    recommendation.inferredGoal,
+    recommendation.suggestedFirstSlice,
+    `Follow the default implementation path: ${recommendation.recommendedApproach}`,
+  ];
+  if (recommendation.signals.publicSurface) {
+    scope.push("Keep touched public contracts or operator-facing surfaces compatible and explicit.");
+  }
+  return scope;
+}
+
+function buildSpecDraftOutOfScope(params: {
+  recommendation: OpenClawCodeRecommendation;
+}): string[] {
+  const { recommendation } = params;
+  const outOfScope = ["Unrelated refactors or adjacent workflow changes not required for the first slice."];
+  if (recommendation.signals.broadScope || recommendation.inputKind !== "execution-ready") {
+    outOfScope.push("A full architecture rewrite or complete end-to-end rollout in the same first slice.");
+  }
+  if (recommendation.alternatives.length > 1) {
+    outOfScope.push("Implementing every alternative path instead of choosing and proving one default path.");
+  }
+  return outOfScope;
+}
+
+function buildSpecDraftAcceptanceCriteria(params: {
+  recommendation: OpenClawCodeRecommendation;
+}): Array<{ id: string; text: string; required: boolean }> {
+  const { recommendation } = params;
+  const criteria = [
+    {
+      id: "goal-alignment",
+      text: `The delivered slice clearly advances this request: ${recommendation.request}.`,
+      required: true,
+    },
+    {
+      id: "approach-alignment",
+      text: `The implementation follows the recommended path: ${recommendation.recommendedApproach}.`,
+      required: true,
+    },
+    {
+      id: "proof",
+      text: "Focused proof covers the changed behavior or contract and guards the touched surface.",
+      required: true,
+    },
+  ];
+  if (recommendation.alternatives.length > 0) {
+    criteria.push({
+      id: "alternative-boundary",
+      text: "The chosen default path stays explicit, and alternative switching conditions remain understandable to operators.",
+      required: false,
+    });
+  }
+  return criteria;
+}
+
+function buildSpecDraftTestPlan(params: {
+  recommendation: OpenClawCodeRecommendation;
+}): string[] {
+  const { recommendation } = params;
+  const plan = [
+    recommendation.nextStep === "start-build"
+      ? "Run focused tests for the touched implementation surface before and after the patch."
+      : "Add focused unit or contract coverage for the recommendation-driven behavior or touched public surface.",
+  ];
+  if (recommendation.signals.publicSurface) {
+    plan.push("Add one compatibility-oriented assertion for the operator-facing or public contract change.");
+  }
+  if (recommendation.workType === "research") {
+    plan.push("Capture the evidence that justifies the recommendation and keep the output small enough to unblock the next implementation slice.");
+  }
+  return plan;
+}
+
+function buildSpecDraftRisks(params: {
+  recommendation: OpenClawCodeRecommendation;
+}): string[] {
+  const { recommendation } = params;
+  const risks: string[] = [];
+  if (recommendation.signals.riskySurface) {
+    risks.push("The request touches a risky surface where rollout or safety mistakes can create production or security regressions.");
+  }
+  if (recommendation.signals.publicSurface) {
+    risks.push("Operator-facing or public surface changes can create compatibility drift if the contract change is underspecified.");
+  }
+  if (recommendation.signals.broadScope || recommendation.signals.multiGoal) {
+    risks.push("The first slice can sprawl unless scope stays narrow and one default path is chosen explicitly.");
+  }
+  if (recommendation.workType === "research") {
+    risks.push("Investigation can drift into open-ended analysis unless it ends with one executable recommendation.");
+  }
+  return risks.length > 0 ? risks : ["The first slice may grow beyond the intended seam unless the diff stays narrow and evidence-backed."];
+}
+
+function buildSpecDraftAssumptions(params: {
+  recommendation: OpenClawCodeRecommendation;
+}): string[] {
+  const { recommendation } = params;
+  const assumptions = [
+    "The repo already contains enough local context to choose a first implementation seam once this draft is accepted.",
+    "The first slice may stay intentionally narrow and does not need to solve every adjacent follow-up in the same change.",
+  ];
+  if (recommendation.inputKind !== "execution-ready") {
+    assumptions.push("The operator wants recommendation-first guidance before the existing execution loop takes over.");
+  }
+  return assumptions;
+}
+
+function resolveSpecDraftRiskLevel(params: {
+  recommendation: OpenClawCodeRecommendation;
+}): "low" | "medium" | "high" {
+  const { recommendation } = params;
+  if (recommendation.signals.riskySurface) {
+    return "high";
+  }
+  if (
+    recommendation.signals.publicSurface ||
+    recommendation.signals.broadScope ||
+    recommendation.signals.multiGoal ||
+    recommendation.workType === "research"
+  ) {
+    return "medium";
+  }
+  return "low";
+}
+
 function resolveNextStep(params: {
   inputKind: OpenClawCodeRecommendationInputKind;
   workType: OpenClawCodeRecommendationWorkType;
@@ -431,5 +695,42 @@ export function buildOpenClawCodeRecommendation(request: string): OpenClawCodeRe
     }),
     nextStep: nextStep.nextStep,
     nextStepReason: nextStep.reason,
+  };
+}
+
+export function buildOpenClawCodeSpecDraft(request: string): OpenClawCodeSpecDraft {
+  const recommendation = buildOpenClawCodeRecommendation(request);
+  const questions = buildSpecDraftQuestions({ recommendation });
+  return {
+    contractVersion: OPENCLAWCODE_SPEC_DRAFT_CONTRACT_VERSION,
+    request: recommendation.request,
+    sourceKind: recommendation.inputKind,
+    workType: recommendation.workType,
+    recommendedMode: resolveRecommendedMode(recommendation.nextStep),
+    implementationShape: resolveImplementationShape({
+      inputKind: recommendation.inputKind,
+      workType: recommendation.workType,
+      signals: recommendation.signals,
+    }),
+    inferredGoal: recommendation.inferredGoal,
+    recommendedApproach: {
+      summary: recommendation.recommendedApproach,
+      rationale: recommendation.rationale,
+    },
+    alternatives: recommendation.alternatives,
+    openQuestions: questions,
+    executionSpec: {
+      summary: recommendation.recommendedApproach,
+      scope: buildSpecDraftScope({ recommendation }),
+      outOfScope: buildSpecDraftOutOfScope({ recommendation }),
+      acceptanceCriteria: buildSpecDraftAcceptanceCriteria({ recommendation }),
+      testPlan: buildSpecDraftTestPlan({ recommendation }),
+      risks: buildSpecDraftRisks({ recommendation }),
+      assumptions: buildSpecDraftAssumptions({ recommendation }),
+      openQuestions: questions.map((entry) => entry.question),
+      riskLevel: resolveSpecDraftRiskLevel({ recommendation }),
+    },
+    nextStep: recommendation.nextStep,
+    nextStepReason: recommendation.nextStepReason,
   };
 }

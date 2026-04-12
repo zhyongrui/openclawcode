@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildOpenClawCodeRecommendation,
+  buildOpenClawCodeSpecDraft,
   classifyOpenClawCodeRecommendationInputKind,
 } from "./recommendation.js";
 
@@ -80,5 +81,44 @@ describe("buildOpenClawCodeRecommendation", () => {
     expect(recommendation.workType).toBe("research");
     expect(recommendation.recommendedApproach).toContain("short investigation");
     expect(recommendation.suggestedFirstSlice).toContain("investigation exit criteria");
+  });
+});
+
+describe("buildOpenClawCodeSpecDraft", () => {
+  it("builds a spec-oriented draft for public execution requests", () => {
+    const draft = buildOpenClawCodeSpecDraft(
+      "Add `foo` to openclaw code run --json in src/commands/openclawcode.ts",
+    );
+
+    expect(draft.sourceKind).toBe("execution-ready");
+    expect(draft.recommendedMode).toBe("spec");
+    expect(draft.implementationShape).toBe("spec-first");
+    expect(draft.executionSpec.summary).toContain("contract or seam change");
+    expect(draft.executionSpec.acceptanceCriteria.length).toBeGreaterThanOrEqual(3);
+    expect(draft.executionSpec.testPlan[0]).toContain("focused");
+  });
+
+  it("keeps narrow execution-ready changes in build mode", () => {
+    const draft = buildOpenClawCodeSpecDraft(
+      "Implement issue #123 for the retry parser in src/openclawcode/recommendation.ts",
+    );
+
+    expect(draft.recommendedMode).toBe("build");
+    expect(draft.implementationShape).toBe("patch");
+    expect(draft.nextStep).toBe("start-build");
+    expect(draft.executionSpec.riskLevel).toBe("low");
+  });
+
+  it("surfaces blocking clarification questions for risky requests", () => {
+    const draft = buildOpenClawCodeSpecDraft(
+      "Add OAuth token rotation to the webhook bootstrap flow",
+    );
+
+    expect(draft.recommendedMode).toBe("discover");
+    expect(draft.openQuestions.some((entry) => entry.blocking)).toBe(true);
+    expect(draft.executionSpec.openQuestions).toContain(
+      "What rollout, compatibility, or safety constraints must stay true during this change?",
+    );
+    expect(draft.executionSpec.riskLevel).toBe("high");
   });
 });

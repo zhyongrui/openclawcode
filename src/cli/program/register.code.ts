@@ -22,6 +22,7 @@ import {
   openclawCodeOperatorProgramInitCommand,
   openclawCodeOperatorProgramShowCommand,
   openclawCodeRecommendCommand,
+  openclawCodeSpecDraftCommand,
   openclawCodeOperatorStatusSnapshotShowCommand,
   openclawCodeWorkflowHistoryShowCommand,
   openclawCodePolicyShowCommand,
@@ -72,6 +73,10 @@ ${formatHelpExamples([
   [
     'openclaw code recommend "Make the setup flow feel more proactive" --json',
     "Recommend a concrete first implementation slice for a vague product request.",
+  ],
+  [
+    'openclaw code spec-draft "Make the setup flow feel more proactive" --json',
+    "Turn a recommendation-first request into a structured execution-spec draft.",
   ],
   [
     'openclaw code repo-plan --project "Shared image gallery for iOS and web"',
@@ -251,6 +256,28 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
           ? request.join(" ").trim()
           : String(request ?? "").trim();
         await openclawCodeRecommendCommand(
+          {
+            request: explicitPrompt || positional || undefined,
+            json: Boolean(opts.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  code
+    .command("spec-draft")
+    .description("Draft a structured execution spec from a recommendation-first request")
+    .argument("[request...]", "Goal, problem, or execution request to turn into a spec draft")
+    .option("--prompt <text>", "Explicit request text; overrides positional input when provided")
+    .option("--json", "Output JSON", false)
+    .action(async (request, opts) => {
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        const explicitPrompt = (opts.prompt as string | undefined)?.trim();
+        const positional = Array.isArray(request)
+          ? request.join(" ").trim()
+          : String(request ?? "").trim();
+        await openclawCodeSpecDraftCommand(
           {
             request: explicitPrompt || positional || undefined,
             json: Boolean(opts.json),

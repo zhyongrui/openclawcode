@@ -183,6 +183,13 @@ const CLI_COMMANDS: OpenClawCodeCapabilityMapCommand[] = [
     capabilities: ["blueprint.clarify"],
   },
   {
+    id: "cli.spec-draft",
+    surface: "cli",
+    command: "openclaw code spec-draft",
+    summary: "Convert a recommendation-first request into a structured execution-spec draft.",
+    capabilities: ["recommendation.spec-draft", "planning.execution-spec"],
+  },
+  {
     id: "cli.blueprint-decompose",
     surface: "cli",
     command: "openclaw code blueprint-decompose",
