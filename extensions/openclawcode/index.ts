@@ -4579,6 +4579,10 @@ function buildChatIntakeSpecDraftSummary(params: {
     recommendedMode: specDraft.recommendedMode,
     implementationShape: specDraft.implementationShape,
     recommendedApproach: specDraft.recommendedApproach.summary,
+    suggestedFirstSlice:
+      specDraft.executionSpec.scope[1] ??
+      specDraft.executionSpec.scope[0] ??
+      specDraft.recommendedApproach.summary,
     nextStep: specDraft.nextStep,
     nextStepReason: specDraft.nextStepReason,
     riskLevel: specDraft.executionSpec.riskLevel,
@@ -4735,6 +4739,9 @@ function buildPendingIntakeDraftMessage(params: {
       ? `Recommended path: ${params.draft.specDraftSummary.recommendedApproach}`
       : undefined,
     params.draft.specDraftSummary
+      ? `Next executable slice: ${params.draft.specDraftSummary.suggestedFirstSlice}`
+      : undefined,
+    params.draft.specDraftSummary
       ? `Spec risk: ${params.draft.specDraftSummary.riskLevel}`
       : undefined,
     params.draft.specDraftSummary
@@ -4820,6 +4827,7 @@ function materializePendingIntakeIssueBody(params: {
     `Recommended mode: ${params.specDraftSummary.recommendedMode}`,
     `Implementation shape: ${params.specDraftSummary.implementationShape}`,
     `Recommended path: ${params.specDraftSummary.recommendedApproach}`,
+    `Next executable slice: ${params.specDraftSummary.suggestedFirstSlice}`,
     `Next step: ${params.specDraftSummary.nextStep}`,
     `Next step reason: ${params.specDraftSummary.nextStepReason}`,
     `Risk level: ${params.specDraftSummary.riskLevel}`,

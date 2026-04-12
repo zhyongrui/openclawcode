@@ -2069,6 +2069,9 @@ describe("openclawcode extension", () => {
         "Recommended path: Write down the contract or seam change first, then implement one compatible slice.",
       );
       expect(result?.text).toContain(
+        "Next executable slice: Change the existing code path, add the smallest focused proof, and keep the diff limited to the named surface.",
+      );
+      expect(result?.text).toContain(
         "Priority question: What exact behavior, contract, or operator surface should change?",
       );
       expect(result?.text).toContain("Clarifications: 3");
@@ -2088,6 +2091,8 @@ describe("openclawcode extension", () => {
         specDraftSummary: {
           recommendedMode: "spec",
           implementationShape: "spec-first",
+          suggestedFirstSlice:
+            "Change the existing code path, add the smallest focused proof, and keep the diff limited to the named surface.",
           riskLevel: "medium",
           nextStep: "draft-spec",
         },
@@ -2119,6 +2124,9 @@ describe("openclawcode extension", () => {
       expect(result?.text).toContain("Recommended mode: discover");
       expect(result?.text).toContain("Spec risk: high");
       expect(result?.text).toContain(
+        "Next executable slice: Write down the safety constraints, pick the smallest non-destructive change, and add proof that protects the risky path.",
+      );
+      expect(result?.text).toContain(
         "Blocking question: What rollout, compatibility, or safety constraints must stay true during this change?",
       );
       expect(fetchMock).not.toHaveBeenCalled();
@@ -2130,6 +2138,8 @@ describe("openclawcode extension", () => {
         specDraftSummary: {
           recommendedMode: "discover",
           implementationShape: "spec-first",
+          suggestedFirstSlice:
+            "Write down the safety constraints, pick the smallest non-destructive change, and add proof that protects the risky path.",
           riskLevel: "high",
           nextStep: "ask-user",
           blockingQuestion:
@@ -2274,6 +2284,9 @@ describe("openclawcode extension", () => {
       expect(String(requestPayload.body)).toContain("Implementation recommendation");
       expect(String(requestPayload.body)).toContain("Recommended mode: spec");
       expect(String(requestPayload.body)).toContain("Implementation shape: spec-first");
+      expect(String(requestPayload.body)).toContain(
+        "Next executable slice: Change the existing code path, add the smallest focused proof, and keep the diff limited to the named surface.",
+      );
     } finally {
       await fs.rm(fixture.repoRoot, { recursive: true, force: true });
       await fs.rm(fixture.stateDir, { recursive: true, force: true });
@@ -2314,6 +2327,7 @@ describe("openclawcode extension", () => {
         "Title: Expose issueCount and issueRepo in openclaw code run --json output",
       );
       expect(preview?.text).toContain("Recommended mode: spec");
+      expect(preview?.text).toContain("Next executable slice:");
       expect(preview?.text).toContain("Body preview:");
       expect(preview?.text).toContain("Scoped drafts: 2");
       expect(preview?.text).toContain("Use /occode-intake-preview zhyongrui/openclawcode");
@@ -2574,6 +2588,7 @@ describe("openclawcode extension", () => {
       });
       expect(String(requestPayload.body)).toContain("Implementation recommendation");
       expect(String(requestPayload.body)).toContain("Recommended mode: spec");
+      expect(String(requestPayload.body)).toContain("Next executable slice:");
 
       const snapshot = await fixture.store.snapshot();
       expect(snapshot.pendingIntakeDrafts).toEqual([]);

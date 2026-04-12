@@ -65,6 +65,7 @@ export interface OpenClawCodePendingIntakeSpecDraftSummary {
   recommendedMode: OpenClawCodeRecommendationMode;
   implementationShape: OpenClawCodeRecommendationImplementationShape;
   recommendedApproach: string;
+  suggestedFirstSlice: string;
   nextStep: OpenClawCodeRecommendationNextStep;
   nextStepReason: string;
   riskLevel: "low" | "medium" | "high";
@@ -113,6 +114,10 @@ function normalizePendingIntakeSpecDraftSummary(
     implementationShape:
       candidate.implementationShape as OpenClawCodeRecommendationImplementationShape,
     recommendedApproach: candidate.recommendedApproach,
+    suggestedFirstSlice:
+      typeof candidate.suggestedFirstSlice === "string" && candidate.suggestedFirstSlice.trim()
+        ? candidate.suggestedFirstSlice
+        : candidate.recommendedApproach,
     nextStep: candidate.nextStep as OpenClawCodeRecommendationNextStep,
     nextStepReason: candidate.nextStepReason,
     riskLevel: candidate.riskLevel as (typeof PENDING_INTAKE_SPEC_DRAFT_RISK_LEVELS)[number],
