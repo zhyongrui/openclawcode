@@ -854,9 +854,10 @@ function validateConfigObjectWithPluginsBase(
       for (const entry of collectChannelSchemaMetadata(info.registry)) {
         const current = info.channelSchemas.get(entry.id);
         if (entry.configSchema) {
+          const currentSchema = current?.schema;
           const keepCurrentBundledSchema =
-            Boolean(current?.schema) &&
-            !isEmptyStrictObjectJsonSchema(current.schema) &&
+            Boolean(currentSchema) &&
+            !isEmptyStrictObjectJsonSchema(currentSchema) &&
             isEmptyStrictObjectJsonSchema(entry.configSchema);
           if (keepCurrentBundledSchema) {
             continue;
