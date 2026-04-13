@@ -83,6 +83,23 @@ function asJsonSchemaLike(value: unknown): JsonSchemaLike | null {
   return value && typeof value === "object" ? (value as JsonSchemaLike) : null;
 }
 
+function isEmptyStrictObjectJsonSchema(schema: unknown): boolean {
+  const node = asJsonSchemaLike(schema);
+  if (!node) {
+    return false;
+  }
+
+  const type = node.type;
+  const isObjectType =
+    type === "object" || (Array.isArray(type) && type.length === 1 && type[0] === "object");
+  if (!isObjectType || node.additionalProperties !== false) {
+    return false;
+  }
+
+  const properties = asJsonSchemaLike(node.properties);
+  return !properties || Object.keys(properties).length === 0;
+}
+
 function lookupJsonSchemaNode(
   schema: unknown,
   pathSegments: readonly ConfigPathSegment[],
@@ -837,6 +854,13 @@ function validateConfigObjectWithPluginsBase(
       for (const entry of collectChannelSchemaMetadata(info.registry)) {
         const current = info.channelSchemas.get(entry.id);
         if (entry.configSchema) {
+          const keepCurrentBundledSchema =
+            Boolean(current?.schema) &&
+            !isEmptyStrictObjectJsonSchema(current.schema) &&
+            isEmptyStrictObjectJsonSchema(entry.configSchema);
+          if (keepCurrentBundledSchema) {
+            continue;
+          }
           info.channelSchemas.set(entry.id, { schema: entry.configSchema });
           continue;
         }

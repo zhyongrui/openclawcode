@@ -73,6 +73,33 @@ function createPluginConfigSchemaRegistry(): PluginManifestRegistry {
   };
 }
 
+function createFeishuEmptyChannelSchemaRegistry(): PluginManifestRegistry {
+  return {
+    diagnostics: [],
+    plugins: [
+      createPluginManifestRecord({
+        id: "feishu",
+        channels: ["feishu"],
+        channelCatalogMeta: {
+          id: "feishu",
+          label: "Feishu",
+          blurb: "Feishu channel",
+        },
+        channelConfigs: {
+          feishu: {
+            schema: {
+              type: "object",
+              properties: {},
+              additionalProperties: false,
+            },
+            uiHints: {},
+          },
+        },
+      }),
+    ],
+  };
+}
+
 function createPluginManifestRecord(
   overrides: Partial<PluginManifestRecord> & Pick<PluginManifestRecord, "id">,
 ): PluginManifestRecord {
@@ -161,6 +188,31 @@ describe("validateConfigObjectRawWithPlugins channel metadata", () => {
       // This is intentional — see comment above.
       expect(result.config.channels?.telegram).toEqual(
         expect.objectContaining({ dmPolicy: "pairing" }),
+      );
+    }
+  });
+
+  it("does not let empty bundled plugin channel schemas override richer generated metadata", () => {
+    mockLoadPluginManifestRegistry.mockReturnValue(createFeishuEmptyChannelSchemaRegistry());
+
+    const result = validateConfigObjectRawWithPlugins({
+      channels: {
+        feishu: {
+          enabled: true,
+          dmPolicy: "pairing",
+          reactionNotifications: "own",
+        },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.config.channels?.feishu).toEqual(
+        expect.objectContaining({
+          enabled: true,
+          dmPolicy: "pairing",
+          reactionNotifications: "own",
+        }),
       );
     }
   });
