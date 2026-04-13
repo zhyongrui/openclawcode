@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BUNDLED_RUNTIME_SIDECAR_BASENAMES,
   GUARDED_EXTENSION_PUBLIC_SURFACE_BASENAMES,
-} from "./public-artifacts.js";
+} from "../../test/helpers/plugins/public-artifacts.js";
 
 describe("public artifact guards", () => {
   it("deduplicates guarded basenames contributed by bundled runtime sidecars", () => {

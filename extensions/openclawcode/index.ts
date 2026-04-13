@@ -89,11 +89,11 @@ import {
   readProjectProgressArtifact,
   writeProjectProgressArtifact,
 } from "../../src/openclawcode/project-progress.js";
-import { buildOpenClawCodeSpecDraft } from "../../src/openclawcode/recommendation.js";
 import {
   readProjectPromotionReceiptArtifact,
   readProjectRollbackReceiptArtifact,
 } from "../../src/openclawcode/promotion-artifacts.js";
+import { buildOpenClawCodeSpecDraft } from "../../src/openclawcode/recommendation.js";
 import {
   readProjectRoleRoutingPlan,
   writeProjectRoleRoutingPlan,
@@ -147,7 +147,6 @@ import {
   type OnboardingGitHubCliDeviceLoginStatus,
   type ResolvedOnboardingGitHubToken,
 } from "../../src/wizard/setup.code.js";
-import type { ClawdbotConfig } from "../feishu/runtime-api.js";
 import { inspectFeishuCredentials } from "../feishu/src/accounts.js";
 import { resolveFeishuUserOpenIdByContact } from "../feishu/src/contact-user-id.js";
 import type { FeishuConfig } from "../feishu/src/types.js";
@@ -206,6 +205,7 @@ type SetupCheckProbePayload = {
 let workerActive = false;
 let runnerReady = false;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+const setupRecoveryNotificationLocks = new Set<string>();
 
 type GitHubWebhookPayload =
   | GitHubIssueWebhookEvent
@@ -333,13 +333,13 @@ function buildChatSetupAwaitingGitHubAuthMessage(params: {
   selectionLabel?: string;
 }): string {
   return [
-    "OpenClaw Code setup is waiting for GitHub approval.",
-    `Open: ${params.verificationUri}`,
-    `Code: ${params.userCode}`,
-    params.selectionLabel ? `Selected target: ${params.selectionLabel}` : undefined,
-    "The host-side GitHub login flow is already running.",
-    "Finish approval in your browser. OpenClaw Code will push the next status here automatically.",
-    "If that push does not arrive, send /occode-setup-status here.",
+    "OpenClaw Code 正在等待 GitHub 授权完成。",
+    `打开：${params.verificationUri}`,
+    `验证码：${params.userCode}`,
+    params.selectionLabel ? `当前目标：${params.selectionLabel}` : undefined,
+    "宿主机侧的 GitHub 登录流程已经启动。",
+    "请在浏览器中完成授权。OpenClaw Code 会在这里自动同步下一步状态。",
+    "如果没有等到自动消息，请在这里发送 /occode-setup-status。",
   ]
     .filter(Boolean)
     .join("\n");
@@ -353,15 +353,15 @@ function buildChatSetupReadyMessage(params: {
   repoKey?: string;
 }): string {
   return [
-    "OpenClaw Code setup has GitHub auth ready.",
-    params.login ? `GitHub username: ${params.login}` : undefined,
-    params.name ? `Name: ${params.name}` : undefined,
-    params.email ? `Email: ${params.email}` : undefined,
-    `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
-    params.repoKey ? `Selected repo: ${params.repoKey}` : undefined,
+    "OpenClaw Code 已经拿到可用的 GitHub 授权。",
+    params.login ? `GitHub 用户名：${params.login}` : undefined,
+    params.name ? `姓名：${params.name}` : undefined,
+    params.email ? `邮箱：${params.email}` : undefined,
+    `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+    params.repoKey ? `已选仓库：${params.repoKey}` : undefined,
     params.repoKey
-      ? `Next: ${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`
-      : "Next: choose the project path with /occode-setup existing owner/repo, /occode-setup new-project, or /occode-setup new <repo-name>.",
+      ? `下一步：${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`
+      : "下一步：用 /occode-setup existing owner/repo、/occode-setup new-project 或 /occode-setup new <repo-name> 选择项目路径。",
     ...buildChatSetupRepoSwitchGuidanceLines({
       repoKey: params.repoKey,
     }),
@@ -382,14 +382,14 @@ function buildChatSetupAwaitingPairingMessage(params: {
   selectionLabel?: string;
 }): string {
   return [
-    "OpenClaw Code found this chat as a configured setup target, but pairing must be approved first.",
-    params.selectionLabel ? `Selected target: ${params.selectionLabel}` : undefined,
+    "OpenClaw Code 发现当前会话已被配置为 setup 目标，但还需要先批准配对。",
+    params.selectionLabel ? `当前目标：${params.selectionLabel}` : undefined,
     params.api.runtime.channel.pairing.buildPairingReply({
       channel: params.channel,
-      idLine: `Chat identity: ${params.senderId}`,
+      idLine: `会话标识：${params.senderId}`,
       code: params.code,
     }),
-    "After approval, OpenClaw Code will automatically continue setup here and start GitHub login.",
+    "批准后，OpenClaw Code 会在这里自动继续 setup，并发起 GitHub 登录。",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -397,10 +397,10 @@ function buildChatSetupAwaitingPairingMessage(params: {
 
 function buildChatSetupAwaitingPairingStatusMessage(params: { repoKey?: string }): string {
   return [
-    "OpenClaw Code setup is waiting for chat pairing approval.",
-    params.repoKey ? `Selected repo: ${params.repoKey}` : undefined,
-    "Approve the pairing request for this chat first.",
-    "After approval, OpenClaw Code will automatically continue setup here and start GitHub login.",
+    "OpenClaw Code 正在等待当前会话的配对批准。",
+    params.repoKey ? `已选仓库：${params.repoKey}` : undefined,
+    "请先批准这个会话的配对请求。",
+    "批准后，OpenClaw Code 会在这里自动继续 setup，并发起 GitHub 登录。",
   ]
     .filter(Boolean)
     .join("\n");
@@ -419,20 +419,18 @@ function buildChatSetupFailedMessage(params: {
     /Unable to infer test commands/i.test(params.reason) &&
     /Pass --test explicitly/i.test(params.reason);
   return [
-    "OpenClaw Code setup hit a recoverable failure.",
-    params.step ? `Failed step: ${params.step}` : undefined,
-    `Reason: ${params.reason}`,
-    params.repoKey ? `Selected repo: ${params.repoKey}` : undefined,
-    params.logTail ? `Recent gh output:\n${params.logTail}` : undefined,
+    "OpenClaw Code setup 遇到了可恢复的失败。",
+    params.step ? `失败步骤：${params.step}` : undefined,
+    `原因：${params.reason}`,
+    params.repoKey ? `已选仓库：${params.repoKey}` : undefined,
+    params.logTail ? `最近的 gh 输出：\n${params.logTail}` : undefined,
     needsExplicitBootstrapTestCommands
-      ? "Next: send /occode-test <command> to save one or more safe test commands for this setup session."
+      ? "下一步：发送 /occode-test <command>，为本次 setup 会话保存一个或多个安全的测试命令。"
       : undefined,
-    params.retryCommand ? `Retry: ${params.retryCommand}` : "Retry: /occode-setup-retry",
-    params.needsOperatorAction
-      ? "Operator action: fix the host-side problem first, then retry."
-      : undefined,
+    params.retryCommand ? `重试：${params.retryCommand}` : "重试：/occode-setup-retry",
+    params.needsOperatorAction ? "需要人工处理：请先修复宿主机侧问题，再重试。" : undefined,
     params.step === "github-auth"
-      ? "If the device flow expired, start a fresh login with /occode-setup."
+      ? "如果 device flow 已过期，请用 /occode-setup 重新发起 GitHub 登录。"
       : undefined,
   ]
     .filter(Boolean)
@@ -622,7 +620,7 @@ function buildChatSetupAwaitingRepoChoiceMessage(params: { session: ChatSetupSes
     .join("\n");
 }
 
-function buildChatSetupRepoCreationBlockedMessage(params: { session: ChatSetupSession }): string {
+function _buildChatSetupRepoCreationBlockedMessage(params: { session: ChatSetupSession }): string {
   return [
     "OpenClaw Code has a new-project setup draft, but the blueprint is not agreed yet.",
     buildChatSetupDraftingBlueprintMessage({
@@ -692,16 +690,16 @@ function buildChatSetupRepoReadyMessage(params: {
   return [
     params.projectMode === "new-project"
       ? params.created
-        ? "OpenClaw Code created the new GitHub repo for this setup."
-        : "OpenClaw Code has a new-project repo selected for this setup."
-      : "OpenClaw Code has an existing repo selected for this setup.",
-    params.login ? `GitHub username: ${params.login}` : undefined,
-    params.name ? `Name: ${params.name}` : undefined,
-    params.email ? `Email: ${params.email}` : undefined,
-    `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
-    `Repo: ${params.repoKey}`,
-    `Next: ${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`,
-    "After bootstrap, use /occode-goal and /occode-blueprint to align the project blueprint in chat.",
+        ? "OpenClaw Code 已经为这次 setup 创建了新的 GitHub 仓库。"
+        : "OpenClaw Code 已经为这次 setup 选定了新项目仓库。"
+      : "OpenClaw Code 已经为这次 setup 选定了现有仓库。",
+    params.login ? `GitHub 用户名：${params.login}` : undefined,
+    params.name ? `姓名：${params.name}` : undefined,
+    params.email ? `邮箱：${params.email}` : undefined,
+    `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+    `仓库：${params.repoKey}`,
+    `下一步：${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`,
+    "bootstrap 完成后，可在聊天里使用 /occode-goal 和 /occode-blueprint 对齐项目蓝图。",
     ...buildChatSetupRepoSwitchGuidanceLines({
       repoKey: params.repoKey,
     }),
@@ -727,12 +725,84 @@ function buildChatSetupBootstrapRepairLines(
 
   return [
     bootstrap.pluginActivationRepairCommand
-      ? `Repair: ${bootstrap.pluginActivationRepairCommand}`
+      ? `修复：${bootstrap.pluginActivationRepairCommand}`
       : undefined,
-    bootstrap.chatSetupStatusCommand
-      ? `Chat retry: ${bootstrap.chatSetupStatusCommand}`
-      : undefined,
+    bootstrap.chatSetupStatusCommand ? `聊天重试：${bootstrap.chatSetupStatusCommand}` : undefined,
   ].filter((entry): entry is string => Boolean(entry));
+}
+
+function isChatSetupRecoveryBlocked(params: {
+  pluginActivation?: {
+    ready?: boolean;
+  };
+  proofReadiness?: {
+    chatSetupRoutingReady?: boolean;
+  };
+}): boolean {
+  return (
+    params.pluginActivation?.ready === false ||
+    params.proofReadiness?.chatSetupRoutingReady === false
+  );
+}
+
+function buildChatSetupRecoveryBlockedReason(params: {
+  pluginActivation?: {
+    ready?: boolean;
+  };
+  proofReadiness?: {
+    chatSetupRoutingReady?: boolean;
+  };
+  gatewayReachable?: boolean;
+  routeProbeReady?: boolean;
+  routeProbeSkipped?: boolean;
+}): string | undefined {
+  const reasons: string[] = [];
+  if (params.pluginActivation?.ready === false) {
+    reasons.push("plugin activation blocked");
+  }
+  if (params.proofReadiness?.chatSetupRoutingReady === false) {
+    reasons.push("chat setup routing blocked");
+  }
+  if (params.gatewayReachable === false) {
+    reasons.push("gateway unreachable");
+  }
+  if (params.routeProbeReady === false && params.routeProbeSkipped !== true) {
+    reasons.push("route probe blocked");
+  }
+  return reasons.length > 0 ? reasons.join(" | ") : undefined;
+}
+
+function isChatSetupRecoveryReady(probe: SetupCheckProbePayload): boolean {
+  return (
+    probe.pluginActivation?.ready !== false &&
+    probe.readiness.chatSetupRoutingReady &&
+    probe.readiness.gatewayReachable &&
+    (probe.readiness.routeProbeReady || probe.readiness.routeProbeSkipped)
+  );
+}
+
+function buildChatSetupRecoveryMessage(params: {
+  repoKey: string;
+  readiness: SetupCheckReadinessPayload;
+  pluginActivation?: SetupCheckPluginActivationPayload;
+  statusCommand?: string | null;
+}): string {
+  return [
+    "OpenClaw Code setup is healthy again.",
+    `Repo: ${params.repoKey}`,
+    `Chat setup routing: ${params.readiness.chatSetupRoutingReady ? "ready" : "blocked"}`,
+    `Gateway: ${params.readiness.gatewayReachable ? "reachable" : "unreachable"}`,
+    `Route probe: ${params.readiness.routeProbeReady ? "ready" : params.readiness.routeProbeSkipped ? "skipped" : "blocked"}`,
+    params.pluginActivation
+      ? `Plugin activation: ${params.pluginActivation.ready ? "ready" : "blocked"}`
+      : undefined,
+    "You can continue using OpenClaw Code in this chat now.",
+    params.statusCommand
+      ? `If you want the full setup summary again, send ${params.statusCommand}.`
+      : "If you want the full setup summary again, send /occode-setup-status.",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function buildChatSetupBootstrapCompleteMessage(params: {
@@ -746,89 +816,87 @@ function buildChatSetupBootstrapCompleteMessage(params: {
   >;
 }): string {
   return [
-    "OpenClaw Code bootstrap finished for this setup session.",
-    params.login ? `GitHub username: ${params.login}` : undefined,
-    params.name ? `Name: ${params.name}` : undefined,
-    params.email ? `Email: ${params.email}` : undefined,
-    `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
-    `Repo: ${params.repoKey}`,
-    params.bootstrap.repoRoot ? `Local path: ${params.bootstrap.repoRoot}` : undefined,
-    params.bootstrap.checkoutAction ? `Checkout: ${params.bootstrap.checkoutAction}` : undefined,
-    params.bootstrap.blueprintPath ? `Blueprint: ${params.bootstrap.blueprintPath}` : undefined,
-    params.bootstrap.blueprintStatus
-      ? `Blueprint status: ${params.bootstrap.blueprintStatus}`
-      : undefined,
+    "本次 setup 会话的 OpenClaw Code bootstrap 已完成。",
+    params.login ? `GitHub 用户名：${params.login}` : undefined,
+    params.name ? `姓名：${params.name}` : undefined,
+    params.email ? `邮箱：${params.email}` : undefined,
+    `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+    `仓库：${params.repoKey}`,
+    params.bootstrap.repoRoot ? `本地路径：${params.bootstrap.repoRoot}` : undefined,
+    params.bootstrap.checkoutAction ? `检出方式：${params.bootstrap.checkoutAction}` : undefined,
+    params.bootstrap.blueprintPath ? `蓝图路径：${params.bootstrap.blueprintPath}` : undefined,
+    params.bootstrap.blueprintStatus ? `蓝图状态：${params.bootstrap.blueprintStatus}` : undefined,
     params.bootstrap.blueprintRevisionId
-      ? `Blueprint revision: ${params.bootstrap.blueprintRevisionId}`
+      ? `蓝图修订版本：${params.bootstrap.blueprintRevisionId}`
       : undefined,
     params.bootstrap.blueprintGoalSummary
-      ? `Blueprint goal: ${params.bootstrap.blueprintGoalSummary}`
+      ? `蓝图目标：${params.bootstrap.blueprintGoalSummary}`
       : undefined,
     typeof params.bootstrap.workstreamCandidateCount === "number" &&
     typeof params.bootstrap.openQuestionCount === "number" &&
     typeof params.bootstrap.humanGateCount === "number"
-      ? `Blueprint counts: workstreams=${params.bootstrap.workstreamCandidateCount} | openQuestions=${params.bootstrap.openQuestionCount} | humanGates=${params.bootstrap.humanGateCount}`
+      ? `蓝图统计：工作流=${params.bootstrap.workstreamCandidateCount} | 开放问题=${params.bootstrap.openQuestionCount} | 人工门禁=${params.bootstrap.humanGateCount}`
       : undefined,
     typeof params.bootstrap.workItemCount === "number" &&
     typeof params.bootstrap.plannedWorkItemCount === "number"
-      ? `Work items: total=${params.bootstrap.workItemCount} | planned=${params.bootstrap.plannedWorkItemCount}`
+      ? `工作项：总数=${params.bootstrap.workItemCount} | 已规划=${params.bootstrap.plannedWorkItemCount}`
       : undefined,
     typeof params.bootstrap.blockedGateCount === "number" &&
     typeof params.bootstrap.needsHumanDecisionCount === "number"
-      ? `Stage gates: blocked=${params.bootstrap.blockedGateCount} | needsHumanDecision=${params.bootstrap.needsHumanDecisionCount}`
+      ? `阶段门禁：阻塞=${params.bootstrap.blockedGateCount} | 待人工决策=${params.bootstrap.needsHumanDecisionCount}`
       : undefined,
     params.bootstrap.pluginActivation
-      ? `Plugin activation: ${params.bootstrap.pluginActivation.ready ? "ready" : "blocked"} | plugins=${params.bootstrap.pluginActivation.pluginsEnabled ? "enabled" : "disabled"} | allow=${params.bootstrap.pluginActivation.allowlisted ? "ready" : "missing"} | entry=${params.bootstrap.pluginActivation.entryEnabled ? "enabled" : "disabled"}`
+      ? `插件激活：${params.bootstrap.pluginActivation.ready ? "就绪" : "阻塞"} | plugins=${params.bootstrap.pluginActivation.pluginsEnabled ? "启用" : "禁用"} | allow=${params.bootstrap.pluginActivation.allowlisted ? "就绪" : "缺失"} | entry=${params.bootstrap.pluginActivation.entryEnabled ? "启用" : "禁用"}`
       : undefined,
     typeof params.bootstrap.readyForIssueProjection === "boolean"
-      ? `Issue projection: ${params.bootstrap.readyForIssueProjection ? "ready" : "blocked"}`
+      ? `Issue 投射：${params.bootstrap.readyForIssueProjection ? "就绪" : "阻塞"}`
       : undefined,
     typeof params.bootstrap.proofReadiness?.chatSetupRoutingReady === "boolean"
-      ? `Chat setup routing: ${params.bootstrap.proofReadiness.chatSetupRoutingReady ? "ready" : "blocked"}`
+      ? `聊天 setup 路由：${params.bootstrap.proofReadiness.chatSetupRoutingReady ? "就绪" : "阻塞"}`
       : undefined,
     params.bootstrap.firstWorkItemTitle
-      ? `First work item: ${params.bootstrap.firstWorkItemTitle}`
+      ? `首个工作项：${params.bootstrap.firstWorkItemTitle}`
       : undefined,
     params.bootstrap.nextSuggestedCommand
-      ? `Next suggested command: ${params.bootstrap.nextSuggestedCommand}`
+      ? `建议下一步命令：${params.bootstrap.nextSuggestedCommand}`
       : undefined,
     ...buildChatSetupBootstrapRepairLines(params.bootstrap),
     params.bootstrap.autoBindStatus
-      ? `Auto-bind: ${params.bootstrap.autoBindStatus}${params.bootstrap.autoBindChannel && params.bootstrap.autoBindTarget ? ` (${params.bootstrap.autoBindChannel}:${params.bootstrap.autoBindTarget})` : ""}`
+      ? `自动绑定：${params.bootstrap.autoBindStatus}${params.bootstrap.autoBindChannel && params.bootstrap.autoBindTarget ? ` (${params.bootstrap.autoBindChannel}:${params.bootstrap.autoBindTarget})` : ""}`
       : undefined,
     params.bootstrap.clarificationQuestions?.length
-      ? `Clarifications: ${params.bootstrap.clarificationQuestions.length}`
+      ? `待澄清问题：${params.bootstrap.clarificationQuestions.length}`
       : undefined,
     ...(params.bootstrap.clarificationQuestions ?? [])
       .slice(0, 3)
       .map((question) => `- ${question}`),
     params.bootstrap.clarificationSuggestions?.length
-      ? `Suggestions: ${params.bootstrap.clarificationSuggestions.length}`
+      ? `建议：${params.bootstrap.clarificationSuggestions.length}`
       : undefined,
     ...(params.bootstrap.clarificationSuggestions ?? [])
       .slice(0, 2)
       .map((suggestion) => `- ${suggestion}`),
-    params.bootstrap.nextAction ? `Status: ${params.bootstrap.nextAction}` : undefined,
-    params.bootstrap.cliRunCommand ? `CLI proof: ${params.bootstrap.cliRunCommand}` : undefined,
+    params.bootstrap.nextAction ? `当前状态：${params.bootstrap.nextAction}` : undefined,
+    params.bootstrap.cliRunCommand ? `CLI 验证：${params.bootstrap.cliRunCommand}` : undefined,
     params.bootstrap.blueprintCommand
-      ? `Chat blueprint: ${params.bootstrap.blueprintCommand}`
+      ? `聊天蓝图：${params.bootstrap.blueprintCommand}`
       : undefined,
     params.bootstrap.blueprintClarifyCommand
-      ? `Blueprint clarify: ${params.bootstrap.blueprintClarifyCommand}`
+      ? `蓝图澄清：${params.bootstrap.blueprintClarifyCommand}`
       : undefined,
     params.bootstrap.blueprintAgreeCommand
-      ? `Blueprint agree: ${params.bootstrap.blueprintAgreeCommand}`
+      ? `蓝图确认：${params.bootstrap.blueprintAgreeCommand}`
       : undefined,
     params.bootstrap.blueprintDecomposeCommand
-      ? `Blueprint decompose: ${params.bootstrap.blueprintDecomposeCommand}`
+      ? `蓝图拆解：${params.bootstrap.blueprintDecomposeCommand}`
       : undefined,
-    params.bootstrap.gatesCommand ? `Stage gates: ${params.bootstrap.gatesCommand}` : undefined,
-    params.bootstrap.chatBindCommand ? `Chat bind: ${params.bootstrap.chatBindCommand}` : undefined,
+    params.bootstrap.gatesCommand ? `阶段门禁：${params.bootstrap.gatesCommand}` : undefined,
+    params.bootstrap.chatBindCommand ? `聊天绑定：${params.bootstrap.chatBindCommand}` : undefined,
     params.bootstrap.chatStartCommand
-      ? `Chat proof: ${params.bootstrap.chatStartCommand}`
+      ? `聊天验证：${params.bootstrap.chatStartCommand}`
       : undefined,
     params.bootstrap.webhookRetryCommand
-      ? `Webhook retry: ${params.bootstrap.webhookRetryCommand}`
+      ? `Webhook 重试：${params.bootstrap.webhookRetryCommand}`
       : undefined,
     ...buildChatSetupRepoSwitchGuidanceLines({
       repoKey: params.repoKey,
@@ -865,15 +933,15 @@ function buildChatSetupGitHubSwitchGuidanceLines(params: {
 }): string[] {
   if (params.source === "gh-auth-token") {
     return [
-      "Need a different GitHub account later? Send /occode-github-switch here to start a fresh GitHub login in chat.",
-      "Want to re-check the current host login later? Send /occode-github-status here.",
+      "之后如果要切换 GitHub 账号，请在这里发送 /occode-github-switch，重新发起聊天内 GitHub 登录。",
+      "之后如果要重新检查当前宿主机登录状态，请在这里发送 /occode-github-status。",
     ];
   }
   return [
     params.source === "GH_TOKEN"
-      ? "Need a different GitHub account later? Update or unset GH_TOKEN on the OpenClaw host, then send /occode-github-status here."
-      : "Need a different GitHub account later? Update or unset GITHUB_TOKEN on the OpenClaw host, then send /occode-github-status here.",
-    "Want to re-check the current host login later? Send /occode-github-status here.",
+      ? "之后如果要切换 GitHub 账号，请先在 OpenClaw 宿主机上更新或取消设置 GH_TOKEN，然后在这里发送 /occode-github-status。"
+      : "之后如果要切换 GitHub 账号，请先在 OpenClaw 宿主机上更新或取消设置 GITHUB_TOKEN，然后在这里发送 /occode-github-status。",
+    "之后如果要重新检查当前宿主机登录状态，请在这里发送 /occode-github-status。",
   ];
 }
 
@@ -892,17 +960,17 @@ function buildChatSetupGitHubStatusMessage(
 ): string {
   if (!params.available) {
     return [
-      "OpenClaw Code does not have GitHub auth ready on the host.",
-      "Next: send /occode-github-switch here to start GitHub login in chat.",
-      "You can also start the full setup flow with /occode-setup.",
+      "OpenClaw Code 在宿主机上还没有可用的 GitHub 授权。",
+      "下一步：在这里发送 /occode-github-switch，发起聊天内 GitHub 登录。",
+      "也可以直接用 /occode-setup 启动完整 setup 流程。",
     ].join("\n");
   }
   return [
-    "OpenClaw Code found GitHub auth on the host.",
-    params.login ? `GitHub username: ${params.login}` : undefined,
-    params.name ? `Name: ${params.name}` : undefined,
-    params.email ? `Email: ${params.email}` : undefined,
-    `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+    "OpenClaw Code 在宿主机上发现了可用的 GitHub 授权。",
+    params.login ? `GitHub 用户名：${params.login}` : undefined,
+    params.name ? `姓名：${params.name}` : undefined,
+    params.email ? `邮箱：${params.email}` : undefined,
+    `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
     ...buildChatSetupGitHubSwitchGuidanceLines({
       source: params.source,
       login: params.login,
@@ -918,12 +986,12 @@ function buildChatSetupGitHubSwitchStartedMessage(params: {
   selectionLabel?: string;
 }): string {
   return [
-    "OpenClaw Code is starting a fresh GitHub login for this chat.",
-    `Open: ${params.verificationUri}`,
-    `Code: ${params.userCode}`,
-    params.selectionLabel ? `Selected target: ${params.selectionLabel}` : undefined,
-    "Finish approval in your browser. OpenClaw Code will continue setup here automatically after login.",
-    "Want to re-check the current host login later? Send /occode-github-status here.",
+    "OpenClaw Code 正在为当前会话发起新的 GitHub 登录。",
+    `打开：${params.verificationUri}`,
+    `验证码：${params.userCode}`,
+    params.selectionLabel ? `当前目标：${params.selectionLabel}` : undefined,
+    "请在浏览器中完成授权。登录完成后，OpenClaw Code 会在这里自动继续 setup。",
+    "之后如果要重新检查当前宿主机登录状态，请在这里发送 /occode-github-status。",
   ]
     .filter(Boolean)
     .join("\n");
@@ -962,13 +1030,13 @@ function buildChatSetupRepoSwitchGuidanceLines(params: { repoKey?: string }): st
     return [];
   }
   return [
-    "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
-    "Discard this setup session with /occode-setup-cancel if you want to restart cleanly.",
+    "如果仓库选错了，可发送 /occode-setup owner/repo 或 /occode-setup new <repo-name> 来切换目标。",
+    "如果想彻底重新开始，可用 /occode-setup-cancel 丢弃当前 setup 会话。",
   ];
 }
 
 function describeChatSetupBootstrap(): string {
-  return "Bootstrap prepares the repo for OpenClaw Code by cloning or attaching it locally, wiring chat and plugin setup, and syncing repo-local artifacts such as PROJECT-BLUEPRINT.md and .openclawcode/.";
+  return "bootstrap 会为 OpenClaw Code 准备仓库，包括本地克隆或挂载、接通聊天与插件配置，并同步 PROJECT-BLUEPRINT.md 和 .openclawcode/ 这类仓库内产物。";
 }
 
 function isSetupClassificationStage(stage: ChatSetupSession["stage"]): boolean {
@@ -1164,9 +1232,9 @@ function extractReadmeLead(readmeText: string | undefined): string | undefined {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
-    .filter((line) => !/^#/.test(line))
-    .filter((line) => !/^!\[/.test(line))
-    .filter((line) => !/^\[!\[/.test(line));
+    .filter((line) => !line.startsWith("#"))
+    .filter((line) => !line.startsWith("!["))
+    .filter((line) => !line.startsWith("[!["));
   return trimBlueprintSeedText(lines.slice(0, 3).join(" "), 220);
 }
 
@@ -1290,7 +1358,7 @@ function buildExistingRepoBlueprintDraft(params: {
     ),
     sections: {
       ...seededSections,
-      ...(params.currentDraft?.sections ?? {}),
+      ...params.currentDraft?.sections,
     },
   };
 }
@@ -2030,12 +2098,13 @@ async function completeChatSetupBootstrap(params: {
           params.session.repoKey
         ? `/occode-materialize ${params.session.repoKey}`
         : (payload.handoff?.blueprintCommand ?? payload.handoff?.blueprintDecomposeCommand ?? null);
+  const completedAt = new Date().toISOString();
   const updated = {
     ...params.session,
     stage: "bootstrap-complete" as const,
     lastFailure: undefined,
     bootstrap: {
-      completedAt: new Date().toISOString(),
+      completedAt,
       repoRoot: payload.repo?.repoRoot,
       checkoutAction: payload.repo?.checkoutAction,
       blueprintPath: blueprintDocument?.blueprintPath ?? payload.blueprint?.blueprintPath,
@@ -2075,8 +2144,21 @@ async function completeChatSetupBootstrap(params: {
       recommendedProofMode: payload.handoff?.recommendedProofMode,
       reason: payload.handoff?.reason,
       proofReadiness: payload.proofReadiness,
+      recoveryNotice: isChatSetupRecoveryBlocked({
+        pluginActivation: payload.pluginActivation,
+        proofReadiness: payload.proofReadiness,
+      })
+        ? {
+            awaitingRecovery: true,
+            blockedAt: completedAt,
+            lastBlockedReason: buildChatSetupRecoveryBlockedReason({
+              pluginActivation: payload.pluginActivation,
+              proofReadiness: payload.proofReadiness,
+            }),
+          }
+        : undefined,
     },
-    updatedAt: new Date().toISOString(),
+    updatedAt: completedAt,
   };
   await params.store.upsertSetupSession(updated);
   return {
@@ -2295,7 +2377,7 @@ type ProactiveGitHubAuthTarget = ProactiveChatSetupTarget & {
   existingSession?: ChatSetupSession;
 };
 
-async function isProactiveSetupTargetPaired(params: {
+async function _isProactiveSetupTargetPaired(params: {
   api: OpenClawPluginApi;
   target: ProactiveChatSetupTarget;
 }): Promise<boolean> {
@@ -2314,7 +2396,7 @@ async function isProactiveSetupTargetPaired(params: {
   return allowFrom.some((entry) => entry.trim() === pairingIdentity.senderId);
 }
 
-async function proactivelyRequestChatPairing(params: {
+async function _proactivelyRequestChatPairing(params: {
   api: OpenClawPluginApi;
   store: OpenClawCodeChatopsStore;
   target: ProactiveChatSetupTarget;
@@ -2651,6 +2733,152 @@ async function processPendingSetupSessions(
       },
       updatedAt: new Date().toISOString(),
     });
+  }
+}
+
+async function processSetupRecoveryNotifications(
+  api: OpenClawPluginApi,
+  store: OpenClawCodeChatopsStore,
+  repoConfigs: OpenClawCodeChatopsRepoConfig[],
+): Promise<void> {
+  const sessions = await store.listSetupSessions();
+  for (const session of sessions) {
+    const bootstrap = session.bootstrap;
+    const recoveryNotice = bootstrap?.recoveryNotice;
+    const sessionKey = `${session.notifyChannel}\u0000${session.notifyTarget}`;
+    if (
+      session.stage !== "bootstrap-complete" ||
+      !session.repoKey ||
+      !bootstrap ||
+      !recoveryNotice?.awaitingRecovery ||
+      setupRecoveryNotificationLocks.has(sessionKey)
+    ) {
+      continue;
+    }
+    setupRecoveryNotificationLocks.add(sessionKey);
+
+    try {
+      const repo = parseChatopsRepoReference(session.repoKey);
+      if (!repo) {
+        continue;
+      }
+      const repoConfig = resolveRepoConfig(repoConfigs, repo);
+      if (!repoConfig) {
+        continue;
+      }
+
+      const lastProbeAt = new Date().toISOString();
+      const probe = await probeSetupCheckReadiness({
+        api,
+        repoConfig,
+      });
+      if (!probe) {
+        await store.upsertSetupSession({
+          ...session,
+          bootstrap: {
+            ...bootstrap,
+            recoveryNotice: {
+              ...recoveryNotice,
+              awaitingRecovery: true,
+              blockedAt: recoveryNotice.blockedAt,
+              lastProbeAt,
+              notificationSentAt: recoveryNotice.notificationSentAt,
+              lastBlockedReason:
+                recoveryNotice.lastBlockedReason ?? "setup-check probe unavailable",
+            },
+          },
+          updatedAt: lastProbeAt,
+        });
+        continue;
+      }
+
+      const refreshedBootstrap = {
+        ...bootstrap,
+        pluginActivation: probe.pluginActivation ?? bootstrap.pluginActivation,
+        proofReadiness: {
+          ...bootstrap.proofReadiness,
+          chatSetupRoutingReady: probe.readiness.chatSetupRoutingReady,
+        },
+      };
+      if (!isChatSetupRecoveryReady(probe)) {
+        await store.upsertSetupSession({
+          ...session,
+          bootstrap: {
+            ...refreshedBootstrap,
+            recoveryNotice: {
+              ...recoveryNotice,
+              awaitingRecovery: true,
+              blockedAt: recoveryNotice.blockedAt,
+              lastProbeAt,
+              notificationSentAt: recoveryNotice.notificationSentAt,
+              lastBlockedReason: buildChatSetupRecoveryBlockedReason({
+                pluginActivation: probe.pluginActivation,
+                proofReadiness: {
+                  chatSetupRoutingReady: probe.readiness.chatSetupRoutingReady,
+                },
+                gatewayReachable: probe.readiness.gatewayReachable,
+                routeProbeReady: probe.readiness.routeProbeReady,
+                routeProbeSkipped: probe.readiness.routeProbeSkipped,
+              }),
+            },
+          },
+          updatedAt: lastProbeAt,
+        });
+        continue;
+      }
+
+      const recoveredSession = {
+        ...session,
+        bootstrap: {
+          ...refreshedBootstrap,
+          recoveryNotice: {
+            ...recoveryNotice,
+            awaitingRecovery: false,
+            blockedAt: recoveryNotice.blockedAt,
+            lastProbeAt,
+            notificationSentAt: lastProbeAt,
+            lastBlockedReason: undefined,
+          },
+        },
+        updatedAt: lastProbeAt,
+      };
+      await store.upsertSetupSession(recoveredSession);
+
+      try {
+        await sendText({
+          api,
+          channel: session.notifyChannel,
+          target: session.notifyTarget,
+          text: buildChatSetupRecoveryMessage({
+            repoKey: session.repoKey,
+            readiness: probe.readiness,
+            pluginActivation: probe.pluginActivation,
+            statusCommand: bootstrap.chatSetupStatusCommand,
+          }),
+        });
+      } catch (error) {
+        api.logger.warn(
+          `openclawcode setup recovery notification failed for ${session.notifyChannel}:${session.notifyTarget}: ${String(error)}`,
+        );
+        await store.upsertSetupSession({
+          ...session,
+          bootstrap: {
+            ...refreshedBootstrap,
+            recoveryNotice: {
+              ...recoveryNotice,
+              awaitingRecovery: true,
+              blockedAt: recoveryNotice.blockedAt,
+              lastProbeAt,
+              notificationSentAt: recoveryNotice.notificationSentAt,
+              lastBlockedReason: undefined,
+            },
+          },
+          updatedAt: lastProbeAt,
+        });
+      }
+    } finally {
+      setupRecoveryNotificationLocks.delete(sessionKey);
+    }
   }
 }
 
@@ -4564,9 +4792,7 @@ function buildChatIntakeSpecDraftSummary(params: {
   const request = [
     baseRequest,
     ...(params.clarificationResponses ?? []).flatMap((response) =>
-      response.answer.trim()
-        ? [`Q: ${response.question}`, `A: ${response.answer.trim()}`]
-        : [],
+      response.answer.trim() ? [`Q: ${response.question}`, `A: ${response.answer.trim()}`] : [],
     ),
   ]
     .filter(Boolean)
@@ -6051,8 +6277,8 @@ function buildAutonomousLoopSummaryMessage(params: {
   }
   for (const iteration of params.artifact.iterations.slice(0, 3)) {
     const iterationParts = [
-      `${iteration.status}`,
-      `${iteration.nextWorkDecision}`,
+      iteration.status,
+      iteration.nextWorkDecision,
       iteration.selectedIssueNumber != null ? `#${iteration.selectedIssueNumber}` : null,
       iteration.queuedIssueKey,
       iteration.stopReason ? `stop=${iteration.stopReason}` : null,
@@ -6807,7 +7033,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function writeHtmlResponse(
+function _writeHtmlResponse(
   res: ServerResponse,
   statusCode: number,
   title: string,
@@ -6917,7 +7143,7 @@ async function maybeAutoBindConfiguredFeishuOperator(params: {
   let resolved;
   try {
     resolved = await resolveFeishuUserOpenIdByContact({
-      cfg: params.api.config as ClawdbotConfig,
+      cfg: params.api.config,
       accountId: bindingConfig.accountId,
       email: bindingConfig.email,
       mobile: bindingConfig.mobile,
@@ -6989,7 +7215,7 @@ async function maybePrepareDelayedFeishuOperatorScanCode(params: {
     return;
   }
 
-  const pending =
+  const _pending =
     (await getPendingFeishuOperatorScanCode({
       stateDir,
       accountId,
@@ -7087,7 +7313,7 @@ async function sendIssueNotification(params: {
   }
 }
 
-function scheduleIssueNotification(params: {
+function _scheduleIssueNotification(params: {
   api: OpenClawPluginApi;
   store: OpenClawCodeChatopsStore;
   issueKey: string;
@@ -10796,7 +11022,7 @@ export default {
           });
         } catch (error) {
           return {
-            text: String((error as Error).message),
+            text: error instanceof Error ? error.message : String(error),
           };
         }
         const blueprint = await readProjectBlueprintDocument(repoConfig.repoRoot);
@@ -11594,7 +11820,7 @@ export default {
                 store,
                 repoConfig,
                 binding: await store.getRepoBinding(formatRepoKey(parsed.repo)),
-                snapshot: candidates[0]!,
+                snapshot: candidates[0],
               });
               if (mergeAttempt.handled) {
                 mergeDecisionLine = mergeAttempt.merged
@@ -11733,6 +11959,9 @@ export default {
         pollTimer = setInterval(() => {
           const currentPluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
           void processPendingSetupSessions(api, store).catch(() => undefined);
+          void processSetupRecoveryNotifications(api, store, currentPluginConfig.repos).catch(
+            () => undefined,
+          );
           void proactivelyStartChatSetupSessions(api, store, currentPluginConfig.repos).catch(
             () => undefined,
           );
@@ -11740,6 +11969,7 @@ export default {
         }, intervalMs);
         pollTimer.unref?.();
         await processPendingSetupSessions(api, store);
+        await processSetupRecoveryNotifications(api, store, pluginConfig.repos);
         await proactivelyStartChatSetupSessions(api, store, pluginConfig.repos);
         kickQueueDrain(api, store);
       },

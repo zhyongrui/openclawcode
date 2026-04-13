@@ -121,7 +121,7 @@ function normalizePendingIntakeSpecDraftSummary(
     nextStep: candidate.nextStep as OpenClawCodeRecommendationNextStep,
     nextStepReason: candidate.nextStepReason,
     riskLevel: candidate.riskLevel as (typeof PENDING_INTAKE_SPEC_DRAFT_RISK_LEVELS)[number],
-    blockingQuestion: candidate.blockingQuestion as string | null,
+    blockingQuestion: candidate.blockingQuestion,
     openQuestionCount: candidate.openQuestionCount,
   };
 }
@@ -225,6 +225,13 @@ export interface OpenClawCodeSetupSession {
       needsChatBind?: boolean;
       needsPublicWebhookUrl?: boolean;
       recommendedProofMode?: "cli-only" | "chatops";
+    };
+    recoveryNotice?: {
+      awaitingRecovery: boolean;
+      blockedAt: string;
+      lastProbeAt?: string;
+      notificationSentAt?: string;
+      lastBlockedReason?: string;
     };
   };
   githubDeviceAuth?: {
@@ -859,8 +866,7 @@ function normalizeSetupSession(raw: unknown): OpenClawCodeSetupSession | undefin
                         ? candidate.bootstrap.proofReadiness.chatProofReady
                         : undefined,
                     chatSetupRoutingReady:
-                      typeof candidate.bootstrap.proofReadiness.chatSetupRoutingReady ===
-                      "boolean"
+                      typeof candidate.bootstrap.proofReadiness.chatSetupRoutingReady === "boolean"
                         ? candidate.bootstrap.proofReadiness.chatSetupRoutingReady
                         : undefined,
                     webhookReady:
@@ -883,6 +889,28 @@ function normalizeSetupSession(raw: unknown): OpenClawCodeSetupSession | undefin
                       candidate.bootstrap.proofReadiness.recommendedProofMode === "cli-only" ||
                       candidate.bootstrap.proofReadiness.recommendedProofMode === "chatops"
                         ? candidate.bootstrap.proofReadiness.recommendedProofMode
+                        : undefined,
+                  }
+                : undefined,
+            recoveryNotice:
+              candidate.bootstrap.recoveryNotice &&
+              typeof candidate.bootstrap.recoveryNotice === "object" &&
+              typeof candidate.bootstrap.recoveryNotice.awaitingRecovery === "boolean" &&
+              typeof candidate.bootstrap.recoveryNotice.blockedAt === "string"
+                ? {
+                    awaitingRecovery: candidate.bootstrap.recoveryNotice.awaitingRecovery,
+                    blockedAt: candidate.bootstrap.recoveryNotice.blockedAt,
+                    lastProbeAt:
+                      typeof candidate.bootstrap.recoveryNotice.lastProbeAt === "string"
+                        ? candidate.bootstrap.recoveryNotice.lastProbeAt
+                        : undefined,
+                    notificationSentAt:
+                      typeof candidate.bootstrap.recoveryNotice.notificationSentAt === "string"
+                        ? candidate.bootstrap.recoveryNotice.notificationSentAt
+                        : undefined,
+                    lastBlockedReason:
+                      typeof candidate.bootstrap.recoveryNotice.lastBlockedReason === "string"
+                        ? candidate.bootstrap.recoveryNotice.lastBlockedReason
                         : undefined,
                   }
                 : undefined,

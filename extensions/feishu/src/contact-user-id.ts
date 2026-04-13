@@ -107,7 +107,7 @@ export async function resolveFeishuUserOpenIdByContact(
             typeof entry.user_id === "string" &&
             entry.user_id.trim(),
         );
-  if (emailMatch?.user_id?.trim()) {
+  if (email && emailMatch?.user_id?.trim()) {
     return {
       openId: emailMatch.user_id.trim(),
       matchedBy: "email",
@@ -125,7 +125,7 @@ export async function resolveFeishuUserOpenIdByContact(
             typeof entry.user_id === "string" &&
             entry.user_id.trim(),
         );
-  if (mobileMatch?.user_id?.trim()) {
+  if (mobile && mobileMatch?.user_id?.trim()) {
     return {
       openId: mobileMatch.user_id.trim(),
       matchedBy: "mobile",

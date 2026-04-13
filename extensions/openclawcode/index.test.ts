@@ -36,21 +36,26 @@ import {
 import { readChannelAllowFromStore } from "../../src/pairing/pairing-store.js";
 import type {
   OpenClawPluginCommandDefinition,
+  PluginCommandContext,
   PluginHookInboundClaimEvent,
   PluginHookInboundClaimResult,
   PluginHookInboundClaimContext,
   OpenClawPluginService,
 } from "../../src/plugins/types.js";
+import { withEnvAsync } from "../../src/test-utils/env.js";
 import { createMockServerResponse } from "../../src/test-utils/mock-http-response.js";
-import { onboardingOpenClawCodeDeps } from "../../src/wizard/setup.code.js";
-import { withEnvAsync } from "../../test/helpers/extensions/env.js";
-import { createPluginRuntimeMock } from "../../test/helpers/extensions/plugin-runtime-mock.js";
+import {
+  onboardingOpenClawCodeDeps,
+  type ResolvedOnboardingGitHubToken,
+} from "../../src/wizard/setup.code.js";
+import { createTestPluginApi } from "../../test/helpers/plugins/plugin-api.js";
+import { createPluginRuntimeMock } from "../../test/helpers/plugins/plugin-runtime-mock.js";
 import plugin from "./index.js";
 
 const mocked = vi.hoisted(() => ({
   readRequestBodyWithLimit: vi.fn(),
   runMessageAction: vi.fn(),
-  resolveOnboardingGitHubToken: vi.fn(() => null),
+  resolveOnboardingGitHubToken: vi.fn<() => ResolvedOnboardingGitHubToken | null>(() => null),
   startOnboardingGitHubCliDeviceLogin: vi.fn(),
   inspectOnboardingGitHubCliDeviceLogin: vi.fn(),
   createOnboardingRepositoryViaGh: vi.fn(),
@@ -107,7 +112,7 @@ function createApi(params: {
   }) => void;
   registerService: (service: OpenClawPluginService) => void;
 }): OpenClawPluginApi {
-  return {
+  return createTestPluginApi({
     id: "openclawcode",
     name: "openclawcode",
     source: "test",
@@ -116,19 +121,31 @@ function createApi(params: {
     runtime: params.runtime,
     logger: { info() {}, warn() {}, error() {} },
     registerTool() {},
-    registerHook: params.registerHook,
-    registerHttpRoute: params.registerHttpRoute,
-    registerChannel() {},
-    registerGatewayMethod() {},
-    registerCli() {},
+    registerHook: params.registerHook as unknown as OpenClawPluginApi["registerHook"],
+    registerHttpRoute:
+      params.registerHttpRoute as unknown as OpenClawPluginApi["registerHttpRoute"],
     registerService: params.registerService,
-    registerProvider() {},
-    registerContextEngine() {},
     registerCommand: params.registerCommand,
-    resolvePath(input: string) {
-      return input;
-    },
-    on() {},
+  });
+}
+
+function createCommandContext(
+  overrides: Partial<
+    Omit<
+      PluginCommandContext,
+      "requestConversationBinding" | "detachConversationBinding" | "getCurrentConversationBinding"
+    >
+  >,
+): PluginCommandContext {
+  return {
+    channel: "telegram",
+    isAuthorizedSender: true,
+    commandBody: "",
+    config: {},
+    requestConversationBinding: async () => ({ status: "error", message: "unsupported" }),
+    detachConversationBinding: async () => ({ removed: false }),
+    getCurrentConversationBinding: async () => null,
+    ...overrides,
   };
 }
 
@@ -553,7 +570,7 @@ async function registerPluginFixture(params?: {
       },
     ],
     pollIntervalMs: params?.pollIntervalMs,
-    ...(params?.pluginConfigOverride ?? {}),
+    ...params?.pluginConfigOverride,
   };
 
   plugin.register?.(
@@ -859,9 +876,7 @@ describe("openclawcode extension", () => {
     const fixture = await registerPluginFixture();
     try {
       mocked.readRequestBodyWithLimit.mockResolvedValue(issueWebhookPayload(211));
-      mocked.runMessageAction.mockImplementation(
-        () => new Promise(() => undefined) as Promise<never>,
-      );
+      mocked.runMessageAction.mockImplementation(() => new Promise(() => undefined));
       const res = createMockServerResponse();
 
       const handled = await fixture.route?.handler(
@@ -1183,13 +1198,15 @@ describe("openclawcode extension", () => {
         "utf8",
       );
       await writeProjectStageGateArtifact(fixture.repoRoot);
-      await fixture.commands.get("occode-gate-decide")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-gate-decide merge-promotion approved allow merge override",
-        args: "merge-promotion approved allow merge override",
-        config: {},
-      });
+      await fixture.commands.get("occode-gate-decide")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-gate-decide merge-promotion approved allow merge override",
+          args: "merge-promotion approved allow merge override",
+          config: {},
+        }),
+      );
 
       await fixture.store.setStatusSnapshot({
         issueKey: "zhyongrui/openclawcode#313",
@@ -1750,14 +1767,16 @@ describe("openclawcode extension", () => {
         }),
       });
 
-      const decision = await fixture.commands.get("occode-gate-decide")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-gate-decide execution-start approved Accepted for this run",
-        args: "execution-start approved Accepted for this run",
-        senderId: "user:operator",
-        config: {},
-      });
+      const decision = await fixture.commands.get("occode-gate-decide")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-gate-decide execution-start approved Accepted for this run",
+          args: "execution-start approved Accepted for this run",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
 
       expect(decision?.text).toContain("Decision: approved");
       expect(decision?.text).toContain("Readiness: ready");
@@ -1794,19 +1813,21 @@ describe("openclawcode extension", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "[Feature]: Expose issueCount in openclaw code run --json output",
-          "Summary",
-          "Add a stable top-level issueCount field.",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "[Feature]: Expose issueCount in openclaw code run --json output",
+            "Summary",
+            "Add a stable top-level issueCount field.",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock.mock.calls[0]?.[0]).toBe(
@@ -1933,19 +1954,21 @@ describe("openclawcode extension", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "[Feature]: Expose issueCount in openclaw code run --json output",
-          "Summary",
-          "Add a stable top-level issueCount field.",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "[Feature]: Expose issueCount in openclaw code run --json output",
+            "Summary",
+            "Add a stable top-level issueCount field.",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "openclawcode created a new GitHub issue from chat, but execution start is currently gated.",
@@ -1995,18 +2018,20 @@ describe("openclawcode extension", () => {
         ),
       );
 
-      const result = await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "Rotate auth secrets for webhook permissions",
-          "Update authentication, secret handling, and permission checks.",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "Rotate auth secrets for webhook permissions",
+            "Update authentication, secret handling, and permission checks.",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -2049,17 +2074,19 @@ describe("openclawcode extension", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "Expose issueCount in openclaw code run --json output",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "Expose issueCount in openclaw code run --json output",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("waiting for confirmation");
       expect(result?.text).toContain("Intake mode: feature");
@@ -2109,17 +2136,19 @@ describe("openclawcode extension", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "Rotate webhook signing secrets without breaking production delivery retries",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "Rotate webhook signing secrets without breaking production delivery retries",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Recommended mode: discover");
       expect(result?.text).toContain("Spec risk: high");
@@ -2158,17 +2187,19 @@ describe("openclawcode extension", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "Fix duplicate issue materialization after blueprint edits",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "Fix duplicate issue materialization after blueprint edits",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("waiting for confirmation");
       expect(result?.text).toContain("Intake mode: bugfix");
@@ -2227,29 +2258,33 @@ describe("openclawcode extension", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
 
-      await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "Expose issueCount in openclaw code run --json output",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "Expose issueCount in openclaw code run --json output",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
-      const answered = await fixture.commands.get("occode-intake-answer")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake-answer",
-          "Add a stable top-level `issueCount` mirror to `openclaw code run --json`.",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const answered = await fixture.commands.get("occode-intake-answer")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake-answer",
+            "Add a stable top-level `issueCount` mirror to `openclaw code run --json`.",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(answered?.text).toContain("recording a clarification answer");
       expect(answered?.text).toContain("Clarification answers: 1");
@@ -2263,14 +2298,16 @@ describe("openclawcode extension", () => {
       expect(answered?.text).toContain("Clarifications: 2");
       expect(fetchMock).not.toHaveBeenCalled();
 
-      const confirmed = await fixture.commands.get("occode-intake-confirm")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-intake-confirm",
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const confirmed = await fixture.commands.get("occode-intake-confirm")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-intake-confirm",
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(confirmed?.text).toContain("Issue: zhyongrui/openclawcode#224");
       const requestPayload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
@@ -2299,26 +2336,30 @@ describe("openclawcode extension", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
 
-      await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "Expose issueCount and issueRepo in openclaw code run --json output",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "Expose issueCount and issueRepo in openclaw code run --json output",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
-      const preview = await fixture.commands.get("occode-intake-preview")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-intake-preview",
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const preview = await fixture.commands.get("occode-intake-preview")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-intake-preview",
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(preview?.text).toContain(
         "openclawcode is holding a pending chat intake draft for zhyongrui/openclawcode.",
@@ -2344,17 +2385,19 @@ describe("openclawcode extension", () => {
       const fetchMock = vi.fn();
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "Expose issueCount and issueRepo in openclaw code run --json output",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "Expose issueCount and issueRepo in openclaw code run --json output",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Scoped drafts: 2");
       expect(result?.text).toContain("/occode-intake-choose");
@@ -2405,51 +2448,57 @@ describe("openclawcode extension", () => {
         ),
       );
       vi.stubGlobal("fetch", fetchMock);
-      await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "Expose issueCount in openclaw code run --json output",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "Expose issueCount in openclaw code run --json output",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
-      const edited = await fixture.commands.get("occode-intake-edit")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake-edit",
-          "Expose issueCount and issueRepo in openclaw code run --json output",
-          "",
-          "Summary",
-          "Expose issueCount and issueRepo in openclaw code run --json output",
-          "",
-          "Problem to solve",
-          "Add two stable top-level mirrors so external automation does not need nested issue reads.",
-          "",
-          "Acceptance",
-          "- [ ] `issueCount` is present at the top level.",
-          "- [ ] `issueRepo` is present at the top level.",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const edited = await fixture.commands.get("occode-intake-edit")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake-edit",
+            "Expose issueCount and issueRepo in openclaw code run --json output",
+            "",
+            "Summary",
+            "Expose issueCount and issueRepo in openclaw code run --json output",
+            "",
+            "Problem to solve",
+            "Add two stable top-level mirrors so external automation does not need nested issue reads.",
+            "",
+            "Acceptance",
+            "- [ ] `issueCount` is present at the top level.",
+            "- [ ] `issueRepo` is present at the top level.",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(edited?.text).toContain("Body source: edited draft");
       expect(edited?.text).toContain("Expose issueCount and issueRepo");
 
-      const confirmed = await fixture.commands.get("occode-intake-confirm")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-intake-confirm",
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const confirmed = await fixture.commands.get("occode-intake-confirm")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-intake-confirm",
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(confirmed).toEqual({
         text: [
@@ -2487,26 +2536,30 @@ describe("openclawcode extension", () => {
   it("supports rejecting a pending chat intake draft before issue creation", async () => {
     const fixture = await registerPluginFixture();
     try {
-      await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "Expose issueCount in openclaw code run --json output",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "Expose issueCount in openclaw code run --json output",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
-      const rejected = await fixture.commands.get("occode-intake-reject")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-intake-reject too broad for one issue",
-        args: "too broad for one issue",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const rejected = await fixture.commands.get("occode-intake-reject")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-intake-reject too broad for one issue",
+          args: "too broad for one issue",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(rejected?.text).toContain("discarded the pending intake draft");
       expect(rejected?.text).toContain("Reason: too broad for one issue");
@@ -2549,37 +2602,43 @@ describe("openclawcode extension", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
 
-      await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: [
-          "/occode-intake",
-          "Expose issueCount and issueRepo in openclaw code run --json output",
-        ].join("\n"),
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: [
+            "/occode-intake",
+            "Expose issueCount and issueRepo in openclaw code run --json output",
+          ].join("\n"),
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
-      const chosen = await fixture.commands.get("occode-intake-choose")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-intake-choose 2",
-        args: "2",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const chosen = await fixture.commands.get("occode-intake-choose")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-intake-choose 2",
+          args: "2",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
       expect(chosen?.text).toContain("Title: Expose issueRepo in openclaw code run --json output");
       expect(chosen?.text).toContain("Scoped drafts: 0");
 
-      const confirmed = await fixture.commands.get("occode-intake-confirm")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-intake-confirm",
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const confirmed = await fixture.commands.get("occode-intake-confirm")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-intake-confirm",
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(confirmed?.text).toContain("Issue: zhyongrui/openclawcode#223");
       const requestPayload = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
@@ -2601,14 +2660,16 @@ describe("openclawcode extension", () => {
   it("requires a non-empty title or request line for /occode-intake", async () => {
     const fixture = await registerPluginFixture();
     try {
-      const result = await fixture.commands.get("occode-intake")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-intake",
-        args: "",
-        to: "user:intake-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-intake")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-intake",
+          args: "",
+          to: "user:intake-chat",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -2693,14 +2754,16 @@ describe("openclawcode extension", () => {
         logger: { info() {}, warn() {}, error() {} },
       });
 
-      const rerun = await fixture.commands.get("occode-rerun")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-rerun #230",
-        args: "#230",
-        to: "user:rerun-chat",
-        config: {},
-      });
+      const rerun = await fixture.commands.get("occode-rerun")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-rerun #230",
+          args: "#230",
+          to: "user:rerun-chat",
+          config: {},
+        }),
+      );
 
       expect(rerun).toEqual({
         text: "Queued rerun for zhyongrui/openclawcode#230 from Failed state. I will post status updates here.",
@@ -2719,15 +2782,17 @@ describe("openclawcode extension", () => {
         notifyTarget: "chat:primary",
       });
 
-      const result = await fixture.commands.get("occode-start")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-start #204",
-        args: "#204",
-        from: "chat:override",
-        to: "user:current-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-start")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-start #204",
+          args: "#204",
+          from: "chat:override",
+          to: "user:current-chat",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: "Queued zhyongrui/openclawcode#204. I will post status updates here.",
@@ -2754,15 +2819,17 @@ describe("openclawcode extension", () => {
         notifyTarget: "chat:primary",
       });
 
-      const result = await fixture.commands.get("occode-start-override")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-start-override #205",
-        args: "#205",
-        senderId: "user:operator",
-        to: "user:current-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-start-override")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-start-override #205",
+          args: "#205",
+          senderId: "user:operator",
+          to: "user:current-chat",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: "Queued zhyongrui/openclawcode#205 with an explicit suitability override. I will post status updates here.",
@@ -2813,14 +2880,16 @@ describe("openclawcode extension", () => {
         buildTransientProviderFailedStatus(6602),
       );
 
-      const result = await fixture.commands.get("occode-start")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-start #214",
-        args: "#214",
-        to: "user:current-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-start")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-start #214",
+          args: "#214",
+          to: "user:current-chat",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -2907,14 +2976,16 @@ describe("openclawcode extension", () => {
       await writeProjectWorkItemInventory(fixture.repoRoot);
       await writeProjectDiscoveryInventory(fixture.repoRoot);
 
-      const result = await fixture.commands.get("occode-start")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-start #240",
-        args: "#240",
-        to: "user:current-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-start")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-start #240",
+          args: "#240",
+          to: "user:current-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "Execution start is currently gated for zhyongrui/openclawcode.",
@@ -3010,24 +3081,28 @@ describe("openclawcode extension", () => {
       await writeProjectWorkItemInventory(fixture.repoRoot);
       await writeProjectDiscoveryInventory(fixture.repoRoot);
 
-      const blocked = await fixture.commands.get("occode-start")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-start #241",
-        args: "#241",
-        to: "user:current-chat",
-        config: {},
-      });
+      const blocked = await fixture.commands.get("occode-start")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-start #241",
+          args: "#241",
+          to: "user:current-chat",
+          config: {},
+        }),
+      );
       expect(blocked?.text).toContain("Execution start is currently gated");
 
-      const decision = await fixture.commands.get("occode-gate-decide")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-gate-decide execution-start approved Accepted for this run",
-        args: "execution-start approved Accepted for this run",
-        senderId: "user:operator",
-        config: {},
-      });
+      const decision = await fixture.commands.get("occode-gate-decide")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-gate-decide execution-start approved Accepted for this run",
+          args: "execution-start approved Accepted for this run",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
       expect(decision?.text).toContain("Decision: approved");
       expect(decision?.text).toContain("Readiness: ready");
       expect(decision?.text).toContain("Resumed held executions: 1");
@@ -3112,14 +3187,16 @@ describe("openclawcode extension", () => {
       await writeProjectWorkItemInventory(fixture.repoRoot);
       await writeProjectDiscoveryInventory(fixture.repoRoot);
 
-      const decision = await fixture.commands.get("occode-gate-decide")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-gate-decide execution-start approved Accepted for this repo",
-        args: "execution-start approved Accepted for this repo",
-        senderId: "user:operator",
-        config: {},
-      });
+      const decision = await fixture.commands.get("occode-gate-decide")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-gate-decide execution-start approved Accepted for this repo",
+          args: "execution-start approved Accepted for this repo",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
 
       expect(decision?.text).toContain("Decision: approved");
       expect(decision?.text).not.toContain("Resumed held executions:");
@@ -3168,14 +3245,16 @@ describe("openclawcode extension", () => {
         latestReviewUrl: "https://github.com/zhyongrui/openclawcode/pull/315#pullrequestreview-11",
       });
 
-      const result = await fixture.commands.get("occode-rerun")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-rerun #215",
-        args: "#215",
-        to: "user:rerun-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-rerun")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-rerun #215",
+          args: "#215",
+          to: "user:rerun-chat",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: "Queued rerun for zhyongrui/openclawcode#215 from Changes Requested state. I will post status updates here.",
@@ -3255,14 +3334,16 @@ describe("openclawcode extension", () => {
         buildTransientProviderFailedStatus(6612),
       );
 
-      const result = await fixture.commands.get("occode-rerun")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-rerun #2150",
-        args: "#2150",
-        to: "user:rerun-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-rerun")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-rerun #2150",
+          args: "#2150",
+          to: "user:rerun-chat",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -3302,14 +3383,16 @@ describe("openclawcode extension", () => {
           "Paused after 2 recent provider-side transient failures. Recent workflow runs are failing with HTTP 400 internal errors before code changes are produced.",
       });
 
-      const result = await fixture.commands.get("occode-rerun")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-rerun #2151",
-        args: "#2151",
-        to: "user:rerun-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-rerun")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-rerun #2151",
+          args: "#2151",
+          to: "user:rerun-chat",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -3343,13 +3426,15 @@ describe("openclawcode extension", () => {
         notifyTarget: "chat:snapshot-thread",
       });
 
-      const result = await fixture.commands.get("occode-rerun")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-rerun #216",
-        args: "#216",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-rerun")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-rerun #216",
+          args: "#216",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: "Queued rerun for zhyongrui/openclawcode#216 from Ready For Human Review state. I will post status updates here.",
@@ -3395,13 +3480,15 @@ describe("openclawcode extension", () => {
           "https://github.com/zhyongrui/openclawcode/pull/3160#pullrequestreview-2160",
       });
 
-      const result = await fixture.commands.get("occode-rerun")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-rerun #2160",
-        args: "#2160",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-rerun")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-rerun #2160",
+          args: "#2160",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: "Queued rerun for zhyongrui/openclawcode#2160 from Escalated state. I will post status updates here.",
@@ -3438,13 +3525,15 @@ describe("openclawcode extension", () => {
   it("requires an existing tracked run before /occode-rerun can queue work", async () => {
     const fixture = await registerPluginFixture();
     try {
-      const result = await fixture.commands.get("occode-rerun")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-rerun #217",
-        args: "#217",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-rerun")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-rerun #217",
+          args: "#217",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -3463,14 +3552,16 @@ describe("openclawcode extension", () => {
   it("binds the current chat as the repo notification target through /occode-bind", async () => {
     const fixture = await registerPluginFixture();
     try {
-      const result = await fixture.commands.get("occode-bind")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-bind",
-        args: "",
-        to: "user:bound-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-bind")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-bind",
+          args: "",
+          to: "user:bound-chat",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -3501,16 +3592,18 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
-      expect(result?.text).toContain("OpenClaw Code setup is waiting for GitHub approval.");
+      expect(result?.text).toContain("OpenClaw Code 正在等待 GitHub 授权完成。");
       expect(result?.text).toContain("https://github.com/login/device");
       expect(result?.text).toContain("ABCD-EFGH");
       expect(result?.text).toContain("/occode-setup-status");
@@ -3535,14 +3628,16 @@ describe("openclawcode extension", () => {
     const fixture = await registerPluginFixture();
 
     try {
-      const result = await fixture.commands.get("occode-setup")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup new-project",
-        args: "new-project",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup new-project",
+          args: "new-project",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "OpenClaw Code is drafting a blueprint-first new-project setup for this chat.",
@@ -3575,39 +3670,45 @@ describe("openclawcode extension", () => {
       expect(fixture.commands.has("occ-blueprint-edit")).toBe(true);
       expect(fixture.commands.has("occ-status")).toBe(true);
 
-      const setupResult = await fixture.commands.get("occ-setup")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occ-setup new-project",
-        args: "new-project",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const setupResult = await fixture.commands.get("occ-setup")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occ-setup new-project",
+          args: "new-project",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(setupResult?.text).toContain(
         "OpenClaw Code is drafting a blueprint-first new-project setup for this chat.",
       );
 
-      const goalResult = await fixture.commands.get("occ-goal")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occ-goal Shared image gallery for family albums",
-        args: "Shared image gallery for family albums",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const goalResult = await fixture.commands.get("occ-goal")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occ-goal Shared image gallery for family albums",
+          args: "Shared image gallery for family albums",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(goalResult?.text).toContain("Updated setup draft section `Goal`.");
 
-      const editResult = await fixture.commands.get("occ-blueprint-edit")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody:
-          "/occ-blueprint-edit constraints\n- Stay inside chat until repo creation is necessary.",
-        args: "constraints",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const editResult = await fixture.commands.get("occ-blueprint-edit")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody:
+            "/occ-blueprint-edit constraints\n- Stay inside chat until repo creation is necessary.",
+          args: "constraints",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(editResult?.text).toContain("Updated setup draft section `Constraints`.");
       expect(
@@ -3642,14 +3743,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-goal")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-goal Shared image gallery for family albums",
-        args: "Shared image gallery for family albums",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-goal")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-goal Shared image gallery for family albums",
+          args: "Shared image gallery for family albums",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Updated setup draft section `Goal`.");
       expect(result?.text).toContain("Goal: Shared image gallery for family albums");
@@ -3684,15 +3787,17 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-blueprint-edit")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody:
-          "/occode-blueprint-edit constraints\n- Stay inside chat until repo creation is necessary.",
-        args: "constraints",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint-edit")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody:
+            "/occode-blueprint-edit constraints\n- Stay inside chat until repo creation is necessary.",
+          args: "constraints",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Updated setup draft section `Constraints`.");
       expect(
@@ -3730,14 +3835,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-blueprint-agree")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-blueprint-agree",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint-agree")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-blueprint-agree",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "OpenClaw Code has an agreed blueprint draft for this new-project setup.",
@@ -3820,14 +3927,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup new shared-image-gallery",
-        args: "new shared-image-gallery",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup new shared-image-gallery",
+          args: "new shared-image-gallery",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(mocked.createOnboardingRepositoryViaGh).toHaveBeenCalledWith({
         owner: "zhyongrui",
@@ -3836,8 +3945,8 @@ describe("openclawcode extension", () => {
       expect(mocked.runOnboardingOpenClawCodeBootstrap).toHaveBeenCalledWith({
         repo: "zhyongrui/shared-image-gallery",
       });
-      expect(result?.text).toContain("Repo: zhyongrui/shared-image-gallery");
-      expect(result?.text).toContain("Work items: total=1 | planned=1");
+      expect(result?.text).toContain("仓库：zhyongrui/shared-image-gallery");
+      expect(result?.text).toContain("工作项：总数=1 | 已规划=1");
 
       const blueprint = await readProjectBlueprintDocument(fixture.repoRoot);
       expect(blueprint.status).toBe("agreed");
@@ -3879,7 +3988,8 @@ describe("openclawcode extension", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
+        const url =
+          input instanceof URL ? input.toString() : typeof input === "string" ? input : input.url;
         if (url.includes("/contents/PROJECT-BLUEPRINT.md")) {
           return new Response(
             JSON.stringify({
@@ -3919,18 +4029,20 @@ describe("openclawcode extension", () => {
     );
 
     try {
-      const result = await fixture.commands.get("occode-setup")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup zhyongrui/iGallery",
-        args: "zhyongrui/iGallery",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup zhyongrui/iGallery",
+          args: "zhyongrui/iGallery",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("State: repo-existing-blueprint-detected");
       expect(result?.text).toContain("GitHub: ready as zhyongrui");
-      expect(result?.text).toContain("Repo: zhyongrui/iGallery");
+      expect(result?.text).toContain("仓库：zhyongrui/iGallery");
       expect(result?.text).toContain("Blueprint: existing baseline detected (active)");
       expect(result?.text).toContain(
         "Detected OpenClaw Code artifacts: PROJECT-BLUEPRINT.md, .openclawcode",
@@ -3996,7 +4108,8 @@ describe("openclawcode extension", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
+        const url =
+          input instanceof URL ? input.toString() : typeof input === "string" ? input : input.url;
         if (url.includes("/contents/README.md")) {
           return new Response(
             JSON.stringify({
@@ -4015,18 +4128,20 @@ describe("openclawcode extension", () => {
     );
 
     try {
-      const result = await fixture.commands.get("occode-setup")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup existing zhyongrui/iGallery",
-        args: "existing zhyongrui/iGallery",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup existing zhyongrui/iGallery",
+          args: "existing zhyongrui/iGallery",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("State: repo-nonstandard-context-detected");
       expect(result?.text).toContain("GitHub: ready as zhyongrui");
-      expect(result?.text).toContain("Repo: zhyongrui/iGallery");
+      expect(result?.text).toContain("仓库：zhyongrui/iGallery");
       expect(result?.text).toContain("Blueprint: draft");
       expect(result?.text).toContain(
         "- /occode-goal or /occode-blueprint-edit to refine the draft in this setup chat.",
@@ -4077,7 +4192,8 @@ describe("openclawcode extension", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
+        const url =
+          input instanceof URL ? input.toString() : typeof input === "string" ? input : input.url;
         if (url.includes("/contents/docs/architecture.md")) {
           return new Response(
             JSON.stringify({
@@ -4099,14 +4215,16 @@ describe("openclawcode extension", () => {
     );
 
     try {
-      const result = await fixture.commands.get("occode-setup")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup existing zhyongrui/iGallery",
-        args: "existing zhyongrui/iGallery",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup existing zhyongrui/iGallery",
+          args: "existing zhyongrui/iGallery",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("State: repo-nonstandard-context-detected");
       expect(result?.text).toContain("Useful repo context found: docs");
@@ -4152,14 +4270,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup new iGallery",
-        args: "new iGallery",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup new iGallery",
+          args: "new iGallery",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("State: repo-creation-pending");
       expect(result?.text).toContain("Repo: pending create iGallery");
@@ -4208,19 +4328,21 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup-retry")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup-retry",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup-retry")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup-retry",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(mocked.runOnboardingOpenClawCodeBootstrap).toHaveBeenCalledWith({
         repo: "zhyongrui/iGallery",
       });
-      expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
+      expect(result?.text).toContain("本次 setup 会话的 OpenClaw Code bootstrap 已完成。");
     } finally {
       await cleanupPluginFixture(fixture);
     }
@@ -4240,17 +4362,19 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup new iGallery",
-        args: "new iGallery",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup new iGallery",
+          args: "new iGallery",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
-      expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
-      expect(result?.text).toContain("Repo: zhyongrui/iGallery");
+      expect(result?.text).toContain("本次 setup 会话的 OpenClaw Code bootstrap 已完成。");
+      expect(result?.text).toContain("仓库：zhyongrui/iGallery");
       expect(mocked.createOnboardingRepositoryViaGh).toHaveBeenCalledWith({
         owner: "zhyongrui",
         repo: "iGallery",
@@ -4314,16 +4438,18 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup-retry")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup-retry",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup-retry")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup-retry",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
-      expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
+      expect(result?.text).toContain("本次 setup 会话的 OpenClaw Code bootstrap 已完成。");
       expect(mocked.runOnboardingOpenClawCodeBootstrap).toHaveBeenCalledWith({
         repo: "zhyongrui/openclawcode",
       });
@@ -4358,14 +4484,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup-cancel")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup-cancel",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup-cancel")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup-cancel",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Cancelled the active openclawcode setup session");
       expect(
@@ -4391,19 +4519,21 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup-status")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup-status",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup-status")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup-status",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
-      expect(result?.text).toContain("OpenClaw Code setup is waiting for chat pairing approval.");
-      expect(result?.text).toContain("Selected repo: zhyongrui/openclawcode");
+      expect(result?.text).toContain("OpenClaw Code 正在等待当前会话的配对批准。");
+      expect(result?.text).toContain("已选仓库：zhyongrui/openclawcode");
       expect(result?.text).toContain(
-        "OpenClaw Code will automatically continue setup here and start GitHub login.",
+        "批准后，OpenClaw Code 会在这里自动继续 setup，并发起 GitHub 登录。",
       );
       expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
     } finally {
@@ -4435,14 +4565,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-blueprint")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-blueprint",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-blueprint",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("State: repo-existing-blueprint-detected");
       expect(result?.text).toContain("Blueprint title: iGallery blueprint");
@@ -4478,14 +4610,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-blueprint")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-blueprint",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-blueprint",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("OpenClaw Code setup blueprint summary for this chat.");
       expect(result?.text).toContain("Draft goal: Photo gallery for family albums");
@@ -4520,14 +4654,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-blueprint-agree")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-blueprint-agree",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint-agree")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-blueprint-agree",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("State: bootstrap-ready");
       expect(result?.text).toContain("Repo: zhyongrui/iGallery");
@@ -4576,14 +4712,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-blueprint-agree")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-blueprint-agree",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint-agree")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-blueprint-agree",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("State: bootstrap-ready");
       expect(result?.text).toContain("Revisions queued for bootstrap sync: Goal, Success Criteria");
@@ -4613,15 +4751,17 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-blueprint-edit")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody:
-          "/occode-blueprint-edit success-criteria\n- Prove setup-driven resume before bootstrap.",
-        args: "success-criteria\n- Prove setup-driven resume before bootstrap.",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint-edit")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody:
+            "/occode-blueprint-edit success-criteria\n- Prove setup-driven resume before bootstrap.",
+          args: "success-criteria\n- Prove setup-driven resume before bootstrap.",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Updated setup draft section `Success Criteria`.");
       expect(result?.text).toContain("State: repo-existing-blueprint-detected");
@@ -4667,14 +4807,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-goal")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-goal Align the existing gallery around family-first sharing.",
-        args: "Align the existing gallery around family-first sharing.",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-goal")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-goal Align the existing gallery around family-first sharing.",
+          args: "Align the existing gallery around family-first sharing.",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Updated setup draft section `Goal`.");
       expect(result?.text).toContain("Pending setup revisions: 1 section(s)");
@@ -4706,27 +4848,29 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup-status")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup-status",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup-status")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup-status",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
-      expect(result?.text).toContain("OpenClaw Code setup has GitHub auth ready.");
-      expect(result?.text).toContain("GitHub username: zhyongrui");
-      expect(result?.text).toContain("Name: Zhongrui Ye");
-      expect(result?.text).toContain("Email: zyr@example.com");
-      expect(result?.text).toContain("Source: gh auth");
+      expect(result?.text).toContain("OpenClaw Code 已经拿到可用的 GitHub 授权。");
+      expect(result?.text).toContain("GitHub 用户名：zhyongrui");
+      expect(result?.text).toContain("姓名：Zhongrui Ye");
+      expect(result?.text).toContain("邮箱：zyr@example.com");
+      expect(result?.text).toContain("来源：gh auth");
       expect(result?.text).toContain("/occode-github-switch");
       expect(result?.text).toContain("/occode-github-status");
       expect(result?.text).toContain(
-        "Next: choose the project path with /occode-setup existing owner/repo, /occode-setup new-project, or /occode-setup new <repo-name>.",
+        "下一步：用 /occode-setup existing owner/repo、/occode-setup new-project 或 /occode-setup new <repo-name> 选择项目路径。",
       );
       expect(result?.text).not.toContain(
-        "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
+        "如果仓库选错了，可发送 /occode-setup owner/repo 或 /occode-setup new <repo-name> 来切换目标。",
       );
       expect(result?.text).not.toContain("gh auth logout --hostname github.com --user zhyongrui");
     } finally {
@@ -4742,18 +4886,20 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-github-status")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-github-status",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-github-status")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-github-status",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
-      expect(result?.text).toContain("OpenClaw Code found GitHub auth on the host.");
-      expect(result?.text).toContain("GitHub username: zhyongrui");
-      expect(result?.text).toContain("Source: gh auth");
+      expect(result?.text).toContain("OpenClaw Code 在宿主机上发现了可用的 GitHub 授权。");
+      expect(result?.text).toContain("GitHub 用户名：zhyongrui");
+      expect(result?.text).toContain("来源：gh auth");
       expect(result?.text).toContain("/occode-github-switch");
       expect(result?.text).toContain("/occode-github-status");
     } finally {
@@ -4781,14 +4927,16 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-github-switch")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-github-switch",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-github-switch")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-github-switch",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(fixture.runCommandWithTimeout).toHaveBeenCalledWith(
         ["gh", "auth", "logout", "--hostname", "github.com", "--user", "zhyongrui"],
@@ -4800,10 +4948,8 @@ describe("openclawcode extension", () => {
       expect(mocked.startOnboardingGitHubCliDeviceLogin).toHaveBeenCalledWith({
         stateDir: fixture.stateDir,
       });
-      expect(result?.text).toContain(
-        "OpenClaw Code is starting a fresh GitHub login for this chat.",
-      );
-      expect(result?.text).toContain("Code: ABCD-1234");
+      expect(result?.text).toContain("OpenClaw Code 正在为当前会话发起新的 GitHub 登录。");
+      expect(result?.text).toContain("验证码：ABCD-1234");
       expect(result?.text).toContain("/occode-github-status");
       expect(
         await fixture.store.getSetupSession({
@@ -4855,25 +5001,27 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup-status")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup-status",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup-status")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup-status",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
-      expect(result?.text).toContain("OpenClaw Code setup has GitHub auth ready.");
-      expect(result?.text).toContain("GitHub username: zhyongrui");
-      expect(result?.text).toContain("Name: Zhongrui Ye");
+      expect(result?.text).toContain("OpenClaw Code 已经拿到可用的 GitHub 授权。");
+      expect(result?.text).toContain("GitHub 用户名：zhyongrui");
+      expect(result?.text).toContain("姓名：Zhongrui Ye");
       expect(result?.text).toContain("/occode-github-switch");
       expect(result?.text).toContain("/occode-github-status");
       expect(result?.text).toContain(
-        "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
+        "如果仓库选错了，可发送 /occode-setup owner/repo 或 /occode-setup new <repo-name> 来切换目标。",
       );
       expect(result?.text).toContain("/occode-setup-cancel");
-      expect(result?.text).toContain("Selected repo: zhyongrui/openclawcode");
+      expect(result?.text).toContain("已选仓库：zhyongrui/openclawcode");
       expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
       expect(
         await fixture.store.getSetupSession({
@@ -4931,26 +5079,28 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup-status")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup-status",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup-status")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup-status",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
-      expect(result?.text).toContain("OpenClaw Code bootstrap finished for this setup session.");
-      expect(result?.text).toContain("GitHub username: zhyongrui");
+      expect(result?.text).toContain("本次 setup 会话的 OpenClaw Code bootstrap 已完成。");
+      expect(result?.text).toContain("GitHub 用户名：zhyongrui");
       expect(result?.text).toContain("/occode-github-switch");
       expect(result?.text).toContain("/occode-github-status");
       expect(result?.text).toContain(
-        "Wrong repo? Send /occode-setup owner/repo or /occode-setup new <repo-name> to change the target.",
+        "如果仓库选错了，可发送 /occode-setup owner/repo 或 /occode-setup new <repo-name> 来切换目标。",
       );
-      expect(result?.text).toContain("Repo: zhyongrui/openclawcode");
+      expect(result?.text).toContain("仓库：zhyongrui/openclawcode");
       expect(result?.text).toContain("/occode-blueprint zhyongrui/openclawcode");
-      expect(result?.text).toContain("Repair: openclaw gateway restart");
-      expect(result?.text).toContain("Chat retry: /occode-setup-status");
+      expect(result?.text).toContain("修复：openclaw gateway restart");
+      expect(result?.text).toContain("聊天重试：/occode-setup-status");
       expect(mocked.runOnboardingOpenClawCodeBootstrap).not.toHaveBeenCalled();
     } finally {
       await cleanupPluginFixture(fixture);
@@ -4984,7 +5134,7 @@ describe("openclawcode extension", () => {
           params: expect.objectContaining({
             channel: "telegram",
             to: "chat:primary",
-            message: expect.stringContaining("OpenClaw Code setup is waiting for GitHub approval."),
+            message: expect.stringContaining("OpenClaw Code 正在等待 GitHub 授权完成。"),
           }),
         }),
       );
@@ -5106,9 +5256,7 @@ describe("openclawcode extension", () => {
             params: expect.objectContaining({
               channel: "feishu",
               to: "user:ou_owner_contact",
-              message: expect.stringContaining(
-                "OpenClaw Code setup is waiting for GitHub approval.",
-              ),
+              message: expect.stringContaining("OpenClaw Code 正在等待 GitHub 授权完成。"),
             }),
           }),
         );
@@ -5396,7 +5544,7 @@ describe("openclawcode extension", () => {
           params: expect.objectContaining({
             channel: "feishu",
             to: "user:bound-operator",
-            message: expect.stringContaining("OpenClaw Code setup is waiting for GitHub approval."),
+            message: expect.stringContaining("OpenClaw Code 正在等待 GitHub 授权完成。"),
           }),
         }),
       );
@@ -5468,9 +5616,7 @@ describe("openclawcode extension", () => {
             params: expect.objectContaining({
               channel: "feishu",
               to: "user:setup-chat",
-              message: expect.stringContaining(
-                "OpenClaw Code setup is waiting for GitHub approval.",
-              ),
+              message: expect.stringContaining("OpenClaw Code 正在等待 GitHub 授权完成。"),
             }),
           }),
         );
@@ -5538,17 +5684,19 @@ describe("openclawcode extension", () => {
 
     try {
       await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
-        const result = await fixture.commands.get("occode-setup")?.handler({
-          channel: "feishu",
-          isAuthorizedSender: true,
-          commandBody: "/occode-setup",
-          args: "",
-          to: "user:setup-chat",
-          config: fixture.runtime.config.loadConfig(),
-        });
+        const result = await fixture.commands.get("occode-setup")?.handler(
+          createCommandContext({
+            channel: "feishu",
+            isAuthorizedSender: true,
+            commandBody: "/occode-setup",
+            args: "",
+            to: "user:setup-chat",
+            config: fixture.runtime.config.loadConfig(),
+          }),
+        );
 
-        expect(result?.text).toContain("OpenClaw Code setup is waiting for GitHub approval.");
-        expect(result?.text).toContain("Code: WXYZ-1234");
+        expect(result?.text).toContain("OpenClaw Code 正在等待 GitHub 授权完成。");
+        expect(result?.text).toContain("验证码：WXYZ-1234");
         expect(
           await fixture.store.getSetupSession({
             notifyChannel: "feishu",
@@ -5641,7 +5789,7 @@ describe("openclawcode extension", () => {
         expect(
           mocked.runMessageAction.mock.calls.some((call) =>
             String(call[0]?.params?.message ?? "").includes(
-              "OpenClaw Code setup is waiting for GitHub approval.",
+              "OpenClaw Code 正在等待 GitHub 授权完成。",
             ),
           ),
         ).toBe(true);
@@ -5768,6 +5916,8 @@ describe("openclawcode extension", () => {
         testCommands: [
           "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
         ],
+        mergeOnApprove: undefined,
+        pollIntervalMs: undefined,
       });
 
       await waitForAssertion(async () => {
@@ -5863,7 +6013,7 @@ describe("openclawcode extension", () => {
         expect(
           mocked.runMessageAction.mock.calls.some((call) =>
             String(call[0]?.params?.message ?? "").includes(
-              "OpenClaw Code bootstrap finished for this setup session.",
+              "本次 setup 会话的 OpenClaw Code bootstrap 已完成。",
             ),
           ),
         ).toBe(true);
@@ -5871,7 +6021,7 @@ describe("openclawcode extension", () => {
 
       expect(
         mocked.runMessageAction.mock.calls.some((call) =>
-          String(call[0]?.params?.message ?? "").includes("Plugin activation: ready"),
+          String(call[0]?.params?.message ?? "").includes("插件激活：就绪"),
         ),
       ).toBe(true);
       expect(mocked.runOnboardingOpenClawCodeBootstrap).toHaveBeenCalledWith({
@@ -5900,6 +6050,183 @@ describe("openclawcode extension", () => {
           },
         });
       });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("proactively notifies the chat after setup recovery becomes ready", async () => {
+    const fixture = await registerPluginFixture({ pollIntervalMs: 10 });
+    mocked.resolveOnboardingGitHubToken.mockReturnValue(null);
+    mocked.inspectOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+      state: "authorized",
+      running: false,
+      source: "gh-auth-token",
+      userCode: "ABCD-EFGH",
+      verificationUri: "https://github.com/login/device",
+      startedAt: "2026-03-19T02:35:00.000Z",
+      completedAt: "2026-03-19T02:36:00.000Z",
+    });
+    mocked.runOnboardingOpenClawCodeBootstrap.mockResolvedValue({
+      repo: {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        repoKey: "zhyongrui/openclawcode",
+        repoRoot: fixture.repoRoot,
+        checkoutAction: "attached",
+      },
+      blueprint: {
+        blueprintPath: path.join(fixture.repoRoot, "PROJECT-BLUEPRINT.md"),
+        status: "draft",
+        revisionId: "rev-bootstrap",
+      },
+      pluginActivation: {
+        ready: false,
+        pluginsEnabled: true,
+        allowlisted: true,
+        entryEnabled: false,
+      },
+      proofReadiness: {
+        cliProofReady: true,
+        chatProofReady: true,
+        chatSetupRoutingReady: false,
+      },
+      handoff: {
+        blueprintCommand: "/occode-blueprint zhyongrui/openclawcode",
+        chatSetupStatusCommand: "/occode-setup-status",
+      },
+      nextAction: "repair-plugin-activation",
+    });
+    let probeCallCount = 0;
+    fixture.runCommandWithTimeout.mockImplementation(async () => {
+      probeCallCount += 1;
+      return {
+        code: 0,
+        stdout: JSON.stringify(
+          probeCallCount === 1
+            ? {
+                ok: false,
+                strict: true,
+                repoRoot: fixture.repoRoot,
+                operatorRoot: fixture.repoRoot,
+                readiness: {
+                  basic: false,
+                  strict: false,
+                  lowRiskProofReady: false,
+                  fallbackProofReady: false,
+                  promotionReady: false,
+                  chatSetupRoutingReady: false,
+                  gatewayReachable: false,
+                  routeProbeReady: false,
+                  routeProbeSkipped: false,
+                  builtStartupProofRequested: false,
+                  builtStartupProofReady: false,
+                  nextAction: "repair-plugin-activation",
+                },
+                pluginActivation: {
+                  ready: false,
+                  pluginsEnabled: true,
+                  allowlisted: true,
+                  entryEnabled: false,
+                },
+                summary: {
+                  pass: 10,
+                  warn: 1,
+                  fail: 2,
+                },
+              }
+            : {
+                ok: true,
+                strict: true,
+                repoRoot: fixture.repoRoot,
+                operatorRoot: fixture.repoRoot,
+                readiness: {
+                  basic: true,
+                  strict: true,
+                  lowRiskProofReady: true,
+                  fallbackProofReady: true,
+                  promotionReady: true,
+                  chatSetupRoutingReady: true,
+                  gatewayReachable: true,
+                  routeProbeReady: true,
+                  routeProbeSkipped: false,
+                  builtStartupProofRequested: false,
+                  builtStartupProofReady: true,
+                  nextAction: "ready-for-low-risk-proof",
+                },
+                pluginActivation: {
+                  ready: true,
+                  pluginsEnabled: true,
+                  allowlisted: true,
+                  entryEnabled: true,
+                },
+                summary: {
+                  pass: 18,
+                  warn: 0,
+                  fail: 0,
+                },
+              },
+        ),
+        stderr: "",
+      };
+    });
+    await fixture.store.upsertSetupSession({
+      notifyChannel: "feishu",
+      notifyTarget: "user:setup-chat",
+      projectMode: "existing-repo",
+      repoKey: "zhyongrui/openclawcode",
+      stage: "awaiting-github-device-auth",
+      githubDeviceAuth: {
+        pid: 321,
+        logPath: "/tmp/gh-auth.log",
+        userCode: "ABCD-EFGH",
+        verificationUri: "https://github.com/login/device",
+        startedAt: "2026-03-19T02:35:00.000Z",
+      },
+      createdAt: "2026-03-19T02:35:00.000Z",
+      updatedAt: "2026-03-19T02:35:00.000Z",
+    });
+
+    try {
+      await fixture.service?.start({
+        config: {},
+        stateDir: fixture.stateDir,
+        logger: { info() {}, warn() {}, error() {} },
+      });
+
+      await waitForAssertion(async () => {
+        const recoveryMessages = mocked.runMessageAction.mock.calls.filter((call) =>
+          String(call[0]?.params?.message ?? "").includes("OpenClaw Code setup is healthy again."),
+        );
+        expect(recoveryMessages).toHaveLength(1);
+      });
+
+      await waitForAssertion(async () => {
+        expect(
+          await fixture.store.getSetupSession({
+            notifyChannel: "feishu",
+            notifyTarget: "user:setup-chat",
+          }),
+        ).toMatchObject({
+          stage: "bootstrap-complete",
+          bootstrap: {
+            pluginActivation: {
+              ready: true,
+            },
+            proofReadiness: {
+              chatSetupRoutingReady: true,
+            },
+            recoveryNotice: {
+              awaitingRecovery: false,
+              blockedAt: expect.any(String),
+              lastProbeAt: expect.any(String),
+              notificationSentAt: expect.any(String),
+            },
+          },
+        });
+      });
+
+      expect(probeCallCount).toBeGreaterThanOrEqual(2);
     } finally {
       await cleanupPluginFixture(fixture);
     }
@@ -6010,19 +6337,21 @@ describe("openclawcode extension", () => {
     });
 
     try {
-      const result = await fixture.commands.get("occode-setup-retry")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-setup-retry",
-        args: "",
-        to: "user:setup-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-setup-retry")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-setup-retry",
+          args: "",
+          to: "user:setup-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
-        "Blueprint goal: Ship chat-native setup with clear operator guidance.",
+        "蓝图目标：Ship chat-native setup with clear operator guidance.",
       );
-      expect(result?.text).toContain("Clarifications:");
+      expect(result?.text).toContain("待澄清问题：");
       expect(result?.text).toContain("/occode-blueprint zhyongrui/openclawcode");
       expect(
         await fixture.store.getSetupSession({
@@ -6107,13 +6436,15 @@ describe("openclawcode extension", () => {
         notifyTarget: "user:bound-chat",
       });
 
-      const result = await fixture.commands.get("occode-unbind")?.handler({
-        channel: "feishu",
-        isAuthorizedSender: true,
-        commandBody: "/occode-unbind",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-unbind")?.handler(
+        createCommandContext({
+          channel: "feishu",
+          isAuthorizedSender: true,
+          commandBody: "/occode-unbind",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: "Removed notification binding for zhyongrui/openclawcode.",
@@ -6134,13 +6465,15 @@ describe("openclawcode extension", () => {
         notifyTarget: "chat:primary",
       });
 
-      const result = await fixture.commands.get("occode-skip")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-skip #205",
-        args: "#205",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-skip")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-skip #205",
+          args: "#205",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: "Skipped pending approval for zhyongrui/openclawcode#205.",
@@ -6166,13 +6499,15 @@ describe("openclawcode extension", () => {
         prUrl: "https://github.com/zhyongrui/openclawcode/pull/206",
       });
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #206",
-        args: "#206",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #206",
+          args: "#206",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Stage: Merged");
       expect(result?.text).toContain("PR: https://github.com/zhyongrui/openclawcode/pull/206");
@@ -6194,13 +6529,15 @@ describe("openclawcode extension", () => {
         summary: "The issue was already satisfied; no code changes or PR were needed.",
       });
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #244",
-        args: "#244",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #244",
+          args: "#244",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Stage: Completed Without Changes");
       expect(result?.text).toContain(
@@ -6242,13 +6579,15 @@ describe("openclawcode extension", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #266",
-        args: "#266",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #266",
+          args: "#266",
+          config: {},
+        }),
+      );
 
       expect(fetchMock).toHaveBeenCalledWith(
         "https://api.github.com/repos/zhyongrui/openclawcode/issues/266",
@@ -6289,13 +6628,15 @@ describe("openclawcode extension", () => {
         buildTransientProviderFailedStatus(6622),
       );
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #267",
-        args: "#267",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #267",
+          args: "#267",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -6335,13 +6676,15 @@ describe("openclawcode extension", () => {
         buildTransientProviderFailedStatus(6622),
       );
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #6622",
-        args: "#6622",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #6622",
+          args: "#6622",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -6385,13 +6728,15 @@ describe("openclawcode extension", () => {
         buildTransientProviderFailedStatus(6623),
       );
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #6623",
-        args: "#6623",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #6623",
+          args: "#6623",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -6438,13 +6783,15 @@ describe("openclawcode extension", () => {
         preCodeDisciplineFreshRoleExecutionPresent: false,
       });
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #6623",
-        args: "#6623",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #6623",
+          args: "#6623",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "Pre-code discipline: blocked | awaiting explicit plan approval before code execution",
@@ -6492,7 +6839,7 @@ describe("openclawcode extension", () => {
           "Stage: Queued",
           "Summary: Waiting for an isolated issue worktree.",
         ].join("\n"),
-        stage: "queued",
+        stage: "building",
         runId: "run-6625-pre-code",
         updatedAt: "2026-03-22T12:09:00.000Z",
         owner: "zhyongrui",
@@ -6505,13 +6852,15 @@ describe("openclawcode extension", () => {
         preCodeDisciplineFreshRoleExecutionPresent: true,
       });
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #6625",
-        args: "#6625",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #6625",
+          args: "#6625",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "Pre-code discipline: blocked | isolated issue worktree was not prepared before code execution",
@@ -6537,7 +6886,7 @@ describe("openclawcode extension", () => {
           "Stage: Running",
           "Summary: Execution routing needs cleanup before the next build attempt.",
         ].join("\n"),
-        stage: "running",
+        stage: "building",
         runId: "run-6626-pre-code",
         updatedAt: "2026-03-22T12:12:00.000Z",
         owner: "zhyongrui",
@@ -6551,13 +6900,15 @@ describe("openclawcode extension", () => {
         preCodeDisciplineFreshRoleExecutionPresent: false,
       });
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #6626",
-        args: "#6626",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #6626",
+          args: "#6626",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "Pre-code discipline: warn | mode-specific contexts and fresh role execution are not explicit",
@@ -6597,13 +6948,15 @@ describe("openclawcode extension", () => {
           "Needs human review because the issue requests policy changes outside command-layer scope.",
       });
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #6624",
-        args: "#6624",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #6624",
+          args: "#6624",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -6646,13 +6999,15 @@ describe("openclawcode extension", () => {
         "Verification approved the run for human review.",
       );
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #6626",
-        args: "#6626",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #6626",
+          args: "#6626",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -6711,13 +7066,15 @@ describe("openclawcode extension", () => {
         ],
       });
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #6628",
-        args: "#6628",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #6628",
+          args: "#6628",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "Runtime routing: coder=codex-alt | adapter=codex | source=stage-steering || verifier=claude-main | adapter=claude-code | source=role-env",
@@ -6733,13 +7090,15 @@ describe("openclawcode extension", () => {
   it("shows repo-level policy guidance through /occode-policy", async () => {
     const fixture = await registerPluginFixture();
     try {
-      const result = await fixture.commands.get("occode-policy")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-policy",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-policy")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-policy",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -6785,13 +7144,15 @@ describe("openclawcode extension", () => {
         "Verification approved the run for human review.",
       );
 
-      const result = await fixture.commands.get("occode-policy")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-policy #6627",
-        args: "#6627",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-policy")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-policy #6627",
+          args: "#6627",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -6837,13 +7198,15 @@ describe("openclawcode extension", () => {
           "Not eligible for auto-merge: the run is not classified as command-layer.",
       });
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #6625",
-        args: "#6625",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #6625",
+          args: "#6625",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -6899,13 +7262,15 @@ describe("openclawcode extension", () => {
         ),
       );
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #207",
-        args: "#207",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #207",
+          args: "#207",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Stage: Merged");
       const snapshot = await fixture.store.getStatusSnapshot("zhyongrui/openclawcode#207");
@@ -6972,13 +7337,15 @@ describe("openclawcode extension", () => {
           ),
       );
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #210",
-        args: "#210",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #210",
+          args: "#210",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Stage: Changes Requested");
       const snapshot = await fixture.store.getStatusSnapshot("zhyongrui/openclawcode#210");
@@ -7027,13 +7394,15 @@ describe("openclawcode extension", () => {
         ),
       );
 
-      const result = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #211",
-        args: "#211",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #211",
+          args: "#211",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Stage: Escalated");
       const snapshot = await fixture.store.getStatusSnapshot("zhyongrui/openclawcode#211");
@@ -7183,13 +7552,15 @@ describe("openclawcode extension", () => {
         issueKey: "zhyongrui/openclawcode#305",
       });
 
-      const result = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("openclawcode inbox for zhyongrui/openclawcode");
       expect(result?.text).toContain("Quality gates: pass=1 | warn=1 | fail=0 | pending=0");
@@ -7254,13 +7625,15 @@ describe("openclawcode extension", () => {
   it("shows an empty summary through /occode-inbox when there is no tracked activity", async () => {
     const fixture = await registerPluginFixture();
     try {
-      const result = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -7290,13 +7663,15 @@ describe("openclawcode extension", () => {
         "Awaiting execution-start gate approval.",
       );
 
-      const result = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "- zhyongrui/openclawcode#307 | Awaiting execution-start gate approval.",
@@ -7359,13 +7734,15 @@ describe("openclawcode extension", () => {
         "Queued after explicit override approval.",
       );
 
-      const result = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "- zhyongrui/openclawcode#306 | Queued after explicit override approval.",
@@ -7441,13 +7818,15 @@ describe("openclawcode extension", () => {
         stderr: "",
       });
 
-      const result = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Promotion readiness: ready | next=ready-for-low-risk-proof");
       expect(result?.text).toContain("Proof readiness: low-risk=ready | fallback=blocked");
@@ -7513,13 +7892,15 @@ describe("openclawcode extension", () => {
         stderr: "",
       });
 
-      const result = await fixture.commands.get("occode-promotion-checklist")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-promotion-checklist",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-promotion-checklist")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-promotion-checklist",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -7586,13 +7967,15 @@ describe("openclawcode extension", () => {
         ),
       );
 
-      const result = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -7674,13 +8057,15 @@ describe("openclawcode extension", () => {
       );
       const inventory = await writeProjectWorkItemInventory(fixture.repoRoot);
 
-      const result = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "Blueprint backlog: 1 items | planned=1 | discovered=0 | stale=no",
@@ -7757,13 +8142,15 @@ describe("openclawcode extension", () => {
         "utf8",
       );
 
-      const result = await fixture.commands.get("occode-blueprint")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-blueprint",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-blueprint",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("openclawcode blueprint for zhyongrui/openclawcode");
       expect(result?.text).toContain("Title: Chat Blueprint");
@@ -7801,14 +8188,16 @@ describe("openclawcode extension", () => {
   it("captures a repo-level goal from chat before issue creation", async () => {
     const fixture = await registerPluginFixture();
     try {
-      const result = await fixture.commands.get("occode-goal")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody:
-          "/occode-goal Move the operator from issue-first execution to blueprint-first planning.",
-        args: "Move the operator from issue-first execution to blueprint-first planning.",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-goal")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody:
+            "/occode-goal Move the operator from issue-first execution to blueprint-first planning.",
+          args: "Move the operator from issue-first execution to blueprint-first planning.",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("updated the blueprint goal");
       expect(result?.text).toContain("Goal: Move the operator from issue-first execution");
@@ -7887,13 +8276,15 @@ describe("openclawcode extension", () => {
         "utf8",
       );
 
-      const result = await fixture.commands.get("occode-blueprint-agree")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-blueprint-agree",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint-agree")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-blueprint-agree",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("marked the blueprint as agreed");
       expect(result?.text).toContain("Status: agreed");
@@ -7916,13 +8307,15 @@ describe("openclawcode extension", () => {
         repoRoot: fixture.repoRoot,
         title: "Blocked Agreement Blueprint",
       });
-      const result = await fixture.commands.get("occode-blueprint-agree")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-blueprint-agree",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint-agree")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-blueprint-agree",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Cannot mark the blueprint as agreed");
     } finally {
@@ -7992,13 +8385,15 @@ describe("openclawcode extension", () => {
         "utf8",
       );
 
-      const result = await fixture.commands.get("occode-blueprint-edit")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: ["/occode-blueprint-edit open-questions", "- None."].join("\n"),
-        args: "open-questions",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-blueprint-edit")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: ["/occode-blueprint-edit open-questions", "- None."].join("\n"),
+          args: "open-questions",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Updated blueprint section `Open Questions`");
       const content = await fs.readFile(
@@ -8015,15 +8410,17 @@ describe("openclawcode extension", () => {
   it("answers one blueprint clarification from chat and records history", async () => {
     const fixture = await registerPluginFixture();
     try {
-      const result = await fixture.commands.get("occode-blueprint-answer")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-blueprint-answer 1 Ship a chat-native blueprint agreement loop.",
-        args: "1 Ship a chat-native blueprint agreement loop.",
-        config: {},
-        senderId: "user:operator",
-        to: "chat:blueprint",
-      });
+      const result = await fixture.commands.get("occode-blueprint-answer")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-blueprint-answer 1 Ship a chat-native blueprint agreement loop.",
+          args: "1 Ship a chat-native blueprint agreement loop.",
+          config: {},
+          senderId: "user:operator",
+          to: "chat:blueprint",
+        }),
+      );
 
       expect(result?.text).toContain("Applied blueprint answer 1 to `Goal`");
       expect(result?.text).toContain("Clarification history: 1");
@@ -8101,13 +8498,15 @@ describe("openclawcode extension", () => {
         "utf8",
       );
 
-      const result = await fixture.commands.get("occode-routing")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-routing",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-routing")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-routing",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("openclawcode role routing for zhyongrui/openclawcode");
       expect(result?.text).toContain("planner=claude-code");
@@ -8186,13 +8585,15 @@ describe("openclawcode extension", () => {
       await writeProjectWorkItemInventory(fixture.repoRoot);
       await writeProjectDiscoveryInventory(fixture.repoRoot);
 
-      const result = await fixture.commands.get("occode-route-set")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-route-set reviewer Claude Code",
-        args: "reviewer Claude Code",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-route-set")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-route-set reviewer Claude Code",
+          args: "reviewer Claude Code",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Updated provider routing for zhyongrui/openclawcode");
       expect(result?.text).toContain("Role: reviewer");
@@ -8244,13 +8645,15 @@ describe("openclawcode extension", () => {
         "utf8",
       );
 
-      const result = await fixture.commands.get("occode-runtime-steering")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-runtime-steering",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-runtime-steering")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-runtime-steering",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("openclawcode runtime steering for zhyongrui/openclawcode");
       expect(result?.text).toContain("Overrides: 1");
@@ -8266,15 +8669,17 @@ describe("openclawcode extension", () => {
   it("updates repo-local runtime steering through /occode-runtime-steering-set", async () => {
     const fixture = await registerPluginFixture();
     try {
-      const result = await fixture.commands.get("occode-runtime-steering-set")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody:
-          "/occode-runtime-steering-set building codex-alt adapter=claude-code hold verifier on alternate path",
-        args: "building codex-alt adapter=claude-code hold verifier on alternate path",
-        to: "user:operator",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-runtime-steering-set")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody:
+            "/occode-runtime-steering-set building codex-alt adapter=claude-code hold verifier on alternate path",
+          args: "building codex-alt adapter=claude-code hold verifier on alternate path",
+          to: "user:operator",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Updated runtime steering for zhyongrui/openclawcode.");
       expect(result?.text).toContain("Stage: building");
@@ -8315,26 +8720,30 @@ describe("openclawcode extension", () => {
         "openclawcode status for zhyongrui/openclawcode#241\nStage: Ready For Human Review",
       );
 
-      const takeover = await fixture.commands.get("occode-takeover")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-takeover #241 human validating the worktree locally",
-        args: "#241 human validating the worktree locally",
-        to: "user:takeover-chat",
-        config: {},
-      });
+      const takeover = await fixture.commands.get("occode-takeover")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-takeover #241 human validating the worktree locally",
+          args: "#241 human validating the worktree locally",
+          to: "user:takeover-chat",
+          config: {},
+        }),
+      );
 
       expect(takeover?.text).toContain("Recorded manual takeover for zhyongrui/openclawcode#241.");
       expect(takeover?.text).toContain("Worktree: /tmp/openclawcode-241");
 
-      const status = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #241",
-        args: "#241",
-        to: "user:takeover-chat",
-        config: {},
-      });
+      const status = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #241",
+          args: "#241",
+          to: "user:takeover-chat",
+          config: {},
+        }),
+      );
 
       expect(status?.text).toContain("Manual takeover: active");
       expect(status?.text).toContain("worktree=/tmp/openclawcode-241");
@@ -8370,14 +8779,16 @@ describe("openclawcode extension", () => {
         requestedAt: "2026-03-16T12:00:00.000Z",
       });
 
-      const result = await fixture.commands.get("occode-resume-after-edit")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-resume-after-edit #242 rerun after human edits",
-        args: "#242 rerun after human edits",
-        to: "user:takeover-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-resume-after-edit")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-resume-after-edit #242 rerun after human edits",
+          args: "#242 rerun after human edits",
+          to: "user:takeover-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "Queued rerun for zhyongrui/openclawcode#242 after manual edits from Ready For Human Review state.",
@@ -8392,14 +8803,16 @@ describe("openclawcode extension", () => {
         manualResumeNote: "rerun after human edits",
       });
 
-      const inbox = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        to: "user:takeover-chat",
-        config: {},
-      });
+      const inbox = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          to: "user:takeover-chat",
+          config: {},
+        }),
+      );
 
       expect(inbox?.text).toContain(
         "  manual-resume: actor=user:takeover-chat | requestedAt=2026-03-16T12:00:00.000Z",
@@ -8441,14 +8854,16 @@ describe("openclawcode extension", () => {
         },
       );
 
-      const status = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #243",
-        args: "#243",
-        to: "user:takeover-chat",
-        config: {},
-      });
+      const status = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #243",
+          args: "#243",
+          to: "user:takeover-chat",
+          config: {},
+        }),
+      );
 
       expect(status?.text).toContain(
         "Rerun: run-242 | from Changes Requested | 2026-03-16T12:05:00.000Z",
@@ -8499,14 +8914,16 @@ describe("openclawcode extension", () => {
         "Queued from test.",
       );
 
-      const result = await fixture.commands.get("occode-reroute-run")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-reroute-run #243 coder codex-alt",
-        args: "#243 coder codex-alt",
-        to: "user:reroute-chat",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-reroute-run")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-reroute-run #243 coder codex-alt",
+          args: "#243 coder codex-alt",
+          to: "user:reroute-chat",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "Updated the queued runtime override for zhyongrui/openclawcode#243.",
@@ -8568,15 +8985,17 @@ describe("openclawcode extension", () => {
         expect(snapshot.currentRun?.issueKey).toBe("zhyongrui/openclawcode#244");
       });
 
-      const reroute = await fixture.commands.get("occode-reroute-run")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-reroute-run #244 verifier claude-alt",
-        args: "#244 verifier claude-alt",
-        to: "user:reroute-chat",
-        senderId: "user:operator",
-        config: {},
-      });
+      const reroute = await fixture.commands.get("occode-reroute-run")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-reroute-run #244 verifier claude-alt",
+          args: "#244 verifier claude-alt",
+          to: "user:reroute-chat",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
 
       expect(reroute?.text).toContain(
         "Recorded a deferred runtime reroute for zhyongrui/openclawcode#244.",
@@ -8591,14 +9010,16 @@ describe("openclawcode extension", () => {
         actor: "user:reroute-chat",
       });
 
-      const status = await fixture.commands.get("occode-status")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-status #244",
-        args: "#244",
-        to: "user:reroute-chat",
-        config: {},
-      });
+      const status = await fixture.commands.get("occode-status")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-status #244",
+          args: "#244",
+          to: "user:reroute-chat",
+          config: {},
+        }),
+      );
 
       expect(status?.text).toContain("Pending runtime reroute: verifier=claude-alt");
       expect(status?.text).toContain(
@@ -8675,15 +9096,17 @@ describe("openclawcode extension", () => {
         expect(snapshot.currentRun?.issueKey).toBe("zhyongrui/openclawcode#245");
       });
 
-      const reroute = await fixture.commands.get("occode-reroute-run")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-reroute-run #245 coder codex-rerun",
-        args: "#245 coder codex-rerun",
-        to: "user:reroute-chat",
-        senderId: "user:operator",
-        config: {},
-      });
+      const reroute = await fixture.commands.get("occode-reroute-run")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-reroute-run #245 coder codex-rerun",
+          args: "#245 coder codex-rerun",
+          to: "user:reroute-chat",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
 
       expect(reroute?.text).toContain(
         "Recorded a deferred runtime reroute for zhyongrui/openclawcode#245.",
@@ -8789,13 +9212,15 @@ describe("openclawcode extension", () => {
       await writeProjectWorkItemInventory(fixture.repoRoot);
       await writeProjectStageGateArtifact(fixture.repoRoot);
 
-      const result = await fixture.commands.get("occode-gates")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-gates",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-gates")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-gates",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("openclawcode stage gates for zhyongrui/openclawcode");
       expect(result?.text).toContain("Gate counts: blocked=0 | needsHuman=1 | total=5");
@@ -8872,13 +9297,15 @@ describe("openclawcode extension", () => {
       );
       await writeProjectWorkItemInventory(fixture.repoRoot);
 
-      const result = await fixture.commands.get("occode-next")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-next",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-next")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-next",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("openclawcode next work for zhyongrui/openclawcode");
       expect(result?.text).toContain("Decision: ready-to-execute");
@@ -8981,14 +9408,16 @@ describe("openclawcode extension", () => {
       vi.stubGlobal("fetch", fetchMock);
       vi.stubEnv("GH_TOKEN", "test-gh-token");
 
-      const result = await fixture.commands.get("occode-materialize")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-materialize",
-        args: "",
-        senderId: "user:operator",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-materialize")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-materialize",
+          args: "",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "openclawcode issue materialization for zhyongrui/openclawcode",
@@ -9095,14 +9524,16 @@ describe("openclawcode extension", () => {
       vi.stubGlobal("fetch", fetchMock);
       vi.stubEnv("GH_TOKEN", "test-gh-token");
 
-      const result = await fixture.commands.get("occode-materialize")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-materialize",
-        args: "",
-        senderId: "user:operator",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-materialize")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-materialize",
+          args: "",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Outcome: created");
       expect(result?.text).toContain("Selected issue: #78");
@@ -9187,13 +9618,15 @@ describe("openclawcode extension", () => {
       await writeProjectWorkItemInventory(fixture.repoRoot);
       await createProjectOperatorProgram({ repoRoot: fixture.repoRoot });
 
-      const progressResult = await fixture.commands.get("occode-progress")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-progress",
-        args: "",
-        config: {},
-      });
+      const progressResult = await fixture.commands.get("occode-progress")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-progress",
+          args: "",
+          config: {},
+        }),
+      );
       expect(fixture.commands.get("occode-progress")?.textAliases).toEqual(["进度", "项目进度"]);
       expect(fixture.commands.get("occ-progress")?.textAliases).toEqual([]);
       expect(fixture.commands.get("occode-autopilot")?.textAliases).toEqual([
@@ -9239,13 +9672,15 @@ describe("openclawcode extension", () => {
       expect(progressResult?.text).toContain("Next: /occode-materialize zhyongrui/openclawcode");
       expect(progressResult?.text).toContain("下一步: /物化: zhyongrui/openclawcode");
 
-      const offResult = await fixture.commands.get("occode-autopilot")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-autopilot off",
-        args: "off",
-        config: {},
-      });
+      const offResult = await fixture.commands.get("occode-autopilot")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-autopilot off",
+          args: "off",
+          config: {},
+        }),
+      );
       expect(offResult?.text).toContain("Status: disabled");
 
       const artifact = await readProjectAutonomousLoopArtifact(fixture.repoRoot);
@@ -9349,13 +9784,15 @@ describe("openclawcode extension", () => {
       );
       await writeProjectWorkItemInventory(fixture.repoRoot);
 
-      const progressResult = await fixture.commands.get("occode-progress")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-progress",
-        args: "",
-        config: {},
-      });
+      const progressResult = await fixture.commands.get("occode-progress")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-progress",
+          args: "",
+          config: {},
+        }),
+      );
       expect(progressResult?.text).toContain("Next work: blocked-on-human");
       expect(progressResult?.text).toContain("Next-work gate: execution-start");
       expect(progressResult?.text).toContain(
@@ -9366,14 +9803,16 @@ describe("openclawcode extension", () => {
         "Primary blocker: Selected refactor slice requires explicit execution-start approval: Refactor chat progress formatting into a dedicated presenter.",
       );
 
-      const onceResult = await fixture.commands.get("occode-autopilot")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-autopilot once",
-        args: "once",
-        senderId: "user:operator",
-        config: {},
-      });
+      const onceResult = await fixture.commands.get("occode-autopilot")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-autopilot once",
+          args: "once",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
       expect(onceResult?.text).toContain("Status: blocked");
       expect(onceResult?.text).toContain("状态: blocked");
       expect(onceResult?.text).toContain("Next-work gate: execution-start");
@@ -9458,24 +9897,28 @@ describe("openclawcode extension", () => {
       );
       await writeProjectWorkItemInventory(fixture.repoRoot);
 
-      const decision = await fixture.commands.get("occode-gate-decide")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-gate-decide execution-start approved Accepted for this run",
-        args: "execution-start approved Accepted for this run",
-        senderId: "user:operator",
-        config: {},
-      });
+      const decision = await fixture.commands.get("occode-gate-decide")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-gate-decide execution-start approved Accepted for this run",
+          args: "execution-start approved Accepted for this run",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
       expect(decision?.text).toContain("Decision: approved");
       expect(decision?.text).toContain("Readiness: ready");
 
-      const progressResult = await fixture.commands.get("occode-progress")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-progress",
-        args: "",
-        config: {},
-      });
+      const progressResult = await fixture.commands.get("occode-progress")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-progress",
+          args: "",
+          config: {},
+        }),
+      );
       expect(progressResult?.text).toContain("Next work: ready-to-execute");
       expect(progressResult?.text).toContain("Execution mode: refactor");
       expect(progressResult?.text).toContain("Next: /occode-materialize zhyongrui/openclawcode");
@@ -9507,14 +9950,16 @@ describe("openclawcode extension", () => {
       vi.stubGlobal("fetch", fetchMock);
       vi.stubEnv("GH_TOKEN", "test-gh-token");
 
-      const onceResult = await fixture.commands.get("occode-autopilot")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-autopilot once",
-        args: "once",
-        senderId: "user:operator",
-        config: {},
-      });
+      const onceResult = await fixture.commands.get("occode-autopilot")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-autopilot once",
+          args: "once",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
       expect(onceResult?.text).toContain("Status: materialized-and-queued");
       expect(onceResult?.text).toContain("Next work: ready-to-execute");
       expect(onceResult?.text).toContain("Execution mode: refactor");
@@ -9619,14 +10064,16 @@ describe("openclawcode extension", () => {
         logger: { info() {}, warn() {}, error() {} },
       });
 
-      const result = await fixture.commands.get("occode-autopilot")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-autopilot repeat 2",
-        args: "repeat 2",
-        senderId: "user:operator",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-autopilot")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-autopilot repeat 2",
+          args: "repeat 2",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Mode: repeat");
       expect(result?.text).toContain("模式: repeat");
@@ -9797,14 +10244,16 @@ describe("openclawcode extension", () => {
       vi.stubGlobal("fetch", fetchMock);
       vi.stubEnv("GH_TOKEN", "test-gh-token");
 
-      const result = await fixture.commands.get("occode-autopilot")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-autopilot once",
-        args: "once",
-        senderId: "user:operator",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-autopilot")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-autopilot once",
+          args: "once",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Status: blocked");
       expect(result?.text).toContain("Stop reason: A run is already queued for this repository.");
@@ -9928,13 +10377,15 @@ describe("openclawcode extension", () => {
         notifyTarget: "chat:primary",
       });
 
-      const progressResult = await fixture.commands.get("occode-progress")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-progress",
-        args: "",
-        config: {},
-      });
+      const progressResult = await fixture.commands.get("occode-progress")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-progress",
+          args: "",
+          config: {},
+        }),
+      );
       expect(progressResult?.text).toContain(
         "Roles: planner=Claude Code@claude-main, coder=Codex@codex-main, reviewer=Claude Code@claude-main, verifier=Codex@codex-main, doc-writer=Codex@codex-main",
       );
@@ -9943,13 +10394,15 @@ describe("openclawcode extension", () => {
       expect(progressResult?.text).toContain("Current run branch: openclawcode/issue-910");
       expect(progressResult?.text).toContain("Current run PR: #9910");
 
-      const onceResult = await fixture.commands.get("occode-autopilot")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-autopilot once",
-        args: "once",
-        config: {},
-      });
+      const onceResult = await fixture.commands.get("occode-autopilot")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-autopilot once",
+          args: "once",
+          config: {},
+        }),
+      );
       expect(onceResult?.text).toContain("Status: blocked");
       expect(onceResult?.text).toContain(
         "Roles: planner=Claude Code@claude-main, coder=Codex@codex-main, reviewer=Claude Code@claude-main, verifier=Codex@codex-main, doc-writer=Codex@codex-main",
@@ -10075,14 +10528,16 @@ describe("openclawcode extension", () => {
       await writeProjectWorkItemInventory(fixture.repoRoot);
       await writeProjectStageGateArtifact(fixture.repoRoot);
 
-      const result = await fixture.commands.get("occode-gate-decide")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-gate-decide goal-agreement blocked Need human signoff",
-        args: "goal-agreement blocked Need human signoff",
-        senderId: "user:operator",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-gate-decide")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-gate-decide goal-agreement blocked Need human signoff",
+          args: "goal-agreement blocked Need human signoff",
+          senderId: "user:operator",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain("Recorded stage-gate decision for zhyongrui/openclawcode");
       expect(result?.text).toContain("Gate: goal-agreement");
@@ -10120,13 +10575,15 @@ describe("openclawcode extension", () => {
         buildTransientProviderFailedStatus(6602),
       );
 
-      const result = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -10175,13 +10632,15 @@ describe("openclawcode extension", () => {
         buildTransientProviderFailedStatus(6712),
       );
 
-      const result = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result?.text).toContain(
         "provider: pause cleared after 2026-03-12T12:15:00.000Z | last transient failure at 2026-03-12T12:05:00.000Z | failures: 2",
@@ -10220,13 +10679,15 @@ describe("openclawcode extension", () => {
         buildTransientProviderFailedStatus(6713),
       );
 
-      const result = await fixture.commands.get("occode-inbox")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-inbox",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-inbox")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-inbox",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [
@@ -10439,13 +10900,15 @@ describe("openclawcode extension", () => {
         ),
       );
 
-      const result = await fixture.commands.get("occode-sync")?.handler({
-        channel: "telegram",
-        isAuthorizedSender: true,
-        commandBody: "/occode-sync",
-        args: "",
-        config: {},
-      });
+      const result = await fixture.commands.get("occode-sync")?.handler(
+        createCommandContext({
+          channel: "telegram",
+          isAuthorizedSender: true,
+          commandBody: "/occode-sync",
+          args: "",
+          config: {},
+        }),
+      );
 
       expect(result).toEqual({
         text: [

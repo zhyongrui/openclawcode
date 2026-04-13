@@ -1,8 +1,6 @@
 import type * as ConversationRuntime from "openclaw/plugin-sdk/conversation-runtime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ResolvedAgentRoute } from "../../../src/routing/resolve-route.js";
-import { createPluginRuntimeMock } from "../../../test/helpers/extensions/plugin-runtime-mock.js";
-import { createRuntimeEnv } from "../../../test/helpers/extensions/runtime-env.js";
 import type { ClawdbotConfig, PluginRuntime, RuntimeEnv } from "../runtime-api.js";
 import type { FeishuMessageEvent } from "./bot.js";
 import { handleFeishuMessage } from "./bot.js";
@@ -257,7 +255,7 @@ const {
   }),
   mockCreateFeishuClient: vi.fn(),
   mockResolveAgentRoute: vi.fn((_params?: unknown) => buildDefaultResolveRoute()),
-  mockMatchPluginCommand: vi.fn(() => null),
+  mockMatchPluginCommand: vi.fn<(...args: never[]) => unknown>(() => null),
   mockExecutePluginCommand: vi.fn(),
   mockReadSessionUpdatedAt: vi.fn((_params?: unknown): number | undefined => undefined),
   mockResolveStorePath: vi.fn((_params?: unknown) => "/tmp/feishu-sessions.json"),
@@ -277,8 +275,12 @@ const {
   mockResolveBoundConversation: vi.fn(() => null as BoundConversation),
   mockTouchBinding: vi.fn(),
   mockHookRunnerHasHooks: vi.fn(() => false),
-  mockHookRunnerRunInboundClaim: vi.fn(async () => undefined),
-  mockClaimPendingFeishuOperatorScanCode: vi.fn(async () => ({ status: "mismatch" })),
+  mockHookRunnerRunInboundClaim: vi.fn<(...args: never[]) => Promise<unknown>>(
+    async () => undefined,
+  ),
+  mockClaimPendingFeishuOperatorScanCode: vi.fn<(...args: never[]) => Promise<unknown>>(
+    async () => ({ status: "mismatch" }),
+  ),
   mockHasFeishuOperatorWelcomeReceipt: vi.fn(async () => false),
   mockMarkFeishuOperatorWelcomeReceiptSent: vi.fn(async () => undefined),
   mockSetPreferredOperatorChatTarget: vi.fn(async () => ({

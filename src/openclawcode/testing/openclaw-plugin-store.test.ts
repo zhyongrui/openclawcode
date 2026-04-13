@@ -569,6 +569,12 @@ describe("OpenClawCodeChatopsStore", () => {
               chatProofReady: true,
               chatSetupRoutingReady: true,
             },
+            recoveryNotice: {
+              awaitingRecovery: false,
+              blockedAt: "2026-03-19T02:03:00.000Z",
+              lastProbeAt: "2026-03-19T02:05:00.000Z",
+              notificationSentAt: "2026-03-19T02:06:00.000Z",
+            },
           },
           githubDeviceAuth: {
             pid: 321,
@@ -604,6 +610,10 @@ describe("OpenClawCodeChatopsStore", () => {
           },
           proofReadiness: {
             chatSetupRoutingReady: true,
+          },
+          recoveryNotice: {
+            awaitingRecovery: false,
+            notificationSentAt: "2026-03-19T02:06:00.000Z",
           },
         },
         createdAt,
@@ -899,8 +909,7 @@ describe("OpenClawCodeChatopsStore", () => {
         handoffEntries: expect.arrayContaining([
           expect.objectContaining({
             kind: "runtime-steering",
-            summary:
-              "stage=verifying | role=verifier | adapter=claude-code | agent=claude-reroute",
+            summary: "stage=verifying | role=verifier | adapter=claude-code | agent=claude-reroute",
           }),
           expect.objectContaining({
             kind: "rerun-request",
