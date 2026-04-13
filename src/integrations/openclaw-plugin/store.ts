@@ -145,6 +145,7 @@ export interface OpenClawCodeSetupSession {
   projectMode?: "existing-repo" | "new-project";
   repoKey?: string;
   pendingRepoName?: string;
+  bootstrapTestCommands?: string[];
   stage: OpenClawCodeSetupSessionStage;
   githubAuthSource?: "GH_TOKEN" | "GITHUB_TOKEN" | "gh-auth-token";
   githubAuthLogin?: string;
@@ -561,6 +562,11 @@ function normalizeSetupSession(raw: unknown): OpenClawCodeSetupSession | undefin
     repoKey: typeof candidate.repoKey === "string" ? candidate.repoKey : undefined,
     pendingRepoName:
       typeof candidate.pendingRepoName === "string" ? candidate.pendingRepoName : undefined,
+    bootstrapTestCommands: Array.isArray(candidate.bootstrapTestCommands)
+      ? candidate.bootstrapTestCommands.filter(
+          (value): value is string => typeof value === "string" && value.trim().length > 0,
+        )
+      : undefined,
     stage: candidate.stage,
     blueprintDraft:
       candidate.blueprintDraft && typeof candidate.blueprintDraft === "object"

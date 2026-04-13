@@ -4878,6 +4878,41 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("shows setup-status messages in English when OPENCLAWCODE_LOCALE=en", async () => {
+    const fixture = await registerPluginFixture();
+    mocked.resolveOnboardingGitHubToken.mockReturnValue({
+      token: "gho_test",
+      source: "gh-auth-token",
+    });
+
+    try {
+      await withEnvAsync({ OPENCLAWCODE_LOCALE: "en" }, async () => {
+        const result = await fixture.commands.get("occode-setup-status")?.handler(
+          createCommandContext({
+            channel: "feishu",
+            isAuthorizedSender: true,
+            commandBody: "/occode-setup-status",
+            args: "",
+            to: "user:setup-chat",
+            config: {},
+          }),
+        );
+
+        expect(result?.text).toContain("OpenClaw Code has a usable GitHub authorization now.");
+        expect(result?.text).toContain("GitHub login: zhyongrui");
+        expect(result?.text).toContain("Name: Zhongrui Ye");
+        expect(result?.text).toContain("Email: zyr@example.com");
+        expect(result?.text).toContain("Source: gh auth");
+        expect(result?.text).toContain(
+          "Next: choose the project path with /occode-setup existing owner/repo, /occode-setup new-project, or /occode-setup new <repo-name>.",
+        );
+        expect(result?.text).not.toContain("OpenClaw Code 已经拿到可用的 GitHub 授权。");
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("shows the current host GitHub login through /occode-github-status", async () => {
     const fixture = await registerPluginFixture();
     mocked.resolveOnboardingGitHubToken.mockReturnValue({
@@ -5261,6 +5296,81 @@ describe("openclawcode extension", () => {
           }),
         );
       });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("sends the Feishu operator welcome message in English when OPENCLAWCODE_LOCALE=en", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-contact-bind-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      config: {
+        channels: {
+          feishu: {
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        feishuOperatorBinding: {
+          email: "owner@example.com",
+        },
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "bind-pending:zhyongrui/openclawcode",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
+          },
+        ],
+      },
+    });
+    mocked.resolveFeishuUserOpenIdByContact.mockResolvedValue({
+      openId: "ou_owner_contact",
+      matchedBy: "email",
+      matchedValue: "owner@example.com",
+    });
+    mocked.startOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+      pid: 654,
+      logPath: "/tmp/proactive-gh-auth.log",
+      userCode: "WXYZ-1234",
+      verificationUri: "https://github.com/login/device",
+      startedAt: "2026-03-21T09:00:00.000Z",
+    });
+
+    try {
+      await withEnvAsync(
+        { OPENCLAW_STATE_DIR: fixture.stateDir, OPENCLAWCODE_LOCALE: "en" },
+        async () => {
+          await fixture.service?.start({
+            config: {},
+            stateDir: fixture.stateDir,
+            logger: { info() {}, warn() {}, error() {} },
+          });
+
+          expect(mocked.runMessageAction).toHaveBeenCalledWith(
+            expect.objectContaining({
+              action: "send",
+              params: expect.objectContaining({
+                channel: "feishu",
+                to: "user:ou_owner_contact",
+                message: expect.stringContaining(
+                  "Hello, I have finished the Feishu binding.",
+                ),
+              }),
+            }),
+          );
+        },
+      );
     } finally {
       await cleanupPluginFixture(fixture);
     }
@@ -6196,7 +6306,7 @@ describe("openclawcode extension", () => {
 
       await waitForAssertion(async () => {
         const recoveryMessages = mocked.runMessageAction.mock.calls.filter((call) =>
-          String(call[0]?.params?.message ?? "").includes("OpenClaw Code setup is healthy again."),
+          String(call[0]?.params?.message ?? "").includes("OpenClaw Code setup 已恢复健康。"),
         );
         expect(recoveryMessages).toHaveLength(1);
       });
@@ -6227,6 +6337,164 @@ describe("openclawcode extension", () => {
       });
 
       expect(probeCallCount).toBeGreaterThanOrEqual(2);
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("proactively notifies the chat in English after setup recovery becomes ready when OPENCLAWCODE_LOCALE=en", async () => {
+    const fixture = await registerPluginFixture({ pollIntervalMs: 10 });
+    mocked.resolveOnboardingGitHubToken.mockReturnValue(null);
+    mocked.inspectOnboardingGitHubCliDeviceLogin.mockResolvedValue({
+      state: "authorized",
+      running: false,
+      source: "gh-auth-token",
+      userCode: "ABCD-EFGH",
+      verificationUri: "https://github.com/login/device",
+      startedAt: "2026-03-19T02:35:00.000Z",
+      completedAt: "2026-03-19T02:36:00.000Z",
+    });
+    mocked.runOnboardingOpenClawCodeBootstrap.mockResolvedValue({
+      repo: {
+        owner: "zhyongrui",
+        repo: "openclawcode",
+        repoKey: "zhyongrui/openclawcode",
+        repoRoot: fixture.repoRoot,
+        checkoutAction: "attached",
+      },
+      blueprint: {
+        blueprintPath: path.join(fixture.repoRoot, "PROJECT-BLUEPRINT.md"),
+        status: "draft",
+        revisionId: "rev-bootstrap",
+      },
+      pluginActivation: {
+        ready: false,
+        pluginsEnabled: true,
+        allowlisted: true,
+        entryEnabled: false,
+      },
+      proofReadiness: {
+        cliProofReady: true,
+        chatProofReady: true,
+        chatSetupRoutingReady: false,
+      },
+      handoff: {
+        blueprintCommand: "/occode-blueprint zhyongrui/openclawcode",
+        chatSetupStatusCommand: "/occode-setup-status",
+      },
+      nextAction: "repair-plugin-activation",
+    });
+    let probeCallCount = 0;
+    fixture.runCommandWithTimeout.mockImplementation(async () => {
+      probeCallCount += 1;
+      return {
+        code: 0,
+        stdout: JSON.stringify(
+          probeCallCount === 1
+            ? {
+                ok: false,
+                strict: true,
+                repoRoot: fixture.repoRoot,
+                operatorRoot: fixture.repoRoot,
+                readiness: {
+                  basic: false,
+                  strict: false,
+                  lowRiskProofReady: false,
+                  fallbackProofReady: false,
+                  promotionReady: false,
+                  chatSetupRoutingReady: false,
+                  gatewayReachable: false,
+                  routeProbeReady: false,
+                  routeProbeSkipped: false,
+                  builtStartupProofRequested: false,
+                  builtStartupProofReady: false,
+                  nextAction: "repair-plugin-activation",
+                },
+                pluginActivation: {
+                  ready: false,
+                  pluginsEnabled: true,
+                  allowlisted: true,
+                  entryEnabled: false,
+                },
+                summary: {
+                  pass: 10,
+                  warn: 1,
+                  fail: 2,
+                },
+              }
+            : {
+                ok: true,
+                strict: true,
+                repoRoot: fixture.repoRoot,
+                operatorRoot: fixture.repoRoot,
+                readiness: {
+                  basic: true,
+                  strict: true,
+                  lowRiskProofReady: true,
+                  fallbackProofReady: true,
+                  promotionReady: true,
+                  chatSetupRoutingReady: true,
+                  gatewayReachable: true,
+                  routeProbeReady: true,
+                  routeProbeSkipped: false,
+                  builtStartupProofRequested: false,
+                  builtStartupProofReady: true,
+                  nextAction: "ready-for-low-risk-proof",
+                },
+                pluginActivation: {
+                  ready: true,
+                  pluginsEnabled: true,
+                  allowlisted: true,
+                  entryEnabled: true,
+                },
+                summary: {
+                  pass: 18,
+                  warn: 0,
+                  fail: 0,
+                },
+              },
+        ),
+        stderr: "",
+      };
+    });
+
+    try {
+      await fixture.store.upsertSetupSession({
+        notifyChannel: "feishu",
+        notifyTarget: "user:setup-chat",
+        projectMode: "existing-repo",
+        repoKey: "zhyongrui/openclawcode",
+        stage: "awaiting-github-device-auth",
+        githubDeviceAuth: {
+          pid: 321,
+          logPath: "/tmp/gh-auth.log",
+          userCode: "ABCD-EFGH",
+          verificationUri: "https://github.com/login/device",
+          startedAt: "2026-03-19T02:35:00.000Z",
+        },
+        createdAt: "2026-03-19T02:35:00.000Z",
+        updatedAt: "2026-03-19T02:35:00.000Z",
+      });
+
+      await withEnvAsync({ OPENCLAWCODE_LOCALE: "en" }, async () => {
+        await fixture.service?.start({
+          config: {},
+          stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        await waitForAssertion(async () => {
+          const recoveryMessages = mocked.runMessageAction.mock.calls
+            .map((call) => String(call[0]?.params?.message ?? ""));
+          expect(recoveryMessages.length).toBeGreaterThan(0);
+          expect(recoveryMessages.join("\n\n")).toContain("OpenClaw Code setup is healthy again.");
+          expect(recoveryMessages.join("\n\n")).toContain(
+            "If you want the full setup summary again, send /occode-setup-status.",
+          );
+        });
+
+        expect(probeCallCount).toBeGreaterThanOrEqual(2);
+      });
     } finally {
       await cleanupPluginFixture(fixture);
     }

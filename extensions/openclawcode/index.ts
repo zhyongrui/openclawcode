@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import os from "node:os";
 import path from "node:path";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
+import type { OpenClawPluginApi, OpenClawPluginCommandDefinition } from "openclaw/plugin-sdk/core";
 import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/routing";
 import { formatCliCommand } from "../../src/cli/command-format.js";
 import { resolveStateDir } from "../../src/config/paths.js";
@@ -133,6 +133,7 @@ import {
   setPreferredOperatorChatTarget,
 } from "../../src/operator-chat-targets/store.js";
 import { addChannelAllowFromStoreEntry } from "../../src/pairing/pairing-store.js";
+import type { SpawnResult } from "../../src/process/exec.js";
 import {
   buildOnboardingRepoNameSuggestions,
   createOnboardingRepositoryViaGh,
@@ -327,19 +328,93 @@ function trimToSingleLine(value: string | undefined): string | undefined {
   return singleLine && singleLine.length > 0 ? singleLine : undefined;
 }
 
+type OpenClawCodeLocale = "zh-CN" | "en";
+
+const DEFAULT_OPENCLAWCODE_LOCALE: OpenClawCodeLocale = "zh-CN";
+
+function normalizeOpenClawCodeLocale(value: string | undefined): OpenClawCodeLocale | undefined {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized === "zh" || normalized === "zh-cn" || normalized.startsWith("zh_cn")) {
+    return "zh-CN";
+  }
+  if (normalized === "en" || normalized === "en-us" || normalized === "en-gb") {
+    return "en";
+  }
+  if (normalized.startsWith("zh")) {
+    return "zh-CN";
+  }
+  if (normalized.startsWith("en")) {
+    return "en";
+  }
+  return undefined;
+}
+
+function resolveOpenClawCodeLocale(): OpenClawCodeLocale {
+  return (
+    normalizeOpenClawCodeLocale(process.env.OPENCLAWCODE_LOCALE) ??
+    normalizeOpenClawCodeLocale(process.env.OPENCLAWCODE_LANGUAGE) ??
+    normalizeOpenClawCodeLocale(process.env.LC_ALL) ??
+    normalizeOpenClawCodeLocale(process.env.LC_MESSAGES) ??
+    normalizeOpenClawCodeLocale(process.env.LANG) ??
+    DEFAULT_OPENCLAWCODE_LOCALE
+  );
+}
+
+function localizeOpenClawCodeText(params: {
+  zhCN: string;
+  en: string;
+  locale?: OpenClawCodeLocale;
+}): string {
+  return (params.locale ?? resolveOpenClawCodeLocale()) === "en" ? params.en : params.zhCN;
+}
+
 function buildChatSetupAwaitingGitHubAuthMessage(params: {
   verificationUri: string;
   userCode: string;
   selectionLabel?: string;
 }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code 正在等待 GitHub 授权完成。",
-    `打开：${params.verificationUri}`,
-    `验证码：${params.userCode}`,
-    params.selectionLabel ? `当前目标：${params.selectionLabel}` : undefined,
-    "宿主机侧的 GitHub 登录流程已经启动。",
-    "请在浏览器中完成授权。OpenClaw Code 会在这里自动同步下一步状态。",
-    "如果没有等到自动消息，请在这里发送 /occode-setup-status。",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code 正在等待 GitHub 授权完成。",
+      en: "OpenClaw Code is waiting for GitHub authorization to finish.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `打开：${params.verificationUri}`,
+      en: `Open: ${params.verificationUri}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `验证码：${params.userCode}`,
+      en: `Code: ${params.userCode}`,
+    }),
+    params.selectionLabel
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `当前目标：${params.selectionLabel}`,
+          en: `Current target: ${params.selectionLabel}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "宿主机侧的 GitHub 登录流程已经启动。",
+      en: "The host-side GitHub login flow has already started.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "请在浏览器中完成授权。OpenClaw Code 会在这里自动同步下一步状态。",
+      en: "Finish the authorization in your browser. OpenClaw Code will automatically sync the next setup step here.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "如果没有等到自动消息，请在这里发送 /occode-setup-status。",
+      en: "If the automatic follow-up does not arrive, send /occode-setup-status here.",
+    }),
   ]
     .filter(Boolean)
     .join("\n");
@@ -352,16 +427,57 @@ function buildChatSetupReadyMessage(params: {
   email?: string;
   repoKey?: string;
 }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code 已经拿到可用的 GitHub 授权。",
-    params.login ? `GitHub 用户名：${params.login}` : undefined,
-    params.name ? `姓名：${params.name}` : undefined,
-    params.email ? `邮箱：${params.email}` : undefined,
-    `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
-    params.repoKey ? `已选仓库：${params.repoKey}` : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code 已经拿到可用的 GitHub 授权。",
+      en: "OpenClaw Code has a usable GitHub authorization now.",
+    }),
+    params.login
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `GitHub 用户名：${params.login}`,
+          en: `GitHub login: ${params.login}`,
+        })
+      : undefined,
+    params.name
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `姓名：${params.name}`,
+          en: `Name: ${params.name}`,
+        })
+      : undefined,
+    params.email
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `邮箱：${params.email}`,
+          en: `Email: ${params.email}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+      en: `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+    }),
     params.repoKey
-      ? `下一步：${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`
-      : "下一步：用 /occode-setup existing owner/repo、/occode-setup new-project 或 /occode-setup new <repo-name> 选择项目路径。",
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `已选仓库：${params.repoKey}`,
+          en: `Selected repo: ${params.repoKey}`,
+        })
+      : undefined,
+    params.repoKey
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `下一步：${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`,
+          en: `Next: ${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`,
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "下一步：用 /occode-setup existing owner/repo、/occode-setup new-project 或 /occode-setup new <repo-name> 选择项目路径。",
+          en: "Next: choose the project path with /occode-setup existing owner/repo, /occode-setup new-project, or /occode-setup new <repo-name>.",
+        }),
     ...buildChatSetupRepoSwitchGuidanceLines({
       repoKey: params.repoKey,
     }),
@@ -381,26 +497,64 @@ function buildChatSetupAwaitingPairingMessage(params: {
   code: string;
   selectionLabel?: string;
 }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code 发现当前会话已被配置为 setup 目标，但还需要先批准配对。",
-    params.selectionLabel ? `当前目标：${params.selectionLabel}` : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code 发现当前会话已被配置为 setup 目标，但还需要先批准配对。",
+      en: "OpenClaw Code found that this chat is configured as a setup target, but pairing approval is still required first.",
+    }),
+    params.selectionLabel
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `当前目标：${params.selectionLabel}`,
+          en: `Current target: ${params.selectionLabel}`,
+        })
+      : undefined,
     params.api.runtime.channel.pairing.buildPairingReply({
       channel: params.channel,
-      idLine: `会话标识：${params.senderId}`,
+      idLine: localizeOpenClawCodeText({
+        locale,
+        zhCN: `会话标识：${params.senderId}`,
+        en: `Session id: ${params.senderId}`,
+      }),
       code: params.code,
     }),
-    "批准后，OpenClaw Code 会在这里自动继续 setup，并发起 GitHub 登录。",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "批准后，OpenClaw Code 会在这里自动继续 setup，并发起 GitHub 登录。",
+      en: "After approval, OpenClaw Code will continue setup here automatically and start GitHub login.",
+    }),
   ]
     .filter(Boolean)
     .join("\n\n");
 }
 
 function buildChatSetupAwaitingPairingStatusMessage(params: { repoKey?: string }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code 正在等待当前会话的配对批准。",
-    params.repoKey ? `已选仓库：${params.repoKey}` : undefined,
-    "请先批准这个会话的配对请求。",
-    "批准后，OpenClaw Code 会在这里自动继续 setup，并发起 GitHub 登录。",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code 正在等待当前会话的配对批准。",
+      en: "OpenClaw Code is waiting for pairing approval for this chat.",
+    }),
+    params.repoKey
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `已选仓库：${params.repoKey}`,
+          en: `Selected repo: ${params.repoKey}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "请先批准这个会话的配对请求。",
+      en: "Approve the pairing request for this chat first.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "批准后，OpenClaw Code 会在这里自动继续 setup，并发起 GitHub 登录。",
+      en: "After approval, OpenClaw Code will continue setup here automatically and start GitHub login.",
+    }),
   ]
     .filter(Boolean)
     .join("\n");
@@ -414,23 +568,74 @@ function buildChatSetupFailedMessage(params: {
   retryCommand?: string;
   needsOperatorAction?: boolean;
 }): string {
+  const locale = resolveOpenClawCodeLocale();
   const needsExplicitBootstrapTestCommands =
     params.step === "bootstrap" &&
     /Unable to infer test commands/i.test(params.reason) &&
     /Pass --test explicitly/i.test(params.reason);
   return [
-    "OpenClaw Code setup 遇到了可恢复的失败。",
-    params.step ? `失败步骤：${params.step}` : undefined,
-    `原因：${params.reason}`,
-    params.repoKey ? `已选仓库：${params.repoKey}` : undefined,
-    params.logTail ? `最近的 gh 输出：\n${params.logTail}` : undefined,
-    needsExplicitBootstrapTestCommands
-      ? "下一步：发送 /occode-test <command>，为本次 setup 会话保存一个或多个安全的测试命令。"
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code setup 遇到了可恢复的失败。",
+      en: "OpenClaw Code setup hit a recoverable failure.",
+    }),
+    params.step
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `失败步骤：${params.step}`,
+          en: `Failed step: ${params.step}`,
+        })
       : undefined,
-    params.retryCommand ? `重试：${params.retryCommand}` : "重试：/occode-setup-retry",
-    params.needsOperatorAction ? "需要人工处理：请先修复宿主机侧问题，再重试。" : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `原因：${params.reason}`,
+      en: `Reason: ${params.reason}`,
+    }),
+    params.repoKey
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `已选仓库：${params.repoKey}`,
+          en: `Selected repo: ${params.repoKey}`,
+        })
+      : undefined,
+    params.logTail
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `最近的 gh 输出：\n${params.logTail}`,
+          en: `Recent gh output:\n${params.logTail}`,
+        })
+      : undefined,
+    needsExplicitBootstrapTestCommands
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: "下一步：发送 /occode-test <command>，为本次 setup 会话保存一个或多个安全的测试命令。",
+          en: "Next: send /occode-test <command> to save one or more safe test commands for this setup session.",
+        })
+      : undefined,
+    params.retryCommand
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `重试：${params.retryCommand}`,
+          en: `Retry: ${params.retryCommand}`,
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "重试：/occode-setup-retry",
+          en: "Retry: /occode-setup-retry",
+        }),
+    params.needsOperatorAction
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: "需要人工处理：请先修复宿主机侧问题，再重试。",
+          en: "Manual action required: fix the host-side problem first, then retry.",
+        })
+      : undefined,
     params.step === "github-auth"
-      ? "如果 device flow 已过期，请用 /occode-setup 重新发起 GitHub 登录。"
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: "如果 device flow 已过期，请用 /occode-setup 重新发起 GitHub 登录。",
+          en: "If the device flow expired, use /occode-setup to start GitHub login again.",
+        })
       : undefined,
   ]
     .filter(Boolean)
@@ -551,20 +756,67 @@ function buildChatSetupDraftingBlueprintMessage(params: { session: ChatSetupSess
   const missing = collectChatSetupDraftMissingSections(params.session);
   const filledCount = collectChatSetupDraftFilledSectionCount(params.session);
   const goalSummary = buildChatSetupDraftGoalSummary(params.session);
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code is drafting a blueprint-first new-project setup for this chat.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code 正在为当前会话起草一个蓝图优先的新项目 setup。",
+      en: "OpenClaw Code is drafting a blueprint-first new-project setup for this chat.",
+    }),
     params.session.githubAuthSource
-      ? `GitHub auth: ready via ${params.session.githubAuthSource}`
-      : "GitHub auth: not needed yet; auth will start when you choose a repo name.",
-    `Draft status: ${params.session.blueprintDraft?.status ?? "draft"}`,
-    goalSummary ? `Goal: ${goalSummary}` : undefined,
-    `Draft sections captured: ${filledCount}`,
-    `Missing before agreement: ${missing.length}`,
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `GitHub 授权：已就绪，来源 ${params.session.githubAuthSource}`,
+          en: `GitHub auth: ready via ${params.session.githubAuthSource}`,
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "GitHub 授权：当前还不需要；选择仓库名后才会开始授权。",
+          en: "GitHub auth: not needed yet; auth will start when you choose a repo name.",
+        }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `草稿状态：${params.session.blueprintDraft?.status ?? "draft"}`,
+      en: `Draft status: ${params.session.blueprintDraft?.status ?? "draft"}`,
+    }),
+    goalSummary
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `目标：${goalSummary}`,
+          en: `Goal: ${goalSummary}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `已记录草稿章节：${filledCount}`,
+      en: `Draft sections captured: ${filledCount}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `确认前仍缺失：${missing.length}`,
+      en: `Missing before agreement: ${missing.length}`,
+    }),
     ...missing.slice(0, 5).map((section) => `- ${section}`),
-    "Use /occode-goal <goal text> to capture the project goal.",
-    `Use /occode-blueprint-edit <section>\\n<body...> for sections such as ${projectBlueprintSectionIds().join(", ")}.`,
-    "Capture the first MVP in `success-criteria`, then add scope, non-goals, and constraints.",
-    "When the draft is ready, send /occode-blueprint-agree to lock the setup draft and get repo-name suggestions.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "用 /occode-goal <goal text> 先记录项目目标。",
+      en: "Use /occode-goal <goal text> to capture the project goal.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `用 /occode-blueprint-edit <section>\\n<body...> 编辑章节，例如 ${projectBlueprintSectionIds().join(", ")}。`,
+      en: `Use /occode-blueprint-edit <section>\\n<body...> for sections such as ${projectBlueprintSectionIds().join(", ")}.`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "先把首个 MVP 写进 `success-criteria`，再补 scope、non-goals 和 constraints。",
+      en: "Capture the first MVP in `success-criteria`, then add scope, non-goals, and constraints.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "草稿准备好后，发送 /occode-blueprint-agree 锁定 setup 草稿并获取仓库名建议。",
+      en: "When the draft is ready, send /occode-blueprint-agree to lock the setup draft and get repo-name suggestions.",
+    }),
   ]
     .filter(Boolean)
     .join("\n");
@@ -576,25 +828,86 @@ function buildChatSetupBlueprintDraftSummaryMessage(params: { session: ChatSetup
   const goalSummary = buildChatSetupDraftGoalSummary(params.session);
   const sourcePaths = params.session.blueprintDraft?.sourcePaths ?? [];
   const suggestions = params.session.blueprintDraft?.repoNameSuggestions ?? [];
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code setup blueprint summary for this chat.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "当前会话的 OpenClaw Code setup 蓝图摘要。",
+      en: "OpenClaw Code setup blueprint summary for this chat.",
+    }),
     ...buildChatSetupStateLayerLines(params.session),
-    `Draft status: ${params.session.blueprintDraft?.status ?? "draft"}`,
-    goalSummary ? `Draft goal: ${goalSummary}` : undefined,
-    sourcePaths.length > 0 ? `Draft seeded from: ${sourcePaths.join(", ")}` : undefined,
-    filledSections.length > 0 ? `Filled sections: ${filledSections.join(", ")}` : undefined,
-    `Missing before agreement: ${missing.length}`,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `草稿状态：${params.session.blueprintDraft?.status ?? "draft"}`,
+      en: `Draft status: ${params.session.blueprintDraft?.status ?? "draft"}`,
+    }),
+    goalSummary
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `草稿目标：${goalSummary}`,
+          en: `Draft goal: ${goalSummary}`,
+        })
+      : undefined,
+    sourcePaths.length > 0
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `草稿来源：${sourcePaths.join(", ")}`,
+          en: `Draft seeded from: ${sourcePaths.join(", ")}`,
+        })
+      : undefined,
+    filledSections.length > 0
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `已填写章节：${filledSections.join(", ")}`,
+          en: `Filled sections: ${filledSections.join(", ")}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `确认前仍缺失：${missing.length}`,
+      en: `Missing before agreement: ${missing.length}`,
+    }),
     ...missing.slice(0, 5).map((section) => `- ${section}`),
-    suggestions.length > 0 ? `Repo-name suggestions: ${suggestions.join(", ")}` : undefined,
-    "Next actions:",
+    suggestions.length > 0
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `仓库名建议：${suggestions.join(", ")}`,
+          en: `Repo-name suggestions: ${suggestions.join(", ")}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "下一步：",
+      en: "Next actions:",
+    }),
     params.session.stage === "awaiting-repo-choice"
       ? suggestions[0]
-        ? `- /occode-setup new ${suggestions[0]} to pick the suggested repo name.`
-        : "- /occode-setup new <repo-name> to choose the repo name."
-      : "- /occode-goal or /occode-blueprint-edit to keep refining the draft.",
+        ? localizeOpenClawCodeText({
+            locale,
+            zhCN: `- 用 /occode-setup new ${suggestions[0]} 选择建议的仓库名。`,
+            en: `- /occode-setup new ${suggestions[0]} to pick the suggested repo name.`,
+          })
+        : localizeOpenClawCodeText({
+            locale,
+            zhCN: "- 用 /occode-setup new <repo-name> 选择仓库名。",
+            en: "- /occode-setup new <repo-name> to choose the repo name.",
+          })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "- 用 /occode-goal 或 /occode-blueprint-edit 继续完善草稿。",
+          en: "- /occode-goal or /occode-blueprint-edit to keep refining the draft.",
+        }),
     params.session.stage === "awaiting-repo-choice"
-      ? "- /occode-blueprint-edit if the draft still needs changes before repo creation."
-      : "- /occode-blueprint-agree once the draft baseline is ready.",
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: "- 如果创建仓库前还要改草稿，继续用 /occode-blueprint-edit。",
+          en: "- /occode-blueprint-edit if the draft still needs changes before repo creation.",
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "- 草稿基线准备好后，用 /occode-blueprint-agree 确认。",
+          en: "- /occode-blueprint-agree once the draft baseline is ready.",
+        }),
   ]
     .filter(Boolean)
     .join("\n");
@@ -603,26 +916,66 @@ function buildChatSetupBlueprintDraftSummaryMessage(params: { session: ChatSetup
 function buildChatSetupAwaitingRepoChoiceMessage(params: { session: ChatSetupSession }): string {
   const goalSummary = buildChatSetupDraftGoalSummary(params.session);
   const suggestions = params.session.blueprintDraft?.repoNameSuggestions ?? [];
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code has an agreed blueprint draft for this new-project setup.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "这个新项目 setup 的蓝图草稿已经确认完成。",
+      en: "OpenClaw Code has an agreed blueprint draft for this new-project setup.",
+    }),
     params.session.githubAuthSource
-      ? `GitHub auth: ready via ${params.session.githubAuthSource}`
-      : "GitHub auth: will start after you pick a repo name.",
-    goalSummary ? `Goal: ${goalSummary}` : undefined,
-    `Repo-name suggestions: ${suggestions.length}`,
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `GitHub 授权：已就绪，来源 ${params.session.githubAuthSource}`,
+          en: `GitHub auth: ready via ${params.session.githubAuthSource}`,
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "GitHub 授权：选择仓库名后才会开始。",
+          en: "GitHub auth: will start after you pick a repo name.",
+        }),
+    goalSummary
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `目标：${goalSummary}`,
+          en: `Goal: ${goalSummary}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `仓库名建议数量：${suggestions.length}`,
+      en: `Repo-name suggestions: ${suggestions.length}`,
+    }),
     ...suggestions.map((suggestion) => `- ${suggestion}`),
     suggestions[0]
-      ? `Choose one with /occode-setup new ${suggestions[0]}`
-      : "Choose a repo name with /occode-setup new <repo-name>",
-    "You can also send /occode-setup new <custom-name> to override the suggestions.",
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `用 /occode-setup new ${suggestions[0]} 选择其中一个`,
+          en: `Choose one with /occode-setup new ${suggestions[0]}`,
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "用 /occode-setup new <repo-name> 选择仓库名",
+          en: "Choose a repo name with /occode-setup new <repo-name>",
+        }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "也可以直接发送 /occode-setup new <custom-name> 覆盖这些建议。",
+      en: "You can also send /occode-setup new <custom-name> to override the suggestions.",
+    }),
   ]
     .filter(Boolean)
     .join("\n");
 }
 
 function _buildChatSetupRepoCreationBlockedMessage(params: { session: ChatSetupSession }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code has a new-project setup draft, but the blueprint is not agreed yet.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "当前已有新项目 setup 草稿，但蓝图还没有确认。",
+      en: "OpenClaw Code has a new-project setup draft, but the blueprint is not agreed yet.",
+    }),
     buildChatSetupDraftingBlueprintMessage({
       session: params.session,
     }),
@@ -687,19 +1040,66 @@ function buildChatSetupRepoReadyMessage(params: {
   projectMode: OnboardingProjectMode;
   created?: boolean;
 }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
     params.projectMode === "new-project"
       ? params.created
-        ? "OpenClaw Code 已经为这次 setup 创建了新的 GitHub 仓库。"
-        : "OpenClaw Code 已经为这次 setup 选定了新项目仓库。"
-      : "OpenClaw Code 已经为这次 setup 选定了现有仓库。",
-    params.login ? `GitHub 用户名：${params.login}` : undefined,
-    params.name ? `姓名：${params.name}` : undefined,
-    params.email ? `邮箱：${params.email}` : undefined,
-    `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
-    `仓库：${params.repoKey}`,
-    `下一步：${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`,
-    "bootstrap 完成后，可在聊天里使用 /occode-goal 和 /occode-blueprint 对齐项目蓝图。",
+        ? localizeOpenClawCodeText({
+            locale,
+            zhCN: "OpenClaw Code 已经为这次 setup 创建了新的 GitHub 仓库。",
+            en: "OpenClaw Code created a new GitHub repository for this setup.",
+          })
+        : localizeOpenClawCodeText({
+            locale,
+            zhCN: "OpenClaw Code 已经为这次 setup 选定了新项目仓库。",
+            en: "OpenClaw Code selected the new-project repository for this setup.",
+          })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "OpenClaw Code 已经为这次 setup 选定了现有仓库。",
+          en: "OpenClaw Code selected the existing repository for this setup.",
+        }),
+    params.login
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `GitHub 用户名：${params.login}`,
+          en: `GitHub login: ${params.login}`,
+        })
+      : undefined,
+    params.name
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `姓名：${params.name}`,
+          en: `Name: ${params.name}`,
+        })
+      : undefined,
+    params.email
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `邮箱：${params.email}`,
+          en: `Email: ${params.email}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+      en: `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `仓库：${params.repoKey}`,
+      en: `Repo: ${params.repoKey}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `下一步：${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`,
+      en: `Next: ${formatCliCommand(`openclaw code bootstrap --repo ${params.repoKey} --mode auto`)}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "bootstrap 完成后，可在聊天里使用 /occode-goal 和 /occode-blueprint 对齐项目蓝图。",
+      en: "After bootstrap finishes, use /occode-goal and /occode-blueprint in chat to align the project blueprint.",
+    }),
     ...buildChatSetupRepoSwitchGuidanceLines({
       repoKey: params.repoKey,
     }),
@@ -715,6 +1115,7 @@ function buildChatSetupBootstrapRepairLines(
     NonNullable<Awaited<ReturnType<OpenClawCodeChatopsStore["getSetupSession"]>>>["bootstrap"]
   >,
 ): string[] {
+  const locale = resolveOpenClawCodeLocale();
   if (
     bootstrap.pluginActivation?.ready !== false &&
     bootstrap.proofReadiness?.chatSetupRoutingReady !== false &&
@@ -725,9 +1126,19 @@ function buildChatSetupBootstrapRepairLines(
 
   return [
     bootstrap.pluginActivationRepairCommand
-      ? `修复：${bootstrap.pluginActivationRepairCommand}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `修复：${bootstrap.pluginActivationRepairCommand}`,
+          en: `Repair: ${bootstrap.pluginActivationRepairCommand}`,
+        })
       : undefined,
-    bootstrap.chatSetupStatusCommand ? `聊天重试：${bootstrap.chatSetupStatusCommand}` : undefined,
+    bootstrap.chatSetupStatusCommand
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `聊天重试：${bootstrap.chatSetupStatusCommand}`,
+          en: `Chat retry: ${bootstrap.chatSetupStatusCommand}`,
+        })
+      : undefined,
   ].filter((entry): entry is string => Boolean(entry));
 }
 
@@ -756,18 +1167,43 @@ function buildChatSetupRecoveryBlockedReason(params: {
   routeProbeReady?: boolean;
   routeProbeSkipped?: boolean;
 }): string | undefined {
+  const locale = resolveOpenClawCodeLocale();
   const reasons: string[] = [];
   if (params.pluginActivation?.ready === false) {
-    reasons.push("plugin activation blocked");
+    reasons.push(
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: "插件激活阻塞",
+        en: "plugin activation blocked",
+      }),
+    );
   }
   if (params.proofReadiness?.chatSetupRoutingReady === false) {
-    reasons.push("chat setup routing blocked");
+    reasons.push(
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: "聊天 setup 路由阻塞",
+        en: "chat setup routing blocked",
+      }),
+    );
   }
   if (params.gatewayReachable === false) {
-    reasons.push("gateway unreachable");
+    reasons.push(
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: "gateway 不可达",
+        en: "gateway unreachable",
+      }),
+    );
   }
   if (params.routeProbeReady === false && params.routeProbeSkipped !== true) {
-    reasons.push("route probe blocked");
+    reasons.push(
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: "路由探针阻塞",
+        en: "route probe blocked",
+      }),
+    );
   }
   return reasons.length > 0 ? reasons.join(" | ") : undefined;
 }
@@ -787,19 +1223,56 @@ function buildChatSetupRecoveryMessage(params: {
   pluginActivation?: SetupCheckPluginActivationPayload;
   statusCommand?: string | null;
 }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code setup is healthy again.",
-    `Repo: ${params.repoKey}`,
-    `Chat setup routing: ${params.readiness.chatSetupRoutingReady ? "ready" : "blocked"}`,
-    `Gateway: ${params.readiness.gatewayReachable ? "reachable" : "unreachable"}`,
-    `Route probe: ${params.readiness.routeProbeReady ? "ready" : params.readiness.routeProbeSkipped ? "skipped" : "blocked"}`,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code setup 已恢复健康。",
+      en: "OpenClaw Code setup is healthy again.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `仓库：${params.repoKey}`,
+      en: `Repo: ${params.repoKey}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `聊天 setup 路由：${params.readiness.chatSetupRoutingReady ? "就绪" : "阻塞"}`,
+      en: `Chat setup routing: ${params.readiness.chatSetupRoutingReady ? "ready" : "blocked"}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `Gateway：${params.readiness.gatewayReachable ? "可达" : "不可达"}`,
+      en: `Gateway: ${params.readiness.gatewayReachable ? "reachable" : "unreachable"}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `路由探针：${params.readiness.routeProbeReady ? "就绪" : params.readiness.routeProbeSkipped ? "已跳过" : "阻塞"}`,
+      en: `Route probe: ${params.readiness.routeProbeReady ? "ready" : params.readiness.routeProbeSkipped ? "skipped" : "blocked"}`,
+    }),
     params.pluginActivation
-      ? `Plugin activation: ${params.pluginActivation.ready ? "ready" : "blocked"}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `插件激活：${params.pluginActivation.ready ? "就绪" : "阻塞"}`,
+          en: `Plugin activation: ${params.pluginActivation.ready ? "ready" : "blocked"}`,
+        })
       : undefined,
-    "You can continue using OpenClaw Code in this chat now.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "现在可以继续在这个聊天里使用 OpenClaw Code 了。",
+      en: "You can continue using OpenClaw Code in this chat now.",
+    }),
     params.statusCommand
-      ? `If you want the full setup summary again, send ${params.statusCommand}.`
-      : "If you want the full setup summary again, send /occode-setup-status.",
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `如果还想再看完整 setup 摘要，发送 ${params.statusCommand}。`,
+          en: `If you want the full setup summary again, send ${params.statusCommand}.`,
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "如果还想再看完整 setup 摘要，发送 /occode-setup-status。",
+          en: "If you want the full setup summary again, send /occode-setup-status.",
+        }),
   ]
     .filter(Boolean)
     .join("\n");
@@ -815,88 +1288,243 @@ function buildChatSetupBootstrapCompleteMessage(params: {
     NonNullable<Awaited<ReturnType<OpenClawCodeChatopsStore["getSetupSession"]>>>["bootstrap"]
   >;
 }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "本次 setup 会话的 OpenClaw Code bootstrap 已完成。",
-    params.login ? `GitHub 用户名：${params.login}` : undefined,
-    params.name ? `姓名：${params.name}` : undefined,
-    params.email ? `邮箱：${params.email}` : undefined,
-    `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
-    `仓库：${params.repoKey}`,
-    params.bootstrap.repoRoot ? `本地路径：${params.bootstrap.repoRoot}` : undefined,
-    params.bootstrap.checkoutAction ? `检出方式：${params.bootstrap.checkoutAction}` : undefined,
-    params.bootstrap.blueprintPath ? `蓝图路径：${params.bootstrap.blueprintPath}` : undefined,
-    params.bootstrap.blueprintStatus ? `蓝图状态：${params.bootstrap.blueprintStatus}` : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "本次 setup 会话的 OpenClaw Code bootstrap 已完成。",
+      en: "OpenClaw Code bootstrap has completed for this setup session.",
+    }),
+    params.login
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `GitHub 用户名：${params.login}`,
+          en: `GitHub login: ${params.login}`,
+        })
+      : undefined,
+    params.name
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `姓名：${params.name}`,
+          en: `Name: ${params.name}`,
+        })
+      : undefined,
+    params.email
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `邮箱：${params.email}`,
+          en: `Email: ${params.email}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+      en: `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `仓库：${params.repoKey}`,
+      en: `Repo: ${params.repoKey}`,
+    }),
+    params.bootstrap.repoRoot
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `本地路径：${params.bootstrap.repoRoot}`,
+          en: `Local path: ${params.bootstrap.repoRoot}`,
+        })
+      : undefined,
+    params.bootstrap.checkoutAction
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `检出方式：${params.bootstrap.checkoutAction}`,
+          en: `Checkout action: ${params.bootstrap.checkoutAction}`,
+        })
+      : undefined,
+    params.bootstrap.blueprintPath
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图路径：${params.bootstrap.blueprintPath}`,
+          en: `Blueprint path: ${params.bootstrap.blueprintPath}`,
+        })
+      : undefined,
+    params.bootstrap.blueprintStatus
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图状态：${params.bootstrap.blueprintStatus}`,
+          en: `Blueprint status: ${params.bootstrap.blueprintStatus}`,
+        })
+      : undefined,
     params.bootstrap.blueprintRevisionId
-      ? `蓝图修订版本：${params.bootstrap.blueprintRevisionId}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图修订版本：${params.bootstrap.blueprintRevisionId}`,
+          en: `Blueprint revision: ${params.bootstrap.blueprintRevisionId}`,
+        })
       : undefined,
     params.bootstrap.blueprintGoalSummary
-      ? `蓝图目标：${params.bootstrap.blueprintGoalSummary}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图目标：${params.bootstrap.blueprintGoalSummary}`,
+          en: `Blueprint goal: ${params.bootstrap.blueprintGoalSummary}`,
+        })
       : undefined,
     typeof params.bootstrap.workstreamCandidateCount === "number" &&
     typeof params.bootstrap.openQuestionCount === "number" &&
     typeof params.bootstrap.humanGateCount === "number"
-      ? `蓝图统计：工作流=${params.bootstrap.workstreamCandidateCount} | 开放问题=${params.bootstrap.openQuestionCount} | 人工门禁=${params.bootstrap.humanGateCount}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图统计：工作流=${params.bootstrap.workstreamCandidateCount} | 开放问题=${params.bootstrap.openQuestionCount} | 人工门禁=${params.bootstrap.humanGateCount}`,
+          en: `Blueprint counts: workstreams=${params.bootstrap.workstreamCandidateCount} | openQuestions=${params.bootstrap.openQuestionCount} | humanGates=${params.bootstrap.humanGateCount}`,
+        })
       : undefined,
     typeof params.bootstrap.workItemCount === "number" &&
     typeof params.bootstrap.plannedWorkItemCount === "number"
-      ? `工作项：总数=${params.bootstrap.workItemCount} | 已规划=${params.bootstrap.plannedWorkItemCount}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `工作项：总数=${params.bootstrap.workItemCount} | 已规划=${params.bootstrap.plannedWorkItemCount}`,
+          en: `Work items: total=${params.bootstrap.workItemCount} | planned=${params.bootstrap.plannedWorkItemCount}`,
+        })
       : undefined,
     typeof params.bootstrap.blockedGateCount === "number" &&
     typeof params.bootstrap.needsHumanDecisionCount === "number"
-      ? `阶段门禁：阻塞=${params.bootstrap.blockedGateCount} | 待人工决策=${params.bootstrap.needsHumanDecisionCount}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `阶段门禁：阻塞=${params.bootstrap.blockedGateCount} | 待人工决策=${params.bootstrap.needsHumanDecisionCount}`,
+          en: `Stage gates: blocked=${params.bootstrap.blockedGateCount} | humanDecisionRequired=${params.bootstrap.needsHumanDecisionCount}`,
+        })
       : undefined,
     params.bootstrap.pluginActivation
-      ? `插件激活：${params.bootstrap.pluginActivation.ready ? "就绪" : "阻塞"} | plugins=${params.bootstrap.pluginActivation.pluginsEnabled ? "启用" : "禁用"} | allow=${params.bootstrap.pluginActivation.allowlisted ? "就绪" : "缺失"} | entry=${params.bootstrap.pluginActivation.entryEnabled ? "启用" : "禁用"}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `插件激活：${params.bootstrap.pluginActivation.ready ? "就绪" : "阻塞"} | plugins=${params.bootstrap.pluginActivation.pluginsEnabled ? "启用" : "禁用"} | allow=${params.bootstrap.pluginActivation.allowlisted ? "就绪" : "缺失"} | entry=${params.bootstrap.pluginActivation.entryEnabled ? "启用" : "禁用"}`,
+          en: `Plugin activation: ${params.bootstrap.pluginActivation.ready ? "ready" : "blocked"} | plugins=${params.bootstrap.pluginActivation.pluginsEnabled ? "enabled" : "disabled"} | allow=${params.bootstrap.pluginActivation.allowlisted ? "ready" : "missing"} | entry=${params.bootstrap.pluginActivation.entryEnabled ? "enabled" : "disabled"}`,
+        })
       : undefined,
     typeof params.bootstrap.readyForIssueProjection === "boolean"
-      ? `Issue 投射：${params.bootstrap.readyForIssueProjection ? "就绪" : "阻塞"}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `Issue 投射：${params.bootstrap.readyForIssueProjection ? "就绪" : "阻塞"}`,
+          en: `Issue projection: ${params.bootstrap.readyForIssueProjection ? "ready" : "blocked"}`,
+        })
       : undefined,
     typeof params.bootstrap.proofReadiness?.chatSetupRoutingReady === "boolean"
-      ? `聊天 setup 路由：${params.bootstrap.proofReadiness.chatSetupRoutingReady ? "就绪" : "阻塞"}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `聊天 setup 路由：${params.bootstrap.proofReadiness.chatSetupRoutingReady ? "就绪" : "阻塞"}`,
+          en: `Chat setup routing: ${params.bootstrap.proofReadiness.chatSetupRoutingReady ? "ready" : "blocked"}`,
+        })
       : undefined,
     params.bootstrap.firstWorkItemTitle
-      ? `首个工作项：${params.bootstrap.firstWorkItemTitle}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `首个工作项：${params.bootstrap.firstWorkItemTitle}`,
+          en: `First work item: ${params.bootstrap.firstWorkItemTitle}`,
+        })
       : undefined,
     params.bootstrap.nextSuggestedCommand
-      ? `建议下一步命令：${params.bootstrap.nextSuggestedCommand}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `建议下一步命令：${params.bootstrap.nextSuggestedCommand}`,
+          en: `Suggested next command: ${params.bootstrap.nextSuggestedCommand}`,
+        })
       : undefined,
     ...buildChatSetupBootstrapRepairLines(params.bootstrap),
     params.bootstrap.autoBindStatus
-      ? `自动绑定：${params.bootstrap.autoBindStatus}${params.bootstrap.autoBindChannel && params.bootstrap.autoBindTarget ? ` (${params.bootstrap.autoBindChannel}:${params.bootstrap.autoBindTarget})` : ""}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `自动绑定：${params.bootstrap.autoBindStatus}${params.bootstrap.autoBindChannel && params.bootstrap.autoBindTarget ? ` (${params.bootstrap.autoBindChannel}:${params.bootstrap.autoBindTarget})` : ""}`,
+          en: `Auto-bind: ${params.bootstrap.autoBindStatus}${params.bootstrap.autoBindChannel && params.bootstrap.autoBindTarget ? ` (${params.bootstrap.autoBindChannel}:${params.bootstrap.autoBindTarget})` : ""}`,
+        })
       : undefined,
     params.bootstrap.clarificationQuestions?.length
-      ? `待澄清问题：${params.bootstrap.clarificationQuestions.length}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `待澄清问题：${params.bootstrap.clarificationQuestions.length}`,
+          en: `Clarification questions: ${params.bootstrap.clarificationQuestions.length}`,
+        })
       : undefined,
     ...(params.bootstrap.clarificationQuestions ?? [])
       .slice(0, 3)
       .map((question) => `- ${question}`),
     params.bootstrap.clarificationSuggestions?.length
-      ? `建议：${params.bootstrap.clarificationSuggestions.length}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `建议：${params.bootstrap.clarificationSuggestions.length}`,
+          en: `Suggestions: ${params.bootstrap.clarificationSuggestions.length}`,
+        })
       : undefined,
     ...(params.bootstrap.clarificationSuggestions ?? [])
       .slice(0, 2)
       .map((suggestion) => `- ${suggestion}`),
-    params.bootstrap.nextAction ? `当前状态：${params.bootstrap.nextAction}` : undefined,
-    params.bootstrap.cliRunCommand ? `CLI 验证：${params.bootstrap.cliRunCommand}` : undefined,
+    params.bootstrap.nextAction
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `当前状态：${params.bootstrap.nextAction}`,
+          en: `Current state: ${params.bootstrap.nextAction}`,
+        })
+      : undefined,
+    params.bootstrap.cliRunCommand
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `CLI 验证：${params.bootstrap.cliRunCommand}`,
+          en: `CLI proof: ${params.bootstrap.cliRunCommand}`,
+        })
+      : undefined,
     params.bootstrap.blueprintCommand
-      ? `聊天蓝图：${params.bootstrap.blueprintCommand}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `聊天蓝图：${params.bootstrap.blueprintCommand}`,
+          en: `Chat blueprint: ${params.bootstrap.blueprintCommand}`,
+        })
       : undefined,
     params.bootstrap.blueprintClarifyCommand
-      ? `蓝图澄清：${params.bootstrap.blueprintClarifyCommand}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图澄清：${params.bootstrap.blueprintClarifyCommand}`,
+          en: `Blueprint clarify: ${params.bootstrap.blueprintClarifyCommand}`,
+        })
       : undefined,
     params.bootstrap.blueprintAgreeCommand
-      ? `蓝图确认：${params.bootstrap.blueprintAgreeCommand}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图确认：${params.bootstrap.blueprintAgreeCommand}`,
+          en: `Blueprint agree: ${params.bootstrap.blueprintAgreeCommand}`,
+        })
       : undefined,
     params.bootstrap.blueprintDecomposeCommand
-      ? `蓝图拆解：${params.bootstrap.blueprintDecomposeCommand}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图拆解：${params.bootstrap.blueprintDecomposeCommand}`,
+          en: `Blueprint decompose: ${params.bootstrap.blueprintDecomposeCommand}`,
+        })
       : undefined,
-    params.bootstrap.gatesCommand ? `阶段门禁：${params.bootstrap.gatesCommand}` : undefined,
-    params.bootstrap.chatBindCommand ? `聊天绑定：${params.bootstrap.chatBindCommand}` : undefined,
+    params.bootstrap.gatesCommand
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `阶段门禁：${params.bootstrap.gatesCommand}`,
+          en: `Stage gates: ${params.bootstrap.gatesCommand}`,
+        })
+      : undefined,
+    params.bootstrap.chatBindCommand
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `聊天绑定：${params.bootstrap.chatBindCommand}`,
+          en: `Chat bind: ${params.bootstrap.chatBindCommand}`,
+        })
+      : undefined,
     params.bootstrap.chatStartCommand
-      ? `聊天验证：${params.bootstrap.chatStartCommand}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `聊天验证：${params.bootstrap.chatStartCommand}`,
+          en: `Chat proof: ${params.bootstrap.chatStartCommand}`,
+        })
       : undefined,
     params.bootstrap.webhookRetryCommand
-      ? `Webhook 重试：${params.bootstrap.webhookRetryCommand}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `Webhook 重试：${params.bootstrap.webhookRetryCommand}`,
+          en: `Webhook retry: ${params.bootstrap.webhookRetryCommand}`,
+        })
       : undefined,
     ...buildChatSetupRepoSwitchGuidanceLines({
       repoKey: params.repoKey,
@@ -931,17 +1559,38 @@ function buildChatSetupGitHubSwitchGuidanceLines(params: {
   source: "GH_TOKEN" | "GITHUB_TOKEN" | "gh-auth-token";
   login?: string;
 }): string[] {
+  const locale = resolveOpenClawCodeLocale();
   if (params.source === "gh-auth-token") {
     return [
-      "之后如果要切换 GitHub 账号，请在这里发送 /occode-github-switch，重新发起聊天内 GitHub 登录。",
-      "之后如果要重新检查当前宿主机登录状态，请在这里发送 /occode-github-status。",
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: "之后如果要切换 GitHub 账号，请在这里发送 /occode-github-switch，重新发起聊天内 GitHub 登录。",
+        en: "If you want to switch GitHub accounts later, send /occode-github-switch here to start chat-driven GitHub login again.",
+      }),
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: "之后如果要重新检查当前宿主机登录状态，请在这里发送 /occode-github-status。",
+        en: "If you want to re-check the current host login state later, send /occode-github-status here.",
+      }),
     ];
   }
   return [
     params.source === "GH_TOKEN"
-      ? "之后如果要切换 GitHub 账号，请先在 OpenClaw 宿主机上更新或取消设置 GH_TOKEN，然后在这里发送 /occode-github-status。"
-      : "之后如果要切换 GitHub 账号，请先在 OpenClaw 宿主机上更新或取消设置 GITHUB_TOKEN，然后在这里发送 /occode-github-status。",
-    "之后如果要重新检查当前宿主机登录状态，请在这里发送 /occode-github-status。",
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: "之后如果要切换 GitHub 账号，请先在 OpenClaw 宿主机上更新或取消设置 GH_TOKEN，然后在这里发送 /occode-github-status。",
+          en: "If you want to switch GitHub accounts later, first update or unset GH_TOKEN on the OpenClaw host, then send /occode-github-status here.",
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "之后如果要切换 GitHub 账号，请先在 OpenClaw 宿主机上更新或取消设置 GITHUB_TOKEN，然后在这里发送 /occode-github-status。",
+          en: "If you want to switch GitHub accounts later, first update or unset GITHUB_TOKEN on the OpenClaw host, then send /occode-github-status here.",
+        }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "之后如果要重新检查当前宿主机登录状态，请在这里发送 /occode-github-status。",
+      en: "If you want to re-check the current host login state later, send /occode-github-status here.",
+    }),
   ];
 }
 
@@ -958,19 +1607,58 @@ function buildChatSetupGitHubStatusMessage(
         email?: string;
       },
 ): string {
+  const locale = resolveOpenClawCodeLocale();
   if (!params.available) {
     return [
-      "OpenClaw Code 在宿主机上还没有可用的 GitHub 授权。",
-      "下一步：在这里发送 /occode-github-switch，发起聊天内 GitHub 登录。",
-      "也可以直接用 /occode-setup 启动完整 setup 流程。",
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: "OpenClaw Code 在宿主机上还没有可用的 GitHub 授权。",
+        en: "OpenClaw Code does not have a usable GitHub authorization on the host yet.",
+      }),
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: "下一步：在这里发送 /occode-github-switch，发起聊天内 GitHub 登录。",
+        en: "Next: send /occode-github-switch here to start chat-driven GitHub login.",
+      }),
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: "也可以直接用 /occode-setup 启动完整 setup 流程。",
+        en: "You can also use /occode-setup directly to start the full setup flow.",
+      }),
     ].join("\n");
   }
   return [
-    "OpenClaw Code 在宿主机上发现了可用的 GitHub 授权。",
-    params.login ? `GitHub 用户名：${params.login}` : undefined,
-    params.name ? `姓名：${params.name}` : undefined,
-    params.email ? `邮箱：${params.email}` : undefined,
-    `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code 在宿主机上发现了可用的 GitHub 授权。",
+      en: "OpenClaw Code found a usable GitHub authorization on the host.",
+    }),
+    params.login
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `GitHub 用户名：${params.login}`,
+          en: `GitHub login: ${params.login}`,
+        })
+      : undefined,
+    params.name
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `姓名：${params.name}`,
+          en: `Name: ${params.name}`,
+        })
+      : undefined,
+    params.email
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `邮箱：${params.email}`,
+          en: `Email: ${params.email}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `来源：${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+      en: `Source: ${formatOnboardingGitHubAuthSourceLabel(params.source)}`,
+    }),
     ...buildChatSetupGitHubSwitchGuidanceLines({
       source: params.source,
       login: params.login,
@@ -985,13 +1673,40 @@ function buildChatSetupGitHubSwitchStartedMessage(params: {
   userCode: string;
   selectionLabel?: string;
 }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code 正在为当前会话发起新的 GitHub 登录。",
-    `打开：${params.verificationUri}`,
-    `验证码：${params.userCode}`,
-    params.selectionLabel ? `当前目标：${params.selectionLabel}` : undefined,
-    "请在浏览器中完成授权。登录完成后，OpenClaw Code 会在这里自动继续 setup。",
-    "之后如果要重新检查当前宿主机登录状态，请在这里发送 /occode-github-status。",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code 正在为当前会话发起新的 GitHub 登录。",
+      en: "OpenClaw Code is starting a new GitHub login for this chat.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `打开：${params.verificationUri}`,
+      en: `Open: ${params.verificationUri}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `验证码：${params.userCode}`,
+      en: `Code: ${params.userCode}`,
+    }),
+    params.selectionLabel
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `当前目标：${params.selectionLabel}`,
+          en: `Current target: ${params.selectionLabel}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "请在浏览器中完成授权。登录完成后，OpenClaw Code 会在这里自动继续 setup。",
+      en: "Finish the authorization in your browser. After login completes, OpenClaw Code will continue setup here automatically.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "之后如果要重新检查当前宿主机登录状态，请在这里发送 /occode-github-status。",
+      en: "If you want to re-check the current host login state later, send /occode-github-status here.",
+    }),
   ]
     .filter(Boolean)
     .join("\n");
@@ -1026,17 +1741,30 @@ function summarizeCommandFailure(stderr: string, stdout: string): string {
 }
 
 function buildChatSetupRepoSwitchGuidanceLines(params: { repoKey?: string }): string[] {
+  const locale = resolveOpenClawCodeLocale();
   if (!params.repoKey) {
     return [];
   }
   return [
-    "如果仓库选错了，可发送 /occode-setup owner/repo 或 /occode-setup new <repo-name> 来切换目标。",
-    "如果想彻底重新开始，可用 /occode-setup-cancel 丢弃当前 setup 会话。",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "如果仓库选错了，可发送 /occode-setup owner/repo 或 /occode-setup new <repo-name> 来切换目标。",
+      en: "If the repo target is wrong, send /occode-setup owner/repo or /occode-setup new <repo-name> to switch it.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "如果想彻底重新开始，可用 /occode-setup-cancel 丢弃当前 setup 会话。",
+      en: "If you want to restart from scratch, use /occode-setup-cancel to discard the current setup session.",
+    }),
   ];
 }
 
 function describeChatSetupBootstrap(): string {
-  return "bootstrap 会为 OpenClaw Code 准备仓库，包括本地克隆或挂载、接通聊天与插件配置，并同步 PROJECT-BLUEPRINT.md 和 .openclawcode/ 这类仓库内产物。";
+  return localizeOpenClawCodeText({
+    zhCN:
+      "bootstrap 会为 OpenClaw Code 准备仓库，包括本地克隆或挂载、接通聊天与插件配置，并同步 PROJECT-BLUEPRINT.md 和 .openclawcode/ 这类仓库内产物。",
+    en: "bootstrap prepares the repository for OpenClaw Code, including local clone or mount setup, chat and plugin wiring, and syncing in-repo artifacts such as PROJECT-BLUEPRINT.md and .openclawcode/.",
+  });
 }
 
 function isSetupClassificationStage(stage: ChatSetupSession["stage"]): boolean {
@@ -1364,24 +2092,65 @@ function buildExistingRepoBlueprintDraft(params: {
 }
 
 function buildChatSetupStateLayerLines(session: ChatSetupSession): string[] {
+  const locale = resolveOpenClawCodeLocale();
   const githubLabel = session.githubAuthSource
-    ? `GitHub: ready${session.githubAuthLogin ? ` as ${session.githubAuthLogin}` : ""}`
+    ? localizeOpenClawCodeText({
+        locale,
+        zhCN: `GitHub：已就绪${session.githubAuthLogin ? `，账号 ${session.githubAuthLogin}` : ""}`,
+        en: `GitHub: ready${session.githubAuthLogin ? ` as ${session.githubAuthLogin}` : ""}`,
+      })
     : session.stage === "awaiting-github-device-auth"
-      ? "GitHub: awaiting device approval"
-      : "GitHub: not ready";
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: "GitHub：等待 device approval",
+          en: "GitHub: awaiting device approval",
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "GitHub：未就绪",
+          en: "GitHub: not ready",
+        });
   const repoLabel = session.repoKey
-    ? `Repo: ${session.repoKey}`
+    ? localizeOpenClawCodeText({
+        locale,
+        zhCN: `仓库：${session.repoKey}`,
+        en: `Repo: ${session.repoKey}`,
+      })
     : session.pendingRepoName
-      ? `Repo: pending create ${session.pendingRepoName}`
-      : "Repo: not chosen yet";
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `仓库：待创建 ${session.pendingRepoName}`,
+          en: `Repo: pending create ${session.pendingRepoName}`,
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "仓库：尚未选择",
+          en: "Repo: not chosen yet",
+        });
   const blueprintLabel =
     session.stage === "repo-existing-blueprint-detected"
-      ? `Blueprint: existing baseline detected${session.detectedBlueprint?.status ? ` (${session.detectedBlueprint.status})` : ""}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图：检测到现有基线${session.detectedBlueprint?.status ? ` (${session.detectedBlueprint.status})` : ""}`,
+          en: `Blueprint: existing baseline detected${session.detectedBlueprint?.status ? ` (${session.detectedBlueprint.status})` : ""}`,
+        })
       : session.stage === "bootstrap-ready"
-        ? "Blueprint: agreed"
+        ? localizeOpenClawCodeText({
+            locale,
+            zhCN: "蓝图：已确认",
+            en: "Blueprint: agreed",
+          })
         : session.blueprintDraft
-          ? `Blueprint: ${session.blueprintDraft.status === "agreed" ? "agreed" : "draft"}`
-          : "Blueprint: missing";
+          ? localizeOpenClawCodeText({
+              locale,
+              zhCN: `蓝图：${session.blueprintDraft.status === "agreed" ? "已确认" : "草稿"}`,
+              en: `Blueprint: ${session.blueprintDraft.status === "agreed" ? "agreed" : "draft"}`,
+            })
+          : localizeOpenClawCodeText({
+              locale,
+              zhCN: "蓝图：缺失",
+              en: "Blueprint: missing",
+            });
   return [githubLabel, repoLabel, blueprintLabel];
 }
 
@@ -1453,41 +2222,106 @@ function buildChatSetupExistingBlueprintDetectedMessage(params: {
 }): string {
   const draftRevisionCount = collectChatSetupDraftFilledSectionCount(params.session);
   const draftRevisionSections = collectChatSetupDraftFilledSectionNames(params.session);
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code found an existing repo that already looks like an OpenClaw Code project.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code 发现当前仓库已经像一个现成的 OpenClaw Code 项目。",
+      en: "OpenClaw Code found an existing repo that already looks like an OpenClaw Code project.",
+    }),
     ...buildChatSetupStateLayerLines(params.session),
-    `State: repo-existing-blueprint-detected`,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "状态：repo-existing-blueprint-detected",
+      en: "State: repo-existing-blueprint-detected",
+    }),
     params.detectedPaths.length > 0
-      ? `Detected OpenClaw Code artifacts: ${params.detectedPaths.join(", ")}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `检测到的 OpenClaw Code 产物：${params.detectedPaths.join(", ")}`,
+          en: `Detected OpenClaw Code artifacts: ${params.detectedPaths.join(", ")}`,
+        })
       : undefined,
     params.session.detectedBlueprint?.title
-      ? `Blueprint title: ${params.session.detectedBlueprint.title}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图标题：${params.session.detectedBlueprint.title}`,
+          en: `Blueprint title: ${params.session.detectedBlueprint.title}`,
+        })
       : undefined,
     params.session.detectedBlueprint?.status
-      ? `Blueprint status: ${params.session.detectedBlueprint.status}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图状态：${params.session.detectedBlueprint.status}`,
+          en: `Blueprint status: ${params.session.detectedBlueprint.status}`,
+        })
       : undefined,
     params.session.detectedBlueprint?.goalSummary
-      ? `Blueprint goal: ${params.session.detectedBlueprint.goalSummary}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图目标：${params.session.detectedBlueprint.goalSummary}`,
+          en: `Blueprint goal: ${params.session.detectedBlueprint.goalSummary}`,
+        })
       : undefined,
     typeof params.session.detectedBlueprint?.workstreamCandidateCount === "number" &&
     typeof params.session.detectedBlueprint?.openQuestionCount === "number" &&
     typeof params.session.detectedBlueprint?.humanGateCount === "number"
-      ? `Blueprint counts: workstreams=${params.session.detectedBlueprint.workstreamCandidateCount} | openQuestions=${params.session.detectedBlueprint.openQuestionCount} | humanGates=${params.session.detectedBlueprint.humanGateCount}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `蓝图统计：工作流=${params.session.detectedBlueprint.workstreamCandidateCount} | 开放问题=${params.session.detectedBlueprint.openQuestionCount} | 人工门禁=${params.session.detectedBlueprint.humanGateCount}`,
+          en: `Blueprint counts: workstreams=${params.session.detectedBlueprint.workstreamCandidateCount} | openQuestions=${params.session.detectedBlueprint.openQuestionCount} | humanGates=${params.session.detectedBlueprint.humanGateCount}`,
+        })
       : undefined,
     draftRevisionCount > 0
-      ? `Pending setup revisions: ${draftRevisionCount} section(s)`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `待处理 setup 修订：${draftRevisionCount} 个章节`,
+          en: `Pending setup revisions: ${draftRevisionCount} section(s)`,
+        })
       : undefined,
     draftRevisionSections.length > 0
-      ? `Pending revision sections: ${draftRevisionSections.slice(0, 5).join(", ")}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `待修订章节：${draftRevisionSections.slice(0, 5).join(", ")}`,
+          en: `Pending revision sections: ${draftRevisionSections.slice(0, 5).join(", ")}`,
+        })
       : undefined,
-    "This path should resume the existing project instead of treating it like a fresh setup.",
-    "Next actions:",
-    "- /occode-blueprint to re-check the detected baseline in this setup chat.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "这条路径应该继续使用现有项目，而不是把它当成一个全新的 setup。",
+      en: "This path should resume the existing project instead of treating it like a fresh setup.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "下一步：",
+      en: "Next actions:",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "- 用 /occode-blueprint 在这个 setup 聊天里重新检查检测到的基线。",
+      en: "- /occode-blueprint to re-check the detected baseline in this setup chat.",
+    }),
     draftRevisionCount > 0
-      ? "- /occode-blueprint-agree to confirm the revised baseline before continuing."
-      : "- /occode-blueprint-edit or /occode-goal if the baseline needs changes first.",
-    "- /occode-setup-retry once the existing blueprint is still the intended baseline.",
-    `Bootstrap stays blocked until that baseline is confirmed. ${describeChatSetupBootstrap()}`,
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: "- 继续前先用 /occode-blueprint-agree 确认修订后的基线。",
+          en: "- /occode-blueprint-agree to confirm the revised baseline before continuing.",
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "- 如果基线还要修改，先用 /occode-blueprint-edit 或 /occode-goal。",
+          en: "- /occode-blueprint-edit or /occode-goal if the baseline needs changes first.",
+        }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "- 当现有蓝图仍是目标基线时，用 /occode-setup-retry 继续。",
+      en: "- /occode-setup-retry once the existing blueprint is still the intended baseline.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `在确认这份基线之前，bootstrap 会持续阻塞。${describeChatSetupBootstrap()}`,
+      en: `Bootstrap stays blocked until that baseline is confirmed. ${describeChatSetupBootstrap()}`,
+    }),
   ]
     .filter(Boolean)
     .join("\n");
@@ -1502,42 +2336,144 @@ function buildChatSetupRepoBlueprintRequiredMessage(params: {
   const filledCount = collectChatSetupDraftFilledSectionCount(params.session);
   const missing = collectChatSetupDraftMissingSections(params.session);
   const sourcePaths = params.session.blueprintDraft?.sourcePaths ?? [];
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code found an existing repo, but development should stay in blueprint-first setup.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw Code 发现了一个现有仓库，但开发流程仍应保持蓝图优先 setup。",
+      en: "OpenClaw Code found an existing repo, but development should stay in blueprint-first setup.",
+    }),
     ...buildChatSetupStateLayerLines(params.session),
-    `State: ${params.state}`,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `状态：${params.state}`,
+      en: `State: ${params.state}`,
+    }),
     params.detectedPaths.length > 0
-      ? `Useful repo context found: ${params.detectedPaths.join(", ")}`
-      : "No standard OpenClaw Code blueprint was found yet.",
-    goalSummary ? `Draft goal: ${goalSummary}` : undefined,
-    sourcePaths.length > 0 ? `Draft seeded from: ${sourcePaths.join(", ")}` : undefined,
-    filledCount > 0 ? `Draft sections captured: ${filledCount}` : undefined,
-    missing.length > 0 ? `Missing before agreement: ${missing.length}` : undefined,
-    "Next actions:",
-    "- /occode-goal or /occode-blueprint-edit to refine the draft in this setup chat.",
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `找到的有用仓库上下文：${params.detectedPaths.join(", ")}`,
+          en: `Useful repo context found: ${params.detectedPaths.join(", ")}`,
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "目前还没有找到标准的 OpenClaw Code 蓝图。",
+          en: "No standard OpenClaw Code blueprint was found yet.",
+        }),
+    goalSummary
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `草稿目标：${goalSummary}`,
+          en: `Draft goal: ${goalSummary}`,
+        })
+      : undefined,
+    sourcePaths.length > 0
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `草稿来源：${sourcePaths.join(", ")}`,
+          en: `Draft seeded from: ${sourcePaths.join(", ")}`,
+        })
+      : undefined,
+    filledCount > 0
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `已记录草稿章节：${filledCount}`,
+          en: `Draft sections captured: ${filledCount}`,
+        })
+      : undefined,
     missing.length > 0
-      ? "- /occode-blueprint-agree when the missing baseline sections are filled."
-      : "- /occode-blueprint-agree if the seeded draft already matches the intended baseline.",
-    "- /occode-setup-retry after blueprint agreement to continue into bootstrap.",
-    `Bootstrap stays blocked until blueprint agreement exists. ${describeChatSetupBootstrap()}`,
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `确认前仍缺失：${missing.length}`,
+          en: `Missing before agreement: ${missing.length}`,
+        })
+      : undefined,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "下一步：",
+      en: "Next actions:",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "- 用 /occode-goal 或 /occode-blueprint-edit 在这个 setup 聊天里继续完善草稿。",
+      en: "- /occode-goal or /occode-blueprint-edit to refine the draft in this setup chat.",
+    }),
+    missing.length > 0
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: "- 缺失的基线章节补齐后，再用 /occode-blueprint-agree。",
+          en: "- /occode-blueprint-agree when the missing baseline sections are filled.",
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "- 如果当前草稿已经符合目标基线，直接用 /occode-blueprint-agree。",
+          en: "- /occode-blueprint-agree if the seeded draft already matches the intended baseline.",
+        }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "- 蓝图确认后，用 /occode-setup-retry 继续进入 bootstrap。",
+      en: "- /occode-setup-retry after blueprint agreement to continue into bootstrap.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `在蓝图确认之前，bootstrap 会持续阻塞。${describeChatSetupBootstrap()}`,
+      en: `Bootstrap stays blocked until blueprint agreement exists. ${describeChatSetupBootstrap()}`,
+    }),
   ]
     .filter(Boolean)
     .join("\n");
 }
 
 function buildChatSetupRepoCreationPendingMessage(params: { session: ChatSetupSession }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code has not created or bound the repo yet for this new project.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "这个新项目还没有创建仓库，也还没有完成仓库绑定。",
+      en: "OpenClaw Code has not created or bound the repo yet for this new project.",
+    }),
     ...buildChatSetupStateLayerLines(params.session),
-    "State: repo-creation-pending",
-    "First agree on the project blueprint in chat. Repo creation and bootstrap come after blueprint agreement.",
-    "Next actions:",
-    "- /occode-goal or /occode-blueprint-edit to finish the blueprint.",
-    "- /occode-blueprint-agree once the blueprint baseline is ready.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "状态：repo-creation-pending",
+      en: "State: repo-creation-pending",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "先在聊天里确认项目蓝图。仓库创建和 bootstrap 都要排在蓝图确认之后。",
+      en: "First agree on the project blueprint in chat. Repo creation and bootstrap come after blueprint agreement.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "下一步：",
+      en: "Next actions:",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "- 用 /occode-goal 或 /occode-blueprint-edit 完成蓝图。",
+      en: "- /occode-goal or /occode-blueprint-edit to finish the blueprint.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "- 蓝图基线准备好后，用 /occode-blueprint-agree。",
+      en: "- /occode-blueprint-agree once the blueprint baseline is ready.",
+    }),
     params.session.pendingRepoName
-      ? `- /occode-setup new ${params.session.pendingRepoName} after agreement to create the repo and continue.`
-      : "- /occode-setup new <repo-name> after agreement to create the repo and continue.",
-    `Bootstrap comes later. ${describeChatSetupBootstrap()}`,
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `- 确认后发送 /occode-setup new ${params.session.pendingRepoName}，创建仓库并继续。`,
+          en: `- /occode-setup new ${params.session.pendingRepoName} after agreement to create the repo and continue.`,
+        })
+      : localizeOpenClawCodeText({
+          locale,
+          zhCN: "- 确认后发送 /occode-setup new <repo-name>，创建仓库并继续。",
+          en: "- /occode-setup new <repo-name> after agreement to create the repo and continue.",
+        }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `bootstrap 在后面。${describeChatSetupBootstrap()}`,
+      en: `Bootstrap comes later. ${describeChatSetupBootstrap()}`,
+    }),
   ]
     .filter(Boolean)
     .join("\n");
@@ -1545,19 +2481,48 @@ function buildChatSetupRepoCreationPendingMessage(params: { session: ChatSetupSe
 
 function buildChatSetupBootstrapReadyMessage(params: { session: ChatSetupSession }): string {
   const draftRevisionSections = collectChatSetupDraftFilledSectionNames(params.session);
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "OpenClaw Code has blueprint agreement and can continue into bootstrap.",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "蓝图已经确认，可以继续进入 bootstrap。",
+      en: "OpenClaw Code has blueprint agreement and can continue into bootstrap.",
+    }),
     ...buildChatSetupStateLayerLines(params.session),
-    "State: bootstrap-ready",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "状态：bootstrap-ready",
+      en: "State: bootstrap-ready",
+    }),
     draftRevisionSections.length > 0
-      ? `Revisions queued for bootstrap sync: ${draftRevisionSections.slice(0, 5).join(", ")}`
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: `等待同步进 bootstrap 的修订：${draftRevisionSections.slice(0, 5).join(", ")}`,
+          en: `Revisions queued for bootstrap sync: ${draftRevisionSections.slice(0, 5).join(", ")}`,
+        })
       : undefined,
-    "Next actions:",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "下一步：",
+      en: "Next actions:",
+    }),
     params.session.repoKey
-      ? "- /occode-setup-retry to continue into bootstrap now."
+      ? localizeOpenClawCodeText({
+          locale,
+          zhCN: "- 现在就用 /occode-setup-retry 继续进入 bootstrap。",
+          en: "- /occode-setup-retry to continue into bootstrap now.",
+        })
       : params.session.pendingRepoName
-        ? `- /occode-setup new ${params.session.pendingRepoName} if repo creation still needs to run.`
-        : "- /occode-setup-retry to continue the saved setup session.",
+        ? localizeOpenClawCodeText({
+            locale,
+            zhCN: `- 如果还没创建仓库，用 /occode-setup new ${params.session.pendingRepoName}。`,
+            en: `- /occode-setup new ${params.session.pendingRepoName} if repo creation still needs to run.`,
+          })
+        : localizeOpenClawCodeText({
+            locale,
+            zhCN: "- 用 /occode-setup-retry 继续这个已保存的 setup 会话。",
+            en: "- /occode-setup-retry to continue the saved setup session.",
+          }),
     describeChatSetupBootstrap(),
   ].join("\n");
 }
@@ -1961,6 +2926,7 @@ async function completeChatSetupProjectSelection(params: {
       ...params.session,
       repoKey: formatRepoKey(created),
       pendingRepoName: undefined,
+      githubAuthSource: params.session.githubAuthSource,
       lastFailure: undefined,
       stage:
         params.session.stage === "awaiting-repo-choice"
@@ -2101,6 +3067,8 @@ async function completeChatSetupBootstrap(params: {
   const completedAt = new Date().toISOString();
   const updated = {
     ...params.session,
+    githubAuthSource: params.session.githubAuthSource,
+    repoKey: params.session.repoKey,
     stage: "bootstrap-complete" as const,
     lastFailure: undefined,
     bootstrap: {
@@ -3587,13 +4555,7 @@ async function probeSetupCheckReadiness(params: {
     process.env.OPENCLAWCODE_SETUP_OPERATOR_ROOT?.trim() ||
     process.env.OPENCLAWCODE_OPERATOR_ROOT?.trim() ||
     params.repoConfig.repoRoot;
-  let result:
-    | {
-        code: number;
-        stdout: string;
-        stderr: string;
-      }
-    | undefined;
+  let result: SpawnResult | undefined;
   try {
     result = await params.api.runtime.system.runCommandWithTimeout(
       ["bash", scriptPath, "--strict", "--json"],
@@ -4289,7 +5251,7 @@ async function queueOrGateIssueExecution(params: {
     }
   | {
       outcome: "gated";
-      gate: NonNullable<Awaited<ReturnType<typeof readExecutionStartGate>>["gate"]>;
+      gate: Awaited<ReturnType<typeof writeProjectStageGateArtifact>>["gates"][number];
     }
   | {
       outcome: "already-tracked";
@@ -4361,7 +5323,7 @@ async function maybeAutoAdvanceRepoAutopilot(params: {
         await readOpenClawCodeOperatorStatusSnapshot(
           params.api.runtime.state.resolveStateDir(),
         ).catch(() => undefined),
-      queueIssue: async ({ issueNumber, issueAction }) => {
+      queueIssue: async ({ issueNumber }) => {
         const queued = await queueOrGateIssueExecution({
           store: params.store,
           repoConfig: params.repoConfig,
@@ -4371,11 +5333,7 @@ async function maybeAutoAdvanceRepoAutopilot(params: {
             number: issueNumber,
           },
           destination,
-          action: issueAction,
-          queuedStatus:
-            issueAction === "rerun"
-              ? `Queued rerun automatically after ${params.reason}.`
-              : `Queued automatically after ${params.reason}.`,
+          queuedStatus: `Queued automatically after ${params.reason}.`,
           gatedStatus: "Awaiting execution-start gate approval.",
         });
         if (queued.outcome === "queued") {
@@ -4741,13 +5699,15 @@ function buildExecutionStartGateDeferredMessage(params: {
     title: string;
     url?: string;
   };
-  gate: NonNullable<Awaited<ReturnType<typeof readExecutionStartGate>>["gate"]>;
-  source: "chat-intake" | "auto-webhook";
+  gate: Awaited<ReturnType<typeof writeProjectStageGateArtifact>>["gates"][number];
+  source: "chat-intake" | "auto-webhook" | "issue-materialization";
 }): string {
   const issueKey = formatIssueKey(params.issue);
   return [
     params.source === "chat-intake"
       ? "openclawcode created a new GitHub issue from chat, but execution start is currently gated."
+      : params.source === "issue-materialization"
+        ? "openclawcode materialized the next planned issue, but execution start is currently gated."
       : "openclawcode received a new GitHub issue, but execution start is currently gated.",
     `Issue: ${issueKey}`,
     `Title: ${params.issue.title}`,
@@ -5434,8 +6394,13 @@ function buildChatSetupDraftUpdateMessage(params: {
   sectionName: string;
   session: ChatSetupSession;
 }): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    `Updated setup draft section \`${params.sectionName}\`.`,
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `已更新 setup 草稿章节 \`${params.sectionName}\`。`,
+      en: `Updated setup draft section \`${params.sectionName}\`.`,
+    }),
     params.session.stage === "awaiting-repo-choice"
       ? buildChatSetupAwaitingRepoChoiceMessage({
           session: params.session,
@@ -6863,12 +7828,14 @@ function buildInboxMessage(params: {
       }
       lines.push(...buildSuitabilityLedgerLines(entry));
       lines.push(...buildInboxQualityGateLines(entry));
-      lines.push(
-        ...buildInboxPreCodeDisciplineLines({
-          snapshot: entry,
-          repoConfig: params.repoConfig,
-        }),
-      );
+      if (params.repoConfig) {
+        lines.push(
+          ...buildInboxPreCodeDisciplineLines({
+            snapshot: entry,
+            repoConfig: params.repoConfig,
+          }),
+        );
+      }
       lines.push(...buildInboxLoopHealthLines(entry));
       lines.push(...buildPolicyShortcutLines({ issueKey: entry.issueKey, snapshot: entry }));
       lines.push(
@@ -7014,9 +7981,18 @@ function scheduleNotification(params: {
 }
 
 function buildFeishuOperatorBindingWelcomeMessage(): string {
+  const locale = resolveOpenClawCodeLocale();
   return [
-    "你好，我已经完成飞书绑定。",
-    "后续我会在这里主动同步 OpenClaw 的配置进度、授权步骤和任务通知。",
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "你好，我已经完成飞书绑定。",
+      en: "Hello, I have finished the Feishu binding.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "后续我会在这里主动同步 OpenClaw 的配置进度、授权步骤和任务通知。",
+      en: "I will proactively send OpenClaw setup progress, authorization steps, and task notifications here from now on.",
+    }),
   ].join("\n");
 }
 
@@ -9919,7 +10895,7 @@ export default {
             pendingRepoName:
               selection?.kind === "new-repo"
                 ? selection.pendingRepoName
-                : selection?.kind === "existing-repo" || selection?.kind === "new-project-blueprint"
+                : selection?.kind === "existing-repo"
                   ? undefined
                   : synced.session.pendingRepoName,
             blueprintDraft:
@@ -9949,7 +10925,7 @@ export default {
           }
           return {
             text: buildChatSetupReadyMessage({
-              source: nextSession.githubAuthSource,
+              source: synced.session.githubAuthSource,
               repoKey: nextSession.repoKey,
             }),
           };
@@ -9963,7 +10939,7 @@ export default {
             pendingRepoName:
               selection?.kind === "new-repo"
                 ? selection.pendingRepoName
-                : selection?.kind === "existing-repo" || selection?.kind === "new-project-blueprint"
+                : selection?.kind === "existing-repo"
                   ? undefined
                   : synced.session.pendingRepoName,
             blueprintDraft:
@@ -11690,7 +12666,7 @@ export default {
             await readOpenClawCodeOperatorStatusSnapshot(api.runtime.state.resolveStateDir()).catch(
               () => undefined,
             ),
-          queueIssue: async ({ issueNumber, issueAction }) => {
+          queueIssue: async ({ issueNumber }) => {
             const binding = await store.getRepoBinding(formatRepoKey(parsed.repo));
             const destination =
               notifyTarget == null
@@ -11711,15 +12687,10 @@ export default {
                 number: issueNumber,
               },
               destination,
-              action: issueAction,
               queuedStatus:
-                issueAction === "rerun"
-                  ? parsed.action === "repeat"
-                    ? "Queued rerun from /occode-autopilot repeat."
-                    : "Queued rerun from /occode-autopilot once."
-                  : parsed.action === "repeat"
-                    ? "Queued from /occode-autopilot repeat."
-                    : "Queued from /occode-autopilot once.",
+                parsed.action === "repeat"
+                  ? "Queued from /occode-autopilot repeat."
+                  : "Queued from /occode-autopilot once.",
               gatedStatus: "Awaiting execution-start gate approval.",
             });
             if (queued.outcome === "queued") {
@@ -11914,7 +12885,7 @@ export default {
       },
     });
 
-    api.registerHook(
+    api.on(
       "inbound_claim",
       async (event) => {
         const pluginConfig = resolveOpenClawCodePluginConfig(api.pluginConfig);
@@ -11932,7 +12903,7 @@ export default {
         });
         return claimed ? { handled: true } : undefined;
       },
-      { name: "openclawcode-feishu-scan-claim" },
+      { priority: 0 },
     );
 
     api.registerService({
