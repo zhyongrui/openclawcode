@@ -1,5 +1,6 @@
 import * as crypto from "crypto";
 import * as Lark from "@larksuiteoapi/node-sdk";
+import { setPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 import type { ClawdbotConfig, RuntimeEnv, HistoryEntry } from "../runtime-api.js";
 import { resolveFeishuAccount } from "./accounts.js";
 import { raceWithTimeoutAndAbort } from "./async.js";
@@ -15,6 +16,7 @@ import { createEventDispatcher } from "./client.js";
 import { handleFeishuCommentEvent } from "./comment-handler.js";
 import { isRecord, readString } from "./comment-shared.js";
 import {
+  claimUnprocessedFeishuMessage,
   hasProcessedFeishuMessage,
   recordProcessedFeishuMessage,
   releaseFeishuMessageProcessing,
@@ -33,13 +35,14 @@ import { getFeishuSequentialKey } from "./sequential-key.js";
 import { createSequentialQueue } from "./sequential-queue.js";
 import { createFeishuThreadBindingManager } from "./thread-bindings.js";
 import type { FeishuChatType, ResolvedFeishuAccount } from "./types.js";
-import { setPreferredOperatorChatTarget } from "../../../src/operator-chat-targets/store.js";
 
 const FEISHU_REACTION_VERIFY_TIMEOUT_MS = 1_500;
 
 function isFeishuQuickActionsMenuEventKey(eventKey: string): boolean {
   const normalized = eventKey.trim().toLowerCase();
-  return normalized === "quick-actions" || normalized === "quick_actions" || normalized === "launcher";
+  return (
+    normalized === "quick-actions" || normalized === "quick_actions" || normalized === "launcher"
+  );
 }
 
 export type FeishuReactionCreatedEvent = {
@@ -610,19 +613,20 @@ function registerEventHandlers(
           }
           const eventId = event.event_id?.trim();
           const syntheticMessageId = eventId ? `drive-comment:${eventId}` : undefined;
-          if (
-            syntheticMessageId &&
-            (await hasProcessedFeishuMessage(syntheticMessageId, accountId, log))
-          ) {
-            log(`feishu[${accountId}]: dropping duplicate comment event ${syntheticMessageId}`);
-            return;
-          }
-          if (
-            syntheticMessageId &&
-            !tryBeginFeishuMessageProcessing(syntheticMessageId, accountId)
-          ) {
-            log(`feishu[${accountId}]: dropping in-flight comment event ${syntheticMessageId}`);
-            return;
+          if (syntheticMessageId) {
+            const claim = await claimUnprocessedFeishuMessage({
+              messageId: syntheticMessageId,
+              namespace: accountId,
+              log,
+            });
+            if (claim === "duplicate") {
+              log(`feishu[${accountId}]: dropping duplicate comment event ${syntheticMessageId}`);
+              return;
+            }
+            if (claim === "inflight") {
+              log(`feishu[${accountId}]: dropping in-flight comment event ${syntheticMessageId}`);
+              return;
+            }
           }
           log(
             `feishu[${accountId}]: received drive comment notice ` +
@@ -764,11 +768,16 @@ function registerEventHandlers(
           },
         };
         const syntheticMessageId = syntheticEvent.message.message_id;
-        if (await hasProcessedFeishuMessage(syntheticMessageId, accountId, log)) {
+        const claim = await claimUnprocessedFeishuMessage({
+          messageId: syntheticMessageId,
+          namespace: accountId,
+          log,
+        });
+        if (claim === "duplicate") {
           log(`feishu[${accountId}]: dropping duplicate bot-menu event for ${syntheticMessageId}`);
           return;
         }
-        if (!tryBeginFeishuMessageProcessing(syntheticMessageId, accountId)) {
+        if (claim === "inflight") {
           log(`feishu[${accountId}]: dropping in-flight bot-menu event for ${syntheticMessageId}`);
           return;
         }

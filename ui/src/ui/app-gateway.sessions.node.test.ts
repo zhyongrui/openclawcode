@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const loadSessionsMock = vi.fn();
 const loadSessionInspectMock = vi.fn();
+const loadChatHistoryMock = vi.fn();
 
 vi.mock("./app-chat.ts", () => ({
   CHAT_SESSIONS_ACTIVE_MINUTES: 10,
@@ -25,7 +26,7 @@ vi.mock("./controllers/assistant-identity.ts", () => ({
   loadAssistantIdentity: vi.fn(),
 }));
 vi.mock("./controllers/chat.ts", () => ({
-  loadChatHistory: vi.fn(),
+  loadChatHistory: loadChatHistoryMock,
   handleChatEvent: vi.fn(() => "idle"),
 }));
 vi.mock("./controllers/devices.ts", () => ({
@@ -143,6 +144,39 @@ describe("handleGatewayEvent sessions.changed", () => {
 
     expect(loadSessionInspectMock).toHaveBeenCalledTimes(1);
     expect(loadSessionInspectMock).toHaveBeenCalledWith(host, "agent:main:main");
+  });
+});
+
+describe("handleGatewayEvent session.message", () => {
+  it("reloads chat history for the active session", () => {
+    loadChatHistoryMock.mockReset();
+    const host = createHost();
+    host.sessionKey = "agent:qa:main";
+
+    handleGatewayEvent(host, {
+      type: "event",
+      event: "session.message",
+      payload: { sessionKey: "agent:qa:main" },
+      seq: 1,
+    });
+
+    expect(loadChatHistoryMock).toHaveBeenCalledTimes(1);
+    expect(loadChatHistoryMock).toHaveBeenCalledWith(host);
+  });
+
+  it("ignores transcript updates for other sessions", () => {
+    loadChatHistoryMock.mockReset();
+    const host = createHost();
+    host.sessionKey = "agent:qa:main";
+
+    handleGatewayEvent(host, {
+      type: "event",
+      event: "session.message",
+      payload: { sessionKey: "agent:qa:other" },
+      seq: 1,
+    });
+
+    expect(loadChatHistoryMock).not.toHaveBeenCalled();
   });
 });
 

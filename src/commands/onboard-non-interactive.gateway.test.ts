@@ -4,9 +4,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { RuntimeEnv } from "../runtime.js";
 import { makeTempWorkspace } from "../test-helpers/workspace.js";
 import { captureEnv } from "../test-utils/env.js";
+import { onboardingOpenClawCodeDeps } from "../wizard/setup.code.js";
 import { createThrowingRuntime, readJsonFile } from "./onboard-non-interactive.test-helpers.js";
 import type { installGatewayDaemonNonInteractive } from "./onboard-non-interactive/local/daemon-install.js";
-import { onboardingOpenClawCodeDeps } from "../wizard/setup.code.js";
 
 const gatewayClientCalls: Array<{
   url?: string;
@@ -189,6 +189,58 @@ async function expectLocalJsonSetupFailure(stateDir: string, runtimeWithCapture:
       runtimeWithCapture,
     ),
   ).rejects.toThrow("exit should not be reached after runtime.error");
+}
+
+function createLocalDaemonSetupOptions(stateDir: string) {
+  return {
+    nonInteractive: true,
+    mode: "local" as const,
+    workspace: path.join(stateDir, "openclaw"),
+    authChoice: "skip" as const,
+    skipSkills: true,
+    skipHealth: false,
+    installDaemon: true,
+    gatewayBind: "loopback" as const,
+  };
+}
+
+async function runLocalDaemonSetup(stateDir: string, runtimeEnv: RuntimeEnv = runtime) {
+  await runNonInteractiveSetup(createLocalDaemonSetupOptions(stateDir), runtimeEnv);
+}
+
+async function withMockedPlatform<T>(platform: NodeJS.Platform, run: () => Promise<T>): Promise<T> {
+  const platformSpy = vi.spyOn(process, "platform", "get").mockReturnValue(platform);
+  try {
+    return await run();
+  } finally {
+    platformSpy.mockRestore();
+  }
+}
+
+function mockGatewayReachableWithCapturedTimeouts() {
+  let capturedDeadlineMs: number | undefined;
+  let capturedProbeTimeoutMs: number | undefined;
+  waitForGatewayReachableMock = vi.fn(
+    async (params: {
+      url: string;
+      token?: string;
+      password?: string;
+      deadlineMs?: number;
+      probeTimeoutMs?: number;
+    }) => {
+      capturedDeadlineMs = params.deadlineMs;
+      capturedProbeTimeoutMs = params.probeTimeoutMs;
+      return { ok: true };
+    },
+  );
+  return {
+    get deadlineMs() {
+      return capturedDeadlineMs;
+    },
+    get probeTimeoutMs() {
+      return capturedProbeTimeoutMs;
+    },
+  };
 }
 
 describe("onboard (non-interactive): gateway and remote auth", () => {
@@ -387,13 +439,11 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
   it("prints the active OpenClaw Code GitHub identity in non-interactive local output", async () => {
     await withStateDir("state-openclawcode-summary-", async (stateDir) => {
       process.env.GH_TOKEN = "gho_test";
-      onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(
-        async () => ({
-          login: "zhyongrui",
-          name: "Zhongrui Ye",
-          email: "zyr@example.com",
-        }),
-      );
+      onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(async () => ({
+        login: "zhyongrui",
+        name: "Zhongrui Ye",
+        email: "zyr@example.com",
+      }));
       const runtimeWithLogs = {
         log: vi.fn(),
         error: (...args: unknown[]) => {
@@ -430,20 +480,20 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
       expect(output).toContain("openclaw code bootstrap --repo owner/repo --json");
       expect(output).toContain("/occode-setup");
       expect(output).toContain("/occ-setup");
-      expect(output).toContain("Replace or unset GH_TOKEN for the host before running OpenClaw Code.");
+      expect(output).toContain(
+        "Replace or unset GH_TOKEN for the host before running OpenClaw Code.",
+      );
     });
   }, 60_000);
 
   it("includes OpenClaw Code auth details in non-interactive local JSON output", async () => {
     await withStateDir("state-openclawcode-json-", async (stateDir) => {
       process.env.GITHUB_TOKEN = "gho_json_test";
-      onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(
-        async () => ({
-          login: "json-user",
-          name: "JSON User",
-          email: "json@example.com",
-        }),
-      );
+      onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(async () => ({
+        login: "json-user",
+        name: "JSON User",
+        email: "json@example.com",
+      }));
       const runtimeWithLogs = {
         log: vi.fn(),
         error: (...args: unknown[]) => {
@@ -711,82 +761,27 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
 
   it("uses a longer health deadline when daemon install was requested", async () => {
     await withStateDir("state-local-daemon-health-", async (stateDir) => {
-      let capturedDeadlineMs: number | undefined;
-      let capturedProbeTimeoutMs: number | undefined;
-      waitForGatewayReachableMock = vi.fn(
-        async (params: {
-          url: string;
-          token?: string;
-          password?: string;
-          deadlineMs?: number;
-          probeTimeoutMs?: number;
-        }) => {
-          capturedDeadlineMs = params.deadlineMs;
-          capturedProbeTimeoutMs = params.probeTimeoutMs;
-          return { ok: true };
-        },
-      );
+      const captured = mockGatewayReachableWithCapturedTimeouts();
 
-      await runNonInteractiveSetup(
-        {
-          nonInteractive: true,
-          mode: "local",
-          workspace: path.join(stateDir, "openclaw"),
-          authChoice: "skip",
-          skipSkills: true,
-          skipHealth: false,
-          installDaemon: true,
-          gatewayBind: "loopback",
-        },
-        runtime,
-      );
+      await runLocalDaemonSetup(stateDir);
 
       expect(installGatewayDaemonNonInteractiveMock).toHaveBeenCalledTimes(1);
-      expect(capturedDeadlineMs).toBe(45_000);
-      expect(capturedProbeTimeoutMs).toBe(10_000);
+      expect(captured.deadlineMs).toBe(45_000);
+      expect(captured.probeTimeoutMs).toBe(10_000);
     });
   }, 60_000);
 
   it("uses a longer Windows health deadline when daemon install was requested", async () => {
     await withStateDir("state-local-daemon-health-win-", async (stateDir) => {
-      let capturedDeadlineMs: number | undefined;
-      let capturedProbeTimeoutMs: number | undefined;
-      waitForGatewayReachableMock = vi.fn(
-        async (params: {
-          url: string;
-          token?: string;
-          password?: string;
-          deadlineMs?: number;
-          probeTimeoutMs?: number;
-        }) => {
-          capturedDeadlineMs = params.deadlineMs;
-          capturedProbeTimeoutMs = params.probeTimeoutMs;
-          return { ok: true };
-        },
-      );
+      const captured = mockGatewayReachableWithCapturedTimeouts();
 
-      const platformSpy = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
-      try {
-        await runNonInteractiveSetup(
-          {
-            nonInteractive: true,
-            mode: "local",
-            workspace: path.join(stateDir, "openclaw"),
-            authChoice: "skip",
-            skipSkills: true,
-            skipHealth: false,
-            installDaemon: true,
-            gatewayBind: "loopback",
-          },
-          runtime,
-        );
-      } finally {
-        platformSpy.mockRestore();
-      }
+      await withMockedPlatform("win32", async () => {
+        await runLocalDaemonSetup(stateDir);
+      });
 
       expect(installGatewayDaemonNonInteractiveMock).toHaveBeenCalledTimes(1);
-      expect(capturedDeadlineMs).toBe(90_000);
-      expect(capturedProbeTimeoutMs).toBe(15_000);
+      expect(captured.deadlineMs).toBe(90_000);
+      expect(captured.probeTimeoutMs).toBe(15_000);
     });
   }, 60_000);
 
@@ -794,24 +789,9 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
     await withStateDir("state-local-daemon-health-command-win-", async (stateDir) => {
       waitForGatewayReachableMock = vi.fn(async () => ({ ok: true }));
 
-      const platformSpy = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
-      try {
-        await runNonInteractiveSetup(
-          {
-            nonInteractive: true,
-            mode: "local",
-            workspace: path.join(stateDir, "openclaw"),
-            authChoice: "skip",
-            skipSkills: true,
-            skipHealth: false,
-            installDaemon: true,
-            gatewayBind: "loopback",
-          },
-          runtime,
-        );
-      } finally {
-        platformSpy.mockRestore();
-      }
+      await withMockedPlatform("win32", async () => {
+        await runLocalDaemonSetup(stateDir);
+      });
 
       expect(healthCommandMock).toHaveBeenCalledTimes(1);
       expect(healthCommandMock).toHaveBeenCalledWith(

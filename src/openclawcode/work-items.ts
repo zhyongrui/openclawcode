@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { resolveStateDir } from "../config/paths.js";
+import type { OpenClawCodeIssueStatusSnapshot } from "../integrations/openclaw-plugin/store.js";
 import {
   inspectProjectBlueprintClarifications,
   readProjectBlueprintDocument,
@@ -10,11 +11,8 @@ import {
 } from "./blueprint.js";
 import type { WorkflowStage } from "./contracts/index.js";
 import { resolveGitHubRepoFromGit } from "./github/index.js";
-import { buildProjectWorkItemIssueMarkers } from "./issue-materialization.js";
-import {
-  readOpenClawCodeOperatorStatusSnapshot,
-} from "./operator-status.js";
-import type { OpenClawCodeIssueStatusSnapshot } from "../integrations/openclaw-plugin/store.js";
+import { readOpenClawCodeOperatorStatusSnapshot } from "./operator-status.js";
+import { buildProjectWorkItemIssueMarkers } from "./work-item-issue-markers.js";
 
 export const PROJECT_WORK_ITEM_SCHEMA_VERSION = 1;
 export const PROJECT_WORK_ITEM_STATUSES = [

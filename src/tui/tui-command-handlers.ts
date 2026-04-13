@@ -355,6 +355,23 @@ export function createCommandHandlers(context: CommandHandlerContext) {
           chatLog.addSystem(`verbose failed: ${String(err)}`);
         }
         break;
+      case "trace":
+        if (!args) {
+          chatLog.addSystem("usage: /trace <on|off>");
+          break;
+        }
+        try {
+          const result = await client.patchSession({
+            key: state.currentSessionKey,
+            traceLevel: args,
+          });
+          chatLog.addSystem(`trace set to ${args}`);
+          applySessionInfoFromPatch(result);
+          await loadHistory();
+        } catch (err) {
+          chatLog.addSystem(`trace failed: ${String(err)}`);
+        }
+        break;
       case "fast":
         if (!args || args === "status") {
           chatLog.addSystem(`fast mode: ${state.sessionInfo.fastMode ? "on" : "off"}`);
@@ -552,7 +569,9 @@ export function createCommandHandlers(context: CommandHandlerContext) {
       if (typeof accepted?.sessionId === "string" && accepted.sessionId.trim()) {
         lines.push(`session id: ${accepted.sessionId}`);
       }
-      lines.push("stay in this TUI and use /sessions or /session <key> when you want to revisit it");
+      lines.push(
+        "stay in this TUI and use /sessions or /session <key> when you want to revisit it",
+      );
       chatLog.addSystem(lines.join("\n"));
     } catch (err) {
       chatLog.addSystem(`background failed: ${String(err)}`);

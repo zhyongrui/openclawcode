@@ -1,4 +1,4 @@
-import type { OpenClawConfig } from "../config/types.openclaw.js";
+import type { OpenClawConfig } from "../config/config.js";
 import { getPluginToolMeta } from "../plugins/tools.js";
 import {
   normalizeLowercaseStringOrEmpty,
@@ -12,7 +12,6 @@ import { resolveEffectiveToolPolicy } from "./pi-tools.policy.js";
 import { summarizeToolDescriptionText } from "./tool-description-summary.js";
 import { resolveToolDisplay } from "./tool-display.js";
 import type { AnyAgentTool } from "./tools/common.js";
-
 export type EffectiveToolSource = "core" | "plugin" | "channel";
 
 export type EffectiveToolInventoryEntry = {
@@ -132,7 +131,6 @@ export type ResolveEffectiveToolInventoryParams = {
   disableMessageTool?: boolean;
   allowGatewaySubagentBinding?: boolean;
 };
-
 function resolveEffectiveToolLabel(tool: AnyAgentTool): string {
   const rawLabel = normalizeOptionalString(tool.label) ?? "";
   if (
@@ -252,7 +250,9 @@ function effectiveToolEntryKey(entry: EffectiveToolInventoryEntry): string {
   return [entry.source, entry.id, entry.pluginId ?? "", entry.channelId ?? ""].join(":");
 }
 
-function flattenEffectiveToolEntries(result: EffectiveToolInventoryResult): EffectiveToolInventoryEntry[] {
+function flattenEffectiveToolEntries(
+  result: EffectiveToolInventoryResult,
+): EffectiveToolInventoryEntry[] {
   return result.groups.flatMap((group) => group.tools);
 }
 
@@ -269,7 +269,10 @@ function toToolAssemblyCounts(entries: EffectiveToolInventoryEntry[]): Effective
   return counts;
 }
 
-function compareInventoryPrimitiveValue(a: EffectiveToolInventoryCompareValue, b: EffectiveToolInventoryCompareValue) {
+function compareInventoryPrimitiveValue(
+  a: EffectiveToolInventoryCompareValue,
+  b: EffectiveToolInventoryCompareValue,
+) {
   if (typeof a === "boolean" && typeof b === "boolean") {
     return Number(a) - Number(b);
   }
@@ -346,21 +349,24 @@ function buildEffectiveToolAssembly(params: {
     notes.push({
       id: "message-target-required",
       severity: "info",
-      message: "Message-send tools require an explicit target in this runtime; implicit last-route sends are disabled.",
+      message:
+        "Message-send tools require an explicit target in this runtime; implicit last-route sends are disabled.",
     });
   }
   if (params.disableMessageTool === true) {
     notes.push({
       id: "message-tool-disabled",
       severity: "warn",
-      message: "The message tool is disabled for this runtime, so direct outbound sends are unavailable.",
+      message:
+        "The message tool is disabled for this runtime, so direct outbound sends are unavailable.",
     });
   }
   if (params.allowGatewaySubagentBinding === false) {
     notes.push({
       id: "gateway-subagent-binding-disabled",
       severity: "info",
-      message: "Gateway subagent binding is disabled for this runtime, so subagent handoff helpers are restricted.",
+      message:
+        "Gateway subagent binding is disabled for this runtime, so subagent handoff helpers are restricted.",
     });
   }
 
@@ -466,7 +472,16 @@ export function resolveEffectiveToolSurface(
     allowGatewaySubagentBinding: params.allowGatewaySubagentBinding,
   });
 
-  return { agentId, workspaceDir, agentDir, tools: effectiveTools, profile, presets, groups, assembly };
+  return {
+    agentId,
+    workspaceDir,
+    agentDir,
+    tools: effectiveTools,
+    profile,
+    presets,
+    groups,
+    assembly,
+  };
 }
 
 export function resolveEffectiveToolInventory(

@@ -3,7 +3,7 @@ import { scheduleChatScroll, resetChatScroll } from "./app-scroll.ts";
 import { resetToolStream } from "./app-tool-stream.ts";
 import type { ChatSideResult } from "./chat/side-result.ts";
 import { executeSlashCommand } from "./chat/slash-command-executor.ts";
-import { parseSlashCommand } from "./chat/slash-commands.ts";
+import { parseSlashCommand, refreshSlashCommands } from "./chat/slash-commands.ts";
 import {
   abortChatRun,
   loadChatHistory,
@@ -197,7 +197,11 @@ async function sendBackgroundChatMessageNow(
   },
 ) {
   resetChatScroll(host as unknown as Parameters<typeof resetChatScroll>[0]);
-  const result = await sendBackgroundChatMessage(host as unknown as ChatState, message, opts?.attachments);
+  const result = await sendBackgroundChatMessage(
+    host as unknown as ChatState,
+    message,
+    opts?.attachments,
+  );
   const ok = Boolean(result);
   if (!ok && opts?.previousDraft != null) {
     host.chatMessage = opts.previousDraft;
@@ -550,6 +554,7 @@ export async function refreshChat(host: ChatHost, opts?: { scheduleScroll?: bool
     }),
     refreshChatAvatar(host),
     refreshChatModels(host),
+    refreshChatCommands(host),
   ]);
   if (opts?.scheduleScroll !== false) {
     scheduleChatScroll(host as unknown as Parameters<typeof scheduleChatScroll>[0]);
@@ -568,6 +573,13 @@ async function refreshChatModels(host: ChatHost) {
   } finally {
     host.chatModelsLoading = false;
   }
+}
+
+async function refreshChatCommands(host: ChatHost) {
+  await refreshSlashCommands({
+    client: host.client,
+    agentId: resolveAgentIdForSession(host),
+  });
 }
 
 export const flushChatQueueForEvent = flushChatQueue;

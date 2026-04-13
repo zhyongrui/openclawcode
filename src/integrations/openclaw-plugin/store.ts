@@ -9,14 +9,12 @@ import type {
   WorkflowRun,
   WorkflowStage,
 } from "../../openclawcode/contracts/index.js";
+import { deriveWorkflowLoopHealth } from "../../openclawcode/loop-health.js";
 import {
-  deriveWorkflowLoopHealth,
   deriveWorkflowPreCodeDiscipline,
-  deriveWorkflowQualityGate,
-  resolveAutoMergeDisposition,
-  resolveAutoMergePolicy,
-} from "../../openclawcode/index.js";
-import type { WorkflowPreCodeDisciplineStatus } from "../../openclawcode/index.js";
+  type WorkflowPreCodeDisciplineStatus,
+} from "../../openclawcode/pre-code-discipline.js";
+import { deriveWorkflowQualityGate } from "../../openclawcode/quality-gate.js";
 import {
   OPENCLAWCODE_RECOMMENDATION_IMPLEMENTATION_SHAPES,
   OPENCLAWCODE_RECOMMENDATION_MODES,
@@ -25,6 +23,10 @@ import {
   type OpenClawCodeRecommendationMode,
   type OpenClawCodeRecommendationNextStep,
 } from "../../openclawcode/recommendation.js";
+import {
+  resolveAutoMergeDisposition,
+  resolveAutoMergePolicy,
+} from "../../openclawcode/workflow-derived.js";
 import type { OpenClawCodeScopedIssueDraft } from "./chatops.js";
 import type { OpenClawCodeChatopsRunRequest } from "./chatops.js";
 

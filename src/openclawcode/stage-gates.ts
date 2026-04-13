@@ -1,12 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { readProjectBlueprintDocument } from "./blueprint.js";
-import { deriveProjectDiscoveryInventory, readProjectDiscoveryInventory } from "./discovery.js";
 import { deriveProjectRoleRoutingPlan, readProjectRoleRoutingPlan } from "./role-routing.js";
-import {
-  readProjectWorkItemInventory,
-  type ProjectWorkItem,
-} from "./work-items.js";
+import type { ProjectWorkItem, ProjectWorkItemInventory } from "./work-items.js";
 
 export const PROJECT_STAGE_GATE_SCHEMA_VERSION = 1;
 export const PROJECT_STAGE_GATE_IDS = [
@@ -195,21 +191,17 @@ function finalizeGateRecord(params: {
 }
 
 function selectExecutionStartCandidate(
-  workItems: Awaited<ReturnType<typeof readProjectWorkItemInventory>>,
+  workItems: ProjectWorkItemInventory,
 ): ProjectWorkItem | null {
   return (
     workItems.workItems.find(
       (item) =>
-        item.status !== "completed" &&
-        item.status !== "canceled" &&
-        item.status !== "superseded",
+        item.status !== "completed" && item.status !== "canceled" && item.status !== "superseded",
     ) ?? null
   );
 }
 
-function buildExecutionStartModeGuidance(
-  workItem: ProjectWorkItem | null,
-): {
+function buildExecutionStartModeGuidance(workItem: ProjectWorkItem | null): {
   readiness: ProjectStageGateReadinessId;
   blockers: string[];
   suggestions: string[];
@@ -267,6 +259,8 @@ function buildExecutionStartModeGuidance(
 export async function deriveProjectStageGateArtifact(
   repoRootInput: string,
 ): Promise<ProjectStageGateArtifact> {
+  const { deriveProjectDiscoveryInventory } = await import("./discovery.js");
+  const { readProjectWorkItemInventory } = await import("./work-items.js");
   const repoRoot = path.resolve(repoRootInput);
   const artifactPath = resolveProjectStageGateArtifactPath(repoRoot);
   const existing = await readProjectStageGateArtifact(repoRoot);
@@ -350,9 +344,10 @@ export async function deriveProjectStageGateArtifact(
       readiness:
         discovery.evidenceCount === 0 ? executionModeGuidance.readiness : "needs-human-decision",
       decisionRequired: true,
-      blockers: discovery.evidenceCount === 0
-        ? executionModeGuidance.blockers
-        : [...discovery.blockers, ...executionModeGuidance.blockers],
+      blockers:
+        discovery.evidenceCount === 0
+          ? executionModeGuidance.blockers
+          : [...discovery.blockers, ...executionModeGuidance.blockers],
       suggestions:
         discovery.evidenceCount > 0
           ? [
@@ -417,6 +412,8 @@ export async function writeProjectStageGateArtifact(
 export async function readProjectStageGateArtifact(
   repoRootInput: string,
 ): Promise<ProjectStageGateArtifact> {
+  const { readProjectDiscoveryInventory } = await import("./discovery.js");
+  const { readProjectWorkItemInventory } = await import("./work-items.js");
   const repoRoot = path.resolve(repoRootInput);
   const artifactPath = resolveProjectStageGateArtifactPath(repoRoot);
   const blueprint = await readProjectBlueprintDocument(repoRoot);

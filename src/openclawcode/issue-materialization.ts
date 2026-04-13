@@ -9,16 +9,17 @@ import {
 } from "./next-work.js";
 import type { ProjectStageGateId } from "./stage-gates.js";
 import {
+  BLUEPRINT_REVISION_MARKER,
+  WORK_ITEM_FINGERPRINT_MARKER,
+  WORK_ITEM_ID_MARKER,
+} from "./work-item-issue-markers.js";
+import {
   readProjectWorkItemInventory,
   type ProjectWorkItem,
   type ProjectWorkItemExecutionMode,
 } from "./work-items.js";
 
 export const PROJECT_ISSUE_MATERIALIZATION_SCHEMA_VERSION = 1;
-
-const WORK_ITEM_ID_MARKER = "openclawcode-work-item-id";
-const BLUEPRINT_REVISION_MARKER = "openclawcode-blueprint-revision";
-const WORK_ITEM_FINGERPRINT_MARKER = "openclawcode-work-item-fingerprint";
 
 export interface ProjectIssueMaterializationEntry {
   workItemId: string;
@@ -155,20 +156,6 @@ function sortEntries(
       left.workItemId.localeCompare(right.workItemId)
     );
   });
-}
-
-export function buildProjectWorkItemIssueMarkers(params: {
-  workItemId: string;
-  blueprintRevisionId: string | null;
-  workItemFingerprint?: string | null;
-}): string[] {
-  return [
-    `<!-- ${WORK_ITEM_ID_MARKER}: ${params.workItemId} -->`,
-    `<!-- ${BLUEPRINT_REVISION_MARKER}: ${params.blueprintRevisionId ?? "unknown"} -->`,
-    ...(params.workItemFingerprint
-      ? [`<!-- ${WORK_ITEM_FINGERPRINT_MARKER}: ${params.workItemFingerprint} -->`]
-      : []),
-  ];
 }
 
 async function findReusableIssue(params: {

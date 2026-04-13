@@ -10,6 +10,7 @@ import {
 } from "../../agents/pi-embedded-runner/runs.js";
 import { compactEmbeddedPiSession } from "../../agents/pi-embedded.js";
 import { clearSessionQueues } from "../../auto-reply/reply/queue/cleanup.js";
+import { normalizeReasoningLevel, normalizeThinkLevel } from "../../auto-reply/thinking.js";
 import {
   DEFAULT_BACKGROUND_RESUME_MESSAGE,
   buildBackgroundSessionCompletionRouting,
@@ -21,7 +22,6 @@ import {
   inspectDetachedSessionLifecycle,
   resolveSessionTranscriptState,
 } from "../../commands/sessions.js";
-import { normalizeReasoningLevel, normalizeThinkLevel } from "../../auto-reply/thinking.js";
 import { loadConfig } from "../../config/config.js";
 import {
   loadSessionStore,
@@ -49,6 +49,8 @@ import {
   normalizeOptionalString,
   readStringValue,
 } from "../../shared/string-coerce.js";
+import { markTasksReattachedForRelatedSessionKey } from "../../tasks/runtime-internal.js";
+import { markTaskFlowsReattachedForOwnerKey } from "../../tasks/task-flow-runtime-internal.js";
 import { GATEWAY_CLIENT_IDS } from "../protocol/client-info.js";
 import {
   ErrorCodes,
@@ -97,8 +99,6 @@ import {
 } from "../session-utils.js";
 import { applySessionsPatchToStore } from "../sessions-patch.js";
 import { resolveSessionKeyFromResolveParams } from "../sessions-resolve.js";
-import { markTaskFlowsReattachedForOwnerKey } from "../../tasks/task-flow-runtime-internal.js";
-import { markTasksReattachedForRelatedSessionKey } from "../../tasks/runtime-internal.js";
 import { chatHandlers } from "./chat.js";
 import type {
   GatewayClient,
@@ -195,6 +195,7 @@ function emitSessionsChanged(
             thinkingLevel: sessionRow.thinkingLevel,
             fastMode: sessionRow.fastMode,
             verboseLevel: sessionRow.verboseLevel,
+            traceLevel: sessionRow.traceLevel,
             reasoningLevel: sessionRow.reasoningLevel,
             elevatedLevel: sessionRow.elevatedLevel,
             sendPolicy: sessionRow.sendPolicy,
@@ -1451,7 +1452,7 @@ export const sessionsHandlers: GatewayRequestHandlers = {
     respond(
       true,
       {
-        ...((sendPayload && typeof sendPayload === "object" && !Array.isArray(sendPayload))
+        ...(sendPayload && typeof sendPayload === "object" && !Array.isArray(sendPayload)
           ? sendPayload
           : {}),
         continuedSession: {

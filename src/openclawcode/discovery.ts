@@ -10,7 +10,7 @@ import {
 import { resolveGitHubRepoFromGit } from "./github/index.js";
 import { readOpenClawCodeOperatorStatusSnapshot } from "./operator-status.js";
 import { readProjectPromotionGateArtifact } from "./promotion-artifacts.js";
-import { readProjectWorkItemInventory, type ProjectWorkItem } from "./work-items.js";
+import type { ProjectWorkItem } from "./work-items.js";
 
 export const PROJECT_DISCOVERY_SCHEMA_VERSION = 1;
 export const PROJECT_DISCOVERY_SEVERITIES = ["low", "medium", "high"] as const;
@@ -173,9 +173,7 @@ function resolveDiscoveryExecutionMode(
   }
 }
 
-function resolveDiscoveryWorkItemClass(
-  source: ProjectDiscoverySource,
-): ProjectWorkItem["class"] {
+function resolveDiscoveryWorkItemClass(source: ProjectDiscoverySource): ProjectWorkItem["class"] {
   switch (source) {
     case "work-item-artifact-missing":
     case "work-item-artifact-stale":
@@ -218,7 +216,11 @@ function extractStatusSummary(status: string): string | null {
 }
 
 function resolveUpstreamBranchRef(repoRoot: string): { ref: string; label: string } | null {
-  const remoteHead = runGitCommand(repoRoot, ["symbolic-ref", "--short", "refs/remotes/upstream/HEAD"]);
+  const remoteHead = runGitCommand(repoRoot, [
+    "symbolic-ref",
+    "--short",
+    "refs/remotes/upstream/HEAD",
+  ]);
   if (remoteHead?.startsWith("upstream/")) {
     return {
       ref: `refs/remotes/${remoteHead}`,
@@ -248,7 +250,12 @@ function readUpstreamSyncStatus(repoRoot: string): {
   if (!currentBranch || !upstream) {
     return null;
   }
-  const counts = runGitCommand(repoRoot, ["rev-list", "--left-right", "--count", `HEAD...${upstream.ref}`]);
+  const counts = runGitCommand(repoRoot, [
+    "rev-list",
+    "--left-right",
+    "--count",
+    `HEAD...${upstream.ref}`,
+  ]);
   if (!counts) {
     return null;
   }
@@ -284,8 +291,7 @@ async function collectRuntimeDiscoveryEvidence(params: {
       severity: "high",
       priority: "high",
       summary: "Fix the operator setup-check regression before continued blueprint execution.",
-      detail:
-        `The repo-local promotion gate reports setup-check regression state (ok=${promotion.setupCheckOk ?? "unknown"}, promotionReady=${promotion.promotionReady ?? "unknown"}, nextAction=${promotion.nextAction ?? "unknown"}).`,
+      detail: `The repo-local promotion gate reports setup-check regression state (ok=${promotion.setupCheckOk ?? "unknown"}, promotionReady=${promotion.promotionReady ?? "unknown"}, nextAction=${promotion.nextAction ?? "unknown"}).`,
       discoveredWorkItem: makeDiscoveredWorkItem({
         id: "discovered-fix-setup-check-regression",
         title: "Fix the operator setup-check regression before continued blueprint execution.",
@@ -295,8 +301,7 @@ async function collectRuntimeDiscoveryEvidence(params: {
         blueprintPath: params.blueprintPath,
         blueprintRevisionId: params.blueprintRevisionId,
         providerRoleAssignments: params.providerRoleAssignments,
-        detail:
-          `The repo-local promotion gate reports setup-check regression state (ok=${promotion.setupCheckOk ?? "unknown"}, promotionReady=${promotion.promotionReady ?? "unknown"}, nextAction=${promotion.nextAction ?? "unknown"}).`,
+        detail: `The repo-local promotion gate reports setup-check regression state (ok=${promotion.setupCheckOk ?? "unknown"}, promotionReady=${promotion.promotionReady ?? "unknown"}, nextAction=${promotion.nextAction ?? "unknown"}).`,
         severity: "high",
         priority: "high",
         dedupeKey,
@@ -319,8 +324,7 @@ async function collectRuntimeDiscoveryEvidence(params: {
         severity: "high",
         priority: "high",
         summary: "Investigate the active provider pause before autonomous execution resumes.",
-        detail:
-          `The operator state for ${repoKey} currently has an active provider pause (reason=${operator.providerPause?.reason ?? "unknown"}, until=${operator.providerPause?.until ?? "unknown"}).`,
+        detail: `The operator state for ${repoKey} currently has an active provider pause (reason=${operator.providerPause?.reason ?? "unknown"}, until=${operator.providerPause?.until ?? "unknown"}).`,
         discoveredWorkItem: makeDiscoveredWorkItem({
           id: "discovered-investigate-provider-pause",
           title: "Investigate the active provider pause before autonomous execution resumes.",
@@ -330,8 +334,7 @@ async function collectRuntimeDiscoveryEvidence(params: {
           blueprintPath: params.blueprintPath,
           blueprintRevisionId: params.blueprintRevisionId,
           providerRoleAssignments: params.providerRoleAssignments,
-          detail:
-            `The operator state for ${repoKey} currently has an active provider pause (reason=${operator.providerPause?.reason ?? "unknown"}, until=${operator.providerPause?.until ?? "unknown"}).`,
+          detail: `The operator state for ${repoKey} currently has an active provider pause (reason=${operator.providerPause?.reason ?? "unknown"}, until=${operator.providerPause?.until ?? "unknown"}).`,
           severity: "high",
           priority: "high",
           dedupeKey,
@@ -419,7 +422,8 @@ async function collectRuntimeDiscoveryEvidence(params: {
   const syncStatus = readUpstreamSyncStatus(params.repoRoot);
   if (
     syncStatus &&
-    ((syncStatus.currentBranch.startsWith("sync/") && (syncStatus.ahead > 0 || syncStatus.behind > 0)) ||
+    ((syncStatus.currentBranch.startsWith("sync/") &&
+      (syncStatus.ahead > 0 || syncStatus.behind > 0)) ||
       ((syncStatus.currentBranch === "main" || syncStatus.currentBranch === "master") &&
         syncStatus.behind > 0))
   ) {
@@ -431,19 +435,16 @@ async function collectRuntimeDiscoveryEvidence(params: {
       severity: syncStatus.behind > 0 ? "high" : "medium",
       priority: "high",
       summary: "Refresh the current branch against upstream before continuing blueprint execution.",
-      detail:
-        `The current branch ${syncStatus.currentBranch} differs from ${syncStatus.upstreamLabel} (ahead=${syncStatus.ahead}, behind=${syncStatus.behind}).`,
+      detail: `The current branch ${syncStatus.currentBranch} differs from ${syncStatus.upstreamLabel} (ahead=${syncStatus.ahead}, behind=${syncStatus.behind}).`,
       discoveredWorkItem: makeDiscoveredWorkItem({
         id: "discovered-refresh-upstream-sync-drift",
         title: "Refresh the current branch against upstream before continuing blueprint execution.",
-        summary:
-          `Reconcile ${syncStatus.currentBranch} with ${syncStatus.upstreamLabel} so blueprint-backed work resumes from a current upstream baseline.`,
+        summary: `Reconcile ${syncStatus.currentBranch} with ${syncStatus.upstreamLabel} so blueprint-backed work resumes from a current upstream baseline.`,
         source: "upstream-sync-drift",
         blueprintPath: params.blueprintPath,
         blueprintRevisionId: params.blueprintRevisionId,
         providerRoleAssignments: params.providerRoleAssignments,
-        detail:
-          `The current branch ${syncStatus.currentBranch} differs from ${syncStatus.upstreamLabel} (ahead=${syncStatus.ahead}, behind=${syncStatus.behind}).`,
+        detail: `The current branch ${syncStatus.currentBranch} differs from ${syncStatus.upstreamLabel} (ahead=${syncStatus.ahead}, behind=${syncStatus.behind}).`,
         severity: syncStatus.behind > 0 ? "high" : "medium",
         priority: "high",
         dedupeKey,
@@ -488,6 +489,7 @@ function emptyProjectDiscoveryInventory(params: {
 export async function deriveProjectDiscoveryInventory(
   repoRootInput: string,
 ): Promise<ProjectDiscoveryInventory> {
+  const { readProjectWorkItemInventory } = await import("./work-items.js");
   const repoRoot = path.resolve(repoRootInput);
   const inventoryPath = resolveProjectDiscoveryInventoryPath(repoRoot);
   const blueprint = await readProjectBlueprintDocument(repoRoot);
@@ -646,6 +648,7 @@ export async function writeProjectDiscoveryInventory(
 export async function readProjectDiscoveryInventory(
   repoRootInput: string,
 ): Promise<ProjectDiscoveryInventory> {
+  const { readProjectWorkItemInventory } = await import("./work-items.js");
   const repoRoot = path.resolve(repoRootInput);
   const inventoryPath = resolveProjectDiscoveryInventoryPath(repoRoot);
   const blueprint = await readProjectBlueprintDocument(repoRoot);
