@@ -449,11 +449,15 @@ function getTaskRelatedSessionIndexKeys(task: Pick<TaskRecord, "ownerKey" | "chi
   return [
     ...new Set(
       [
-        normalizeOptionalString(task.ownerKey),
-        normalizeOptionalString(task.childSessionKey),
+        normalizeSessionIndexKey(task.ownerKey),
+        normalizeSessionIndexKey(task.childSessionKey),
       ].filter(Boolean) as string[],
     ),
   ];
+}
+
+function normalizeSessionIndexKey(sessionKey: string | null | undefined): string | undefined {
+  return normalizeOptionalString(sessionKey);
 }
 
 function addOwnerKeyIndex(taskId: string, task: Pick<TaskRecord, "ownerKey">) {

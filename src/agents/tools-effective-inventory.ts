@@ -51,7 +51,7 @@ export type EffectiveToolAssemblyContext = {
   messageProvider?: string;
   modelProvider?: string;
   modelId?: string;
-  replyToMode?: "off" | "first" | "all";
+  replyToMode?: "off" | "first" | "all" | "batched";
   senderIsOwner: boolean;
 };
 
@@ -311,7 +311,7 @@ function buildEffectiveToolAssembly(params: {
   messageProvider?: string;
   modelProvider?: string;
   modelId?: string;
-  replyToMode?: "off" | "first" | "all";
+  replyToMode?: "off" | "first" | "all" | "batched";
   senderIsOwner?: boolean;
   requireExplicitMessageTarget?: boolean;
   disableMessageTool?: boolean;

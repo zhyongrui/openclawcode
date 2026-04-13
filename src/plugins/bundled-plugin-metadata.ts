@@ -515,6 +515,26 @@ export function resolveBundledPluginGeneratedPath(
   return resolveBundledPluginGeneratedLocation(rootDir, entry)?.path ?? null;
 }
 
+export function resolveBundledPluginRepoEntryPath(params: {
+  rootDir?: string;
+  pluginId: string;
+  preferBuilt?: boolean;
+}): string | null {
+  const metadata = findBundledPluginMetadataById(params.pluginId, {
+    rootDir: params.rootDir,
+  });
+  if (!metadata) {
+    return null;
+  }
+  const pluginRoot = path.join(path.resolve(params.rootDir ?? DEFAULT_ROOT_DIR), "extensions", metadata.dirName);
+  const preferredEntry = params.preferBuilt ? metadata.source : undefined;
+  const fallbackEntry = params.preferBuilt ? undefined : metadata.source;
+  return (
+    resolveBundledPluginGeneratedPath(pluginRoot, preferredEntry) ??
+    resolveBundledPluginGeneratedPath(pluginRoot, fallbackEntry)
+  );
+}
+
 export function resolveBundledPluginPublicSurfacePath(params: {
   rootDir?: string;
   bundledPluginsDir?: string;

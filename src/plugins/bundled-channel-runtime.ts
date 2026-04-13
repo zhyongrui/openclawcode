@@ -20,7 +20,8 @@ export function resolveBundledChannelGeneratedPath(
   entry: BundledPluginMetadata["source"] | BundledPluginMetadata["setupSource"],
   pluginDirName?: string,
 ): string | null {
-  return resolveBundledPluginGeneratedPath(rootDir, entry, pluginDirName);
+  void pluginDirName;
+  return resolveBundledPluginGeneratedPath(rootDir, entry);
 }
 
 export function resolveBundledChannelWorkspacePath(params: {

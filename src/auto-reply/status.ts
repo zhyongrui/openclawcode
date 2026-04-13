@@ -864,7 +864,9 @@ function sortToolsMessageItems(items: ToolsMessageItem[]): ToolsMessageItem[] {
   return items.toSorted((a, b) => a.name.localeCompare(b.name));
 }
 
-function formatCompactToolEntry(tool: ToolsMessageItem): string {
+function formatCompactToolEntry(
+  tool: Pick<EffectiveToolInventoryEntry, "id" | "source" | "pluginId" | "channelId">,
+): string {
   if (tool.source === "plugin") {
     return tool.pluginId ? `${tool.id} (${tool.pluginId})` : tool.id;
   }
@@ -874,7 +876,9 @@ function formatCompactToolEntry(tool: ToolsMessageItem): string {
   return tool.id;
 }
 
-function formatVerboseToolDescription(tool: ToolsMessageItem): string {
+function formatVerboseToolDescription(
+  tool: Pick<EffectiveToolInventoryEntry, "description" | "rawDescription">,
+): string {
   return describeToolForVerbose({
     rawDescription: tool.rawDescription,
     fallback: tool.description,
@@ -926,9 +930,9 @@ function formatToolDiffValue(value: EffectiveToolInventoryCompareValue): string 
 
 function formatToolDiffEntries(entries: EffectiveToolInventoryEntry[], verbose: boolean): string[] {
   if (!verbose) {
-    return [entries.map((tool) => formatCompactToolEntry(tool as ToolsMessageItem)).join(", ")];
+    return [entries.map((tool) => formatCompactToolEntry(tool)).join(", ")];
   }
-  return entries.map((tool) => `  ${tool.label} - ${formatVerboseToolDescription(tool as ToolsMessageItem)}`);
+  return entries.map((tool) => `  ${tool.label} - ${formatVerboseToolDescription(tool)}`);
 }
 
 export function buildToolsDiffMessage(
