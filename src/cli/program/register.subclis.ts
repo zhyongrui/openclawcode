@@ -81,7 +81,7 @@ export async function registerSubCliByName(program: Command, name: string): Prom
 
 export function registerSubCliCommands(program: Command, argv: string[] = process.argv) {
   registerSubCliCommandsCore(program, argv);
-  if (shouldEagerRegisterSubcommands(argv)) {
+  if (shouldEagerRegisterSubcommands()) {
     for (const entry of resolveSubCliCommandGroups()) {
       trackPendingRegistration(program, entry.register(program));
     }

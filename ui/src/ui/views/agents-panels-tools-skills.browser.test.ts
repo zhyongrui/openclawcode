@@ -113,6 +113,7 @@ describe("agents tools panel (browser)", () => {
           toolsEffectiveResult: {
             agentId: "main",
             profile: "messaging",
+            presets: [],
             groups: [
               {
                 id: "channel",
@@ -130,6 +131,16 @@ describe("agents tools panel (browser)", () => {
                 ],
               },
             ],
+            assembly: {
+              counts: { total: 1, core: 0, plugin: 0, channel: 1 },
+              context: { senderIsOwner: false },
+              flags: {
+                allowGatewaySubagentBinding: true,
+                requireExplicitMessageTarget: false,
+                disableMessageTool: false,
+              },
+              notes: [],
+            },
           },
         }),
       ),

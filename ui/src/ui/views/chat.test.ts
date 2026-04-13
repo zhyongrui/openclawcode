@@ -963,7 +963,18 @@ describe("chat view", () => {
     state.toolsEffectiveResult = {
       agentId: "main",
       profile: "coding",
+      presets: [],
       groups: [],
+      assembly: {
+        counts: { total: 0, core: 0, plugin: 0, channel: 0 },
+        context: { senderIsOwner: false },
+        flags: {
+          allowGatewaySubagentBinding: true,
+          requireExplicitMessageTarget: false,
+          disableMessageTool: false,
+        },
+        notes: [],
+      },
     };
     const container = document.createElement("div");
     render(renderChatSessionSelect(state), container);

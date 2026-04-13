@@ -32,7 +32,7 @@ const { isQaLabCliAvailable, registerQaLabCli } = vi.hoisted(() => ({
 }));
 
 const pluginsCliModule = vi.hoisted(() => ({
-  loadValidatedConfigForPluginRegistration: vi.fn(async () => null),
+  loadValidatedConfigForPluginRegistration: vi.fn<() => Promise<unknown | null>>(async () => null),
   registerPluginCliCommandsFromValidatedConfig: vi.fn(async () => undefined),
 }));
 

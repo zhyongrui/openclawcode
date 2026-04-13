@@ -56,6 +56,26 @@ function createRun(): WorkflowRun {
   };
 }
 
+function createRoleRoute(params: {
+  roleId: string;
+  adapterId: string;
+  source: string;
+  configured: boolean;
+  fallbackChain: string[];
+  resolvedAgentId?: string | null;
+  stages?: string[];
+}): NonNullable<NonNullable<WorkflowRun["roleRouting"]>["routes"]>[number] {
+  return {
+    runtimeCapable: true,
+    rerouteCapable: true,
+    resolvedBackend: params.adapterId,
+    resolvedAgentId: params.resolvedAgentId ?? null,
+    appliedSource: params.source,
+    stages: params.stages ?? [],
+    ...params,
+  };
+}
+
 async function runGit(cwd: string, args: string[]): Promise<string> {
   const result = await execFileUtf8("git", ["-C", cwd, ...args]);
   if (result.code !== 0) {
@@ -536,14 +556,17 @@ describe("AgentBackedBuilder scope enforcement", () => {
           fallbackConfigured: false,
           unresolvedRoleCount: 0,
           routes: [
-            {
+            createRoleRoute({
               roleId: "coder",
               adapterId: "codex",
               source: "blueprint",
               configured: true,
               fallbackChain: [],
-            },
+              resolvedAgentId: "codex-coder",
+              stages: ["building"],
+            }),
           ],
+          stageRoutes: [],
         },
         workspace: {
           ...createRun().workspace!,
@@ -598,14 +621,17 @@ describe("AgentBackedBuilder scope enforcement", () => {
           fallbackConfigured: false,
           unresolvedRoleCount: 0,
           routes: [
-            {
+            createRoleRoute({
               roleId: "coder",
               adapterId: "codex",
               source: "blueprint",
               configured: true,
               fallbackChain: [],
-            },
+              resolvedAgentId: "codex-coder",
+              stages: ["building"],
+            }),
           ],
+          stageRoutes: [],
         },
         workspace: {
           ...createRun().workspace!,
@@ -650,14 +676,17 @@ describe("AgentBackedBuilder scope enforcement", () => {
           fallbackConfigured: false,
           unresolvedRoleCount: 0,
           routes: [
-            {
+            createRoleRoute({
               roleId: "coder",
               adapterId: "codex",
               source: "blueprint",
               configured: true,
               fallbackChain: [],
-            },
+              resolvedAgentId: "codex-coder",
+              stages: ["building"],
+            }),
           ],
+          stageRoutes: [],
         },
         runtimeRouting: {
           selections: [
@@ -796,14 +825,17 @@ describe("AgentBackedVerifier", () => {
           fallbackConfigured: false,
           unresolvedRoleCount: 0,
           routes: [
-            {
+            createRoleRoute({
               roleId: "verifier",
               adapterId: "codex",
               source: "blueprint",
               configured: true,
               fallbackChain: [],
-            },
+              resolvedAgentId: "codex-verifier",
+              stages: ["verifying"],
+            }),
           ],
+          stageRoutes: [],
         },
         workspace: {
           ...createRun().workspace!,
@@ -864,14 +896,17 @@ describe("AgentBackedVerifier", () => {
           fallbackConfigured: false,
           unresolvedRoleCount: 0,
           routes: [
-            {
+            createRoleRoute({
               roleId: "verifier",
               adapterId: "codex",
               source: "blueprint",
               configured: true,
               fallbackChain: [],
-            },
+              resolvedAgentId: "codex-verifier",
+              stages: ["verifying"],
+            }),
           ],
+          stageRoutes: [],
         },
         runtimeRouting: {
           selections: [

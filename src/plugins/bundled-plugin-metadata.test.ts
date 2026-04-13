@@ -2,14 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  collectBundledPluginMetadata,
-  writeBundledPluginMetadataModule,
-} from "../../scripts/generate-bundled-plugin-metadata.mjs";
-import {
   BUNDLED_PLUGIN_METADATA,
   resolveBundledPluginGeneratedLocation,
   resolveBundledPluginGeneratedPath,
 } from "./bundled-plugin-metadata.js";
+import { BUNDLED_RUNTIME_SIDECAR_PATHS } from "./runtime-sidecar-paths.js";
 import {
   createGeneratedPluginTempRoot,
   installGeneratedPluginTempRootCleanup,
@@ -20,6 +17,20 @@ import {
 const BUNDLED_PLUGIN_METADATA_TEST_TIMEOUT_MS = 300_000;
 
 installGeneratedPluginTempRootCleanup();
+
+async function loadGeneratorModule() {
+  // @ts-ignore local mjs generator test helper does not ship declarations
+  return (await import("../../scripts/generate-bundled-plugin-metadata.mjs")) as {
+    collectBundledPluginMetadata: (params: {
+      repoRoot: string;
+    }) => Promise<typeof BUNDLED_PLUGIN_METADATA>;
+    writeBundledPluginMetadataModule: (params: {
+      repoRoot: string;
+      outputPath: string;
+      check?: boolean;
+    }) => Promise<Record<string, unknown>>;
+  };
+}
 
 function expectTestOnlyArtifactsExcluded(artifacts: readonly string[]) {
   artifacts.forEach((artifact) => {
@@ -77,6 +88,7 @@ async function writeGeneratedMetadataModule(params: {
   outputPath?: string;
   check?: boolean;
 }) {
+  const { writeBundledPluginMetadataModule } = await loadGeneratorModule();
   return writeBundledPluginMetadataModule({
     repoRoot: params.repoRoot,
     outputPath: params.outputPath ?? "src/plugins/bundled-plugin-metadata.generated.ts",
@@ -102,13 +114,24 @@ describe("bundled plugin metadata", () => {
     "matches the checked-in generated metadata module",
     { timeout: BUNDLED_PLUGIN_METADATA_TEST_TIMEOUT_MS },
     async () => {
+      const { collectBundledPluginMetadata } = await loadGeneratorModule();
       const collected = await collectBundledPluginMetadata({ repoRoot });
       expect(BUNDLED_PLUGIN_METADATA.length).toBeGreaterThan(0);
-      expect(collected.map((entry) => entry.dirName)).toEqual(
-        BUNDLED_PLUGIN_METADATA.map((entry) => entry.dirName),
+      expect(
+        collected.map((entry: (typeof BUNDLED_PLUGIN_METADATA)[number]) => entry.dirName),
+      ).toEqual(
+        BUNDLED_PLUGIN_METADATA.map(
+          (entry: (typeof BUNDLED_PLUGIN_METADATA)[number]) => entry.dirName,
+        ),
       );
-      expect(collected.find((entry) => entry.dirName === "discord")?.setupSource).toEqual(
-        BUNDLED_PLUGIN_METADATA.find((entry) => entry.dirName === "discord")?.setupSource,
+      expect(
+        collected.find(
+          (entry: (typeof BUNDLED_PLUGIN_METADATA)[number]) => entry.dirName === "discord",
+        )?.setupSource,
+      ).toEqual(
+        BUNDLED_PLUGIN_METADATA.find(
+          (entry: (typeof BUNDLED_PLUGIN_METADATA)[number]) => entry.dirName === "discord",
+        )?.setupSource,
       );
     },
   );
@@ -294,6 +317,7 @@ describe("bundled plugin metadata", () => {
       "utf8",
     );
 
+    const { collectBundledPluginMetadata } = await loadGeneratorModule();
     const entries = await collectBundledPluginMetadata({ repoRoot: tempRoot });
     const channelConfigs = entries[0]?.manifest.channelConfigs as
       | Record<string, unknown>
@@ -347,6 +371,7 @@ describe("bundled plugin metadata", () => {
       "utf8",
     );
 
+    const { collectBundledPluginMetadata } = await loadGeneratorModule();
     const entries = await collectBundledPluginMetadata({ repoRoot: tempRoot });
     const firstEntry = entries[0] as
       | {

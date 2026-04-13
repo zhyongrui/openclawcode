@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { syncIssueSnapshotFromGitHub } from "../../integrations/openclaw-plugin/index.js";
 import type { IssueRef } from "../contracts/index.js";
 import type {
+  EnsureRepoWebhookResult,
   GitHubIssueClient,
   GitHubIssueState,
+  GitHubRepositorySummary,
   GitHubPullRequestState,
   GitHubPullRequestReviewState,
   PullRequestRef,
@@ -67,6 +69,22 @@ class FakeGitHubClient implements GitHubIssueClient {
   }
 
   async closeIssue(): Promise<void> {
+    throw new Error("not used");
+  }
+
+  async ensureRepoWebhook(): Promise<EnsureRepoWebhookResult> {
+    throw new Error("not used");
+  }
+
+  async fetchAuthenticatedViewer(): Promise<{ login: string }> {
+    throw new Error("not used");
+  }
+
+  async listAccessibleRepositories(): Promise<GitHubRepositorySummary[]> {
+    return [];
+  }
+
+  async createRepository(): Promise<GitHubRepositorySummary> {
     throw new Error("not used");
   }
 }

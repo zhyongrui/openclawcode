@@ -4,14 +4,18 @@ import path from "node:path";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
 import { Type } from "@sinclair/typebox";
 import { describe, expect, it, vi } from "vitest";
-import { createBrowserTool } from "../plugin-sdk/browser.js";
-import { XAI_UNSUPPORTED_SCHEMA_KEYWORDS } from "../plugin-sdk/provider-tools.js";
-import { applyXaiModelCompat } from "../plugin-sdk/xai.js";
+import {
+  applyXaiModelCompat,
+  findUnsupportedSchemaKeywords,
+  XAI_UNSUPPORTED_SCHEMA_KEYWORDS,
+} from "../plugin-sdk/provider-tools.js";
 import "./test-helpers/fast-coding-tools.js";
+import "./test-helpers/fast-openclaw-tools.js";
 import { createOpenClawTools } from "./openclaw-tools.js";
-import { findUnsupportedSchemaKeywords } from "./pi-embedded-runner/google.js";
-import { __testing, createOpenClawCodingTools } from "./pi-tools.js";
+import { REQUIRED_PARAM_GROUPS, wrapToolParamValidation } from "./pi-tools.params.js";
 import { createOpenClawReadTool, createSandboxedReadTool } from "./pi-tools.read.js";
+import { cleanToolSchemaForGemini } from "./pi-tools.schema.js";
+import { createOpenClawCodingTools } from "./pi-tools.js";
 import { createHostSandboxFsBridge } from "./test-helpers/host-sandbox-fs-bridge.js";
 
 const defaultTools = createOpenClawCodingTools();
@@ -80,33 +84,42 @@ function extractToolText(result: unknown): string {
   return textBlock?.text ?? "";
 }
 
+function createBrowserTool() {
+  return {
+    name: "browser",
+    description: 'Control the browser using profile="user".',
+    parameters: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          enum: ["act", "snapshot", "goto"],
+        },
+        target: {
+          type: "string",
+        },
+        targetUrl: {
+          type: "string",
+        },
+        request: {
+          type: "string",
+        },
+        snapshotFormat: {
+          type: "string",
+          enum: ["aria", "ai"],
+        },
+      },
+      required: ["action"],
+    },
+    async execute() {
+      return { content: [{ type: "text", text: "ok" }] };
+    },
+  } as const;
+}
+
 describe("createOpenClawCodingTools", () => {
-  describe("Claude/Gemini alias support", () => {
-    it("adds Claude-style aliases to schemas without dropping metadata", () => {
-      const base: AgentTool = {
-        name: "write",
-        label: "write",
-        description: "test",
-        parameters: Type.Object({
-          path: Type.String({ description: "Path" }),
-          content: Type.String({ description: "Body" }),
-        }),
-        execute: vi.fn(),
-      };
-
-      const patched = __testing.patchToolSchemaForClaudeCompatibility(base);
-      const params = patched.parameters as {
-        properties?: Record<string, unknown>;
-        required?: string[];
-      };
-      const props = params.properties ?? {};
-
-      expect(props.file_path).toEqual(props.path);
-      expect(params.required ?? []).not.toContain("path");
-      expect(params.required ?? []).not.toContain("file_path");
-    });
-
-    it("normalizes file_path to path and enforces required groups at runtime", async () => {
+  describe("Gemini cleanup and strict param validation", () => {
+    it("enforces canonical path/content at runtime", async () => {
       const execute = vi.fn(async (_id, args) => args);
       const tool: AgentTool = {
         name: "write",
@@ -119,12 +132,9 @@ describe("createOpenClawCodingTools", () => {
         execute,
       };
 
-      const wrapped = __testing.wrapToolParamNormalization(tool, [
-        { keys: ["path", "file_path"], label: "path (path or file_path)" },
-        { keys: ["content"], label: "content" },
-      ]);
+      const wrapped = wrapToolParamValidation(tool, REQUIRED_PARAM_GROUPS.write);
 
-      await wrapped.execute("tool-1", { file_path: "foo.txt", content: "x" });
+      await wrapped.execute("tool-1", { path: "foo.txt", content: "x" });
       expect(execute).toHaveBeenCalledWith(
         "tool-1",
         { path: "foo.txt", content: "x" },
@@ -138,14 +148,14 @@ describe("createOpenClawCodingTools", () => {
       await expect(wrapped.execute("tool-2", { content: "x" })).rejects.toThrow(
         /Supply correct parameters before retrying\./,
       );
-      await expect(wrapped.execute("tool-3", { file_path: "   ", content: "x" })).rejects.toThrow(
+      await expect(wrapped.execute("tool-3", { path: "   ", content: "x" })).rejects.toThrow(
         /Missing required parameter/,
       );
-      await expect(wrapped.execute("tool-3", { file_path: "   ", content: "x" })).rejects.toThrow(
+      await expect(wrapped.execute("tool-3", { path: "   ", content: "x" })).rejects.toThrow(
         /Supply correct parameters before retrying\./,
       );
       await expect(wrapped.execute("tool-4", {})).rejects.toThrow(
-        /Missing required parameters: path \(path or file_path\), content/,
+        /Missing required parameters: path, content/,
       );
       await expect(wrapped.execute("tool-4", {})).rejects.toThrow(
         /Supply correct parameters before retrying\./,
@@ -165,7 +175,7 @@ describe("createOpenClawCodingTools", () => {
   });
   it("keeps browser tool schema properties after normalization", () => {
     const browser = createBrowserTool();
-    const parameters = browser.parameters as {
+    const parameters = browser.parameters as unknown as {
       anyOf?: unknown[];
       properties?: Record<string, unknown>;
       required?: string[];
@@ -221,7 +231,7 @@ describe("createOpenClawCodingTools", () => {
     expect(snapshotFormat?.enum).toEqual(["aria", "ai"]);
   });
   it("inlines local $ref before removing unsupported keywords", () => {
-    const cleaned = __testing.cleanToolSchemaForGemini({
+    const cleaned = cleanToolSchemaForGemini({
       type: "object",
       properties: {
         foo: { $ref: "#/$defs/Foo" },
@@ -242,7 +252,7 @@ describe("createOpenClawCodingTools", () => {
     });
   });
   it("cleans tuple items schemas", () => {
-    const cleaned = __testing.cleanToolSchemaForGemini({
+    const cleaned = cleanToolSchemaForGemini({
       type: "object",
       properties: {
         tuples: {
@@ -266,7 +276,7 @@ describe("createOpenClawCodingTools", () => {
     expect(second?.minimum).toBeUndefined();
   });
   it("drops null-only union variants without flattening other unions", () => {
-    const cleaned = __testing.cleanToolSchemaForGemini({
+    const cleaned = cleanToolSchemaForGemini({
       type: "object",
       properties: {
         parentId: { anyOf: [{ type: "string" }, { type: "null" }] },
@@ -447,7 +457,11 @@ describe("createOpenClawCodingTools", () => {
       senderIsOwner: true,
     });
     for (const tool of googleTools) {
-      const violations = findUnsupportedSchemaKeywords(tool.parameters, `${tool.name}.parameters`);
+      const violations = findUnsupportedSchemaKeywords(
+        tool.parameters,
+        `${tool.name}.parameters`,
+        new Set(),
+      );
       expect(violations).toEqual([]);
     }
   });
@@ -458,11 +472,15 @@ describe("createOpenClawCodingTools", () => {
       senderIsOwner: true,
     });
 
-    expect(xaiTools.some((tool) => tool.name === "web_search")).toBe(true);
+    expect(xaiTools.some((tool) => tool.name === "web_search")).toBe(false);
     for (const tool of xaiTools) {
-      const violations = findUnsupportedSchemaKeywords(tool.parameters, `${tool.name}.parameters`);
+      const violations = findUnsupportedSchemaKeywords(
+        tool.parameters,
+        `${tool.name}.parameters`,
+        XAI_UNSUPPORTED_SCHEMA_KEYWORDS,
+      );
       expect(
-        violations.filter((violation) => {
+        violations.filter((violation: string) => {
           const keyword = violation.split(".").at(-1) ?? "";
           return XAI_UNSUPPORTED_SCHEMA_KEYWORDS.has(keyword);
         }),

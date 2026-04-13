@@ -634,8 +634,9 @@ describe("finalizeSetupWizard", () => {
       },
     );
 
-    const tokenNoteIndex = note.mock.calls.findIndex((call) => call[1] === "Token");
-    const scanNoteIndex = note.mock.calls.findIndex((call) => call[1] === "Feishu scan-and-code");
+    const noteCalls = note.mock.calls as unknown[][];
+    const tokenNoteIndex = noteCalls.findIndex((call) => call[1] === "Token");
+    const scanNoteIndex = noteCalls.findIndex((call) => call[1] === "Feishu scan-and-code");
     expect(progressUpdate).toHaveBeenCalledWith("Waiting for Feishu bot startup…");
     expect(progressStop).toHaveBeenCalledWith("Feishu scan-and-code ready.");
     expect(tokenNoteIndex).toBeGreaterThanOrEqual(0);

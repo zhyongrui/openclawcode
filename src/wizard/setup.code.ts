@@ -643,7 +643,7 @@ export const onboardingOpenClawCodeDeps = {
     childProcess.spawnSync("gh", args, {
       encoding: "utf8",
       ...options,
-    }),
+    }) as childProcess.SpawnSyncReturns<string>,
   sleep: async (ms: number) => await new Promise((resolve) => setTimeout(resolve, ms)),
   isGitHubCliProcessRunning: isProcessRunning,
 };

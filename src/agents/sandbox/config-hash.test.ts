@@ -131,6 +131,7 @@ describe("computeSandboxConfigHash", () => {
       workspaceAccess: "rw" as const,
       workspaceDir,
       agentWorkspaceDir: workspaceDir,
+      mountFormatVersion: SANDBOX_MOUNT_FORMAT_VERSION,
     };
 
     fs.mkdirSync(workspaceDir, { recursive: true });

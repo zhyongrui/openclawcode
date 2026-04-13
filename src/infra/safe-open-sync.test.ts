@@ -133,7 +133,7 @@ describe("openVerifiedFileSync", () => {
   });
 
   it("accepts both files and directories when allowedType is file-or-directory", async () => {
-    await withTempDir("openclaw-safe-open-", async (root) => {
+    await withTempDir({ prefix: "openclaw-safe-open-" }, async (root) => {
       const targetDir = path.join(root, "nested");
       const targetFile = path.join(root, "note.txt");
       await fsp.mkdir(targetDir, { recursive: true });

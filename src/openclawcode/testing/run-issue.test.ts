@@ -17,6 +17,7 @@ import type {
   WorkflowWorkspace,
 } from "../contracts/index.js";
 import type { GitHubIssueClient, PullRequestRef, RepoRef } from "../github/index.js";
+import type { EnsureRepoWebhookResult, GitHubRepositorySummary } from "../github/index.js";
 import { FileSystemWorkflowRunStore } from "../persistence/index.js";
 import type { Builder, Verifier } from "../roles/index.js";
 import { HeuristicPlanner } from "../roles/index.js";
@@ -113,6 +114,22 @@ class FakeGitHubClient implements GitHubIssueClient {
   async closeIssue(request: { issueNumber: number }): Promise<void> {
     this.closedIssues.push(request.issueNumber);
   }
+
+  async ensureRepoWebhook(): Promise<EnsureRepoWebhookResult> {
+    throw new Error("not used");
+  }
+
+  async fetchAuthenticatedViewer(): Promise<{ login: string }> {
+    throw new Error("not used");
+  }
+
+  async listAccessibleRepositories(): Promise<GitHubRepositorySummary[]> {
+    return [];
+  }
+
+  async createRepository(): Promise<GitHubRepositorySummary> {
+    throw new Error("not used");
+  }
 }
 
 class ReusedPullRequestGitHubClient extends FakeGitHubClient {
@@ -186,7 +203,7 @@ class RuntimeAwareFakeBuilder extends FakeBuilder {
     super();
   }
 
-  override previewRuntimeRouting(): WorkflowRuntimeRoleSelection {
+  previewRuntimeRouting(): WorkflowRuntimeRoleSelection {
     return this.selection;
   }
 }
@@ -199,7 +216,7 @@ class RuntimeAwareFakeVerifier extends FakeVerifier {
     super(report);
   }
 
-  override previewRuntimeRouting(): WorkflowRuntimeRoleSelection {
+  previewRuntimeRouting(): WorkflowRuntimeRoleSelection {
     return this.selection;
   }
 }
@@ -799,7 +816,7 @@ describe("runIssueWorkflow", () => {
           stateDir,
           baseBranch: "main",
           requirePlanApproval: true,
-          approvePlanDigest: pausedRun.planReview?.planDigest,
+          approvePlanDigest: pausedRun.planReview?.planDigest ?? undefined,
           planApprovalActor: "chat:operator",
           planApprovalNote: "Proceed with the current implementation plan.",
           planApprovalSource: "cli",

@@ -139,7 +139,6 @@ describe("tasksShowCommand detached session lifecycle", () => {
       status: "running",
       deliveryStatus: "pending",
       notifyPolicy: "state_changes",
-      createdAt: Date.now() - 4 * 60_000,
       lastEventAt: Date.now() - 2 * 60_000,
     });
     createManagedTaskFlow({
@@ -279,7 +278,6 @@ describe("tasksShowCommand detached session lifecycle", () => {
       status: "running",
       deliveryStatus: "pending",
       notifyPolicy: "state_changes",
-      createdAt: Date.now() - 4 * 60_000,
       lastEventAt: Date.now() - 2 * 60_000,
     });
 
@@ -309,7 +307,6 @@ describe("tasksShowCommand detached session lifecycle", () => {
       status: "failed",
       deliveryStatus: "pending",
       notifyPolicy: "done_only",
-      error: "Exec approval required (gateway id=req-2, approval-timeout): npm publish",
       progressSummary: "Exec approval required (gateway id=req-2, approval-timeout): npm publish",
       terminalSummary: "Exec approval required (gateway id=req-2, approval-timeout): npm publish",
     });

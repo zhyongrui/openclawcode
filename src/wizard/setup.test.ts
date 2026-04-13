@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createWizardPrompter as buildWizardPrompter } from "../../test/helpers/wizard-prompter.js";
 import { DEFAULT_BOOTSTRAP_FILENAME } from "../agents/workspace.js";
+import type { OpenClawConfig } from "../config/config.js";
 import type { PluginCompatibilityNotice } from "../plugins/status.js";
 import type { RuntimeEnv } from "../runtime.js";
 import type { WizardPrompter, WizardSelectParams } from "./prompts.js";
@@ -345,7 +346,8 @@ describe("runSetupWizard", () => {
     expect(setupSkills).not.toHaveBeenCalled();
     expect(healthCommand).not.toHaveBeenCalled();
     expect(runTui).not.toHaveBeenCalled();
-    const persistedConfig = writeConfigFile.mock.calls.at(-1)?.[0] as OpenClawConfig | undefined;
+    const writeConfigCalls = writeConfigFile.mock.calls as unknown[][];
+    const persistedConfig = writeConfigCalls.at(-1)?.[0] as OpenClawConfig | undefined;
     expect(persistedConfig?.plugins?.enabled).toBe(true);
     expect(persistedConfig?.plugins?.allow).toContain("openclawcode");
     expect(persistedConfig?.plugins?.entries?.openclawcode?.enabled).toBe(true);

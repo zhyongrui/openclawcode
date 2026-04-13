@@ -24,6 +24,7 @@ export interface IssueRef {
   title: string;
   body?: string;
   labels?: string[];
+  url?: string;
 }
 
 export interface AcceptanceCriterion {

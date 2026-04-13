@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  agentCommand: vi.fn(async () => ({
+  agentCommand: vi.fn<() => Promise<unknown>>(async () => ({
     payloads: [{ text: "builder output" }],
   })),
   loadConfig: vi.fn(() => ({
@@ -222,7 +222,7 @@ describe("OpenClawAgentRunner", () => {
 
     expect(caught).toBeInstanceOf(AgentRunFailureError);
     expect((caught as Error | undefined)?.message).toBe("HTTP 400: Internal server error");
-    expect((caught as AgentRunFailureError).diagnostics).toMatchObject({
+    expect((caught as InstanceType<typeof AgentRunFailureError>).diagnostics).toMatchObject({
       stopReason: "error",
       provider: "crs",
       model: "gpt-5.4",
@@ -235,7 +235,11 @@ describe("OpenClawAgentRunner", () => {
       bootstrapWarningShown: false,
       lastCallUsageTotal: 0,
     });
-    expect(formatAgentRunFailureDiagnostics((caught as AgentRunFailureError).diagnostics)).toBe(
+    expect(
+      formatAgentRunFailureDiagnostics(
+        (caught as InstanceType<typeof AgentRunFailureError>).diagnostics,
+      ),
+    ).toBe(
       "model=crs/gpt-5.4, prompt=8629, skillsPrompt=1245, schema=3030, tools=4, skills=1, files=0, usage=0, bootstrap=clean",
     );
 

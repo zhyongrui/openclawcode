@@ -2,439 +2,556 @@
 
 export const GENERATED_BUNDLED_PLUGIN_METADATA = [
   {
-    "dirName": "acpx",
-    "idHint": "acpx",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "acpx",
+    idHint: "acpx",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "register.runtime.js",
-      "runtime-api.js",
-      "setup-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "register.runtime.js",
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/acpx",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw ACP runtime backend",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["register.runtime.js", "runtime-api.js", "setup-api.js"],
+    runtimeSidecarArtifacts: ["register.runtime.js", "runtime-api.js"],
+    packageName: "@openclaw/acpx",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw ACP runtime backend",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "acpx",
-      "enabledByDefault": true,
-      "name": "ACPX Runtime",
-      "description": "Embedded ACP runtime backend with plugin-owned session and transport management.",
-      "skills": [
-        "./skills"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "cwd": {
-            "type": "string",
-            "minLength": 1
+    manifest: {
+      id: "acpx",
+      enabledByDefault: true,
+      name: "ACPX Runtime",
+      description:
+        "Embedded ACP runtime backend with plugin-owned session and transport management.",
+      skills: ["./skills"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          cwd: {
+            type: "string",
+            minLength: 1,
           },
-          "stateDir": {
-            "type": "string",
-            "minLength": 1
+          stateDir: {
+            type: "string",
+            minLength: 1,
           },
-          "permissionMode": {
-            "type": "string",
-            "enum": [
-              "approve-all",
-              "approve-reads",
-              "deny-all"
-            ]
+          permissionMode: {
+            type: "string",
+            enum: ["approve-all", "approve-reads", "deny-all"],
           },
-          "nonInteractivePermissions": {
-            "type": "string",
-            "enum": [
-              "deny",
-              "fail"
-            ]
+          nonInteractivePermissions: {
+            type: "string",
+            enum: ["deny", "fail"],
           },
-          "pluginToolsMcpBridge": {
-            "type": "boolean"
+          pluginToolsMcpBridge: {
+            type: "boolean",
           },
-          "strictWindowsCmdWrapper": {
-            "type": "boolean"
+          strictWindowsCmdWrapper: {
+            type: "boolean",
           },
-          "timeoutSeconds": {
-            "type": "number",
-            "minimum": 0.001,
-            "default": 120
+          timeoutSeconds: {
+            type: "number",
+            minimum: 0.001,
+            default: 120,
           },
-          "queueOwnerTtlSeconds": {
-            "type": "number",
-            "minimum": 0
+          queueOwnerTtlSeconds: {
+            type: "number",
+            minimum: 0,
           },
-          "mcpServers": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "object",
-              "properties": {
-                "command": {
-                  "type": "string",
-                  "minLength": 1,
-                  "description": "Command to run the MCP server"
+          mcpServers: {
+            type: "object",
+            additionalProperties: {
+              type: "object",
+              properties: {
+                command: {
+                  type: "string",
+                  minLength: 1,
+                  description: "Command to run the MCP server",
                 },
-                "args": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
+                args: {
+                  type: "array",
+                  items: {
+                    type: "string",
                   },
-                  "description": "Arguments to pass to the command"
+                  description: "Arguments to pass to the command",
                 },
-                "env": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
+                env: {
+                  type: "object",
+                  additionalProperties: {
+                    type: "string",
                   },
-                  "description": "Environment variables for the MCP server"
-                }
+                  description: "Environment variables for the MCP server",
+                },
               },
-              "required": [
-                "command"
-              ]
-            }
+              required: ["command"],
+            },
           },
-          "agents": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "object",
-              "properties": {
-                "command": {
-                  "type": "string",
-                  "minLength": 1
-                }
+          agents: {
+            type: "object",
+            additionalProperties: {
+              type: "object",
+              properties: {
+                command: {
+                  type: "string",
+                  minLength: 1,
+                },
               },
-              "required": [
-                "command"
-              ]
-            }
-          }
-        }
+              required: ["command"],
+            },
+          },
+        },
       },
-      "uiHints": {
-        "cwd": {
-          "label": "Default Working Directory",
-          "help": "Default working directory for embedded ACP session operations when not set per session."
+      uiHints: {
+        cwd: {
+          label: "Default Working Directory",
+          help: "Default working directory for embedded ACP session operations when not set per session.",
         },
-        "stateDir": {
-          "label": "State Directory",
-          "help": "Directory used for embedded ACP session state and persistence."
+        stateDir: {
+          label: "State Directory",
+          help: "Directory used for embedded ACP session state and persistence.",
         },
-        "permissionMode": {
-          "label": "Permission Mode",
-          "help": "Default permission policy for embedded ACP runtime prompts."
+        permissionMode: {
+          label: "Permission Mode",
+          help: "Default permission policy for embedded ACP runtime prompts.",
         },
-        "nonInteractivePermissions": {
-          "label": "Non-Interactive Permission Policy",
-          "help": "Policy when interactive permission prompts are unavailable."
+        nonInteractivePermissions: {
+          label: "Non-Interactive Permission Policy",
+          help: "Policy when interactive permission prompts are unavailable.",
         },
-        "pluginToolsMcpBridge": {
-          "label": "Plugin Tools MCP Bridge",
-          "help": "Default off. When enabled, inject the built-in OpenClaw plugin-tools MCP server into embedded ACP sessions so ACP agents can call plugin-registered tools.",
-          "advanced": true
+        pluginToolsMcpBridge: {
+          label: "Plugin Tools MCP Bridge",
+          help: "Default off. When enabled, inject the built-in OpenClaw plugin-tools MCP server into embedded ACP sessions so ACP agents can call plugin-registered tools.",
+          advanced: true,
         },
-        "strictWindowsCmdWrapper": {
-          "label": "Strict Windows cmd Wrapper",
-          "help": "Legacy compatibility field. The current embedded acpx/runtime package uses its own Windows command resolution behavior. Setting this to false is accepted for compatibility and logged as ignored.",
-          "advanced": true
+        strictWindowsCmdWrapper: {
+          label: "Strict Windows cmd Wrapper",
+          help: "Legacy compatibility field. The current embedded acpx/runtime package uses its own Windows command resolution behavior. Setting this to false is accepted for compatibility and logged as ignored.",
+          advanced: true,
         },
-        "timeoutSeconds": {
-          "label": "Prompt Timeout Seconds",
-          "help": "Timeout for each embedded runtime turn. Defaults to 120 seconds so slower Gemini CLI ACP startups have room to initialize.",
-          "advanced": true
+        timeoutSeconds: {
+          label: "Prompt Timeout Seconds",
+          help: "Timeout for each embedded runtime turn. Defaults to 120 seconds so slower Gemini CLI ACP startups have room to initialize.",
+          advanced: true,
         },
-        "queueOwnerTtlSeconds": {
-          "label": "Queue Owner TTL Seconds",
-          "help": "Reserved compatibility field for the older embedded ACPX queue-owner path. Accepted for compatibility and logged as ignored.",
-          "advanced": true
+        queueOwnerTtlSeconds: {
+          label: "Queue Owner TTL Seconds",
+          help: "Reserved compatibility field for the older embedded ACPX queue-owner path. Accepted for compatibility and logged as ignored.",
+          advanced: true,
         },
-        "mcpServers": {
-          "label": "MCP Servers",
-          "help": "Named MCP server definitions to inject into embedded ACP session bootstrap. Each entry needs a command and can include args and env.",
-          "advanced": true
+        mcpServers: {
+          label: "MCP Servers",
+          help: "Named MCP server definitions to inject into embedded ACP session bootstrap. Each entry needs a command and can include args and env.",
+          advanced: true,
         },
-        "agents": {
-          "label": "Agent Commands",
-          "help": "Optional per-agent command overrides for the embedded ACP runtime.",
-          "advanced": true
-        }
+        agents: {
+          label: "Agent Commands",
+          help: "Optional per-agent command overrides for the embedded ACP runtime.",
+          advanced: true,
+        },
       },
-      "configContracts": {
-        "dangerousFlags": [
+      configContracts: {
+        dangerousFlags: [
           {
-            "path": "permissionMode",
-            "equals": "approve-all"
-          }
+            path: "permissionMode",
+            equals: "approve-all",
+          },
         ],
-        "secretInputs": {
-          "bundledDefaultEnabled": false,
-          "paths": [
+        secretInputs: {
+          bundledDefaultEnabled: false,
+          paths: [
             {
-              "path": "mcpServers.*.env.*",
-              "expected": "string"
-            }
-          ]
-        }
-      }
-    }
+              path: "mcpServers.*.env.*",
+              expected: "string",
+            },
+          ],
+        },
+      },
+    },
   },
   {
-    "dirName": "alibaba",
-    "idHint": "alibaba",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "active-memory",
+    idHint: "active-memory",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "video-generation-provider.js"
-    ],
-    "packageName": "@openclaw/alibaba-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Alibaba Model Studio video provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "alibaba",
-      "enabledByDefault": true,
-      "providerAuthEnvVars": {
-        "alibaba": [
-          "MODELSTUDIO_API_KEY",
-          "DASHSCOPE_API_KEY",
-          "QWEN_API_KEY"
-        ]
+    manifest: {
+      id: "active-memory",
+      name: "Active Memory",
+      description:
+        "Runs a bounded blocking memory sub-agent before eligible conversational replies and injects relevant memory into prompt context.",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          enabled: {
+            type: "boolean",
+          },
+          agents: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+          model: {
+            type: "string",
+          },
+          modelFallbackPolicy: {
+            type: "string",
+            enum: ["default-remote", "resolved-only"],
+          },
+          allowedChatTypes: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: ["direct", "group", "channel"],
+            },
+          },
+          thinking: {
+            type: "string",
+            enum: ["off", "minimal", "low", "medium", "high", "xhigh", "adaptive"],
+          },
+          timeoutMs: {
+            type: "integer",
+            minimum: 250,
+          },
+          queryMode: {
+            type: "string",
+            enum: ["message", "recent", "full"],
+          },
+          promptStyle: {
+            type: "string",
+            enum: [
+              "balanced",
+              "strict",
+              "contextual",
+              "recall-heavy",
+              "precision-heavy",
+              "preference-only",
+            ],
+          },
+          promptOverride: {
+            type: "string",
+          },
+          promptAppend: {
+            type: "string",
+          },
+          maxSummaryChars: {
+            type: "integer",
+            minimum: 40,
+            maximum: 1000,
+          },
+          recentUserTurns: {
+            type: "integer",
+            minimum: 0,
+            maximum: 4,
+          },
+          recentAssistantTurns: {
+            type: "integer",
+            minimum: 0,
+            maximum: 3,
+          },
+          recentUserChars: {
+            type: "integer",
+            minimum: 40,
+            maximum: 1000,
+          },
+          recentAssistantChars: {
+            type: "integer",
+            minimum: 40,
+            maximum: 1000,
+          },
+          logging: {
+            type: "boolean",
+          },
+          persistTranscripts: {
+            type: "boolean",
+          },
+          transcriptDir: {
+            type: "string",
+          },
+          cacheTtlMs: {
+            type: "integer",
+            minimum: 1000,
+            maximum: 120000,
+          },
+        },
       },
-      "providerAuthChoices": [
+      uiHints: {
+        enabled: {
+          label: "Active Memory Recall",
+          help: "Globally enable or pause Active Memory recall while keeping the plugin command available.",
+        },
+        agents: {
+          label: "Target Agents",
+          help: "Explicit agent ids that may use active memory.",
+        },
+        model: {
+          label: "Memory Model",
+          help: "Provider/model used for the blocking memory sub-agent.",
+        },
+        modelFallbackPolicy: {
+          label: "Model Fallback Policy",
+          help: "Choose whether Active Memory falls back to the built-in remote default model when no explicit or inherited model is available.",
+        },
+        allowedChatTypes: {
+          label: "Allowed Chat Types",
+          help: "Choose which session types may run Active Memory. Defaults to direct-message style sessions only.",
+        },
+        timeoutMs: {
+          label: "Timeout (ms)",
+        },
+        queryMode: {
+          label: "Query Mode",
+          help: "Choose whether the blocking memory sub-agent sees only the latest user message, a small recent tail, or the full conversation.",
+        },
+        promptStyle: {
+          label: "Prompt Style",
+          help: "Choose how eager or strict the blocking memory sub-agent should be when deciding whether to return memory.",
+        },
+        thinking: {
+          label: "Thinking Override",
+          help: "Advanced: optional thinking level for the blocking memory sub-agent. Defaults to off for speed.",
+        },
+        promptOverride: {
+          label: "Prompt Override",
+          help: "Advanced: replace the default Active Memory sub-agent instructions. Conversation context is still appended.",
+        },
+        promptAppend: {
+          label: "Prompt Append",
+          help: "Advanced: append extra operator instructions after the default Active Memory sub-agent instructions.",
+        },
+        maxSummaryChars: {
+          label: "Max Summary Characters",
+          help: "Maximum total characters allowed in the active-memory summary.",
+        },
+        logging: {
+          label: "Enable Logging",
+          help: "Emit active memory timing and result logs.",
+        },
+        persistTranscripts: {
+          label: "Persist Transcripts",
+          help: "Keep blocking memory sub-agent session transcripts on disk in a separate plugin-owned directory.",
+        },
+        transcriptDir: {
+          label: "Transcript Directory",
+          help: "Relative directory under the agent sessions folder used when transcript persistence is enabled.",
+        },
+      },
+    },
+  },
+  {
+    dirName: "alibaba",
+    idHint: "alibaba",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: ["video-generation-provider.js"],
+    packageName: "@openclaw/alibaba-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Alibaba Model Studio video provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "alibaba",
+      enabledByDefault: true,
+      providerAuthEnvVars: {
+        alibaba: ["MODELSTUDIO_API_KEY", "DASHSCOPE_API_KEY", "QWEN_API_KEY"],
+      },
+      providerAuthChoices: [
         {
-          "provider": "alibaba",
-          "method": "api-key",
-          "choiceId": "alibaba-model-studio-api-key",
-          "choiceLabel": "Alibaba Model Studio API key",
-          "groupId": "alibaba",
-          "groupLabel": "Alibaba Model Studio",
-          "groupHint": "DashScope / Model Studio API key",
-          "optionKey": "alibabaModelStudioApiKey",
-          "cliFlag": "--alibaba-model-studio-api-key",
-          "cliOption": "--alibaba-model-studio-api-key <key>",
-          "cliDescription": "Alibaba Model Studio API key"
-        }
+          provider: "alibaba",
+          method: "api-key",
+          choiceId: "alibaba-model-studio-api-key",
+          choiceLabel: "Alibaba Model Studio API key",
+          groupId: "alibaba",
+          groupLabel: "Alibaba Model Studio",
+          groupHint: "DashScope / Model Studio API key",
+          optionKey: "alibabaModelStudioApiKey",
+          cliFlag: "--alibaba-model-studio-api-key",
+          cliOption: "--alibaba-model-studio-api-key <key>",
+          cliDescription: "Alibaba Model Studio API key",
+        },
       ],
-      "contracts": {
-        "videoGenerationProviders": [
-          "alibaba"
-        ]
+      contracts: {
+        videoGenerationProviders: ["alibaba"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "amazon-bedrock",
-    "idHint": "amazon-bedrock",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "amazon-bedrock",
+    idHint: "amazon-bedrock",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "config-api.js",
       "config-compat.js",
       "discovery.js",
       "register.sync.runtime.js",
-      "setup-api.js"
+      "setup-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "register.sync.runtime.js"
-    ],
-    "packageName": "@openclaw/amazon-bedrock-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Amazon Bedrock provider plugin",
-    "packageManifest": {
-      "bundle": {
-        "stageRuntimeDependencies": true
+    runtimeSidecarArtifacts: ["register.sync.runtime.js"],
+    packageName: "@openclaw/amazon-bedrock-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Amazon Bedrock provider plugin",
+    packageManifest: {
+      bundle: {
+        stageRuntimeDependencies: true,
       },
-      "extensions": [
-        "./index.ts"
-      ]
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "amazon-bedrock",
-      "enabledByDefault": true,
-      "providers": [
-        "amazon-bedrock"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "discovery": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
+    manifest: {
+      id: "amazon-bedrock",
+      enabledByDefault: true,
+      providers: ["amazon-bedrock"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          discovery: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
               },
-              "region": {
-                "type": "string"
+              region: {
+                type: "string",
               },
-              "providerFilter": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
+              providerFilter: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
               },
-              "refreshInterval": {
-                "type": "integer",
-                "minimum": 0
+              refreshInterval: {
+                type: "integer",
+                minimum: 0,
               },
-              "defaultContextWindow": {
-                "type": "integer",
-                "minimum": 1
+              defaultContextWindow: {
+                type: "integer",
+                minimum: 1,
               },
-              "defaultMaxTokens": {
-                "type": "integer",
-                "minimum": 1
-              }
-            }
-          },
-          "guardrail": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "guardrailIdentifier": {
-                "type": "string"
+              defaultMaxTokens: {
+                type: "integer",
+                minimum: 1,
               },
-              "guardrailVersion": {
-                "type": "string"
-              },
-              "streamProcessingMode": {
-                "type": "string",
-                "enum": [
-                  "sync",
-                  "async"
-                ]
-              },
-              "trace": {
-                "type": "string",
-                "enum": [
-                  "enabled",
-                  "disabled",
-                  "enabled_full"
-                ]
-              }
             },
-            "required": [
-              "guardrailIdentifier",
-              "guardrailVersion"
-            ]
-          }
-        }
+          },
+          guardrail: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              guardrailIdentifier: {
+                type: "string",
+              },
+              guardrailVersion: {
+                type: "string",
+              },
+              streamProcessingMode: {
+                type: "string",
+                enum: ["sync", "async"],
+              },
+              trace: {
+                type: "string",
+                enum: ["enabled", "disabled", "enabled_full"],
+              },
+            },
+            required: ["guardrailIdentifier", "guardrailVersion"],
+          },
+        },
       },
-      "configContracts": {
-        "compatibilityMigrationPaths": [
-          "models.bedrockDiscovery"
-        ]
+      configContracts: {
+        compatibilityMigrationPaths: ["models.bedrockDiscovery"],
       },
-      "uiHints": {
-        "discovery": {
-          "label": "Model Discovery",
-          "help": "Plugin-owned controls for Amazon Bedrock model auto-discovery."
+      uiHints: {
+        discovery: {
+          label: "Model Discovery",
+          help: "Plugin-owned controls for Amazon Bedrock model auto-discovery.",
         },
         "discovery.enabled": {
-          "label": "Enable Discovery",
-          "help": "When false, OpenClaw keeps the Amazon Bedrock plugin available but skips implicit startup discovery. When true, discovery can run even without AWS auth env markers."
+          label: "Enable Discovery",
+          help: "When false, OpenClaw keeps the Amazon Bedrock plugin available but skips implicit startup discovery. When true, discovery can run even without AWS auth env markers.",
         },
         "discovery.region": {
-          "label": "Discovery Region",
-          "help": "AWS region to use for Bedrock model discovery. Defaults to AWS_REGION, AWS_DEFAULT_REGION, then us-east-1."
+          label: "Discovery Region",
+          help: "AWS region to use for Bedrock model discovery. Defaults to AWS_REGION, AWS_DEFAULT_REGION, then us-east-1.",
         },
         "discovery.providerFilter": {
-          "label": "Provider Filter",
-          "help": "Optional Bedrock provider-name allowlist for discovery, such as anthropic or amazon."
+          label: "Provider Filter",
+          help: "Optional Bedrock provider-name allowlist for discovery, such as anthropic or amazon.",
         },
         "discovery.refreshInterval": {
-          "label": "Discovery Refresh Interval (s)",
-          "help": "How long to cache Bedrock discovery results in seconds. Set to 0 to disable caching."
+          label: "Discovery Refresh Interval (s)",
+          help: "How long to cache Bedrock discovery results in seconds. Set to 0 to disable caching.",
         },
         "discovery.defaultContextWindow": {
-          "label": "Default Context Window",
-          "help": "Fallback context window to assign to discovered Bedrock models."
+          label: "Default Context Window",
+          help: "Fallback context window to assign to discovered Bedrock models.",
         },
         "discovery.defaultMaxTokens": {
-          "label": "Default Max Tokens",
-          "help": "Fallback max output tokens to assign to discovered Bedrock models."
+          label: "Default Max Tokens",
+          help: "Fallback max output tokens to assign to discovered Bedrock models.",
         },
-        "guardrail": {
-          "label": "Guardrail",
-          "help": "Amazon Bedrock Guardrails settings applied to Bedrock model invocations."
-        }
-      }
-    }
+        guardrail: {
+          label: "Guardrail",
+          help: "Amazon Bedrock Guardrails settings applied to Bedrock model invocations.",
+        },
+      },
+    },
   },
   {
-    "dirName": "amazon-bedrock-mantle",
-    "idHint": "amazon-bedrock-mantle",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "amazon-bedrock-mantle",
+    idHint: "amazon-bedrock-mantle",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "bedrock-token-generator.d.js",
       "discovery.js",
-      "register.sync.runtime.js"
+      "register.sync.runtime.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "register.sync.runtime.js"
-    ],
-    "packageName": "@openclaw/amazon-bedrock-mantle-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Amazon Bedrock Mantle (OpenAI-compatible) provider plugin",
-    "packageManifest": {
-      "bundle": {
-        "stageRuntimeDependencies": true
+    runtimeSidecarArtifacts: ["register.sync.runtime.js"],
+    packageName: "@openclaw/amazon-bedrock-mantle-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Amazon Bedrock Mantle (OpenAI-compatible) provider plugin",
+    packageManifest: {
+      bundle: {
+        stageRuntimeDependencies: true,
       },
-      "extensions": [
-        "./index.ts"
-      ]
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "amazon-bedrock-mantle",
-      "enabledByDefault": true,
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+    manifest: {
+      id: "amazon-bedrock-mantle",
+      enabledByDefault: true,
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "providers": [
-        "amazon-bedrock-mantle"
-      ]
-    }
+      providers: ["amazon-bedrock-mantle"],
+    },
   },
   {
-    "dirName": "anthropic",
-    "idHint": "anthropic",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "anthropic",
+    idHint: "anthropic",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "cli-auth-seam.js",
       "cli-backend-api.js",
@@ -448,356 +565,295 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "register.runtime.js",
       "replay-policy.js",
       "setup-api.js",
-      "stream-wrappers.js"
+      "stream-wrappers.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "register.runtime.js"
-    ],
-    "packageName": "@openclaw/anthropic-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Anthropic provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["register.runtime.js"],
+    packageName: "@openclaw/anthropic-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Anthropic provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "anthropic",
-      "enabledByDefault": true,
-      "providers": [
-        "anthropic"
-      ],
-      "modelSupport": {
-        "modelPrefixes": [
-          "claude-"
-        ]
+    manifest: {
+      id: "anthropic",
+      enabledByDefault: true,
+      providers: ["anthropic"],
+      modelSupport: {
+        modelPrefixes: ["claude-"],
       },
-      "cliBackends": [
-        "claude-cli"
-      ],
-      "providerAuthEnvVars": {
-        "anthropic": [
-          "ANTHROPIC_OAUTH_TOKEN",
-          "ANTHROPIC_API_KEY"
-        ]
+      cliBackends: ["claude-cli"],
+      providerAuthEnvVars: {
+        anthropic: ["ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "anthropic",
-          "method": "cli",
-          "choiceId": "anthropic-cli",
-          "deprecatedChoiceIds": [
-            "claude-cli"
-          ],
-          "choiceLabel": "Anthropic Claude CLI",
-          "choiceHint": "Reuse a local Claude CLI login on this host",
-          "assistantPriority": -20,
-          "groupId": "anthropic",
-          "groupLabel": "Anthropic",
-          "groupHint": "Claude CLI + API key"
+          provider: "anthropic",
+          method: "cli",
+          choiceId: "anthropic-cli",
+          deprecatedChoiceIds: ["claude-cli"],
+          choiceLabel: "Anthropic Claude CLI",
+          choiceHint: "Reuse a local Claude CLI login on this host",
+          assistantPriority: -20,
+          groupId: "anthropic",
+          groupLabel: "Anthropic",
+          groupHint: "Claude CLI + API key",
         },
         {
-          "provider": "anthropic",
-          "method": "api-key",
-          "choiceId": "apiKey",
-          "choiceLabel": "Anthropic API key",
-          "groupId": "anthropic",
-          "groupLabel": "Anthropic",
-          "groupHint": "Claude CLI + API key",
-          "optionKey": "anthropicApiKey",
-          "cliFlag": "--anthropic-api-key",
-          "cliOption": "--anthropic-api-key <key>",
-          "cliDescription": "Anthropic API key"
-        }
+          provider: "anthropic",
+          method: "api-key",
+          choiceId: "apiKey",
+          choiceLabel: "Anthropic API key",
+          groupId: "anthropic",
+          groupLabel: "Anthropic",
+          groupHint: "Claude CLI + API key",
+          optionKey: "anthropicApiKey",
+          cliFlag: "--anthropic-api-key",
+          cliOption: "--anthropic-api-key <key>",
+          cliDescription: "Anthropic API key",
+        },
       ],
-      "contracts": {
-        "mediaUnderstandingProviders": [
-          "anthropic"
-        ]
+      contracts: {
+        mediaUnderstandingProviders: ["anthropic"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "anthropic-vertex",
-    "idHint": "anthropic-vertex",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "anthropic-vertex",
+    idHint: "anthropic-vertex",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "provider-catalog.js",
       "provider-discovery.js",
       "region.js",
-      "setup-api.js"
+      "setup-api.js",
     ],
-    "packageName": "@openclaw/anthropic-vertex-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Anthropic Vertex provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/anthropic-vertex-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Anthropic Vertex provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "anthropic-vertex",
-      "enabledByDefault": true,
-      "providers": [
-        "anthropic-vertex"
-      ],
-      "providerDiscoveryEntry": "./provider-discovery.ts",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    manifest: {
+      id: "anthropic-vertex",
+      enabledByDefault: true,
+      providers: ["anthropic-vertex"],
+      providerDiscoveryEntry: "./provider-discovery.ts",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "arcee",
-    "idHint": "arcee",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "arcee",
+    idHint: "arcee",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "models.js",
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/arcee-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Arcee provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/arcee-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Arcee provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "arcee",
-      "enabledByDefault": true,
-      "providers": [
-        "arcee"
-      ],
-      "providerAuthEnvVars": {
-        "arcee": [
-          "ARCEEAI_API_KEY"
-        ]
+    manifest: {
+      id: "arcee",
+      enabledByDefault: true,
+      providers: ["arcee"],
+      providerAuthEnvVars: {
+        arcee: ["ARCEEAI_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "arcee",
-          "method": "arcee-platform",
-          "choiceId": "arceeai-api-key",
-          "choiceLabel": "Arcee AI API key",
-          "choiceHint": "Direct (chat.arcee.ai)",
-          "groupId": "arcee",
-          "groupLabel": "Arcee AI",
-          "groupHint": "Direct API or OpenRouter",
-          "optionKey": "arceeaiApiKey",
-          "cliFlag": "--arceeai-api-key",
-          "cliOption": "--arceeai-api-key <key>",
-          "cliDescription": "Arcee AI API key"
+          provider: "arcee",
+          method: "arcee-platform",
+          choiceId: "arceeai-api-key",
+          choiceLabel: "Arcee AI API key",
+          choiceHint: "Direct (chat.arcee.ai)",
+          groupId: "arcee",
+          groupLabel: "Arcee AI",
+          groupHint: "Direct API or OpenRouter",
+          optionKey: "arceeaiApiKey",
+          cliFlag: "--arceeai-api-key",
+          cliOption: "--arceeai-api-key <key>",
+          cliDescription: "Arcee AI API key",
         },
         {
-          "provider": "arcee",
-          "method": "openrouter",
-          "choiceId": "arceeai-openrouter",
-          "choiceLabel": "OpenRouter API key",
-          "choiceHint": "Via OpenRouter (openrouter.ai)",
-          "groupId": "arcee",
-          "groupLabel": "Arcee AI",
-          "groupHint": "Direct API or OpenRouter",
-          "optionKey": "openrouterApiKey",
-          "cliFlag": "--openrouter-api-key",
-          "cliOption": "--openrouter-api-key <key>",
-          "cliDescription": "OpenRouter API key for Arcee AI models"
-        }
+          provider: "arcee",
+          method: "openrouter",
+          choiceId: "arceeai-openrouter",
+          choiceLabel: "OpenRouter API key",
+          choiceHint: "Via OpenRouter (openrouter.ai)",
+          groupId: "arcee",
+          groupLabel: "Arcee AI",
+          groupHint: "Direct API or OpenRouter",
+          optionKey: "openrouterApiKey",
+          cliFlag: "--openrouter-api-key",
+          cliOption: "--openrouter-api-key <key>",
+          cliDescription: "OpenRouter API key for Arcee AI models",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "bluebubbles",
-    "idHint": "bluebubbles",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "bluebubbles",
+    idHint: "bluebubbles",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "channel-config-api.js",
       "contract-api.js",
       "runtime-api.js",
-      "secret-contract-api.js"
+      "secret-contract-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/bluebubbles",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw BlueBubbles channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "bluebubbles",
-        "label": "BlueBubbles",
-        "selectionLabel": "BlueBubbles (macOS app)",
-        "detailLabel": "BlueBubbles",
-        "docsPath": "/channels/bluebubbles",
-        "docsLabel": "bluebubbles",
-        "blurb": "iMessage via the BlueBubbles mac app + REST API.",
-        "aliases": [
-          "bb"
-        ],
-        "preferOver": [
-          "imessage"
-        ],
-        "systemImage": "bubble.left.and.text.bubble.right",
-        "order": 75
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/bluebubbles",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw BlueBubbles channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "bluebubbles",
+        label: "BlueBubbles",
+        selectionLabel: "BlueBubbles (macOS app)",
+        detailLabel: "BlueBubbles",
+        docsPath: "/channels/bluebubbles",
+        docsLabel: "bluebubbles",
+        blurb: "iMessage via the BlueBubbles mac app + REST API.",
+        aliases: ["bb"],
+        preferOver: ["imessage"],
+        systemImage: "bubble.left.and.text.bubble.right",
+        order: 75,
       },
-      "install": {
-        "npmSpec": "@openclaw/bluebubbles",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
+      install: {
+        npmSpec: "@openclaw/bluebubbles",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "bluebubbles",
-      "channels": [
-        "bluebubbles"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+    manifest: {
+      id: "bluebubbles",
+      channels: ["bluebubbles"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "bluebubbles": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        bluebubbles: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "BlueBubbles",
-          "description": "iMessage via the BlueBubbles mac app + REST API.",
-          "preferOver": [
-            "imessage"
-          ]
-        }
-      }
-    }
+          label: "BlueBubbles",
+          description: "iMessage via the BlueBubbles mac app + REST API.",
+          preferOver: ["imessage"],
+        },
+      },
+    },
   },
   {
-    "dirName": "brave",
-    "idHint": "brave",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "brave",
+    idHint: "brave",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "web-search-contract-api.js",
-      "web-search-provider.js"
-    ],
-    "packageName": "@openclaw/brave-plugin",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Brave plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["web-search-contract-api.js", "web-search-provider.js"],
+    packageName: "@openclaw/brave-plugin",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Brave plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "brave",
-      "providerAuthEnvVars": {
-        "brave": [
-          "BRAVE_API_KEY"
-        ]
+    manifest: {
+      id: "brave",
+      providerAuthEnvVars: {
+        brave: ["BRAVE_API_KEY"],
       },
-      "uiHints": {
+      uiHints: {
         "webSearch.apiKey": {
-          "label": "Brave Search API Key",
-          "help": "Brave Search API key (fallback: BRAVE_API_KEY env var).",
-          "sensitive": true,
-          "placeholder": "BSA..."
+          label: "Brave Search API Key",
+          help: "Brave Search API key (fallback: BRAVE_API_KEY env var).",
+          sensitive: true,
+          placeholder: "BSA...",
         },
         "webSearch.mode": {
-          "label": "Brave Search Mode",
-          "help": "Brave Search mode: web or llm-context."
-        }
+          label: "Brave Search Mode",
+          help: "Brave Search mode: web or llm-context.",
+        },
       },
-      "contracts": {
-        "webSearchProviders": [
-          "brave"
-        ]
+      contracts: {
+        webSearchProviders: ["brave"],
       },
-      "configContracts": {
-        "compatibilityRuntimePaths": [
-          "tools.web.search.apiKey"
-        ]
+      configContracts: {
+        compatibilityRuntimePaths: ["tools.web.search.apiKey"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": [
-                  "string",
-                  "object"
-                ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: ["string", "object"],
               },
-              "mode": {
-                "type": "string",
-                "enum": [
-                  "web",
-                  "llm-context"
-                ]
-              }
-            }
-          }
-        }
-      }
-    }
+              mode: {
+                type: "string",
+                enum: ["web", "llm-context"],
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "browser",
-    "idHint": "browser",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "browser",
+    idHint: "browser",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "browser-bridge.js",
       "browser-cdp.js",
       "browser-config.js",
@@ -811,895 +867,955 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "plugin-registration.js",
       "register.runtime.js",
       "runtime-api.js",
-      "setup-api.js"
+      "setup-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "register.runtime.js",
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/browser-plugin",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw browser tool plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["register.runtime.js", "runtime-api.js"],
+    packageName: "@openclaw/browser-plugin",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw browser tool plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "browser",
-      "enabledByDefault": true,
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    manifest: {
+      id: "browser",
+      enabledByDefault: true,
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "byteplus",
-    "idHint": "byteplus",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "byteplus",
+    idHint: "byteplus",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "models.js",
       "provider-catalog.js",
-      "video-generation-provider.js"
+      "video-generation-provider.js",
     ],
-    "packageName": "@openclaw/byteplus-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw BytePlus provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/byteplus-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw BytePlus provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "byteplus",
-      "enabledByDefault": true,
-      "providers": [
-        "byteplus",
-        "byteplus-plan"
-      ],
-      "providerAuthEnvVars": {
-        "byteplus": [
-          "BYTEPLUS_API_KEY"
-        ]
+    manifest: {
+      id: "byteplus",
+      enabledByDefault: true,
+      providers: ["byteplus", "byteplus-plan"],
+      providerAuthEnvVars: {
+        byteplus: ["BYTEPLUS_API_KEY"],
       },
-      "providerAuthAliases": {
-        "byteplus-plan": "byteplus"
+      providerAuthAliases: {
+        "byteplus-plan": "byteplus",
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "byteplus",
-          "method": "api-key",
-          "choiceId": "byteplus-api-key",
-          "choiceLabel": "BytePlus API key",
-          "groupId": "byteplus",
-          "groupLabel": "BytePlus",
-          "groupHint": "API key",
-          "optionKey": "byteplusApiKey",
-          "cliFlag": "--byteplus-api-key",
-          "cliOption": "--byteplus-api-key <key>",
-          "cliDescription": "BytePlus API key"
-        }
+          provider: "byteplus",
+          method: "api-key",
+          choiceId: "byteplus-api-key",
+          choiceLabel: "BytePlus API key",
+          groupId: "byteplus",
+          groupLabel: "BytePlus",
+          groupHint: "API key",
+          optionKey: "byteplusApiKey",
+          cliFlag: "--byteplus-api-key",
+          cliOption: "--byteplus-api-key <key>",
+          cliDescription: "BytePlus API key",
+        },
       ],
-      "contracts": {
-        "videoGenerationProviders": [
-          "byteplus"
-        ]
+      contracts: {
+        videoGenerationProviders: ["byteplus"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "chutes",
-    "idHint": "chutes",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "chutes",
+    idHint: "chutes",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "models.js",
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/chutes-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Chutes.ai provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/chutes-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Chutes.ai provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "chutes",
-      "enabledByDefault": true,
-      "providers": [
-        "chutes"
-      ],
-      "providerAuthEnvVars": {
-        "chutes": [
-          "CHUTES_API_KEY",
-          "CHUTES_OAUTH_TOKEN"
-        ]
+    manifest: {
+      id: "chutes",
+      enabledByDefault: true,
+      providers: ["chutes"],
+      providerAuthEnvVars: {
+        chutes: ["CHUTES_API_KEY", "CHUTES_OAUTH_TOKEN"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "chutes",
-          "method": "oauth",
-          "choiceId": "chutes",
-          "choiceLabel": "Chutes (OAuth)",
-          "choiceHint": "Browser sign-in",
-          "groupId": "chutes",
-          "groupLabel": "Chutes",
-          "groupHint": "OAuth + API key"
+          provider: "chutes",
+          method: "oauth",
+          choiceId: "chutes",
+          choiceLabel: "Chutes (OAuth)",
+          choiceHint: "Browser sign-in",
+          groupId: "chutes",
+          groupLabel: "Chutes",
+          groupHint: "OAuth + API key",
         },
         {
-          "provider": "chutes",
-          "method": "api-key",
-          "choiceId": "chutes-api-key",
-          "choiceLabel": "Chutes API key",
-          "choiceHint": "Open-source models including Llama, DeepSeek, and more",
-          "groupId": "chutes",
-          "groupLabel": "Chutes",
-          "groupHint": "OAuth + API key",
-          "optionKey": "chutesApiKey",
-          "cliFlag": "--chutes-api-key",
-          "cliOption": "--chutes-api-key <key>",
-          "cliDescription": "Chutes API key"
-        }
+          provider: "chutes",
+          method: "api-key",
+          choiceId: "chutes-api-key",
+          choiceLabel: "Chutes API key",
+          choiceHint: "Open-source models including Llama, DeepSeek, and more",
+          groupId: "chutes",
+          groupLabel: "Chutes",
+          groupHint: "OAuth + API key",
+          optionKey: "chutesApiKey",
+          cliFlag: "--chutes-api-key",
+          cliOption: "--chutes-api-key <key>",
+          cliDescription: "Chutes API key",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
-  },
-  {
-    "dirName": "cloudflare-ai-gateway",
-    "idHint": "cloudflare-ai-gateway",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "catalog-provider.js",
-      "models.js",
-      "onboard.js"
-    ],
-    "packageName": "@openclaw/cloudflare-ai-gateway-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Cloudflare AI Gateway provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "cloudflare-ai-gateway",
-      "enabledByDefault": true,
-      "providers": [
-        "cloudflare-ai-gateway"
-      ],
-      "providerAuthEnvVars": {
-        "cloudflare-ai-gateway": [
-          "CLOUDFLARE_AI_GATEWAY_API_KEY"
-        ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "providerAuthChoices": [
-        {
-          "provider": "cloudflare-ai-gateway",
-          "method": "api-key",
-          "choiceId": "cloudflare-ai-gateway-api-key",
-          "choiceLabel": "Cloudflare AI Gateway",
-          "choiceHint": "Account ID + Gateway ID + API key",
-          "groupId": "cloudflare-ai-gateway",
-          "groupLabel": "Cloudflare AI Gateway",
-          "groupHint": "Account ID + Gateway ID + API key",
-          "optionKey": "cloudflareAiGatewayApiKey",
-          "cliFlag": "--cloudflare-ai-gateway-api-key",
-          "cliOption": "--cloudflare-ai-gateway-api-key <key>",
-          "cliDescription": "Cloudflare AI Gateway API key"
-        }
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    },
   },
   {
-    "dirName": "comfy",
-    "idHint": "comfy",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "cloudflare-ai-gateway",
+    idHint: "cloudflare-ai-gateway",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: ["api.js", "catalog-provider.js", "models.js", "onboard.js"],
+    packageName: "@openclaw/cloudflare-ai-gateway-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Cloudflare AI Gateway provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "cloudflare-ai-gateway",
+      enabledByDefault: true,
+      providers: ["cloudflare-ai-gateway"],
+      providerAuthEnvVars: {
+        "cloudflare-ai-gateway": ["CLOUDFLARE_AI_GATEWAY_API_KEY"],
+      },
+      providerAuthChoices: [
+        {
+          provider: "cloudflare-ai-gateway",
+          method: "api-key",
+          choiceId: "cloudflare-ai-gateway-api-key",
+          choiceLabel: "Cloudflare AI Gateway",
+          choiceHint: "Account ID + Gateway ID + API key",
+          groupId: "cloudflare-ai-gateway",
+          groupLabel: "Cloudflare AI Gateway",
+          groupHint: "Account ID + Gateway ID + API key",
+          optionKey: "cloudflareAiGatewayApiKey",
+          cliFlag: "--cloudflare-ai-gateway-api-key",
+          cliOption: "--cloudflare-ai-gateway-api-key <key>",
+          cliDescription: "Cloudflare AI Gateway API key",
+        },
+      ],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    dirName: "codex",
+    idHint: "codex",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: ["harness.js", "provider.js"],
+    packageName: "@openclaw/codex",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Codex harness and model provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "codex",
+      name: "Codex",
+      description: "Codex app-server harness and Codex-managed GPT model catalog.",
+      providers: ["codex"],
+      commandAliases: [
+        {
+          name: "codex",
+          kind: "runtime-slash",
+          cliCommand: "plugins",
+        },
+      ],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          discovery: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              timeoutMs: {
+                type: "number",
+                minimum: 1,
+                default: 2500,
+              },
+            },
+          },
+          appServer: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              transport: {
+                type: "string",
+                enum: ["stdio", "websocket"],
+                default: "stdio",
+              },
+              command: {
+                type: "string",
+                default: "codex",
+              },
+              args: {
+                oneOf: [
+                  {
+                    type: "array",
+                    items: {
+                      type: "string",
+                    },
+                  },
+                  {
+                    type: "string",
+                  },
+                ],
+              },
+              url: {
+                type: "string",
+              },
+              authToken: {
+                type: "string",
+              },
+              headers: {
+                type: "object",
+                additionalProperties: {
+                  type: "string",
+                },
+              },
+              requestTimeoutMs: {
+                type: "number",
+                minimum: 1,
+                default: 60000,
+              },
+              approvalPolicy: {
+                type: "string",
+                enum: ["never", "on-request", "on-failure", "untrusted"],
+                default: "never",
+              },
+              sandbox: {
+                type: "string",
+                enum: ["read-only", "workspace-write", "danger-full-access"],
+                default: "workspace-write",
+              },
+              approvalsReviewer: {
+                type: "string",
+                enum: ["user", "guardian_subagent"],
+                default: "user",
+              },
+              serviceTier: {
+                type: "string",
+              },
+            },
+          },
+        },
+      },
+      uiHints: {
+        discovery: {
+          label: "Model Discovery",
+          help: "Plugin-owned controls for discovering Codex app-server models.",
+        },
+        "discovery.enabled": {
+          label: "Enable Discovery",
+          help: "When false, OpenClaw keeps the Codex harness available but uses the bundled fallback model list.",
+        },
+        "discovery.timeoutMs": {
+          label: "Discovery Timeout",
+          help: "Maximum time to wait for Codex app-server model discovery before falling back to the bundled model list.",
+          advanced: true,
+        },
+        appServer: {
+          label: "App Server",
+          help: "Runtime controls for connecting to Codex app-server.",
+          advanced: true,
+        },
+        "appServer.transport": {
+          label: "Transport",
+          help: "Use stdio to spawn Codex locally, or websocket to connect to an already-running app-server.",
+          advanced: true,
+        },
+        "appServer.command": {
+          label: "Command",
+          help: "Executable used for stdio transport.",
+          advanced: true,
+        },
+        "appServer.args": {
+          label: "Arguments",
+          help: "Arguments used for stdio transport. Defaults to app-server --listen stdio://.",
+          advanced: true,
+        },
+        "appServer.url": {
+          label: "WebSocket URL",
+          help: "Codex app-server WebSocket URL when transport is websocket.",
+          advanced: true,
+        },
+        "appServer.authToken": {
+          label: "Auth Token",
+          help: "Bearer token sent to the WebSocket app-server.",
+          sensitive: true,
+          advanced: true,
+        },
+        "appServer.headers": {
+          label: "Headers",
+          help: "Additional headers sent to the WebSocket app-server.",
+          advanced: true,
+        },
+        "appServer.requestTimeoutMs": {
+          label: "Request Timeout",
+          help: "Maximum time to wait for Codex app-server control-plane requests.",
+          advanced: true,
+        },
+        "appServer.approvalPolicy": {
+          label: "Approval Policy",
+          help: "Codex native approval policy sent to thread start, resume, and turns.",
+          advanced: true,
+        },
+        "appServer.sandbox": {
+          label: "Sandbox",
+          help: "Codex native sandbox mode sent to thread start and resume.",
+          advanced: true,
+        },
+        "appServer.approvalsReviewer": {
+          label: "Approvals Reviewer",
+          help: "Use user approvals or the Codex guardian subagent for native app-server approvals.",
+          advanced: true,
+        },
+        "appServer.serviceTier": {
+          label: "Service Tier",
+          help: "Optional Codex service tier passed when starting or resuming threads.",
+          advanced: true,
+        },
+      },
+    },
+  },
+  {
+    dirName: "comfy",
+    idHint: "comfy",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: [
       "image-generation-provider.js",
       "music-generation-provider.js",
       "video-generation-provider.js",
-      "workflow-runtime.js"
+      "workflow-runtime.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "workflow-runtime.js"
-    ],
-    "packageName": "@openclaw/comfy-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw ComfyUI provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["workflow-runtime.js"],
+    packageName: "@openclaw/comfy-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw ComfyUI provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "comfy",
-      "enabledByDefault": true,
-      "providers": [
-        "comfy"
-      ],
-      "providerAuthEnvVars": {
-        "comfy": [
-          "COMFY_API_KEY",
-          "COMFY_CLOUD_API_KEY"
-        ]
+    manifest: {
+      id: "comfy",
+      enabledByDefault: true,
+      providers: ["comfy"],
+      providerAuthEnvVars: {
+        comfy: ["COMFY_API_KEY", "COMFY_CLOUD_API_KEY"],
       },
-      "contracts": {
-        "imageGenerationProviders": [
-          "comfy"
-        ],
-        "musicGenerationProviders": [
-          "comfy"
-        ],
-        "videoGenerationProviders": [
-          "comfy"
-        ]
+      contracts: {
+        imageGenerationProviders: ["comfy"],
+        musicGenerationProviders: ["comfy"],
+        videoGenerationProviders: ["comfy"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "mode": {
-            "type": "string",
-            "enum": [
-              "local",
-              "cloud"
-            ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          mode: {
+            type: "string",
+            enum: ["local", "cloud"],
           },
-          "baseUrl": {
-            "type": "string"
+          baseUrl: {
+            type: "string",
           },
-          "apiKey": {
-            "type": [
-              "string",
-              "object"
-            ]
+          apiKey: {
+            type: ["string", "object"],
           },
-          "allowPrivateNetwork": {
-            "type": "boolean"
+          allowPrivateNetwork: {
+            type: "boolean",
           },
-          "workflowPath": {
-            "type": "string"
+          workflowPath: {
+            type: "string",
           },
-          "workflow": {
-            "type": "object"
+          workflow: {
+            type: "object",
           },
-          "promptNodeId": {
-            "type": "string"
+          promptNodeId: {
+            type: "string",
           },
-          "promptInputName": {
-            "type": "string"
+          promptInputName: {
+            type: "string",
           },
-          "inputImageNodeId": {
-            "type": "string"
+          inputImageNodeId: {
+            type: "string",
           },
-          "inputImageInputName": {
-            "type": "string"
+          inputImageInputName: {
+            type: "string",
           },
-          "outputNodeId": {
-            "type": "string"
+          outputNodeId: {
+            type: "string",
           },
-          "pollIntervalMs": {
-            "type": "integer",
-            "minimum": 100
+          pollIntervalMs: {
+            type: "integer",
+            minimum: 100,
           },
-          "timeoutMs": {
-            "type": "integer",
-            "minimum": 1000
+          timeoutMs: {
+            type: "integer",
+            minimum: 1000,
           },
-          "image": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "workflowPath": {
-                "type": "string"
+          image: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              workflowPath: {
+                type: "string",
               },
-              "workflow": {
-                "type": "object"
+              workflow: {
+                type: "object",
               },
-              "promptNodeId": {
-                "type": "string"
+              promptNodeId: {
+                type: "string",
               },
-              "promptInputName": {
-                "type": "string"
+              promptInputName: {
+                type: "string",
               },
-              "inputImageNodeId": {
-                "type": "string"
+              inputImageNodeId: {
+                type: "string",
               },
-              "inputImageInputName": {
-                "type": "string"
+              inputImageInputName: {
+                type: "string",
               },
-              "outputNodeId": {
-                "type": "string"
+              outputNodeId: {
+                type: "string",
               },
-              "pollIntervalMs": {
-                "type": "integer",
-                "minimum": 100
+              pollIntervalMs: {
+                type: "integer",
+                minimum: 100,
               },
-              "timeoutMs": {
-                "type": "integer",
-                "minimum": 1000
-              }
-            }
+              timeoutMs: {
+                type: "integer",
+                minimum: 1000,
+              },
+            },
           },
-          "video": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "workflowPath": {
-                "type": "string"
+          video: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              workflowPath: {
+                type: "string",
               },
-              "workflow": {
-                "type": "object"
+              workflow: {
+                type: "object",
               },
-              "promptNodeId": {
-                "type": "string"
+              promptNodeId: {
+                type: "string",
               },
-              "promptInputName": {
-                "type": "string"
+              promptInputName: {
+                type: "string",
               },
-              "inputImageNodeId": {
-                "type": "string"
+              inputImageNodeId: {
+                type: "string",
               },
-              "inputImageInputName": {
-                "type": "string"
+              inputImageInputName: {
+                type: "string",
               },
-              "outputNodeId": {
-                "type": "string"
+              outputNodeId: {
+                type: "string",
               },
-              "pollIntervalMs": {
-                "type": "integer",
-                "minimum": 100
+              pollIntervalMs: {
+                type: "integer",
+                minimum: 100,
               },
-              "timeoutMs": {
-                "type": "integer",
-                "minimum": 1000
-              }
-            }
+              timeoutMs: {
+                type: "integer",
+                minimum: 1000,
+              },
+            },
           },
-          "music": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "workflowPath": {
-                "type": "string"
+          music: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              workflowPath: {
+                type: "string",
               },
-              "workflow": {
-                "type": "object"
+              workflow: {
+                type: "object",
               },
-              "promptNodeId": {
-                "type": "string"
+              promptNodeId: {
+                type: "string",
               },
-              "promptInputName": {
-                "type": "string"
+              promptInputName: {
+                type: "string",
               },
-              "outputNodeId": {
-                "type": "string"
+              outputNodeId: {
+                type: "string",
               },
-              "pollIntervalMs": {
-                "type": "integer",
-                "minimum": 100
+              pollIntervalMs: {
+                type: "integer",
+                minimum: 100,
               },
-              "timeoutMs": {
-                "type": "integer",
-                "minimum": 1000
-              }
-            }
-          }
-        }
-      }
-    }
+              timeoutMs: {
+                type: "integer",
+                minimum: 1000,
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "copilot-proxy",
-    "idHint": "copilot-proxy",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "copilot-proxy",
+    idHint: "copilot-proxy",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/copilot-proxy",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Copilot Proxy provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/copilot-proxy",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Copilot Proxy provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "copilot-proxy",
-      "enabledByDefault": true,
-      "providers": [
-        "copilot-proxy"
-      ],
-      "autoEnableWhenConfiguredProviders": [
-        "copilot-proxy"
-      ],
-      "providerAuthChoices": [
+    manifest: {
+      id: "copilot-proxy",
+      enabledByDefault: true,
+      providers: ["copilot-proxy"],
+      autoEnableWhenConfiguredProviders: ["copilot-proxy"],
+      providerAuthChoices: [
         {
-          "provider": "copilot-proxy",
-          "method": "local",
-          "choiceId": "copilot-proxy",
-          "choiceLabel": "Copilot Proxy",
-          "choiceHint": "Configure base URL + model ids",
-          "groupId": "copilot",
-          "groupLabel": "Copilot",
-          "groupHint": "GitHub + local proxy"
-        }
+          provider: "copilot-proxy",
+          method: "local",
+          choiceId: "copilot-proxy",
+          choiceLabel: "Copilot Proxy",
+          choiceHint: "Configure base URL + model ids",
+          groupId: "copilot",
+          groupLabel: "Copilot",
+          groupHint: "GitHub + local proxy",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "deepgram",
-    "idHint": "deepgram",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "deepgram",
+    idHint: "deepgram",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "audio.js",
-      "media-understanding-provider.js"
-    ],
-    "packageName": "@openclaw/deepgram-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Deepgram media-understanding provider",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["audio.js", "media-understanding-provider.js"],
+    packageName: "@openclaw/deepgram-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Deepgram media-understanding provider",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "deepgram",
-      "enabledByDefault": true,
-      "providerAuthEnvVars": {
-        "deepgram": [
-          "DEEPGRAM_API_KEY"
-        ]
+    manifest: {
+      id: "deepgram",
+      enabledByDefault: true,
+      providerAuthEnvVars: {
+        deepgram: ["DEEPGRAM_API_KEY"],
       },
-      "contracts": {
-        "mediaUnderstandingProviders": [
-          "deepgram"
-        ]
+      contracts: {
+        mediaUnderstandingProviders: ["deepgram"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "deepseek",
-    "idHint": "deepseek",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "deepseek",
+    idHint: "deepseek",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "models.js",
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/deepseek-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw DeepSeek provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/deepseek-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw DeepSeek provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "deepseek",
-      "enabledByDefault": true,
-      "providers": [
-        "deepseek"
-      ],
-      "providerAuthEnvVars": {
-        "deepseek": [
-          "DEEPSEEK_API_KEY"
-        ]
+    manifest: {
+      id: "deepseek",
+      enabledByDefault: true,
+      providers: ["deepseek"],
+      providerAuthEnvVars: {
+        deepseek: ["DEEPSEEK_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "deepseek",
-          "method": "api-key",
-          "choiceId": "deepseek-api-key",
-          "choiceLabel": "DeepSeek API key",
-          "groupId": "deepseek",
-          "groupLabel": "DeepSeek",
-          "groupHint": "API key",
-          "optionKey": "deepseekApiKey",
-          "cliFlag": "--deepseek-api-key",
-          "cliOption": "--deepseek-api-key <key>",
-          "cliDescription": "DeepSeek API key"
-        }
+          provider: "deepseek",
+          method: "api-key",
+          choiceId: "deepseek-api-key",
+          choiceLabel: "DeepSeek API key",
+          groupId: "deepseek",
+          groupLabel: "DeepSeek",
+          groupHint: "API key",
+          optionKey: "deepseekApiKey",
+          cliFlag: "--deepseek-api-key",
+          cliOption: "--deepseek-api-key <key>",
+          cliDescription: "DeepSeek API key",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "device-pair",
-    "idHint": "device-pair",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "device-pair",
+    idHint: "device-pair",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "notify.js",
       "pair-command-approve.js",
       "pair-command-auth.js",
-      "qr-image.js"
+      "qr-image.js",
     ],
-    "manifest": {
-      "id": "device-pair",
-      "enabledByDefault": true,
-      "name": "Device Pairing",
-      "description": "Generate setup codes and approve device pairing requests.",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "publicUrl": {
-            "type": "string"
-          }
-        }
+    manifest: {
+      id: "device-pair",
+      enabledByDefault: true,
+      name: "Device Pairing",
+      description: "Generate setup codes and approve device pairing requests.",
+      commandAliases: [
+        {
+          name: "pair",
+          kind: "runtime-slash",
+        },
+      ],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          publicUrl: {
+            type: "string",
+          },
+        },
       },
-      "uiHints": {
-        "publicUrl": {
-          "label": "Gateway URL",
-          "help": "Public WebSocket URL used for /pair setup codes (ws/wss or http/https)."
-        }
-      }
-    }
+      uiHints: {
+        publicUrl: {
+          label: "Gateway URL",
+          help: "Public WebSocket URL used for /pair setup codes (ws/wss or http/https).",
+        },
+      },
+    },
   },
   {
-    "dirName": "diagnostics-otel",
-    "idHint": "diagnostics-otel",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "diagnostics-otel",
+    idHint: "diagnostics-otel",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js"
-    ],
-    "packageName": "@openclaw/diagnostics-otel",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw diagnostics OpenTelemetry exporter",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+    publicSurfaceArtifacts: ["api.js"],
+    packageName: "@openclaw/diagnostics-otel",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw diagnostics OpenTelemetry exporter",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "diagnostics-otel",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    manifest: {
+      id: "diagnostics-otel",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "diffs",
-    "idHint": "diffs",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "diffs",
+    idHint: "diffs",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/diffs",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw diff viewer plugin",
-    "packageManifest": {
-      "bundle": {
-        "stageRuntimeDependencies": true
+    publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/diffs",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw diff viewer plugin",
+    packageManifest: {
+      bundle: {
+        stageRuntimeDependencies: true,
       },
-      "extensions": [
-        "./index.ts"
-      ]
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "diffs",
-      "name": "Diffs",
-      "description": "Read-only diff viewer and file renderer for agents.",
-      "skills": [
-        "./skills"
-      ],
-      "uiHints": {
-        "viewerBaseUrl": {
-          "label": "Viewer Base URL",
-          "help": "Persistent gateway base URL used for returned viewer links when a tool call does not pass baseUrl."
+    manifest: {
+      id: "diffs",
+      name: "Diffs",
+      description: "Read-only diff viewer and file renderer for agents.",
+      skills: ["./skills"],
+      uiHints: {
+        viewerBaseUrl: {
+          label: "Viewer Base URL",
+          help: "Persistent gateway base URL used for returned viewer links when a tool call does not pass baseUrl.",
         },
         "defaults.fontFamily": {
-          "label": "Default Font",
-          "help": "Preferred font family name for diff content and headers."
+          label: "Default Font",
+          help: "Preferred font family name for diff content and headers.",
         },
         "defaults.fontSize": {
-          "label": "Default Font Size",
-          "help": "Base diff font size in pixels."
+          label: "Default Font Size",
+          help: "Base diff font size in pixels.",
         },
         "defaults.lineSpacing": {
-          "label": "Default Line Spacing",
-          "help": "Line-height multiplier applied to diff rows."
+          label: "Default Line Spacing",
+          help: "Line-height multiplier applied to diff rows.",
         },
         "defaults.layout": {
-          "label": "Default Layout",
-          "help": "Initial diff layout shown in the viewer."
+          label: "Default Layout",
+          help: "Initial diff layout shown in the viewer.",
         },
         "defaults.showLineNumbers": {
-          "label": "Show Line Numbers",
-          "help": "Show line numbers by default."
+          label: "Show Line Numbers",
+          help: "Show line numbers by default.",
         },
         "defaults.diffIndicators": {
-          "label": "Diff Indicator Style",
-          "help": "Choose added/removed indicators style."
+          label: "Diff Indicator Style",
+          help: "Choose added/removed indicators style.",
         },
         "defaults.wordWrap": {
-          "label": "Default Word Wrap",
-          "help": "Wrap long lines by default."
+          label: "Default Word Wrap",
+          help: "Wrap long lines by default.",
         },
         "defaults.background": {
-          "label": "Default Background Highlights",
-          "help": "Show added/removed background highlights by default."
+          label: "Default Background Highlights",
+          help: "Show added/removed background highlights by default.",
         },
         "defaults.theme": {
-          "label": "Default Theme",
-          "help": "Initial viewer theme."
+          label: "Default Theme",
+          help: "Initial viewer theme.",
         },
         "defaults.fileFormat": {
-          "label": "Default File Format",
-          "help": "Rendered file format for file mode (PNG or PDF)."
+          label: "Default File Format",
+          help: "Rendered file format for file mode (PNG or PDF).",
         },
         "defaults.fileQuality": {
-          "label": "Default File Quality",
-          "help": "Quality preset for PNG/PDF rendering."
+          label: "Default File Quality",
+          help: "Quality preset for PNG/PDF rendering.",
         },
         "defaults.fileScale": {
-          "label": "Default File Scale",
-          "help": "Device scale factor used while rendering file artifacts."
+          label: "Default File Scale",
+          help: "Device scale factor used while rendering file artifacts.",
         },
         "defaults.fileMaxWidth": {
-          "label": "Default File Max Width",
-          "help": "Maximum file render width in CSS pixels."
+          label: "Default File Max Width",
+          help: "Maximum file render width in CSS pixels.",
         },
         "defaults.mode": {
-          "label": "Default Output Mode",
-          "help": "Tool default when mode is omitted. Use view for canvas/gateway viewer, file for PNG/PDF, or both."
+          label: "Default Output Mode",
+          help: "Tool default when mode is omitted. Use view for canvas/gateway viewer, file for PNG/PDF, or both.",
         },
         "security.allowRemoteViewer": {
-          "label": "Allow Remote Viewer",
-          "help": "Allow non-loopback access to diff viewer URLs when the token path is known."
-        }
+          label: "Allow Remote Viewer",
+          help: "Allow non-loopback access to diff viewer URLs when the token path is known.",
+        },
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "viewerBaseUrl": {
-            "type": "string",
-            "format": "uri",
-            "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://",
-            "not": {
-              "pattern": "[?#]"
-            }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          viewerBaseUrl: {
+            type: "string",
+            format: "uri",
+            pattern: "^[Hh][Tt][Tt][Pp][Ss]?://",
+            not: {
+              pattern: "[?#]",
+            },
           },
-          "defaults": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "fontFamily": {
-                "type": "string",
-                "default": "Fira Code"
+          defaults: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              fontFamily: {
+                type: "string",
+                default: "Fira Code",
               },
-              "fontSize": {
-                "type": "number",
-                "minimum": 10,
-                "maximum": 24,
-                "default": 15
+              fontSize: {
+                type: "number",
+                minimum: 10,
+                maximum: 24,
+                default: 15,
               },
-              "lineSpacing": {
-                "type": "number",
-                "minimum": 1,
-                "maximum": 3,
-                "default": 1.6
+              lineSpacing: {
+                type: "number",
+                minimum: 1,
+                maximum: 3,
+                default: 1.6,
               },
-              "layout": {
-                "type": "string",
-                "enum": [
-                  "unified",
-                  "split"
-                ],
-                "default": "unified"
+              layout: {
+                type: "string",
+                enum: ["unified", "split"],
+                default: "unified",
               },
-              "showLineNumbers": {
-                "type": "boolean",
-                "default": true
+              showLineNumbers: {
+                type: "boolean",
+                default: true,
               },
-              "diffIndicators": {
-                "type": "string",
-                "enum": [
-                  "bars",
-                  "classic",
-                  "none"
-                ],
-                "default": "bars"
+              diffIndicators: {
+                type: "string",
+                enum: ["bars", "classic", "none"],
+                default: "bars",
               },
-              "wordWrap": {
-                "type": "boolean",
-                "default": true
+              wordWrap: {
+                type: "boolean",
+                default: true,
               },
-              "background": {
-                "type": "boolean",
-                "default": true
+              background: {
+                type: "boolean",
+                default: true,
               },
-              "theme": {
-                "type": "string",
-                "enum": [
-                  "light",
-                  "dark"
-                ],
-                "default": "dark"
+              theme: {
+                type: "string",
+                enum: ["light", "dark"],
+                default: "dark",
               },
-              "fileFormat": {
-                "type": "string",
-                "enum": [
-                  "png",
-                  "pdf"
-                ],
-                "default": "png"
+              fileFormat: {
+                type: "string",
+                enum: ["png", "pdf"],
+                default: "png",
               },
-              "format": {
-                "type": "string",
-                "enum": [
-                  "png",
-                  "pdf"
-                ]
+              format: {
+                type: "string",
+                enum: ["png", "pdf"],
               },
-              "fileQuality": {
-                "type": "string",
-                "enum": [
-                  "standard",
-                  "hq",
-                  "print"
-                ],
-                "default": "standard"
+              fileQuality: {
+                type: "string",
+                enum: ["standard", "hq", "print"],
+                default: "standard",
               },
-              "fileScale": {
-                "type": "number",
-                "minimum": 1,
-                "maximum": 4
+              fileScale: {
+                type: "number",
+                minimum: 1,
+                maximum: 4,
               },
-              "fileMaxWidth": {
-                "type": "number",
-                "minimum": 640,
-                "maximum": 2400
+              fileMaxWidth: {
+                type: "number",
+                minimum: 640,
+                maximum: 2400,
               },
-              "imageFormat": {
-                "type": "string",
-                "enum": [
-                  "png",
-                  "pdf"
-                ]
+              imageFormat: {
+                type: "string",
+                enum: ["png", "pdf"],
               },
-              "imageQuality": {
-                "type": "string",
-                "enum": [
-                  "standard",
-                  "hq",
-                  "print"
-                ]
+              imageQuality: {
+                type: "string",
+                enum: ["standard", "hq", "print"],
               },
-              "imageScale": {
-                "type": "number",
-                "minimum": 1,
-                "maximum": 4
+              imageScale: {
+                type: "number",
+                minimum: 1,
+                maximum: 4,
               },
-              "imageMaxWidth": {
-                "type": "number",
-                "minimum": 640,
-                "maximum": 2400
+              imageMaxWidth: {
+                type: "number",
+                minimum: 640,
+                maximum: 2400,
               },
-              "mode": {
-                "type": "string",
-                "enum": [
-                  "view",
-                  "image",
-                  "file",
-                  "both"
-                ],
-                "default": "both"
-              }
-            }
+              mode: {
+                type: "string",
+                enum: ["view", "image", "file", "both"],
+                default: "both",
+              },
+            },
           },
-          "security": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "allowRemoteViewer": {
-                "type": "boolean",
-                "default": false
-              }
-            }
-          }
-        }
-      }
-    }
+          security: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              allowRemoteViewer: {
+                type: "boolean",
+                default: false,
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "discord",
-    "idHint": "discord",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "discord",
+    idHint: "discord",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "action-runtime-api.js",
       "api.js",
       "channel-config-api.js",
@@ -1714,150 +1830,131 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "session-key-api.js",
       "setup-plugin-api.js",
       "subagent-hooks-api.js",
-      "timeouts.js"
+      "timeouts.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/discord",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Discord channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "discord",
-        "label": "Discord",
-        "selectionLabel": "Discord (Bot API)",
-        "detailLabel": "Discord Bot",
-        "docsPath": "/channels/discord",
-        "docsLabel": "discord",
-        "blurb": "very well supported right now.",
-        "systemImage": "bubble.left.and.bubble.right",
-        "markdownCapable": true,
-        "configuredState": {
-          "specifier": "./configured-state",
-          "exportName": "hasDiscordConfiguredState"
-        }
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/discord",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Discord channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "discord",
+        label: "Discord",
+        selectionLabel: "Discord (Bot API)",
+        detailLabel: "Discord Bot",
+        docsPath: "/channels/discord",
+        docsLabel: "discord",
+        blurb: "very well supported right now.",
+        systemImage: "bubble.left.and.bubble.right",
+        markdownCapable: true,
+        configuredState: {
+          specifier: "./configured-state",
+          exportName: "hasDiscordConfiguredState",
+        },
       },
-      "install": {
-        "npmSpec": "@openclaw/discord",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
+      install: {
+        npmSpec: "@openclaw/discord",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "bundle": {
-        "stageRuntimeDependencies": true
+      bundle: {
+        stageRuntimeDependencies: true,
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "discord",
-      "channels": [
-        "discord"
-      ],
-      "channelEnvVars": {
-        "discord": [
-          "DISCORD_BOT_TOKEN"
-        ]
+    manifest: {
+      id: "discord",
+      channels: ["discord"],
+      channelEnvVars: {
+        discord: ["DISCORD_BOT_TOKEN"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "discord": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        discord: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Discord",
-          "description": "very well supported right now."
-        }
-      }
-    }
+          label: "Discord",
+          description: "very well supported right now.",
+        },
+      },
+    },
   },
   {
-    "dirName": "duckduckgo",
-    "idHint": "duckduckgo",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "duckduckgo",
+    idHint: "duckduckgo",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "web-search-contract-api.js",
-      "web-search-provider.js"
-    ],
-    "packageName": "@openclaw/duckduckgo-plugin",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw DuckDuckGo plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["web-search-contract-api.js", "web-search-provider.js"],
+    packageName: "@openclaw/duckduckgo-plugin",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw DuckDuckGo plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "duckduckgo",
-      "uiHints": {
+    manifest: {
+      id: "duckduckgo",
+      uiHints: {
         "webSearch.region": {
-          "label": "DuckDuckGo Region",
-          "help": "Optional DuckDuckGo region code such as us-en, uk-en, or de-de."
+          label: "DuckDuckGo Region",
+          help: "Optional DuckDuckGo region code such as us-en, uk-en, or de-de.",
         },
         "webSearch.safeSearch": {
-          "label": "DuckDuckGo SafeSearch",
-          "help": "SafeSearch level for DuckDuckGo results."
-        }
+          label: "DuckDuckGo SafeSearch",
+          help: "SafeSearch level for DuckDuckGo results.",
+        },
       },
-      "contracts": {
-        "webSearchProviders": [
-          "duckduckgo"
-        ]
+      contracts: {
+        webSearchProviders: ["duckduckgo"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "region": {
-                "type": "string"
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              region: {
+                type: "string",
               },
-              "safeSearch": {
-                "type": "string",
-                "enum": [
-                  "strict",
-                  "moderate",
-                  "off"
-                ]
-              }
-            }
-          }
-        }
-      }
-    }
+              safeSearch: {
+                type: "string",
+                enum: ["strict", "moderate", "off"],
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "elevenlabs",
-    "idHint": "elevenlabs",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "elevenlabs",
+    idHint: "elevenlabs",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "config-api.js",
       "config-compat.js",
       "contract-api.js",
@@ -1865,174 +1962,146 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "setup-api.js",
       "shared.js",
       "speech-provider.js",
-      "tts.js"
+      "tts.js",
     ],
-    "packageName": "@openclaw/elevenlabs-speech",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw ElevenLabs speech plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/elevenlabs-speech",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw ElevenLabs speech plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "elevenlabs",
-      "contracts": {
-        "speechProviders": [
-          "elevenlabs"
-        ]
+    manifest: {
+      id: "elevenlabs",
+      contracts: {
+        speechProviders: ["elevenlabs"],
       },
-      "configContracts": {
-        "compatibilityMigrationPaths": [
+      configContracts: {
+        compatibilityMigrationPaths: [
           "talk.voiceId",
           "talk.voiceAliases",
           "talk.modelId",
           "talk.outputFormat",
-          "talk.apiKey"
-        ]
+          "talk.apiKey",
+        ],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "exa",
-    "idHint": "exa",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "exa",
+    idHint: "exa",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "web-search-provider.js"
-    ],
-    "packageName": "@openclaw/exa-plugin",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Exa plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["web-search-provider.js"],
+    packageName: "@openclaw/exa-plugin",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Exa plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "exa",
-      "providerAuthEnvVars": {
-        "exa": [
-          "EXA_API_KEY"
-        ]
+    manifest: {
+      id: "exa",
+      providerAuthEnvVars: {
+        exa: ["EXA_API_KEY"],
       },
-      "uiHints": {
+      uiHints: {
         "webSearch.apiKey": {
-          "label": "Exa API Key",
-          "help": "Exa Search API key (fallback: EXA_API_KEY env var).",
-          "sensitive": true,
-          "placeholder": "exa-..."
-        }
+          label: "Exa API Key",
+          help: "Exa Search API key (fallback: EXA_API_KEY env var).",
+          sensitive: true,
+          placeholder: "exa-...",
+        },
       },
-      "contracts": {
-        "webSearchProviders": [
-          "exa"
-        ]
+      contracts: {
+        webSearchProviders: ["exa"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": [
-                  "string",
-                  "object"
-                ]
-              }
-            }
-          }
-        }
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: ["string", "object"],
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "fal",
-    "idHint": "fal",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "fal",
+    idHint: "fal",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "image-generation-provider.js",
       "onboard.js",
-      "video-generation-provider.js"
+      "video-generation-provider.js",
     ],
-    "packageName": "@openclaw/fal-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw fal provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/fal-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw fal provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "fal",
-      "enabledByDefault": true,
-      "providers": [
-        "fal"
-      ],
-      "providerAuthEnvVars": {
-        "fal": [
-          "FAL_KEY",
-          "FAL_API_KEY"
-        ]
+    manifest: {
+      id: "fal",
+      enabledByDefault: true,
+      providers: ["fal"],
+      providerAuthEnvVars: {
+        fal: ["FAL_KEY", "FAL_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "fal",
-          "method": "api-key",
-          "choiceId": "fal-api-key",
-          "choiceLabel": "fal API key",
-          "groupId": "fal",
-          "groupLabel": "fal",
-          "groupHint": "Image generation",
-          "onboardingScopes": [
-            "image-generation"
-          ],
-          "optionKey": "falApiKey",
-          "cliFlag": "--fal-api-key",
-          "cliOption": "--fal-api-key <key>",
-          "cliDescription": "fal API key"
-        }
+          provider: "fal",
+          method: "api-key",
+          choiceId: "fal-api-key",
+          choiceLabel: "fal API key",
+          groupId: "fal",
+          groupLabel: "fal",
+          groupHint: "Image and video generation",
+          onboardingScopes: ["image-generation"],
+          optionKey: "falApiKey",
+          cliFlag: "--fal-api-key",
+          cliOption: "--fal-api-key <key>",
+          cliDescription: "fal API key",
+        },
       ],
-      "contracts": {
-        "imageGenerationProviders": [
-          "fal"
-        ],
-        "videoGenerationProviders": [
-          "fal"
-        ]
+      contracts: {
+        imageGenerationProviders: ["fal"],
+        videoGenerationProviders: ["fal"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "feishu",
-    "idHint": "feishu",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "feishu",
+    idHint: "feishu",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "channel-entry.js",
       "contract-api.js",
@@ -2040,255 +2109,219 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "secret-contract-api.js",
       "security-contract-api.js",
       "session-key-api.js",
-      "setup-api.js"
+      "setup-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/feishu",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Feishu/Lark channel plugin (community maintained by @m1heng)",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "feishu",
-        "label": "Feishu",
-        "selectionLabel": "Feishu/Lark (飞书)",
-        "docsPath": "/channels/feishu",
-        "docsLabel": "feishu",
-        "blurb": "飞书/Lark enterprise messaging with doc/wiki/drive tools.",
-        "aliases": [
-          "lark"
-        ],
-        "order": 35,
-        "quickstartAllowFrom": true
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/feishu",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Feishu/Lark channel plugin (community maintained by @m1heng)",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "feishu",
+        label: "Feishu",
+        selectionLabel: "Feishu/Lark (飞书)",
+        docsPath: "/channels/feishu",
+        docsLabel: "feishu",
+        blurb: "飞书/Lark enterprise messaging with doc/wiki/drive tools.",
+        aliases: ["lark"],
+        order: 35,
+        quickstartAllowFrom: true,
       },
-      "install": {
-        "npmSpec": "@openclaw/feishu",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
+      install: {
+        npmSpec: "@openclaw/feishu",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "bundle": {
-        "stageRuntimeDependencies": true
+      bundle: {
+        stageRuntimeDependencies: true,
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "feishu",
-      "channels": [
-        "feishu"
-      ],
-      "channelEnvVars": {
-        "feishu": [
+    manifest: {
+      id: "feishu",
+      channels: ["feishu"],
+      channelEnvVars: {
+        feishu: [
           "FEISHU_APP_ID",
           "FEISHU_APP_SECRET",
           "FEISHU_VERIFICATION_TOKEN",
-          "FEISHU_ENCRYPT_KEY"
-        ]
+          "FEISHU_ENCRYPT_KEY",
+        ],
       },
-      "skills": [
-        "./skills"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      skills: ["./skills"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "feishu": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        feishu: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Feishu",
-          "description": "飞书/Lark enterprise messaging with doc/wiki/drive tools."
-        }
-      }
-    }
+          label: "Feishu",
+          description: "飞书/Lark enterprise messaging with doc/wiki/drive tools.",
+        },
+      },
+    },
   },
   {
-    "dirName": "firecrawl",
-    "idHint": "firecrawl",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "firecrawl",
+    idHint: "firecrawl",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "web-fetch-contract-api.js",
       "web-fetch-provider.js",
       "web-search-contract-api.js",
-      "web-search-provider.js"
+      "web-search-provider.js",
     ],
-    "packageName": "@openclaw/firecrawl-plugin",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Firecrawl plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/firecrawl-plugin",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Firecrawl plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "firecrawl",
-      "providerAuthEnvVars": {
-        "firecrawl": [
-          "FIRECRAWL_API_KEY"
-        ]
+    manifest: {
+      id: "firecrawl",
+      providerAuthEnvVars: {
+        firecrawl: ["FIRECRAWL_API_KEY"],
       },
-      "uiHints": {
+      uiHints: {
         "webSearch.apiKey": {
-          "label": "Firecrawl Search API Key",
-          "help": "Firecrawl API key for web search (fallback: FIRECRAWL_API_KEY env var).",
-          "sensitive": true,
-          "placeholder": "fc-..."
+          label: "Firecrawl Search API Key",
+          help: "Firecrawl API key for web search (fallback: FIRECRAWL_API_KEY env var).",
+          sensitive: true,
+          placeholder: "fc-...",
         },
         "webSearch.baseUrl": {
-          "label": "Firecrawl Search Base URL",
-          "help": "Firecrawl Search base URL override."
+          label: "Firecrawl Search Base URL",
+          help: "Firecrawl Search base URL override.",
         },
         "webFetch.apiKey": {
-          "label": "Firecrawl Fetch API Key",
-          "help": "Firecrawl API key for web fetch fallback (fallback: FIRECRAWL_API_KEY env var).",
-          "sensitive": true,
-          "placeholder": "fc-..."
+          label: "Firecrawl Fetch API Key",
+          help: "Firecrawl API key for web fetch fallback (fallback: FIRECRAWL_API_KEY env var).",
+          sensitive: true,
+          placeholder: "fc-...",
         },
         "webFetch.baseUrl": {
-          "label": "Firecrawl Fetch Base URL",
-          "help": "Firecrawl Fetch base URL override."
-        }
+          label: "Firecrawl Fetch Base URL",
+          help: "Firecrawl Fetch base URL override.",
+        },
       },
-      "contracts": {
-        "webFetchProviders": [
-          "firecrawl"
-        ],
-        "webSearchProviders": [
-          "firecrawl"
-        ],
-        "tools": [
-          "firecrawl_search",
-          "firecrawl_scrape"
-        ]
+      contracts: {
+        webFetchProviders: ["firecrawl"],
+        webSearchProviders: ["firecrawl"],
+        tools: ["firecrawl_search", "firecrawl_scrape"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": [
-                  "string",
-                  "object"
-                ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: ["string", "object"],
               },
-              "baseUrl": {
-                "type": "string"
-              }
-            }
+              baseUrl: {
+                type: "string",
+              },
+            },
           },
-          "webFetch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": [
-                  "string",
-                  "object"
-                ]
+          webFetch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: ["string", "object"],
               },
-              "baseUrl": {
-                "type": "string"
+              baseUrl: {
+                type: "string",
               },
-              "onlyMainContent": {
-                "type": "boolean"
+              onlyMainContent: {
+                type: "boolean",
               },
-              "maxAgeMs": {
-                "type": "number"
+              maxAgeMs: {
+                type: "number",
               },
-              "timeoutSeconds": {
-                "type": "number"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  {
-    "dirName": "fireworks",
-    "idHint": "fireworks",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/fireworks-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Fireworks provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "fireworks",
-      "enabledByDefault": true,
-      "providers": [
-        "fireworks"
-      ],
-      "providerAuthEnvVars": {
-        "fireworks": [
-          "FIREWORKS_API_KEY"
-        ]
+              timeoutSeconds: {
+                type: "number",
+              },
+            },
+          },
+        },
       },
-      "providerAuthChoices": [
-        {
-          "provider": "fireworks",
-          "method": "api-key",
-          "choiceId": "fireworks-api-key",
-          "choiceLabel": "Fireworks API key",
-          "groupId": "fireworks",
-          "groupLabel": "Fireworks",
-          "groupHint": "API key",
-          "optionKey": "fireworksApiKey",
-          "cliFlag": "--fireworks-api-key",
-          "cliOption": "--fireworks-api-key <key>",
-          "cliDescription": "Fireworks API key"
-        }
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    },
   },
   {
-    "dirName": "github-copilot",
-    "idHint": "github-copilot",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "fireworks",
+    idHint: "fireworks",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: ["model-id.js", "onboard.js", "provider-catalog.js", "stream.js"],
+    packageName: "@openclaw/fireworks-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Fireworks provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "fireworks",
+      enabledByDefault: true,
+      providers: ["fireworks"],
+      providerAuthEnvVars: {
+        fireworks: ["FIREWORKS_API_KEY"],
+      },
+      providerAuthChoices: [
+        {
+          provider: "fireworks",
+          method: "api-key",
+          choiceId: "fireworks-api-key",
+          choiceLabel: "Fireworks API key",
+          groupId: "fireworks",
+          groupLabel: "Fireworks",
+          groupHint: "API key",
+          optionKey: "fireworksApiKey",
+          cliFlag: "--fireworks-api-key",
+          cliOption: "--fireworks-api-key <key>",
+          cliDescription: "Fireworks API key",
+        },
+      ],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    dirName: "github-copilot",
+    idHint: "github-copilot",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: [
       "api.js",
       "login.js",
       "models-defaults.js",
@@ -2297,79 +2330,69 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "replay-policy.js",
       "stream.js",
       "token.js",
-      "usage.js"
+      "usage.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "register.runtime.js"
-    ],
-    "packageName": "@openclaw/github-copilot-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw GitHub Copilot provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["register.runtime.js"],
+    packageName: "@openclaw/github-copilot-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw GitHub Copilot provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "github-copilot",
-      "enabledByDefault": true,
-      "providers": [
-        "github-copilot"
-      ],
-      "providerAuthEnvVars": {
-        "github-copilot": [
-          "COPILOT_GITHUB_TOKEN",
-          "GH_TOKEN",
-          "GITHUB_TOKEN"
-        ]
+    manifest: {
+      id: "github-copilot",
+      enabledByDefault: true,
+      providers: ["github-copilot"],
+      providerAuthEnvVars: {
+        "github-copilot": ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "github-copilot",
-          "method": "device",
-          "choiceId": "github-copilot",
-          "choiceLabel": "GitHub Copilot",
-          "choiceHint": "Device login with your GitHub account",
-          "groupId": "copilot",
-          "groupLabel": "Copilot",
-          "groupHint": "GitHub + local proxy"
-        }
+          provider: "github-copilot",
+          method: "device",
+          choiceId: "github-copilot",
+          choiceLabel: "GitHub Copilot",
+          choiceHint: "Device login with your GitHub account",
+          groupId: "copilot",
+          groupLabel: "Copilot",
+          groupHint: "GitHub + local proxy",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "discovery": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              }
-            }
-          }
-        }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          discovery: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+            },
+          },
+        },
       },
-      "uiHints": {
-        "discovery": {
-          "label": "Model Discovery",
-          "help": "Plugin-owned controls for GitHub Copilot model auto-discovery."
+      uiHints: {
+        discovery: {
+          label: "Model Discovery",
+          help: "Plugin-owned controls for GitHub Copilot model auto-discovery.",
         },
         "discovery.enabled": {
-          "label": "Enable Discovery",
-          "help": "When false, OpenClaw keeps the GitHub Copilot plugin available but skips implicit startup discovery from ambient Copilot credentials."
-        }
-      }
-    }
+          label: "Enable Discovery",
+          help: "When false, OpenClaw keeps the GitHub Copilot plugin available but skips implicit startup discovery from ambient Copilot credentials.",
+        },
+      },
+    },
   },
   {
-    "dirName": "google",
-    "idHint": "google",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "google",
+    idHint: "google",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "cli-backend.js",
       "gemini-cli-provider.js",
@@ -2395,436 +2418,360 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "setup-api.js",
       "video-generation-provider.js",
       "web-search-contract-api.js",
-      "web-search-provider.js"
+      "web-search-provider.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "oauth.runtime.js",
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/google-plugin",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Google plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["oauth.runtime.js", "runtime-api.js"],
+    packageName: "@openclaw/google-plugin",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Google plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "google",
-      "enabledByDefault": true,
-      "providers": [
-        "google",
-        "google-gemini-cli"
-      ],
-      "autoEnableWhenConfiguredProviders": [
-        "google-gemini-cli"
-      ],
-      "cliBackends": [
-        "google-gemini-cli"
-      ],
-      "providerAuthEnvVars": {
-        "google": [
-          "GEMINI_API_KEY",
-          "GOOGLE_API_KEY"
-        ]
+    manifest: {
+      id: "google",
+      enabledByDefault: true,
+      providers: ["google", "google-gemini-cli"],
+      autoEnableWhenConfiguredProviders: ["google-gemini-cli"],
+      cliBackends: ["google-gemini-cli"],
+      providerAuthEnvVars: {
+        google: ["GEMINI_API_KEY", "GOOGLE_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "google",
-          "method": "api-key",
-          "choiceId": "gemini-api-key",
-          "choiceLabel": "Google Gemini API key",
-          "groupId": "google",
-          "groupLabel": "Google",
-          "groupHint": "Gemini API key + OAuth",
-          "optionKey": "geminiApiKey",
-          "cliFlag": "--gemini-api-key",
-          "cliOption": "--gemini-api-key <key>",
-          "cliDescription": "Gemini API key"
+          provider: "google",
+          method: "api-key",
+          choiceId: "gemini-api-key",
+          choiceLabel: "Google Gemini API key",
+          groupId: "google",
+          groupLabel: "Google",
+          groupHint: "Gemini API key + OAuth",
+          optionKey: "geminiApiKey",
+          cliFlag: "--gemini-api-key",
+          cliOption: "--gemini-api-key <key>",
+          cliDescription: "Gemini API key",
         },
         {
-          "provider": "google-gemini-cli",
-          "method": "oauth",
-          "choiceId": "google-gemini-cli",
-          "choiceLabel": "Gemini CLI OAuth",
-          "choiceHint": "Google OAuth with project-aware token payload",
-          "groupId": "google",
-          "groupLabel": "Google",
-          "groupHint": "Gemini API key + OAuth"
-        }
+          provider: "google-gemini-cli",
+          method: "oauth",
+          choiceId: "google-gemini-cli",
+          choiceLabel: "Gemini CLI OAuth",
+          choiceHint: "Google OAuth with project-aware token payload",
+          groupId: "google",
+          groupLabel: "Google",
+          groupHint: "Gemini API key + OAuth",
+        },
       ],
-      "uiHints": {
+      uiHints: {
         "webSearch.apiKey": {
-          "label": "Gemini Search API Key",
-          "help": "Gemini API key for Google Search grounding (fallback: GEMINI_API_KEY env var).",
-          "sensitive": true,
-          "placeholder": "AIza..."
+          label: "Gemini Search API Key",
+          help: "Gemini API key for Google Search grounding (fallback: GEMINI_API_KEY env var).",
+          sensitive: true,
+          placeholder: "AIza...",
         },
         "webSearch.model": {
-          "label": "Gemini Search Model",
-          "help": "Gemini model override for web search grounding."
-        }
+          label: "Gemini Search Model",
+          help: "Gemini model override for web search grounding.",
+        },
       },
-      "contracts": {
-        "mediaUnderstandingProviders": [
-          "google"
-        ],
-        "imageGenerationProviders": [
-          "google"
-        ],
-        "musicGenerationProviders": [
-          "google"
-        ],
-        "videoGenerationProviders": [
-          "google"
-        ],
-        "webSearchProviders": [
-          "gemini"
-        ]
+      contracts: {
+        mediaUnderstandingProviders: ["google"],
+        imageGenerationProviders: ["google"],
+        musicGenerationProviders: ["google"],
+        videoGenerationProviders: ["google"],
+        webSearchProviders: ["gemini"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": [
-                  "string",
-                  "object"
-                ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: ["string", "object"],
               },
-              "model": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    }
+              model: {
+                type: "string",
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "googlechat",
-    "idHint": "googlechat",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "googlechat",
+    idHint: "googlechat",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "channel-config-api.js",
       "contract-api.js",
       "runtime-api.js",
-      "secret-contract-api.js"
+      "secret-contract-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/googlechat",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Google Chat channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "googlechat",
-        "label": "Google Chat",
-        "selectionLabel": "Google Chat (Chat API)",
-        "detailLabel": "Google Chat",
-        "docsPath": "/channels/googlechat",
-        "docsLabel": "googlechat",
-        "blurb": "Google Workspace Chat app with HTTP webhook.",
-        "aliases": [
-          "gchat",
-          "google-chat"
-        ],
-        "order": 55,
-        "systemImage": "message.badge",
-        "markdownCapable": true
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/googlechat",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Google Chat channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "googlechat",
+        label: "Google Chat",
+        selectionLabel: "Google Chat (Chat API)",
+        detailLabel: "Google Chat",
+        docsPath: "/channels/googlechat",
+        docsLabel: "googlechat",
+        blurb: "Google Workspace Chat app with HTTP webhook.",
+        aliases: ["gchat", "google-chat"],
+        order: 55,
+        systemImage: "message.badge",
+        markdownCapable: true,
       },
-      "install": {
-        "npmSpec": "@openclaw/googlechat",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
-      }
+      install: {
+        npmSpec: "@openclaw/googlechat",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
+      },
     },
-    "manifest": {
-      "id": "googlechat",
-      "channels": [
-        "googlechat"
-      ],
-      "channelEnvVars": {
-        "googlechat": [
-          "GOOGLE_CHAT_SERVICE_ACCOUNT",
-          "GOOGLE_CHAT_SERVICE_ACCOUNT_FILE"
-        ]
+    manifest: {
+      id: "googlechat",
+      channels: ["googlechat"],
+      channelEnvVars: {
+        googlechat: ["GOOGLE_CHAT_SERVICE_ACCOUNT", "GOOGLE_CHAT_SERVICE_ACCOUNT_FILE"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "googlechat": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        googlechat: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Google Chat",
-          "description": "Google Workspace Chat app with HTTP webhook."
-        }
-      }
-    }
+          label: "Google Chat",
+          description: "Google Workspace Chat app with HTTP webhook.",
+        },
+      },
+    },
   },
   {
-    "dirName": "groq",
-    "idHint": "groq",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "groq",
+    idHint: "groq",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "media-understanding-provider.js"
-    ],
-    "packageName": "@openclaw/groq-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Groq media-understanding provider",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["media-understanding-provider.js"],
+    packageName: "@openclaw/groq-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Groq media-understanding provider",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "groq",
-      "enabledByDefault": true,
-      "providerAuthEnvVars": {
-        "groq": [
-          "GROQ_API_KEY"
-        ]
+    manifest: {
+      id: "groq",
+      enabledByDefault: true,
+      providerAuthEnvVars: {
+        groq: ["GROQ_API_KEY"],
       },
-      "contracts": {
-        "mediaUnderstandingProviders": [
-          "groq"
-        ]
+      contracts: {
+        mediaUnderstandingProviders: ["groq"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "huggingface",
-    "idHint": "huggingface",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "huggingface",
+    idHint: "huggingface",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "models.js",
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/huggingface-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Hugging Face provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/huggingface-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Hugging Face provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "huggingface",
-      "enabledByDefault": true,
-      "providers": [
-        "huggingface"
-      ],
-      "providerAuthEnvVars": {
-        "huggingface": [
-          "HUGGINGFACE_HUB_TOKEN",
-          "HF_TOKEN"
-        ]
+    manifest: {
+      id: "huggingface",
+      enabledByDefault: true,
+      providers: ["huggingface"],
+      providerAuthEnvVars: {
+        huggingface: ["HUGGINGFACE_HUB_TOKEN", "HF_TOKEN"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "huggingface",
-          "method": "api-key",
-          "choiceId": "huggingface-api-key",
-          "choiceLabel": "Hugging Face API key",
-          "choiceHint": "Inference API (HF token)",
-          "groupId": "huggingface",
-          "groupLabel": "Hugging Face",
-          "groupHint": "Inference API (HF token)",
-          "optionKey": "huggingfaceApiKey",
-          "cliFlag": "--huggingface-api-key",
-          "cliOption": "--huggingface-api-key <key>",
-          "cliDescription": "Hugging Face API key (HF token)"
-        }
+          provider: "huggingface",
+          method: "api-key",
+          choiceId: "huggingface-api-key",
+          choiceLabel: "Hugging Face API key",
+          choiceHint: "Inference API (HF token)",
+          groupId: "huggingface",
+          groupLabel: "Hugging Face",
+          groupHint: "Inference API (HF token)",
+          optionKey: "huggingfaceApiKey",
+          cliFlag: "--huggingface-api-key",
+          cliOption: "--huggingface-api-key <key>",
+          cliDescription: "Hugging Face API key (HF token)",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "discovery": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              }
-            }
-          }
-        }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          discovery: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+            },
+          },
+        },
       },
-      "uiHints": {
-        "discovery": {
-          "label": "Model Discovery",
-          "help": "Plugin-owned controls for Hugging Face model auto-discovery."
+      uiHints: {
+        discovery: {
+          label: "Model Discovery",
+          help: "Plugin-owned controls for Hugging Face model auto-discovery.",
         },
         "discovery.enabled": {
-          "label": "Enable Discovery",
-          "help": "When false, OpenClaw keeps the Hugging Face plugin available but skips implicit startup discovery from ambient Hugging Face credentials."
-        }
-      }
-    }
+          label: "Enable Discovery",
+          help: "When false, OpenClaw keeps the Hugging Face plugin available but skips implicit startup discovery from ambient Hugging Face credentials.",
+        },
+      },
+    },
   },
   {
-    "dirName": "imessage",
-    "idHint": "imessage",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "imessage",
+    idHint: "imessage",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "channel-config-api.js",
       "config-api.js",
       "contract-api.js",
       "runtime-api.js",
-      "secret-contract-api.js"
+      "secret-contract-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/imessage",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw iMessage channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "imessage",
-        "label": "iMessage",
-        "selectionLabel": "iMessage (imsg)",
-        "detailLabel": "iMessage",
-        "docsPath": "/channels/imessage",
-        "docsLabel": "imessage",
-        "blurb": "this is still a work in progress.",
-        "aliases": [
-          "imsg"
-        ],
-        "systemImage": "message.fill"
-      }
-    },
-    "manifest": {
-      "id": "imessage",
-      "channels": [
-        "imessage"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/imessage",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw iMessage channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "imessage",
+        label: "iMessage",
+        selectionLabel: "iMessage (imsg)",
+        detailLabel: "iMessage",
+        docsPath: "/channels/imessage",
+        docsLabel: "imessage",
+        blurb: "this is still a work in progress.",
+        aliases: ["imsg"],
+        systemImage: "message.fill",
       },
-      "channelConfigs": {
-        "imessage": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+    },
+    manifest: {
+      id: "imessage",
+      channels: ["imessage"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+      channelConfigs: {
+        imessage: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "iMessage",
-          "description": "this is still a work in progress."
-        }
-      }
-    }
+          label: "iMessage",
+          description: "this is still a work in progress.",
+        },
+      },
+    },
   },
   {
-    "dirName": "irc",
-    "idHint": "irc",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "irc",
+    idHint: "irc",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "channel-config-api.js",
       "channel-plugin-api.js",
       "configured-state.js",
       "contract-api.js",
       "runtime-api.js",
-      "secret-contract-api.js"
+      "secret-contract-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/irc",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw IRC channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "install": {
-        "minHostVersion": ">=2026.4.9"
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/irc",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw IRC channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      install: {
+        minHostVersion: ">=2026.4.11",
       },
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "irc",
-        "label": "IRC",
-        "selectionLabel": "IRC (Server + Nick)",
-        "detailLabel": "IRC",
-        "docsPath": "/channels/irc",
-        "docsLabel": "irc",
-        "blurb": "classic IRC networks with DM/channel routing and pairing controls.",
-        "aliases": [
-          "internet-relay-chat"
-        ],
-        "systemImage": "network",
-        "configuredState": {
-          "specifier": "./configured-state",
-          "exportName": "hasIrcConfiguredState"
-        }
-      }
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "irc",
+        label: "IRC",
+        selectionLabel: "IRC (Server + Nick)",
+        detailLabel: "IRC",
+        docsPath: "/channels/irc",
+        docsLabel: "irc",
+        blurb: "classic IRC networks with DM/channel routing and pairing controls.",
+        aliases: ["internet-relay-chat"],
+        systemImage: "network",
+        configuredState: {
+          specifier: "./configured-state",
+          exportName: "hasIrcConfiguredState",
+        },
+      },
     },
-    "manifest": {
-      "id": "irc",
-      "channels": [
-        "irc"
-      ],
-      "channelEnvVars": {
-        "irc": [
+    manifest: {
+      id: "irc",
+      channels: ["irc"],
+      channelEnvVars: {
+        irc: [
           "IRC_HOST",
           "IRC_PORT",
           "IRC_TLS",
@@ -2834,434 +2781,383 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
           "IRC_PASSWORD",
           "IRC_CHANNELS",
           "IRC_NICKSERV_PASSWORD",
-          "IRC_NICKSERV_REGISTER_EMAIL"
-        ]
+          "IRC_NICKSERV_REGISTER_EMAIL",
+        ],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "irc": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        irc: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "IRC",
-          "description": "classic IRC networks with DM/channel routing and pairing controls."
-        }
-      }
-    }
+          label: "IRC",
+          description: "classic IRC networks with DM/channel routing and pairing controls.",
+        },
+      },
+    },
   },
   {
-    "dirName": "kilocode",
-    "idHint": "kilocode",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "kilocode",
+    idHint: "kilocode",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "onboard.js",
       "provider-catalog.js",
       "provider-models.js",
-      "shared.js"
+      "shared.js",
     ],
-    "packageName": "@openclaw/kilocode-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Kilo Gateway provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/kilocode-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Kilo Gateway provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "kilocode",
-      "enabledByDefault": true,
-      "providers": [
-        "kilocode"
-      ],
-      "providerAuthEnvVars": {
-        "kilocode": [
-          "KILOCODE_API_KEY"
-        ]
+    manifest: {
+      id: "kilocode",
+      enabledByDefault: true,
+      providers: ["kilocode"],
+      providerAuthEnvVars: {
+        kilocode: ["KILOCODE_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "kilocode",
-          "method": "api-key",
-          "choiceId": "kilocode-api-key",
-          "choiceLabel": "Kilo Gateway API key",
-          "choiceHint": "API key (OpenRouter-compatible)",
-          "groupId": "kilocode",
-          "groupLabel": "Kilo Gateway",
-          "groupHint": "API key (OpenRouter-compatible)",
-          "optionKey": "kilocodeApiKey",
-          "cliFlag": "--kilocode-api-key",
-          "cliOption": "--kilocode-api-key <key>",
-          "cliDescription": "Kilo Gateway API key"
-        }
+          provider: "kilocode",
+          method: "api-key",
+          choiceId: "kilocode-api-key",
+          choiceLabel: "Kilo Gateway API key",
+          choiceHint: "API key (OpenRouter-compatible)",
+          groupId: "kilocode",
+          groupLabel: "Kilo Gateway",
+          groupHint: "API key (OpenRouter-compatible)",
+          optionKey: "kilocodeApiKey",
+          cliFlag: "--kilocode-api-key",
+          cliOption: "--kilocode-api-key <key>",
+          cliDescription: "Kilo Gateway API key",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "kimi-coding",
-    "idHint": "kimi",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "kimi-coding",
+    idHint: "kimi",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "onboard.js",
       "provider-catalog.js",
       "replay-policy.js",
-      "stream.js"
+      "stream.js",
     ],
-    "packageName": "@openclaw/kimi-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Kimi provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/kimi-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Kimi provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "kimi",
-      "enabledByDefault": true,
-      "providers": [
-        "kimi",
-        "kimi-coding"
-      ],
-      "providerAuthEnvVars": {
-        "kimi": [
-          "KIMI_API_KEY",
-          "KIMICODE_API_KEY"
-        ],
-        "kimi-coding": [
-          "KIMI_API_KEY",
-          "KIMICODE_API_KEY"
-        ]
+    manifest: {
+      id: "kimi",
+      enabledByDefault: true,
+      providers: ["kimi", "kimi-coding"],
+      providerAuthEnvVars: {
+        kimi: ["KIMI_API_KEY", "KIMICODE_API_KEY"],
+        "kimi-coding": ["KIMI_API_KEY", "KIMICODE_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "kimi",
-          "method": "api-key",
-          "choiceId": "kimi-code-api-key",
-          "choiceLabel": "Kimi Code API key (subscription)",
-          "groupId": "moonshot",
-          "groupLabel": "Moonshot AI (Kimi K2.5)",
-          "groupHint": "Kimi K2.5",
-          "optionKey": "kimiCodeApiKey",
-          "cliFlag": "--kimi-code-api-key",
-          "cliOption": "--kimi-code-api-key <key>",
-          "cliDescription": "Kimi Code API key (subscription)"
-        }
+          provider: "kimi",
+          method: "api-key",
+          choiceId: "kimi-code-api-key",
+          choiceLabel: "Kimi Code API key (subscription)",
+          groupId: "moonshot",
+          groupLabel: "Moonshot AI (Kimi K2.5)",
+          groupHint: "Kimi K2.5",
+          optionKey: "kimiCodeApiKey",
+          cliFlag: "--kimi-code-api-key",
+          cliOption: "--kimi-code-api-key <key>",
+          cliDescription: "Kimi Code API key (subscription)",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "line",
-    "idHint": "line",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "line",
+    idHint: "line",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "contract-api.js",
       "runtime-api.js",
       "secret-contract-api.js",
-      "setup-api.js"
+      "setup-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/line",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw LINE channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "line",
-        "label": "LINE",
-        "selectionLabel": "LINE (Messaging API)",
-        "detailLabel": "LINE Bot",
-        "docsPath": "/channels/line",
-        "docsLabel": "line",
-        "blurb": "LINE Messaging API webhook bot.",
-        "systemImage": "message",
-        "order": 75,
-        "quickstartAllowFrom": true
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/line",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw LINE channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "line",
+        label: "LINE",
+        selectionLabel: "LINE (Messaging API)",
+        detailLabel: "LINE Bot",
+        docsPath: "/channels/line",
+        docsLabel: "line",
+        blurb: "LINE Messaging API webhook bot.",
+        systemImage: "message",
+        order: 75,
+        quickstartAllowFrom: true,
       },
-      "install": {
-        "npmSpec": "@openclaw/line",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
-      }
+      install: {
+        npmSpec: "@openclaw/line",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
+      },
     },
-    "manifest": {
-      "id": "line",
-      "channels": [
-        "line"
-      ],
-      "channelEnvVars": {
-        "line": [
-          "LINE_CHANNEL_ACCESS_TOKEN",
-          "LINE_CHANNEL_SECRET"
-        ]
+    manifest: {
+      id: "line",
+      channels: ["line"],
+      channelEnvVars: {
+        line: ["LINE_CHANNEL_ACCESS_TOKEN", "LINE_CHANNEL_SECRET"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "line": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        line: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "LINE",
-          "description": "LINE Messaging API webhook bot."
-        }
-      }
-    }
+          label: "LINE",
+          description: "LINE Messaging API webhook bot.",
+        },
+      },
+    },
   },
   {
-    "dirName": "litellm",
-    "idHint": "litellm",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "litellm",
+    idHint: "litellm",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/litellm-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw LiteLLM provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/litellm-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw LiteLLM provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "litellm",
-      "enabledByDefault": true,
-      "providers": [
-        "litellm"
-      ],
-      "providerAuthEnvVars": {
-        "litellm": [
-          "LITELLM_API_KEY"
-        ]
+    manifest: {
+      id: "litellm",
+      enabledByDefault: true,
+      providers: ["litellm"],
+      providerAuthEnvVars: {
+        litellm: ["LITELLM_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "litellm",
-          "method": "api-key",
-          "choiceId": "litellm-api-key",
-          "choiceLabel": "LiteLLM API key",
-          "choiceHint": "Unified gateway for 100+ LLM providers",
-          "groupId": "litellm",
-          "groupLabel": "LiteLLM",
-          "groupHint": "Unified LLM gateway (100+ providers)",
-          "optionKey": "litellmApiKey",
-          "cliFlag": "--litellm-api-key",
-          "cliOption": "--litellm-api-key <key>",
-          "cliDescription": "LiteLLM API key"
-        }
+          provider: "litellm",
+          method: "api-key",
+          choiceId: "litellm-api-key",
+          choiceLabel: "LiteLLM API key",
+          choiceHint: "Unified gateway for 100+ LLM providers",
+          groupId: "litellm",
+          groupLabel: "LiteLLM",
+          groupHint: "Unified LLM gateway (100+ providers)",
+          optionKey: "litellmApiKey",
+          cliFlag: "--litellm-api-key",
+          cliOption: "--litellm-api-key <key>",
+          cliDescription: "LiteLLM API key",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "llm-task",
-    "idHint": "llm-task",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "llm-task",
+    idHint: "llm-task",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js"
-    ],
-    "packageName": "@openclaw/llm-task",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw JSON-only LLM task plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js"],
+    packageName: "@openclaw/llm-task",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw JSON-only LLM task plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "llm-task",
-      "name": "LLM Task",
-      "description": "Generic JSON-only LLM tool for structured tasks callable from workflows.",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "defaultProvider": {
-            "type": "string"
+    manifest: {
+      id: "llm-task",
+      name: "LLM Task",
+      description: "Generic JSON-only LLM tool for structured tasks callable from workflows.",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          defaultProvider: {
+            type: "string",
           },
-          "defaultModel": {
-            "type": "string"
+          defaultModel: {
+            type: "string",
           },
-          "defaultAuthProfileId": {
-            "type": "string"
+          defaultAuthProfileId: {
+            type: "string",
           },
-          "allowedModels": {
-            "type": "array",
-            "items": {
-              "type": "string"
+          allowedModels: {
+            type: "array",
+            items: {
+              type: "string",
             },
-            "description": "Allowlist of provider/model keys like openai-codex/gpt-5.2."
+            description: "Allowlist of provider/model keys like openai-codex/gpt-5.2.",
           },
-          "maxTokens": {
-            "type": "number"
+          maxTokens: {
+            type: "number",
           },
-          "timeoutMs": {
-            "type": "number"
-          }
-        }
-      }
-    }
+          timeoutMs: {
+            type: "number",
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "lobster",
-    "idHint": "lobster",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "lobster",
+    idHint: "lobster",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/lobster",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "Lobster workflow tool plugin (typed pipelines + resumable approvals)",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+    publicSurfaceArtifacts: ["runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/lobster",
+    packageVersion: "2026.4.11",
+    packageDescription: "Lobster workflow tool plugin (typed pipelines + resumable approvals)",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "lobster",
-      "name": "Lobster",
-      "description": "Typed workflow tool with resumable approvals.",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    manifest: {
+      id: "lobster",
+      name: "Lobster",
+      description: "Typed workflow tool with resumable approvals.",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "matrix",
-    "idHint": "matrix",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "matrix",
+    idHint: "matrix",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "auth-presence.js",
       "channel-plugin-api.js",
       "cli-metadata.js",
       "contract-api.js",
       "helper-api.js",
-      "legacy-crypto-inspector.js",
       "plugin-entry.handlers.runtime.js",
       "runtime-api.js",
       "runtime-heavy-api.js",
       "secret-contract-api.js",
-      "thread-bindings-runtime.js"
+      "thread-bindings-runtime.js",
     ],
-    "runtimeSidecarArtifacts": [
+    runtimeSidecarArtifacts: [
       "plugin-entry.handlers.runtime.js",
       "runtime-api.js",
-      "thread-bindings-runtime.js"
+      "thread-bindings-runtime.js",
     ],
-    "packageName": "@openclaw/matrix",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Matrix channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "matrix",
-        "label": "Matrix",
-        "selectionLabel": "Matrix (plugin)",
-        "docsPath": "/channels/matrix",
-        "docsLabel": "matrix",
-        "blurb": "open protocol; install the plugin to enable.",
-        "order": 70,
-        "quickstartAllowFrom": true,
-        "persistedAuthState": {
-          "specifier": "./auth-presence",
-          "exportName": "hasAnyMatrixAuth"
-        }
+    packageName: "@openclaw/matrix",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Matrix channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "matrix",
+        label: "Matrix",
+        selectionLabel: "Matrix (plugin)",
+        docsPath: "/channels/matrix",
+        docsLabel: "matrix",
+        blurb: "open protocol; install the plugin to enable.",
+        order: 70,
+        quickstartAllowFrom: true,
+        persistedAuthState: {
+          specifier: "./auth-presence",
+          exportName: "hasAnyMatrixAuth",
+        },
       },
-      "install": {
-        "npmSpec": "@openclaw/matrix",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9",
-        "allowInvalidConfigRecovery": true
-      }
+      install: {
+        npmSpec: "@openclaw/matrix",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
+        allowInvalidConfigRecovery: true,
+      },
     },
-    "manifest": {
-      "id": "matrix",
-      "channels": [
-        "matrix"
-      ],
-      "channelEnvVars": {
-        "matrix": [
+    manifest: {
+      id: "matrix",
+      channels: ["matrix"],
+      channelEnvVars: {
+        matrix: [
           "MATRIX_HOMESERVER",
           "MATRIX_USER_ID",
           "MATRIX_ACCESS_TOKEN",
@@ -3271,722 +3167,660 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
           "MATRIX_OPS_HOMESERVER",
           "MATRIX_OPS_ACCESS_TOKEN",
           "MATRIX_OPS_DEVICE_ID",
-          "MATRIX_OPS_DEVICE_NAME"
-        ]
+          "MATRIX_OPS_DEVICE_NAME",
+        ],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "matrix": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        matrix: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Matrix",
-          "description": "open protocol; install the plugin to enable."
-        }
-      }
-    }
+          label: "Matrix",
+          description: "open protocol; install the plugin to enable.",
+        },
+      },
+    },
   },
   {
-    "dirName": "mattermost",
-    "idHint": "mattermost",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "mattermost",
+    idHint: "mattermost",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "channel-plugin-api.js",
       "channel-plugin-runtime.js",
       "contract-api.js",
       "policy-api.js",
       "runtime-api.js",
-      "secret-contract-api.js"
+      "secret-contract-api.js",
+      "slash-route-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "channel-plugin-runtime.js",
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/mattermost",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Mattermost channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "mattermost",
-        "label": "Mattermost",
-        "selectionLabel": "Mattermost (plugin)",
-        "docsPath": "/channels/mattermost",
-        "docsLabel": "mattermost",
-        "blurb": "self-hosted Slack-style chat; install the plugin to enable.",
-        "order": 65
+    runtimeSidecarArtifacts: ["channel-plugin-runtime.js", "runtime-api.js"],
+    packageName: "@openclaw/mattermost",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Mattermost channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "mattermost",
+        label: "Mattermost",
+        selectionLabel: "Mattermost (plugin)",
+        docsPath: "/channels/mattermost",
+        docsLabel: "mattermost",
+        blurb: "self-hosted Slack-style chat; install the plugin to enable.",
+        order: 65,
       },
-      "install": {
-        "npmSpec": "@openclaw/mattermost",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
-      }
+      install: {
+        npmSpec: "@openclaw/mattermost",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
+      },
     },
-    "manifest": {
-      "id": "mattermost",
-      "channels": [
-        "mattermost"
-      ],
-      "channelEnvVars": {
-        "mattermost": [
-          "MATTERMOST_BOT_TOKEN",
-          "MATTERMOST_URL"
-        ]
+    manifest: {
+      id: "mattermost",
+      channels: ["mattermost"],
+      channelEnvVars: {
+        mattermost: ["MATTERMOST_BOT_TOKEN", "MATTERMOST_URL"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "mattermost": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        mattermost: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Mattermost",
-          "description": "self-hosted Slack-style chat; install the plugin to enable."
-        }
-      }
-    }
-  },
-  {
-    "dirName": "memory-core",
-    "idHint": "memory-core",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "cli-metadata.js",
-      "manager-runtime.js",
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "manager-runtime.js",
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/memory-core",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw core memory search plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "memory-core",
-      "kind": "memory",
-      "uiHints": {
-        "dreaming.frequency": {
-          "label": "Dreaming Frequency",
-          "placeholder": "0 3 * * *",
-          "help": "Optional cron cadence for the full dreaming sweep (light, REM, then deep)."
-        }
+          label: "Mattermost",
+          description: "self-hosted Slack-style chat; install the plugin to enable.",
+        },
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "dreaming": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "frequency": {
-                "type": "string"
-              },
-              "timezone": {
-                "type": "string"
-              },
-              "verboseLogging": {
-                "type": "boolean"
-              },
-              "storage": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "mode": {
-                    "type": "string",
-                    "enum": [
-                      "inline",
-                      "separate",
-                      "both"
-                    ]
-                  },
-                  "separateReports": {
-                    "type": "boolean"
-                  }
-                }
-              },
-              "phases": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "light": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "lookbackDays": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "limit": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "dedupeSimilarity": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1
-                      }
-                    }
-                  },
-                  "deep": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "limit": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "minScore": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1
-                      },
-                      "minRecallCount": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "minUniqueQueries": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "recencyHalfLifeDays": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "maxAgeDays": {
-                        "type": "integer",
-                        "minimum": 1
-                      }
-                    }
-                  },
-                  "rem": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "lookbackDays": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "limit": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "minPatternStrength": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    },
   },
   {
-    "dirName": "memory-lancedb",
-    "idHint": "memory-lancedb",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "memory-core",
+    idHint: "memory-core",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "cli-metadata.js",
-      "config.js",
-      "lancedb-runtime.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "lancedb-runtime.js"
-    ],
-    "packageName": "@openclaw/memory-lancedb",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw LanceDB-backed long-term memory plugin with auto-recall/capture",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
+    publicSurfaceArtifacts: ["api.js", "cli-metadata.js", "manager-runtime.js", "runtime-api.js"],
+    runtimeSidecarArtifacts: ["manager-runtime.js", "runtime-api.js"],
+    packageName: "@openclaw/memory-core",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw core memory search plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "memory-core",
+      kind: "memory",
+      commandAliases: [
+        {
+          name: "dreaming",
+          kind: "runtime-slash",
+          cliCommand: "memory",
+        },
       ],
-      "install": {
-        "npmSpec": "@openclaw/memory-lancedb",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
+      uiHints: {
+        "dreaming.frequency": {
+          label: "Dreaming Frequency",
+          placeholder: "0 3 * * *",
+          help: "Optional cron cadence for the full dreaming sweep (light, REM, then deep).",
+        },
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dreaming: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              frequency: {
+                type: "string",
+              },
+              timezone: {
+                type: "string",
+              },
+              verboseLogging: {
+                type: "boolean",
+              },
+              storage: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  mode: {
+                    type: "string",
+                    enum: ["inline", "separate", "both"],
+                  },
+                  separateReports: {
+                    type: "boolean",
+                  },
+                },
+              },
+              phases: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  light: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      enabled: {
+                        type: "boolean",
+                      },
+                      lookbackDays: {
+                        type: "integer",
+                        minimum: 0,
+                      },
+                      limit: {
+                        type: "integer",
+                        minimum: 0,
+                      },
+                      dedupeSimilarity: {
+                        type: "number",
+                        minimum: 0,
+                        maximum: 1,
+                      },
+                    },
+                  },
+                  deep: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      enabled: {
+                        type: "boolean",
+                      },
+                      limit: {
+                        type: "integer",
+                        minimum: 0,
+                      },
+                      minScore: {
+                        type: "number",
+                        minimum: 0,
+                        maximum: 1,
+                      },
+                      minRecallCount: {
+                        type: "integer",
+                        minimum: 0,
+                      },
+                      minUniqueQueries: {
+                        type: "integer",
+                        minimum: 0,
+                      },
+                      recencyHalfLifeDays: {
+                        type: "integer",
+                        minimum: 0,
+                      },
+                      maxAgeDays: {
+                        type: "integer",
+                        minimum: 1,
+                      },
+                    },
+                  },
+                  rem: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      enabled: {
+                        type: "boolean",
+                      },
+                      lookbackDays: {
+                        type: "integer",
+                        minimum: 0,
+                      },
+                      limit: {
+                        type: "integer",
+                        minimum: 0,
+                      },
+                      minPatternStrength: {
+                        type: "number",
+                        minimum: 0,
+                        maximum: 1,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
-      },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
     },
-    "manifest": {
-      "id": "memory-lancedb",
-      "kind": "memory",
-      "uiHints": {
+  },
+  {
+    dirName: "memory-lancedb",
+    idHint: "memory-lancedb",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: ["api.js", "cli-metadata.js", "config.js", "lancedb-runtime.js"],
+    runtimeSidecarArtifacts: ["lancedb-runtime.js"],
+    packageName: "@openclaw/memory-lancedb",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw LanceDB-backed long-term memory plugin with auto-recall/capture",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      install: {
+        npmSpec: "@openclaw/memory-lancedb",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
+      },
+      compat: {
+        pluginApi: ">=2026.4.11",
+      },
+      build: {
+        openclawVersion: "2026.4.11",
+      },
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
+    },
+    manifest: {
+      id: "memory-lancedb",
+      kind: "memory",
+      uiHints: {
         "embedding.apiKey": {
-          "label": "OpenAI API Key",
-          "sensitive": true,
-          "placeholder": "sk-proj-...",
-          "help": "API key for OpenAI embeddings (or use ${OPENAI_API_KEY})"
+          label: "OpenAI API Key",
+          sensitive: true,
+          placeholder: "sk-proj-...",
+          help: "API key for OpenAI embeddings (or use ${OPENAI_API_KEY})",
         },
         "embedding.model": {
-          "label": "Embedding Model",
-          "placeholder": "text-embedding-3-small",
-          "help": "OpenAI embedding model to use"
+          label: "Embedding Model",
+          placeholder: "text-embedding-3-small",
+          help: "OpenAI embedding model to use",
         },
         "embedding.baseUrl": {
-          "label": "Base URL",
-          "placeholder": "https://api.openai.com/v1",
-          "help": "Base URL for compatible providers (e.g. http://localhost:11434/v1)",
-          "advanced": true
+          label: "Base URL",
+          placeholder: "https://api.openai.com/v1",
+          help: "Base URL for compatible providers (e.g. http://localhost:11434/v1)",
+          advanced: true,
         },
         "embedding.dimensions": {
-          "label": "Dimensions",
-          "placeholder": "1536",
-          "help": "Vector dimensions for custom models (required for non-standard models)",
-          "advanced": true
+          label: "Dimensions",
+          placeholder: "1536",
+          help: "Vector dimensions for custom models (required for non-standard models)",
+          advanced: true,
         },
-        "dbPath": {
-          "label": "Database Path",
-          "placeholder": "~/.openclaw/memory/lancedb",
-          "advanced": true
+        dbPath: {
+          label: "Database Path",
+          placeholder: "~/.openclaw/memory/lancedb",
+          advanced: true,
         },
-        "autoCapture": {
-          "label": "Auto-Capture",
-          "help": "Automatically capture important information from conversations"
+        autoCapture: {
+          label: "Auto-Capture",
+          help: "Automatically capture important information from conversations",
         },
-        "autoRecall": {
-          "label": "Auto-Recall",
-          "help": "Automatically inject relevant memories into context"
+        autoRecall: {
+          label: "Auto-Recall",
+          help: "Automatically inject relevant memories into context",
         },
-        "captureMaxChars": {
-          "label": "Capture Max Chars",
-          "help": "Maximum message length eligible for auto-capture",
-          "advanced": true,
-          "placeholder": "500"
-        }
+        dreaming: {
+          label: "Dreaming",
+          help: "Optional dreaming config consumed when this plugin owns the memory slot",
+        },
+        captureMaxChars: {
+          label: "Capture Max Chars",
+          help: "Maximum message length eligible for auto-capture",
+          advanced: true,
+          placeholder: "500",
+        },
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "embedding": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": "string"
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          embedding: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: "string",
               },
-              "model": {
-                "type": "string"
+              model: {
+                type: "string",
               },
-              "baseUrl": {
-                "type": "string"
+              baseUrl: {
+                type: "string",
               },
-              "dimensions": {
-                "type": "number"
-              }
+              dimensions: {
+                type: "number",
+              },
             },
-            "required": [
-              "apiKey"
-            ]
+            required: ["apiKey"],
           },
-          "dbPath": {
-            "type": "string"
+          dbPath: {
+            type: "string",
           },
-          "autoCapture": {
-            "type": "boolean"
+          autoCapture: {
+            type: "boolean",
           },
-          "autoRecall": {
-            "type": "boolean"
+          autoRecall: {
+            type: "boolean",
           },
-          "captureMaxChars": {
-            "type": "number",
-            "minimum": 100,
-            "maximum": 10000
-          }
+          dreaming: {
+            type: "object",
+          },
+          captureMaxChars: {
+            type: "number",
+            minimum: 100,
+            maximum: 10000,
+          },
         },
-        "required": [
-          "embedding"
-        ]
-      }
-    }
+        required: ["embedding"],
+      },
+    },
   },
   {
-    "dirName": "memory-wiki",
-    "idHint": "memory-wiki",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "memory-wiki",
+    idHint: "memory-wiki",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "cli-metadata.js",
-      "contract-api.js",
-      "setup-api.js"
-    ],
-    "packageName": "@openclaw/memory-wiki",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw persistent wiki plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "cli-metadata.js", "contract-api.js", "setup-api.js"],
+    packageName: "@openclaw/memory-wiki",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw persistent wiki plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "memory-wiki",
-      "name": "Memory Wiki",
-      "description": "Persistent wiki compiler and Obsidian-friendly knowledge vault for OpenClaw.",
-      "skills": [
-        "./skills"
-      ],
-      "uiHints": {
-        "vaultMode": {
-          "label": "Vault Mode",
-          "help": "Choose isolated, bridge, or unsafe-local mode for the wiki vault."
+    manifest: {
+      id: "memory-wiki",
+      name: "Memory Wiki",
+      description: "Persistent wiki compiler and Obsidian-friendly knowledge vault for OpenClaw.",
+      skills: ["./skills"],
+      uiHints: {
+        vaultMode: {
+          label: "Vault Mode",
+          help: "Choose isolated, bridge, or unsafe-local mode for the wiki vault.",
         },
         "vault.path": {
-          "label": "Vault Path",
-          "help": "Filesystem path for the wiki vault root."
+          label: "Vault Path",
+          help: "Filesystem path for the wiki vault root.",
         },
         "vault.renderMode": {
-          "label": "Render Mode",
-          "help": "Render markdown in native OpenClaw format or Obsidian-friendly format."
+          label: "Render Mode",
+          help: "Render markdown in native OpenClaw format or Obsidian-friendly format.",
         },
         "obsidian.useOfficialCli": {
-          "label": "Use Obsidian CLI",
-          "help": "Probe and use the official Obsidian CLI when available."
+          label: "Use Obsidian CLI",
+          help: "Probe and use the official Obsidian CLI when available.",
         },
         "bridge.enabled": {
-          "label": "Enable Bridge Mode",
-          "help": "Read public memory artifacts and events from the active memory plugin in bridge mode."
+          label: "Enable Bridge Mode",
+          help: "Read public memory artifacts and events from the active memory plugin in bridge mode.",
         },
         "bridge.readMemoryArtifacts": {
-          "label": "Read Memory Artifacts",
-          "help": "Enable bridge reads from the active memory plugin's public artifact export."
+          label: "Read Memory Artifacts",
+          help: "Enable bridge reads from the active memory plugin's public artifact export.",
         },
         "unsafeLocal.allowPrivateMemoryCoreAccess": {
-          "label": "Allow Private Memory Access",
-          "help": "Experimental same-repo escape hatch for reading memory-core private paths."
+          label: "Allow Private Memory Access",
+          help: "Experimental same-repo escape hatch for reading memory-core private paths.",
         },
         "context.includeCompiledDigestPrompt": {
-          "label": "Include Compiled Digest In Prompt",
-          "help": "Append a compact compiled wiki digest snapshot to memory prompt sections for context engines and legacy prompt assembly."
-        }
+          label: "Include Compiled Digest In Prompt",
+          help: "Append a compact compiled wiki digest snapshot to memory prompt sections for context engines and legacy prompt assembly.",
+        },
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "vaultMode": {
-            "type": "string",
-            "enum": [
-              "isolated",
-              "bridge",
-              "unsafe-local"
-            ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          vaultMode: {
+            type: "string",
+            enum: ["isolated", "bridge", "unsafe-local"],
           },
-          "vault": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "path": {
-                "type": "string"
+          vault: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              path: {
+                type: "string",
               },
-              "renderMode": {
-                "type": "string",
-                "enum": [
-                  "native",
-                  "obsidian"
-                ]
-              }
-            }
+              renderMode: {
+                type: "string",
+                enum: ["native", "obsidian"],
+              },
+            },
           },
-          "obsidian": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
+          obsidian: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
               },
-              "useOfficialCli": {
-                "type": "boolean"
+              useOfficialCli: {
+                type: "boolean",
               },
-              "vaultName": {
-                "type": "string"
+              vaultName: {
+                type: "string",
               },
-              "openAfterWrites": {
-                "type": "boolean"
-              }
-            }
+              openAfterWrites: {
+                type: "boolean",
+              },
+            },
           },
-          "bridge": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
+          bridge: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
               },
-              "readMemoryArtifacts": {
-                "type": "boolean"
+              readMemoryArtifacts: {
+                type: "boolean",
               },
-              "indexDreamReports": {
-                "type": "boolean"
+              indexDreamReports: {
+                type: "boolean",
               },
-              "indexDailyNotes": {
-                "type": "boolean"
+              indexDailyNotes: {
+                type: "boolean",
               },
-              "indexMemoryRoot": {
-                "type": "boolean"
+              indexMemoryRoot: {
+                type: "boolean",
               },
-              "followMemoryEvents": {
-                "type": "boolean"
-              }
-            }
+              followMemoryEvents: {
+                type: "boolean",
+              },
+            },
           },
-          "unsafeLocal": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "allowPrivateMemoryCoreAccess": {
-                "type": "boolean"
+          unsafeLocal: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              allowPrivateMemoryCoreAccess: {
+                type: "boolean",
               },
-              "paths": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            }
+              paths: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+            },
           },
-          "ingest": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "autoCompile": {
-                "type": "boolean"
+          ingest: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              autoCompile: {
+                type: "boolean",
               },
-              "maxConcurrentJobs": {
-                "type": "number",
-                "minimum": 1
+              maxConcurrentJobs: {
+                type: "number",
+                minimum: 1,
               },
-              "allowUrlIngest": {
-                "type": "boolean"
-              }
-            }
+              allowUrlIngest: {
+                type: "boolean",
+              },
+            },
           },
-          "search": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "backend": {
-                "type": "string",
-                "enum": [
-                  "shared",
-                  "local"
-                ]
+          search: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              backend: {
+                type: "string",
+                enum: ["shared", "local"],
               },
-              "corpus": {
-                "type": "string",
-                "enum": [
-                  "wiki",
-                  "memory",
-                  "all"
-                ]
-              }
-            }
+              corpus: {
+                type: "string",
+                enum: ["wiki", "memory", "all"],
+              },
+            },
           },
-          "context": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "includeCompiledDigestPrompt": {
-                "type": "boolean"
-              }
-            }
+          context: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              includeCompiledDigestPrompt: {
+                type: "boolean",
+              },
+            },
           },
-          "render": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "preserveHumanBlocks": {
-                "type": "boolean"
+          render: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              preserveHumanBlocks: {
+                type: "boolean",
               },
-              "createBacklinks": {
-                "type": "boolean"
+              createBacklinks: {
+                type: "boolean",
               },
-              "createDashboards": {
-                "type": "boolean"
-              }
-            }
-          }
-        }
+              createDashboards: {
+                type: "boolean",
+              },
+            },
+          },
+        },
       },
-      "configContracts": {
-        "compatibilityMigrationPaths": [
-          "plugins.entries.memory-wiki.config.bridge.readMemoryCore"
-        ]
-      }
-    }
+      configContracts: {
+        compatibilityMigrationPaths: ["plugins.entries.memory-wiki.config.bridge.readMemoryCore"],
+      },
+    },
   },
   {
-    "dirName": "microsoft",
-    "idHint": "microsoft",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "microsoft",
+    idHint: "microsoft",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "speech-provider.js",
-      "tts.js"
-    ],
-    "packageName": "@openclaw/microsoft-speech",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Microsoft speech plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["speech-provider.js", "tts.js"],
+    packageName: "@openclaw/microsoft-speech",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Microsoft speech plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "microsoft",
-      "contracts": {
-        "speechProviders": [
-          "microsoft"
-        ]
+    manifest: {
+      id: "microsoft",
+      contracts: {
+        speechProviders: ["microsoft"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "microsoft-foundry",
-    "idHint": "microsoft-foundry",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "microsoft-foundry",
+    idHint: "microsoft-foundry",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "auth.js",
       "cli.js",
       "onboard.js",
       "provider.js",
       "runtime.js",
       "shared-runtime.js",
-      "shared.js"
+      "shared.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "shared-runtime.js"
-    ],
-    "packageName": "@openclaw/microsoft-foundry",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Microsoft Foundry provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["shared-runtime.js"],
+    packageName: "@openclaw/microsoft-foundry",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Microsoft Foundry provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "microsoft-foundry",
-      "enabledByDefault": true,
-      "providers": [
-        "microsoft-foundry"
-      ],
-      "providerAuthEnvVars": {
-        "microsoft-foundry": [
-          "AZURE_OPENAI_API_KEY"
-        ]
+    manifest: {
+      id: "microsoft-foundry",
+      enabledByDefault: true,
+      providers: ["microsoft-foundry"],
+      providerAuthEnvVars: {
+        "microsoft-foundry": ["AZURE_OPENAI_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "microsoft-foundry",
-          "method": "entra-id",
-          "choiceId": "microsoft-foundry-entra",
-          "choiceLabel": "Microsoft Foundry (Entra ID / az login)",
-          "choiceHint": "Use your Azure login — no API key needed",
-          "groupId": "microsoft-foundry",
-          "groupLabel": "Microsoft Foundry",
-          "groupHint": "Entra ID + API key"
+          provider: "microsoft-foundry",
+          method: "entra-id",
+          choiceId: "microsoft-foundry-entra",
+          choiceLabel: "Microsoft Foundry (Entra ID / az login)",
+          choiceHint: "Use your Azure login — no API key needed",
+          groupId: "microsoft-foundry",
+          groupLabel: "Microsoft Foundry",
+          groupHint: "Entra ID + API key",
         },
         {
-          "provider": "microsoft-foundry",
-          "method": "api-key",
-          "choiceId": "microsoft-foundry-apikey",
-          "choiceLabel": "Microsoft Foundry (API key)",
-          "choiceHint": "Use an Azure OpenAI API key directly",
-          "groupId": "microsoft-foundry",
-          "groupLabel": "Microsoft Foundry",
-          "groupHint": "Entra ID + API key"
-        }
+          provider: "microsoft-foundry",
+          method: "api-key",
+          choiceId: "microsoft-foundry-apikey",
+          choiceLabel: "Microsoft Foundry (API key)",
+          choiceHint: "Use an Azure OpenAI API key directly",
+          groupId: "microsoft-foundry",
+          groupLabel: "Microsoft Foundry",
+          groupHint: "Entra ID + API key",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "minimax",
-    "idHint": "minimax",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "minimax",
+    idHint: "minimax",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "image-generation-provider.js",
       "media-understanding-provider.js",
@@ -4002,762 +3836,630 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "tts.js",
       "video-generation-provider.js",
       "web-search-contract-api.js",
-      "web-search-provider.js"
+      "web-search-provider.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "oauth.runtime.js"
-    ],
-    "packageName": "@openclaw/minimax-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw MiniMax provider and OAuth plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["oauth.runtime.js"],
+    packageName: "@openclaw/minimax-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw MiniMax provider and OAuth plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "minimax",
-      "enabledByDefault": true,
-      "legacyPluginIds": [
-        "minimax-portal-auth"
-      ],
-      "providers": [
-        "minimax",
-        "minimax-portal"
-      ],
-      "autoEnableWhenConfiguredProviders": [
-        "minimax",
-        "minimax-portal"
-      ],
-      "providerAuthEnvVars": {
-        "minimax": [
-          "MINIMAX_API_KEY"
-        ],
-        "minimax-portal": [
-          "MINIMAX_OAUTH_TOKEN",
-          "MINIMAX_API_KEY"
-        ]
+    manifest: {
+      id: "minimax",
+      enabledByDefault: true,
+      legacyPluginIds: ["minimax-portal-auth"],
+      providers: ["minimax", "minimax-portal"],
+      autoEnableWhenConfiguredProviders: ["minimax", "minimax-portal"],
+      providerAuthEnvVars: {
+        minimax: ["MINIMAX_API_KEY"],
+        "minimax-portal": ["MINIMAX_OAUTH_TOKEN", "MINIMAX_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "minimax-portal",
-          "method": "oauth",
-          "choiceId": "minimax-global-oauth",
-          "choiceLabel": "MiniMax OAuth (Global)",
-          "choiceHint": "Global endpoint - api.minimax.io",
-          "groupId": "minimax",
-          "groupLabel": "MiniMax",
-          "groupHint": "M2.7 (recommended)"
+          provider: "minimax-portal",
+          method: "oauth",
+          choiceId: "minimax-global-oauth",
+          choiceLabel: "MiniMax OAuth (Global)",
+          choiceHint: "Global endpoint - api.minimax.io",
+          groupId: "minimax",
+          groupLabel: "MiniMax",
+          groupHint: "M2.7 (recommended)",
         },
         {
-          "provider": "minimax",
-          "method": "api-global",
-          "choiceId": "minimax-global-api",
-          "deprecatedChoiceIds": [
-            "minimax",
-            "minimax-api",
-            "minimax-cloud",
-            "minimax-api-lightning"
-          ],
-          "choiceLabel": "MiniMax API key (Global)",
-          "choiceHint": "Global endpoint - api.minimax.io",
-          "groupId": "minimax",
-          "groupLabel": "MiniMax",
-          "groupHint": "M2.7 (recommended)",
-          "optionKey": "minimaxApiKey",
-          "cliFlag": "--minimax-api-key",
-          "cliOption": "--minimax-api-key <key>",
-          "cliDescription": "MiniMax API key"
+          provider: "minimax",
+          method: "api-global",
+          choiceId: "minimax-global-api",
+          deprecatedChoiceIds: ["minimax", "minimax-api", "minimax-cloud", "minimax-api-lightning"],
+          choiceLabel: "MiniMax API key (Global)",
+          choiceHint: "Global endpoint - api.minimax.io",
+          groupId: "minimax",
+          groupLabel: "MiniMax",
+          groupHint: "M2.7 (recommended)",
+          optionKey: "minimaxApiKey",
+          cliFlag: "--minimax-api-key",
+          cliOption: "--minimax-api-key <key>",
+          cliDescription: "MiniMax API key",
         },
         {
-          "provider": "minimax-portal",
-          "method": "oauth-cn",
-          "choiceId": "minimax-cn-oauth",
-          "choiceLabel": "MiniMax OAuth (CN)",
-          "choiceHint": "CN endpoint - api.minimaxi.com",
-          "groupId": "minimax",
-          "groupLabel": "MiniMax",
-          "groupHint": "M2.7 (recommended)"
+          provider: "minimax-portal",
+          method: "oauth-cn",
+          choiceId: "minimax-cn-oauth",
+          choiceLabel: "MiniMax OAuth (CN)",
+          choiceHint: "CN endpoint - api.minimaxi.com",
+          groupId: "minimax",
+          groupLabel: "MiniMax",
+          groupHint: "M2.7 (recommended)",
         },
         {
-          "provider": "minimax",
-          "method": "api-cn",
-          "choiceId": "minimax-cn-api",
-          "deprecatedChoiceIds": [
-            "minimax-api-key-cn"
-          ],
-          "choiceLabel": "MiniMax API key (CN)",
-          "choiceHint": "CN endpoint - api.minimaxi.com",
-          "groupId": "minimax",
-          "groupLabel": "MiniMax",
-          "groupHint": "M2.7 (recommended)",
-          "optionKey": "minimaxApiKey",
-          "cliFlag": "--minimax-api-key",
-          "cliOption": "--minimax-api-key <key>",
-          "cliDescription": "MiniMax API key"
-        }
+          provider: "minimax",
+          method: "api-cn",
+          choiceId: "minimax-cn-api",
+          deprecatedChoiceIds: ["minimax-api-key-cn"],
+          choiceLabel: "MiniMax API key (CN)",
+          choiceHint: "CN endpoint - api.minimaxi.com",
+          groupId: "minimax",
+          groupLabel: "MiniMax",
+          groupHint: "M2.7 (recommended)",
+          optionKey: "minimaxApiKey",
+          cliFlag: "--minimax-api-key",
+          cliOption: "--minimax-api-key <key>",
+          cliDescription: "MiniMax API key",
+        },
       ],
-      "contracts": {
-        "speechProviders": [
-          "minimax"
-        ],
-        "mediaUnderstandingProviders": [
-          "minimax",
-          "minimax-portal"
-        ],
-        "imageGenerationProviders": [
-          "minimax",
-          "minimax-portal"
-        ],
-        "musicGenerationProviders": [
-          "minimax"
-        ],
-        "videoGenerationProviders": [
-          "minimax"
-        ],
-        "webSearchProviders": [
-          "minimax"
-        ]
+      contracts: {
+        speechProviders: ["minimax"],
+        mediaUnderstandingProviders: ["minimax", "minimax-portal"],
+        imageGenerationProviders: ["minimax", "minimax-portal"],
+        musicGenerationProviders: ["minimax"],
+        videoGenerationProviders: ["minimax"],
+        webSearchProviders: ["minimax"],
       },
-      "configContracts": {
-        "compatibilityRuntimePaths": [
-          "tools.web.search.apiKey"
-        ]
+      configContracts: {
+        compatibilityRuntimePaths: ["tools.web.search.apiKey"],
       },
-      "uiHints": {
+      uiHints: {
         "webSearch.apiKey": {
-          "label": "MiniMax Coding Plan key",
-          "help": "MiniMax Coding Plan key (fallback: MINIMAX_CODE_PLAN_KEY, MINIMAX_CODING_API_KEY, or MINIMAX_API_KEY if it already points at a coding-plan token).",
-          "sensitive": true,
-          "placeholder": "sk-cp-..."
+          label: "MiniMax Coding Plan key",
+          help: "MiniMax Coding Plan key (fallback: MINIMAX_CODE_PLAN_KEY, MINIMAX_CODING_API_KEY, or MINIMAX_API_KEY if it already points at a coding-plan token).",
+          sensitive: true,
+          placeholder: "sk-cp-...",
         },
         "webSearch.region": {
-          "label": "MiniMax Search Region",
-          "help": "Search endpoint region override. Leave unset to reuse your configured MiniMax host or MINIMAX_API_HOST."
-        }
+          label: "MiniMax Search Region",
+          help: "Search endpoint region override. Leave unset to reuse your configured MiniMax host or MINIMAX_API_HOST.",
+        },
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": [
-                  "string",
-                  "object"
-                ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: ["string", "object"],
               },
-              "region": {
-                "type": "string",
-                "enum": [
-                  "global",
-                  "cn"
-                ]
-              }
-            }
-          }
-        }
-      }
-    }
+              region: {
+                type: "string",
+                enum: ["global", "cn"],
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "mistral",
-    "idHint": "mistral",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "mistral",
+    idHint: "mistral",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "media-understanding-provider.js",
       "model-definitions.js",
       "onboard.js",
       "provider-catalog.js",
-      "provider-compat.js"
+      "provider-compat.js",
     ],
-    "packageName": "@openclaw/mistral-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Mistral provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/mistral-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Mistral provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "mistral",
-      "enabledByDefault": true,
-      "providers": [
-        "mistral"
-      ],
-      "providerAuthEnvVars": {
-        "mistral": [
-          "MISTRAL_API_KEY"
-        ]
+    manifest: {
+      id: "mistral",
+      enabledByDefault: true,
+      providers: ["mistral"],
+      providerAuthEnvVars: {
+        mistral: ["MISTRAL_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "mistral",
-          "method": "api-key",
-          "choiceId": "mistral-api-key",
-          "choiceLabel": "Mistral API key",
-          "groupId": "mistral",
-          "groupLabel": "Mistral AI",
-          "groupHint": "API key",
-          "optionKey": "mistralApiKey",
-          "cliFlag": "--mistral-api-key",
-          "cliOption": "--mistral-api-key <key>",
-          "cliDescription": "Mistral API key"
-        }
+          provider: "mistral",
+          method: "api-key",
+          choiceId: "mistral-api-key",
+          choiceLabel: "Mistral API key",
+          groupId: "mistral",
+          groupLabel: "Mistral AI",
+          groupHint: "API key",
+          optionKey: "mistralApiKey",
+          cliFlag: "--mistral-api-key",
+          cliOption: "--mistral-api-key <key>",
+          cliDescription: "Mistral API key",
+        },
       ],
-      "contracts": {
-        "mediaUnderstandingProviders": [
-          "mistral"
-        ]
+      contracts: {
+        mediaUnderstandingProviders: ["mistral"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "moonshot",
-    "idHint": "moonshot",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "moonshot",
+    idHint: "moonshot",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "media-understanding-provider.js",
       "onboard.js",
       "provider-catalog.js",
       "web-search-contract-api.js",
-      "web-search-provider.js"
+      "web-search-provider.js",
     ],
-    "packageName": "@openclaw/moonshot-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Moonshot provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/moonshot-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Moonshot provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "moonshot",
-      "enabledByDefault": true,
-      "providers": [
-        "moonshot"
-      ],
-      "providerAuthEnvVars": {
-        "moonshot": [
-          "MOONSHOT_API_KEY"
-        ]
+    manifest: {
+      id: "moonshot",
+      enabledByDefault: true,
+      providers: ["moonshot"],
+      providerAuthEnvVars: {
+        moonshot: ["MOONSHOT_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "moonshot",
-          "method": "api-key",
-          "choiceId": "moonshot-api-key",
-          "choiceLabel": "Moonshot API key (.ai)",
-          "groupId": "moonshot",
-          "groupLabel": "Moonshot AI (Kimi K2.5)",
-          "groupHint": "Kimi K2.5",
-          "optionKey": "moonshotApiKey",
-          "cliFlag": "--moonshot-api-key",
-          "cliOption": "--moonshot-api-key <key>",
-          "cliDescription": "Moonshot API key"
+          provider: "moonshot",
+          method: "api-key",
+          choiceId: "moonshot-api-key",
+          choiceLabel: "Moonshot API key (.ai)",
+          groupId: "moonshot",
+          groupLabel: "Moonshot AI (Kimi K2.5)",
+          groupHint: "Kimi K2.5",
+          optionKey: "moonshotApiKey",
+          cliFlag: "--moonshot-api-key",
+          cliOption: "--moonshot-api-key <key>",
+          cliDescription: "Moonshot API key",
         },
         {
-          "provider": "moonshot",
-          "method": "api-key-cn",
-          "choiceId": "moonshot-api-key-cn",
-          "choiceLabel": "Moonshot API key (.cn)",
-          "groupId": "moonshot",
-          "groupLabel": "Moonshot AI (Kimi K2.5)",
-          "groupHint": "Kimi K2.5",
-          "optionKey": "moonshotApiKey",
-          "cliFlag": "--moonshot-api-key",
-          "cliOption": "--moonshot-api-key <key>",
-          "cliDescription": "Moonshot API key"
-        }
+          provider: "moonshot",
+          method: "api-key-cn",
+          choiceId: "moonshot-api-key-cn",
+          choiceLabel: "Moonshot API key (.cn)",
+          groupId: "moonshot",
+          groupLabel: "Moonshot AI (Kimi K2.5)",
+          groupHint: "Kimi K2.5",
+          optionKey: "moonshotApiKey",
+          cliFlag: "--moonshot-api-key",
+          cliOption: "--moonshot-api-key <key>",
+          cliDescription: "Moonshot API key",
+        },
       ],
-      "uiHints": {
+      uiHints: {
         "webSearch.apiKey": {
-          "label": "Kimi Search API Key",
-          "help": "Moonshot/Kimi API key (fallback: KIMI_API_KEY or MOONSHOT_API_KEY env var).",
-          "sensitive": true
+          label: "Kimi Search API Key",
+          help: "Moonshot/Kimi API key (fallback: KIMI_API_KEY or MOONSHOT_API_KEY env var).",
+          sensitive: true,
         },
         "webSearch.baseUrl": {
-          "label": "Kimi Search Base URL",
-          "help": "Kimi base URL override."
+          label: "Kimi Search Base URL",
+          help: "Kimi base URL override.",
         },
         "webSearch.model": {
-          "label": "Kimi Search Model",
-          "help": "Kimi model override."
-        }
+          label: "Kimi Search Model",
+          help: "Kimi model override.",
+        },
       },
-      "contracts": {
-        "mediaUnderstandingProviders": [
-          "moonshot"
-        ],
-        "webSearchProviders": [
-          "kimi"
-        ]
+      contracts: {
+        mediaUnderstandingProviders: ["moonshot"],
+        webSearchProviders: ["kimi"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": [
-                  "string",
-                  "object"
-                ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: ["string", "object"],
               },
-              "baseUrl": {
-                "type": "string"
+              baseUrl: {
+                type: "string",
               },
-              "model": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    }
+              model: {
+                type: "string",
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "msteams",
-    "idHint": "msteams",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "msteams",
+    idHint: "msteams",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "channel-config-api.js",
       "config-api.js",
       "contract-api.js",
       "runtime-api.js",
-      "secret-contract-api.js"
+      "secret-contract-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/msteams",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Microsoft Teams channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "msteams",
-        "label": "Microsoft Teams",
-        "selectionLabel": "Microsoft Teams (Teams SDK)",
-        "docsPath": "/channels/msteams",
-        "docsLabel": "msteams",
-        "blurb": "Teams SDK; enterprise support.",
-        "aliases": [
-          "teams"
-        ],
-        "order": 60
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/msteams",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Microsoft Teams channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "msteams",
+        label: "Microsoft Teams",
+        selectionLabel: "Microsoft Teams (Teams SDK)",
+        docsPath: "/channels/msteams",
+        docsLabel: "msteams",
+        blurb: "Teams SDK; enterprise support.",
+        aliases: ["teams"],
+        order: 60,
       },
-      "install": {
-        "npmSpec": "@openclaw/msteams",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
+      install: {
+        npmSpec: "@openclaw/msteams",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "msteams",
-      "channels": [
-        "msteams"
-      ],
-      "channelEnvVars": {
-        "msteams": [
-          "MSTEAMS_APP_ID",
-          "MSTEAMS_APP_PASSWORD",
-          "MSTEAMS_TENANT_ID"
-        ]
+    manifest: {
+      id: "msteams",
+      channels: ["msteams"],
+      channelEnvVars: {
+        msteams: ["MSTEAMS_APP_ID", "MSTEAMS_APP_PASSWORD", "MSTEAMS_TENANT_ID"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "msteams": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        msteams: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Microsoft Teams",
-          "description": "Teams SDK; enterprise support."
-        }
-      }
-    }
+          label: "Microsoft Teams",
+          description: "Teams SDK; enterprise support.",
+        },
+      },
+    },
   },
   {
-    "dirName": "nextcloud-talk",
-    "idHint": "nextcloud-talk",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "nextcloud-talk",
+    idHint: "nextcloud-talk",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "contract-api.js",
       "runtime-api.js",
-      "secret-contract-api.js"
+      "secret-contract-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/nextcloud-talk",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Nextcloud Talk channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "nextcloud-talk",
-        "label": "Nextcloud Talk",
-        "selectionLabel": "Nextcloud Talk (self-hosted)",
-        "docsPath": "/channels/nextcloud-talk",
-        "docsLabel": "nextcloud-talk",
-        "blurb": "Self-hosted chat via Nextcloud Talk webhook bots.",
-        "aliases": [
-          "nc-talk",
-          "nc"
-        ],
-        "order": 65,
-        "quickstartAllowFrom": true
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/nextcloud-talk",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Nextcloud Talk channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "nextcloud-talk",
+        label: "Nextcloud Talk",
+        selectionLabel: "Nextcloud Talk (self-hosted)",
+        docsPath: "/channels/nextcloud-talk",
+        docsLabel: "nextcloud-talk",
+        blurb: "Self-hosted chat via Nextcloud Talk webhook bots.",
+        aliases: ["nc-talk", "nc"],
+        order: 65,
+        quickstartAllowFrom: true,
       },
-      "install": {
-        "npmSpec": "@openclaw/nextcloud-talk",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
+      install: {
+        npmSpec: "@openclaw/nextcloud-talk",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "nextcloud-talk",
-      "channels": [
-        "nextcloud-talk"
-      ],
-      "channelEnvVars": {
-        "nextcloud-talk": [
-          "NEXTCLOUD_TALK_BOT_SECRET",
-          "NEXTCLOUD_TALK_API_PASSWORD"
-        ]
+    manifest: {
+      id: "nextcloud-talk",
+      channels: ["nextcloud-talk"],
+      channelEnvVars: {
+        "nextcloud-talk": ["NEXTCLOUD_TALK_BOT_SECRET", "NEXTCLOUD_TALK_API_PASSWORD"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
+      channelConfigs: {
         "nextcloud-talk": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Nextcloud Talk",
-          "description": "Self-hosted chat via Nextcloud Talk webhook bots."
-        }
-      }
-    }
+          label: "Nextcloud Talk",
+          description: "Self-hosted chat via Nextcloud Talk webhook bots.",
+        },
+      },
+    },
   },
   {
-    "dirName": "nostr",
-    "idHint": "nostr",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "nostr",
+    idHint: "nostr",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "runtime-api.js",
-      "setup-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/nostr",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Nostr channel plugin for NIP-04 encrypted DMs",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "nostr",
-        "label": "Nostr",
-        "selectionLabel": "Nostr (NIP-04 DMs)",
-        "docsPath": "/channels/nostr",
-        "docsLabel": "nostr",
-        "blurb": "Decentralized protocol; encrypted DMs via NIP-04.",
-        "order": 55,
-        "quickstartAllowFrom": true
+    publicSurfaceArtifacts: ["api.js", "runtime-api.js", "setup-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/nostr",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Nostr channel plugin for NIP-04 encrypted DMs",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "nostr",
+        label: "Nostr",
+        selectionLabel: "Nostr (NIP-04 DMs)",
+        docsPath: "/channels/nostr",
+        docsLabel: "nostr",
+        blurb: "Decentralized protocol; encrypted DMs via NIP-04.",
+        order: 55,
+        quickstartAllowFrom: true,
       },
-      "install": {
-        "npmSpec": "@openclaw/nostr",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
+      install: {
+        npmSpec: "@openclaw/nostr",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "bundle": {
-        "stageRuntimeDependencies": true
+      bundle: {
+        stageRuntimeDependencies: true,
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "nostr",
-      "channels": [
-        "nostr"
-      ],
-      "channelEnvVars": {
-        "nostr": [
-          "NOSTR_PRIVATE_KEY"
-        ]
+    manifest: {
+      id: "nostr",
+      channels: ["nostr"],
+      channelEnvVars: {
+        nostr: ["NOSTR_PRIVATE_KEY"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "nostr": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        nostr: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Nostr",
-          "description": "Decentralized protocol; encrypted DMs via NIP-04."
-        }
-      }
-    }
-  },
-  {
-    "dirName": "nvidia",
-    "idHint": "nvidia",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/nvidia-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw NVIDIA provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "nvidia",
-      "enabledByDefault": true,
-      "providers": [
-        "nvidia"
-      ],
-      "providerAuthEnvVars": {
-        "nvidia": [
-          "NVIDIA_API_KEY"
-        ]
+          label: "Nostr",
+          description: "Decentralized protocol; encrypted DMs via NIP-04.",
+        },
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    },
   },
   {
-    "dirName": "ollama",
-    "idHint": "ollama",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "nvidia",
+    idHint: "nvidia",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: ["api.js", "provider-catalog.js"],
+    packageName: "@openclaw/nvidia-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw NVIDIA provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "nvidia",
+      enabledByDefault: true,
+      providers: ["nvidia"],
+      providerAuthEnvVars: {
+        nvidia: ["NVIDIA_API_KEY"],
+      },
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    dirName: "ollama",
+    idHint: "ollama",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: [
       "api.js",
       "provider-discovery.js",
       "runtime-api.js",
       "web-search-contract-api.js",
-      "web-search-provider.js"
+      "web-search-provider.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/ollama-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Ollama provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/ollama-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Ollama provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "ollama",
-      "enabledByDefault": true,
-      "providers": [
-        "ollama"
-      ],
-      "providerDiscoveryEntry": "./provider-discovery.ts",
-      "providerAuthEnvVars": {
-        "ollama": [
-          "OLLAMA_API_KEY"
-        ]
+    manifest: {
+      id: "ollama",
+      enabledByDefault: true,
+      providers: ["ollama"],
+      providerDiscoveryEntry: "./provider-discovery.ts",
+      providerAuthEnvVars: {
+        ollama: ["OLLAMA_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "ollama",
-          "method": "local",
-          "choiceId": "ollama",
-          "choiceLabel": "Ollama",
-          "choiceHint": "Cloud and local open models",
-          "groupId": "ollama",
-          "groupLabel": "Ollama",
-          "groupHint": "Cloud and local open models"
-        }
+          provider: "ollama",
+          method: "local",
+          choiceId: "ollama",
+          choiceLabel: "Ollama",
+          choiceHint: "Cloud and local open models",
+          groupId: "ollama",
+          groupLabel: "Ollama",
+          groupHint: "Cloud and local open models",
+        },
       ],
-      "contracts": {
-        "memoryEmbeddingProviders": [
-          "ollama"
-        ],
-        "webSearchProviders": [
-          "ollama"
-        ]
+      contracts: {
+        memoryEmbeddingProviders: ["ollama"],
+        webSearchProviders: ["ollama"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "discovery": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              }
-            }
-          }
-        }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          discovery: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+            },
+          },
+        },
       },
-      "uiHints": {
-        "discovery": {
-          "label": "Model Discovery",
-          "help": "Plugin-owned controls for Ollama model auto-discovery."
+      uiHints: {
+        discovery: {
+          label: "Model Discovery",
+          help: "Plugin-owned controls for Ollama model auto-discovery.",
         },
         "discovery.enabled": {
-          "label": "Enable Discovery",
-          "help": "When false, OpenClaw keeps the Ollama plugin available but skips implicit startup discovery of ambient local or remote Ollama models."
-        }
-      }
-    }
+          label: "Enable Discovery",
+          help: "When false, OpenClaw keeps the Ollama plugin available but skips implicit startup discovery of ambient local or remote Ollama models.",
+        },
+      },
+    },
   },
   {
-    "dirName": "open-prose",
-    "idHint": "open-prose",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "open-prose",
+    idHint: "open-prose",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/open-prose",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenProse VM skill pack plugin (slash command + telemetry).",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/open-prose",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenProse VM skill pack plugin (slash command + telemetry).",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "open-prose",
-      "name": "OpenProse",
-      "description": "OpenProse VM skill pack with a /prose slash command.",
-      "skills": [
-        "./skills"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    manifest: {
+      id: "open-prose",
+      name: "OpenProse",
+      description: "OpenProse VM skill pack with a /prose slash command.",
+      skills: ["./skills"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "openai",
-    "idHint": "openai",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "openai",
+    idHint: "openai",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "cli-backend.js",
       "default-models.js",
@@ -4782,221 +4484,179 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "speech-provider.js",
       "transport-policy.js",
       "tts.js",
-      "video-generation-provider.js"
+      "video-generation-provider.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "openai-codex-provider.runtime.js",
-      "register.runtime.js"
-    ],
-    "packageName": "@openclaw/openai-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw OpenAI provider plugins",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["openai-codex-provider.runtime.js", "register.runtime.js"],
+    packageName: "@openclaw/openai-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw OpenAI provider plugins",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "openai",
-      "enabledByDefault": true,
-      "providers": [
-        "openai",
-        "openai-codex"
-      ],
-      "modelSupport": {
-        "modelPrefixes": [
-          "gpt-",
-          "o1",
-          "o3",
-          "o4"
-        ]
+    manifest: {
+      id: "openai",
+      enabledByDefault: true,
+      providers: ["openai", "openai-codex"],
+      modelSupport: {
+        modelPrefixes: ["gpt-", "o1", "o3", "o4"],
       },
-      "cliBackends": [
-        "codex-cli"
-      ],
-      "providerAuthEnvVars": {
-        "openai": [
-          "OPENAI_API_KEY"
-        ]
+      cliBackends: ["codex-cli"],
+      providerAuthEnvVars: {
+        openai: ["OPENAI_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "openai-codex",
-          "method": "oauth",
-          "choiceId": "openai-codex",
-          "deprecatedChoiceIds": [
-            "codex-cli"
-          ],
-          "choiceLabel": "OpenAI Codex (ChatGPT OAuth)",
-          "choiceHint": "Browser sign-in",
-          "groupId": "openai",
-          "groupLabel": "OpenAI",
-          "groupHint": "Codex OAuth + API key"
+          provider: "openai-codex",
+          method: "oauth",
+          choiceId: "openai-codex",
+          deprecatedChoiceIds: ["codex-cli"],
+          choiceLabel: "OpenAI Codex (ChatGPT OAuth)",
+          choiceHint: "Browser sign-in",
+          groupId: "openai",
+          groupLabel: "OpenAI",
+          groupHint: "Codex OAuth + API key",
         },
         {
-          "provider": "openai",
-          "method": "api-key",
-          "choiceId": "openai-api-key",
-          "choiceLabel": "OpenAI API key",
-          "groupId": "openai",
-          "groupLabel": "OpenAI",
-          "groupHint": "Codex OAuth + API key",
-          "optionKey": "openaiApiKey",
-          "cliFlag": "--openai-api-key",
-          "cliOption": "--openai-api-key <key>",
-          "cliDescription": "OpenAI API key"
-        }
+          provider: "openai",
+          method: "api-key",
+          choiceId: "openai-api-key",
+          choiceLabel: "OpenAI API key",
+          groupId: "openai",
+          groupLabel: "OpenAI",
+          groupHint: "Codex OAuth + API key",
+          optionKey: "openaiApiKey",
+          cliFlag: "--openai-api-key",
+          cliOption: "--openai-api-key <key>",
+          cliDescription: "OpenAI API key",
+        },
       ],
-      "contracts": {
-        "speechProviders": [
-          "openai"
-        ],
-        "realtimeTranscriptionProviders": [
-          "openai"
-        ],
-        "realtimeVoiceProviders": [
-          "openai"
-        ],
-        "mediaUnderstandingProviders": [
-          "openai",
-          "openai-codex"
-        ],
-        "imageGenerationProviders": [
-          "openai"
-        ],
-        "videoGenerationProviders": [
-          "openai"
-        ]
+      contracts: {
+        speechProviders: ["openai"],
+        realtimeTranscriptionProviders: ["openai"],
+        realtimeVoiceProviders: ["openai"],
+        mediaUnderstandingProviders: ["openai", "openai-codex"],
+        imageGenerationProviders: ["openai"],
+        videoGenerationProviders: ["openai"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "personality": {
-            "type": "string",
-            "enum": [
-              "friendly",
-              "on",
-              "off"
-            ],
-            "default": "friendly",
-            "description": "Controls the default OpenAI-specific personality used for OpenAI and OpenAI Codex runs. `friendly` and `on` enable the overlay; `off` disables it."
-          }
-        }
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          personality: {
+            type: "string",
+            enum: ["friendly", "on", "off"],
+            default: "friendly",
+            description:
+              "Controls the default OpenAI-specific personality used for OpenAI and OpenAI Codex runs. `friendly` and `on` enable the overlay; `off` disables it.",
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "openclawcode",
-    "idHint": "openclawcode",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "openclawcode",
+    idHint: "openclawcode",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "manifest": {
-      "id": "openclawcode",
-      "name": "OpenClawCode",
-      "description": "GitHub issue chatops adapter for the openclawcode workflow.",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "githubWebhookSecretEnv": {
-            "type": "string"
+    manifest: {
+      id: "openclawcode",
+      name: "OpenClawCode",
+      description: "GitHub issue chatops adapter for the openclawcode workflow.",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          githubWebhookSecretEnv: {
+            type: "string",
           },
-          "pollIntervalMs": {
-            "type": "number",
-            "minimum": 1000
+          pollIntervalMs: {
+            type: "number",
+            minimum: 1000,
           },
-          "feishuOperatorBinding": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "accountId": {
-                "type": "string"
+          feishuOperatorBinding: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              accountId: {
+                type: "string",
               },
-              "mode": {
-                "type": "string",
-                "enum": [
-                  "email",
-                  "mobile",
-                  "scan"
-                ]
+              mode: {
+                type: "string",
+                enum: ["email", "mobile", "scan"],
               },
-              "email": {
-                "type": "string"
+              email: {
+                type: "string",
               },
-              "mobile": {
-                "type": "string"
+              mobile: {
+                type: "string",
               },
-              "sendWelcomeMessage": {
-                "type": "boolean"
-              }
-            }
+              sendWelcomeMessage: {
+                type: "boolean",
+              },
+            },
           },
-          "repos": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "owner": {
-                  "type": "string"
+          repos: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                owner: {
+                  type: "string",
                 },
-                "repo": {
-                  "type": "string"
+                repo: {
+                  type: "string",
                 },
-                "repoRoot": {
-                  "type": "string"
+                repoRoot: {
+                  type: "string",
                 },
-                "baseBranch": {
-                  "type": "string"
+                baseBranch: {
+                  type: "string",
                 },
-                "triggerMode": {
-                  "type": "string",
-                  "enum": [
-                    "approve",
-                    "auto"
-                  ]
+                triggerMode: {
+                  type: "string",
+                  enum: ["approve", "auto"],
                 },
-                "notifyChannel": {
-                  "type": "string"
+                notifyChannel: {
+                  type: "string",
                 },
-                "notifyTarget": {
-                  "type": "string"
+                notifyTarget: {
+                  type: "string",
                 },
-                "builderAgent": {
-                  "type": "string"
+                builderAgent: {
+                  type: "string",
                 },
-                "verifierAgent": {
-                  "type": "string"
+                verifierAgent: {
+                  type: "string",
                 },
-                "testCommands": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                testCommands: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                  },
                 },
-                "triggerLabels": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                triggerLabels: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                  },
                 },
-                "skipLabels": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                skipLabels: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                  },
                 },
-                "openPullRequest": {
-                  "type": "boolean"
+                openPullRequest: {
+                  type: "boolean",
                 },
-                "mergeOnApprove": {
-                  "type": "boolean"
-                }
+                mergeOnApprove: {
+                  type: "boolean",
+                },
               },
-              "required": [
+              required: [
                 "owner",
                 "repo",
                 "repoRoot",
@@ -5004,1472 +4664,1378 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
                 "notifyTarget",
                 "builderAgent",
                 "verifierAgent",
-                "testCommands"
-              ]
-            }
-          }
-        }
-      },
-      "uiHints": {
-        "githubWebhookSecretEnv": {
-          "label": "GitHub Webhook Secret Env",
-          "help": "Environment variable name that stores the GitHub webhook secret."
+                "testCommands",
+              ],
+            },
+          },
         },
-        "pollIntervalMs": {
-          "label": "Runner Poll Interval",
-          "help": "How often the plugin checks for queued openclawcode runs."
+      },
+      uiHints: {
+        githubWebhookSecretEnv: {
+          label: "GitHub Webhook Secret Env",
+          help: "Environment variable name that stores the GitHub webhook secret.",
         },
-        "feishuOperatorBinding": {
-          "label": "Feishu Operator Binding",
-          "help": "Optional Feishu operator discovery settings for contact lookup or delayed scan-and-code fallback."
-        }
-      }
-    }
-  },
-  {
-    "dirName": "opencode",
-    "idHint": "opencode",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "onboard.js"
-    ],
-    "packageName": "@openclaw/opencode-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw OpenCode Zen provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "opencode",
-      "enabledByDefault": true,
-      "providers": [
-        "opencode"
-      ],
-      "providerAuthEnvVars": {
-        "opencode": [
-          "OPENCODE_API_KEY",
-          "OPENCODE_ZEN_API_KEY"
-        ]
+        pollIntervalMs: {
+          label: "Runner Poll Interval",
+          help: "How often the plugin checks for queued openclawcode runs.",
+        },
+        feishuOperatorBinding: {
+          label: "Feishu Operator Binding",
+          help: "Optional Feishu operator discovery settings for contact lookup or delayed scan-and-code fallback.",
+        },
       },
-      "providerAuthChoices": [
-        {
-          "provider": "opencode",
-          "method": "api-key",
-          "choiceId": "opencode-zen",
-          "choiceLabel": "OpenCode Zen catalog",
-          "groupId": "opencode",
-          "groupLabel": "OpenCode",
-          "groupHint": "Shared API key for Zen + Go catalogs",
-          "optionKey": "opencodeZenApiKey",
-          "cliFlag": "--opencode-zen-api-key",
-          "cliOption": "--opencode-zen-api-key <key>",
-          "cliDescription": "OpenCode API key (Zen catalog)"
-        }
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    },
   },
   {
-    "dirName": "opencode-go",
-    "idHint": "opencode-go",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "opencode",
+    idHint: "opencode",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "onboard.js"
-    ],
-    "packageName": "@openclaw/opencode-go-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw OpenCode Go provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "onboard.js"],
+    packageName: "@openclaw/opencode-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw OpenCode Zen provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "opencode-go",
-      "enabledByDefault": true,
-      "providers": [
-        "opencode-go"
-      ],
-      "providerAuthEnvVars": {
-        "opencode-go": [
-          "OPENCODE_API_KEY",
-          "OPENCODE_ZEN_API_KEY"
-        ]
+    manifest: {
+      id: "opencode",
+      enabledByDefault: true,
+      providers: ["opencode"],
+      providerAuthEnvVars: {
+        opencode: ["OPENCODE_API_KEY", "OPENCODE_ZEN_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "opencode-go",
-          "method": "api-key",
-          "choiceId": "opencode-go",
-          "choiceLabel": "OpenCode Go catalog",
-          "groupId": "opencode",
-          "groupLabel": "OpenCode",
-          "groupHint": "Shared API key for Zen + Go catalogs",
-          "optionKey": "opencodeGoApiKey",
-          "cliFlag": "--opencode-go-api-key",
-          "cliOption": "--opencode-go-api-key <key>",
-          "cliDescription": "OpenCode API key (Go catalog)"
-        }
+          provider: "opencode",
+          method: "api-key",
+          choiceId: "opencode-zen",
+          choiceLabel: "OpenCode Zen catalog",
+          groupId: "opencode",
+          groupLabel: "OpenCode",
+          groupHint: "Shared API key for Zen + Go catalogs",
+          optionKey: "opencodeZenApiKey",
+          cliFlag: "--opencode-zen-api-key",
+          cliOption: "--opencode-zen-api-key <key>",
+          cliDescription: "OpenCode API key (Zen catalog)",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "openrouter",
-    "idHint": "openrouter",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "opencode-go",
+    idHint: "opencode-go",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: ["api.js", "onboard.js"],
+    packageName: "@openclaw/opencode-go-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw OpenCode Go provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "opencode-go",
+      enabledByDefault: true,
+      providers: ["opencode-go"],
+      providerAuthEnvVars: {
+        "opencode-go": ["OPENCODE_API_KEY", "OPENCODE_ZEN_API_KEY"],
+      },
+      providerAuthChoices: [
+        {
+          provider: "opencode-go",
+          method: "api-key",
+          choiceId: "opencode-go",
+          choiceLabel: "OpenCode Go catalog",
+          groupId: "opencode",
+          groupLabel: "OpenCode",
+          groupHint: "Shared API key for Zen + Go catalogs",
+          optionKey: "opencodeGoApiKey",
+          cliFlag: "--opencode-go-api-key",
+          cliOption: "--opencode-go-api-key <key>",
+          cliDescription: "OpenCode API key (Go catalog)",
+        },
+      ],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    dirName: "openrouter",
+    idHint: "openrouter",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: [
       "api.js",
       "media-understanding-provider.js",
       "onboard.js",
       "provider-catalog.js",
       "register.runtime.js",
-      "stream.js"
+      "stream.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "register.runtime.js"
-    ],
-    "packageName": "@openclaw/openrouter-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw OpenRouter provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["register.runtime.js"],
+    packageName: "@openclaw/openrouter-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw OpenRouter provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "openrouter",
-      "enabledByDefault": true,
-      "providers": [
-        "openrouter"
-      ],
-      "providerAuthEnvVars": {
-        "openrouter": [
-          "OPENROUTER_API_KEY"
-        ]
+    manifest: {
+      id: "openrouter",
+      enabledByDefault: true,
+      providers: ["openrouter"],
+      providerAuthEnvVars: {
+        openrouter: ["OPENROUTER_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "openrouter",
-          "method": "api-key",
-          "choiceId": "openrouter-api-key",
-          "choiceLabel": "OpenRouter API key",
-          "groupId": "openrouter",
-          "groupLabel": "OpenRouter",
-          "groupHint": "API key",
-          "optionKey": "openrouterApiKey",
-          "cliFlag": "--openrouter-api-key",
-          "cliOption": "--openrouter-api-key <key>",
-          "cliDescription": "OpenRouter API key"
-        }
+          provider: "openrouter",
+          method: "api-key",
+          choiceId: "openrouter-api-key",
+          choiceLabel: "OpenRouter API key",
+          groupId: "openrouter",
+          groupLabel: "OpenRouter",
+          groupHint: "API key",
+          optionKey: "openrouterApiKey",
+          cliFlag: "--openrouter-api-key",
+          cliOption: "--openrouter-api-key <key>",
+          cliDescription: "OpenRouter API key",
+        },
       ],
-      "contracts": {
-        "mediaUnderstandingProviders": [
-          "openrouter"
-        ]
+      contracts: {
+        mediaUnderstandingProviders: ["openrouter"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "openshell",
-    "idHint": "openshell",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "openshell",
+    idHint: "openshell",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "packageName": "@openclaw/openshell-sandbox",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw OpenShell sandbox backend",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/openshell-sandbox",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw OpenShell sandbox backend",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "openshell",
-      "name": "OpenShell Sandbox",
-      "description": "Sandbox backend powered by OpenShell with mirrored local workspaces and SSH-based command execution.",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "mode": {
-            "type": "string",
-            "enum": [
-              "mirror",
-              "remote"
-            ]
+    manifest: {
+      id: "openshell",
+      name: "OpenShell Sandbox",
+      description:
+        "Sandbox backend powered by OpenShell with mirrored local workspaces and SSH-based command execution.",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          mode: {
+            type: "string",
+            enum: ["mirror", "remote"],
           },
-          "command": {
-            "type": "string",
-            "minLength": 1
+          command: {
+            type: "string",
+            minLength: 1,
           },
-          "gateway": {
-            "type": "string",
-            "minLength": 1
+          gateway: {
+            type: "string",
+            minLength: 1,
           },
-          "gatewayEndpoint": {
-            "type": "string",
-            "minLength": 1
+          gatewayEndpoint: {
+            type: "string",
+            minLength: 1,
           },
-          "from": {
-            "type": "string",
-            "minLength": 1
+          from: {
+            type: "string",
+            minLength: 1,
           },
-          "policy": {
-            "type": "string",
-            "minLength": 1
+          policy: {
+            type: "string",
+            minLength: 1,
           },
-          "providers": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1
-            }
+          providers: {
+            type: "array",
+            items: {
+              type: "string",
+              minLength: 1,
+            },
           },
-          "gpu": {
-            "type": "boolean"
+          gpu: {
+            type: "boolean",
           },
-          "autoProviders": {
-            "type": "boolean"
+          autoProviders: {
+            type: "boolean",
           },
-          "remoteWorkspaceDir": {
-            "type": "string",
-            "minLength": 1
+          remoteWorkspaceDir: {
+            type: "string",
+            minLength: 1,
           },
-          "remoteAgentWorkspaceDir": {
-            "type": "string",
-            "minLength": 1
+          remoteAgentWorkspaceDir: {
+            type: "string",
+            minLength: 1,
           },
-          "timeoutSeconds": {
-            "type": "number",
-            "minimum": 1
-          }
-        }
+          timeoutSeconds: {
+            type: "number",
+            minimum: 1,
+          },
+        },
       },
-      "uiHints": {
-        "mode": {
-          "label": "Mode",
-          "help": "Sandbox mode. Use mirror for the default local-workspace flow or remote for a fully remote workspace."
+      uiHints: {
+        mode: {
+          label: "Mode",
+          help: "Sandbox mode. Use mirror for the default local-workspace flow or remote for a fully remote workspace.",
         },
-        "command": {
-          "label": "OpenShell Command",
-          "help": "Path or command name for the openshell CLI."
+        command: {
+          label: "OpenShell Command",
+          help: "Path or command name for the openshell CLI.",
         },
-        "gateway": {
-          "label": "Gateway Name",
-          "help": "Optional OpenShell gateway name passed as --gateway."
+        gateway: {
+          label: "Gateway Name",
+          help: "Optional OpenShell gateway name passed as --gateway.",
         },
-        "gatewayEndpoint": {
-          "label": "Gateway Endpoint",
-          "help": "Optional OpenShell gateway endpoint passed as --gateway-endpoint."
+        gatewayEndpoint: {
+          label: "Gateway Endpoint",
+          help: "Optional OpenShell gateway endpoint passed as --gateway-endpoint.",
         },
-        "from": {
-          "label": "Sandbox Source",
-          "help": "OpenShell sandbox source for first-time create. Defaults to openclaw."
+        from: {
+          label: "Sandbox Source",
+          help: "OpenShell sandbox source for first-time create. Defaults to openclaw.",
         },
-        "policy": {
-          "label": "Policy File",
-          "help": "Optional path to a custom OpenShell sandbox policy YAML."
+        policy: {
+          label: "Policy File",
+          help: "Optional path to a custom OpenShell sandbox policy YAML.",
         },
-        "providers": {
-          "label": "Providers",
-          "help": "Provider names to attach when a sandbox is created."
+        providers: {
+          label: "Providers",
+          help: "Provider names to attach when a sandbox is created.",
         },
-        "gpu": {
-          "label": "GPU",
-          "help": "Request GPU resources when creating the sandbox.",
-          "advanced": true
+        gpu: {
+          label: "GPU",
+          help: "Request GPU resources when creating the sandbox.",
+          advanced: true,
         },
-        "autoProviders": {
-          "label": "Auto-create Providers",
-          "help": "When enabled, pass --auto-providers during sandbox create.",
-          "advanced": true
+        autoProviders: {
+          label: "Auto-create Providers",
+          help: "When enabled, pass --auto-providers during sandbox create.",
+          advanced: true,
         },
-        "remoteWorkspaceDir": {
-          "label": "Remote Workspace Dir",
-          "help": "Primary writable workspace inside the OpenShell sandbox.",
-          "advanced": true
+        remoteWorkspaceDir: {
+          label: "Remote Workspace Dir",
+          help: "Primary writable workspace inside the OpenShell sandbox.",
+          advanced: true,
         },
-        "remoteAgentWorkspaceDir": {
-          "label": "Remote Agent Dir",
-          "help": "Mirror path for the real agent workspace when workspaceAccess is read-only.",
-          "advanced": true
+        remoteAgentWorkspaceDir: {
+          label: "Remote Agent Dir",
+          help: "Mirror path for the real agent workspace when workspaceAccess is read-only.",
+          advanced: true,
         },
-        "timeoutSeconds": {
-          "label": "Command Timeout Seconds",
-          "help": "Timeout for openshell CLI operations such as create/upload/download.",
-          "advanced": true
-        }
-      }
-    }
+        timeoutSeconds: {
+          label: "Command Timeout Seconds",
+          help: "Timeout for openshell CLI operations such as create/upload/download.",
+          advanced: true,
+        },
+      },
+    },
   },
   {
-    "dirName": "perplexity",
-    "idHint": "perplexity",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "perplexity",
+    idHint: "perplexity",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "web-search-contract-api.js",
-      "web-search-provider.js"
-    ],
-    "packageName": "@openclaw/perplexity-plugin",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Perplexity plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["web-search-contract-api.js", "web-search-provider.js"],
+    packageName: "@openclaw/perplexity-plugin",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Perplexity plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "perplexity",
-      "providerAuthEnvVars": {
-        "perplexity": [
-          "PERPLEXITY_API_KEY",
-          "OPENROUTER_API_KEY"
-        ]
+    manifest: {
+      id: "perplexity",
+      providerAuthEnvVars: {
+        perplexity: ["PERPLEXITY_API_KEY", "OPENROUTER_API_KEY"],
       },
-      "uiHints": {
+      uiHints: {
         "webSearch.apiKey": {
-          "label": "Perplexity API Key",
-          "help": "Perplexity or OpenRouter API key for web search.",
-          "sensitive": true,
-          "placeholder": "pplx-..."
+          label: "Perplexity API Key",
+          help: "Perplexity or OpenRouter API key for web search.",
+          sensitive: true,
+          placeholder: "pplx-...",
         },
         "webSearch.baseUrl": {
-          "label": "Perplexity Base URL",
-          "help": "Optional Perplexity/OpenRouter chat-completions base URL override."
+          label: "Perplexity Base URL",
+          help: "Optional Perplexity/OpenRouter chat-completions base URL override.",
         },
         "webSearch.model": {
-          "label": "Perplexity Model",
-          "help": "Optional Sonar/OpenRouter model override."
-        }
-      },
-      "contracts": {
-        "webSearchProviders": [
-          "perplexity"
-        ]
-      },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": [
-                  "string",
-                  "object"
-                ]
-              },
-              "baseUrl": {
-                "type": "string"
-              },
-              "model": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  {
-    "dirName": "phone-control",
-    "idHint": "phone-control",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "manifest": {
-      "id": "phone-control",
-      "enabledByDefault": true,
-      "name": "Phone Control",
-      "description": "Arm/disarm high-risk phone node commands (camera/screen/writes) with an optional auto-expiry.",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
-  },
-  {
-    "dirName": "qa-channel",
-    "idHint": "qa-channel",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/qa-channel",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw QA synthetic channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "qa-channel",
-        "label": "QA Channel",
-        "selectionLabel": "QA Channel (Synthetic)",
-        "detailLabel": "QA Channel",
-        "docsPath": "/channels/qa-channel",
-        "docsLabel": "qa-channel",
-        "blurb": "Synthetic Slack-class transport for automated OpenClaw QA scenarios.",
-        "systemImage": "checklist",
-        "order": 999,
-        "exposure": {
-          "configured": false,
-          "setup": false,
-          "docs": false
-        }
-      },
-      "install": {
-        "npmSpec": "@openclaw/qa-channel",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
-      }
-    },
-    "manifest": {
-      "id": "qa-channel",
-      "channels": [
-        "qa-channel"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      },
-      "channelConfigs": {
-        "qa-channel": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
-          },
-          "label": "QA Channel",
-          "description": "Synthetic Slack-class transport for automated OpenClaw QA scenarios."
-        }
-      }
-    }
-  },
-  {
-    "dirName": "qa-lab",
-    "idHint": "qa-lab",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "model-selection.js",
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/qa-lab",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw QA lab plugin with private debugger UI and scenario runner",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "install": {
-        "npmSpec": "@openclaw/qa-lab",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
-      },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
-      }
-    },
-    "manifest": {
-      "id": "qa-lab",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
-  },
-  {
-    "dirName": "qianfan",
-    "idHint": "qianfan",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/qianfan-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Qianfan provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "qianfan",
-      "enabledByDefault": true,
-      "providers": [
-        "qianfan"
-      ],
-      "providerAuthEnvVars": {
-        "qianfan": [
-          "QIANFAN_API_KEY"
-        ]
-      },
-      "providerAuthChoices": [
-        {
-          "provider": "qianfan",
-          "method": "api-key",
-          "choiceId": "qianfan-api-key",
-          "choiceLabel": "Qianfan API key",
-          "groupId": "qianfan",
-          "groupLabel": "Qianfan",
-          "groupHint": "API key",
-          "optionKey": "qianfanApiKey",
-          "cliFlag": "--qianfan-api-key",
-          "cliOption": "--qianfan-api-key <key>",
-          "cliDescription": "QIANFAN API key"
-        }
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
-  },
-  {
-    "dirName": "qqbot",
-    "idHint": "qqbot",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/qqbot",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw QQ Bot channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "qqbot",
-        "label": "QQ Bot",
-        "selectionLabel": "QQ Bot (Official API)",
-        "detailLabel": "QQ Bot",
-        "docsPath": "/channels/qqbot",
-        "docsLabel": "qqbot",
-        "blurb": "connect to QQ via official QQ Bot API with group chat and direct message support.",
-        "systemImage": "bubble.left.and.bubble.right"
-      },
-      "install": {
-        "npmSpec": "@openclaw/qqbot",
-        "localPath": "extensions/qqbot",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
-      },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
-      },
-      "build": {
-        "openclawVersion": "2026.4.9"
-      },
-      "bundle": {
-        "stageRuntimeDependencies": true
-      },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
-    },
-    "manifest": {
-      "id": "qqbot",
-      "channels": [
-        "qqbot"
-      ],
-      "channelEnvVars": {
-        "qqbot": [
-          "QQBOT_APP_ID",
-          "QQBOT_CLIENT_SECRET"
-        ]
-      },
-      "skills": [
-        "./skills"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "$defs": {
-          "audioFormatPolicy": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "sttDirectFormats": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "uploadDirectFormats": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "transcodeEnabled": {
-                "type": "boolean"
-              }
-            }
-          },
-          "speechQueryParams": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "tts": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "provider": {
-                "type": "string"
-              },
-              "baseUrl": {
-                "type": "string"
-              },
-              "apiKey": {
-                "type": "string"
-              },
-              "model": {
-                "type": "string"
-              },
-              "voice": {
-                "type": "string"
-              },
-              "authStyle": {
-                "type": "string",
-                "enum": [
-                  "bearer",
-                  "api-key"
-                ]
-              },
-              "queryParams": {
-                "$ref": "#/$defs/speechQueryParams"
-              },
-              "speed": {
-                "type": "number"
-              }
-            }
-          },
-          "stt": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "provider": {
-                "type": "string"
-              },
-              "baseUrl": {
-                "type": "string"
-              },
-              "apiKey": {
-                "type": "string"
-              },
-              "model": {
-                "type": "string"
-              }
-            }
-          },
-          "secretRef": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "source": {
-                "type": "string",
-                "enum": [
-                  "env",
-                  "file",
-                  "exec"
-                ]
-              },
-              "provider": {
-                "type": "string"
-              },
-              "id": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "source",
-              "provider",
-              "id"
-            ]
-          },
-          "secretInput": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "$ref": "#/$defs/secretRef"
-              }
-            ]
-          },
-          "account": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "name": {
-                "type": "string"
-              },
-              "appId": {
-                "type": "string"
-              },
-              "clientSecret": {
-                "$ref": "#/$defs/secretInput"
-              },
-              "clientSecretFile": {
-                "type": "string"
-              },
-              "allowFrom": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "systemPrompt": {
-                "type": "string"
-              },
-              "markdownSupport": {
-                "type": "boolean"
-              },
-              "voiceDirectUploadFormats": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "audioFormatPolicy": {
-                "$ref": "#/$defs/audioFormatPolicy"
-              },
-              "urlDirectUpload": {
-                "type": "boolean"
-              },
-              "upgradeUrl": {
-                "type": "string"
-              },
-              "upgradeMode": {
-                "type": "string",
-                "enum": [
-                  "doc",
-                  "hot-reload"
-                ]
-              }
-            }
-          }
+          label: "Perplexity Model",
+          help: "Optional Sonar/OpenRouter model override.",
         },
-        "properties": {
-          "enabled": {
-            "type": "boolean"
-          },
-          "name": {
-            "type": "string"
-          },
-          "appId": {
-            "type": "string"
-          },
-          "clientSecret": {
-            "$ref": "#/$defs/secretInput"
-          },
-          "clientSecretFile": {
-            "type": "string"
-          },
-          "allowFrom": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "systemPrompt": {
-            "type": "string"
-          },
-          "markdownSupport": {
-            "type": "boolean"
-          },
-          "voiceDirectUploadFormats": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "audioFormatPolicy": {
-            "$ref": "#/$defs/audioFormatPolicy"
-          },
-          "tts": {
-            "$ref": "#/$defs/tts"
-          },
-          "stt": {
-            "$ref": "#/$defs/stt"
-          },
-          "urlDirectUpload": {
-            "type": "boolean"
-          },
-          "upgradeUrl": {
-            "type": "string"
-          },
-          "upgradeMode": {
-            "type": "string",
-            "enum": [
-              "doc",
-              "hot-reload"
-            ]
-          },
-          "accounts": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/$defs/account"
-            }
-          },
-          "defaultAccount": {
-            "type": "string"
-          }
-        }
       },
-      "channelConfigs": {
-        "qqbot": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "$defs": {
-              "audioFormatPolicy": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "sttDirectFormats": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "uploadDirectFormats": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "transcodeEnabled": {
-                    "type": "boolean"
-                  }
-                }
+      contracts: {
+        webSearchProviders: ["perplexity"],
+      },
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: ["string", "object"],
               },
-              "speechQueryParams": {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "string"
-                }
+              baseUrl: {
+                type: "string",
               },
-              "tts": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "enabled": {
-                    "type": "boolean"
-                  },
-                  "provider": {
-                    "type": "string"
-                  },
-                  "baseUrl": {
-                    "type": "string"
-                  },
-                  "apiKey": {
-                    "type": "string"
-                  },
-                  "model": {
-                    "type": "string"
-                  },
-                  "voice": {
-                    "type": "string"
-                  },
-                  "authStyle": {
-                    "type": "string",
-                    "enum": [
-                      "bearer",
-                      "api-key"
-                    ]
-                  },
-                  "queryParams": {
-                    "$ref": "#/$defs/speechQueryParams"
-                  },
-                  "speed": {
-                    "type": "number"
-                  }
-                }
+              model: {
+                type: "string",
               },
-              "stt": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "enabled": {
-                    "type": "boolean"
-                  },
-                  "provider": {
-                    "type": "string"
-                  },
-                  "baseUrl": {
-                    "type": "string"
-                  },
-                  "apiKey": {
-                    "type": "string"
-                  },
-                  "model": {
-                    "type": "string"
-                  }
-                }
-              },
-              "secretRef": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "source": {
-                    "type": "string",
-                    "enum": [
-                      "env",
-                      "file",
-                      "exec"
-                    ]
-                  },
-                  "provider": {
-                    "type": "string"
-                  },
-                  "id": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "source",
-                  "provider",
-                  "id"
-                ]
-              },
-              "secretInput": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  {
-                    "$ref": "#/$defs/secretRef"
-                  }
-                ]
-              },
-              "account": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "enabled": {
-                    "type": "boolean"
-                  },
-                  "name": {
-                    "type": "string"
-                  },
-                  "appId": {
-                    "type": "string"
-                  },
-                  "clientSecret": {
-                    "$ref": "#/$defs/secretInput"
-                  },
-                  "clientSecretFile": {
-                    "type": "string"
-                  },
-                  "allowFrom": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "systemPrompt": {
-                    "type": "string"
-                  },
-                  "markdownSupport": {
-                    "type": "boolean"
-                  },
-                  "voiceDirectUploadFormats": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "audioFormatPolicy": {
-                    "$ref": "#/$defs/audioFormatPolicy"
-                  },
-                  "urlDirectUpload": {
-                    "type": "boolean"
-                  },
-                  "upgradeUrl": {
-                    "type": "string"
-                  },
-                  "upgradeMode": {
-                    "type": "string",
-                    "enum": [
-                      "doc",
-                      "hot-reload"
-                    ]
-                  }
-                }
-              }
             },
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "name": {
-                "type": "string"
-              },
-              "appId": {
-                "type": "string"
-              },
-              "clientSecret": {
-                "$ref": "#/$defs/secretInput"
-              },
-              "clientSecretFile": {
-                "type": "string"
-              },
-              "allowFrom": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "systemPrompt": {
-                "type": "string"
-              },
-              "markdownSupport": {
-                "type": "boolean"
-              },
-              "voiceDirectUploadFormats": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "audioFormatPolicy": {
-                "$ref": "#/$defs/audioFormatPolicy"
-              },
-              "tts": {
-                "$ref": "#/$defs/tts"
-              },
-              "stt": {
-                "$ref": "#/$defs/stt"
-              },
-              "urlDirectUpload": {
-                "type": "boolean"
-              },
-              "upgradeUrl": {
-                "type": "string"
-              },
-              "upgradeMode": {
-                "type": "string",
-                "enum": [
-                  "doc",
-                  "hot-reload"
-                ]
-              },
-              "accounts": {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/$defs/account"
-                }
-              },
-              "defaultAccount": {
-                "type": "string"
-              }
-            }
           },
-          "label": "QQ Bot",
-          "description": "connect to QQ via official QQ Bot API with group chat and direct message support."
-        }
-      }
-    }
+        },
+      },
+    },
   },
   {
-    "dirName": "qwen",
-    "idHint": "qwen",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "phone-control",
+    idHint: "phone-control",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: ["runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    manifest: {
+      id: "phone-control",
+      enabledByDefault: true,
+      name: "Phone Control",
+      description:
+        "Arm/disarm high-risk phone node commands (camera/screen/writes) with an optional auto-expiry.",
+      commandAliases: [
+        {
+          name: "phone",
+          kind: "runtime-slash",
+        },
+      ],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    dirName: "qa-channel",
+    idHint: "qa-channel",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
+    },
+    publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/qa-channel",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw QA synthetic channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "qa-channel",
+        label: "QA Channel",
+        selectionLabel: "QA Channel (Synthetic)",
+        detailLabel: "QA Channel",
+        docsPath: "/channels/qa-channel",
+        docsLabel: "qa-channel",
+        blurb: "Synthetic Slack-class transport for automated OpenClaw QA scenarios.",
+        systemImage: "checklist",
+        order: 999,
+        exposure: {
+          configured: false,
+          setup: false,
+          docs: false,
+        },
+      },
+      install: {
+        npmSpec: "@openclaw/qa-channel",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
+      },
+    },
+    manifest: {
+      id: "qa-channel",
+      channels: ["qa-channel"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+      channelConfigs: {
+        "qa-channel": {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
+          },
+          label: "QA Channel",
+          description: "Synthetic Slack-class transport for automated OpenClaw QA scenarios.",
+        },
+      },
+    },
+  },
+  {
+    dirName: "qa-lab",
+    idHint: "qa-lab",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: ["api.js", "cli.js", "model-selection.js", "runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/qa-lab",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw QA lab plugin with private debugger UI and scenario runner",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      install: {
+        npmSpec: "@openclaw/qa-lab",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
+      },
+      compat: {
+        pluginApi: ">=2026.4.11",
+      },
+    },
+    manifest: {
+      id: "qa-lab",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    dirName: "qianfan",
+    idHint: "qianfan",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: ["api.js", "onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/qianfan-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Qianfan provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "qianfan",
+      enabledByDefault: true,
+      providers: ["qianfan"],
+      providerAuthEnvVars: {
+        qianfan: ["QIANFAN_API_KEY"],
+      },
+      providerAuthChoices: [
+        {
+          provider: "qianfan",
+          method: "api-key",
+          choiceId: "qianfan-api-key",
+          choiceLabel: "Qianfan API key",
+          groupId: "qianfan",
+          groupLabel: "Qianfan",
+          groupHint: "API key",
+          optionKey: "qianfanApiKey",
+          cliFlag: "--qianfan-api-key",
+          cliOption: "--qianfan-api-key <key>",
+          cliDescription: "QIANFAN API key",
+        },
+      ],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    dirName: "qqbot",
+    idHint: "qqbot",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
+    },
+    publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/qqbot",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw QQ Bot channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "qqbot",
+        label: "QQ Bot",
+        selectionLabel: "QQ Bot (Official API)",
+        detailLabel: "QQ Bot",
+        docsPath: "/channels/qqbot",
+        docsLabel: "qqbot",
+        blurb: "connect to QQ via official QQ Bot API with group chat and direct message support.",
+        systemImage: "bubble.left.and.bubble.right",
+      },
+      install: {
+        npmSpec: "@openclaw/qqbot",
+        localPath: "extensions/qqbot",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
+      },
+      compat: {
+        pluginApi: ">=2026.4.11",
+      },
+      build: {
+        openclawVersion: "2026.4.11",
+      },
+      bundle: {
+        stageRuntimeDependencies: true,
+      },
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
+    },
+    manifest: {
+      id: "qqbot",
+      channels: ["qqbot"],
+      channelEnvVars: {
+        qqbot: ["QQBOT_APP_ID", "QQBOT_CLIENT_SECRET"],
+      },
+      skills: ["./skills"],
+      configSchema: {
+        type: "object",
+        additionalProperties: true,
+        $defs: {
+          audioFormatPolicy: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              sttDirectFormats: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              uploadDirectFormats: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              transcodeEnabled: {
+                type: "boolean",
+              },
+            },
+          },
+          speechQueryParams: {
+            type: "object",
+            additionalProperties: {
+              type: "string",
+            },
+          },
+          tts: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              provider: {
+                type: "string",
+              },
+              baseUrl: {
+                type: "string",
+              },
+              apiKey: {
+                type: "string",
+              },
+              model: {
+                type: "string",
+              },
+              voice: {
+                type: "string",
+              },
+              authStyle: {
+                type: "string",
+                enum: ["bearer", "api-key"],
+              },
+              queryParams: {
+                $ref: "#/$defs/speechQueryParams",
+              },
+              speed: {
+                type: "number",
+              },
+            },
+          },
+          stt: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              provider: {
+                type: "string",
+              },
+              baseUrl: {
+                type: "string",
+              },
+              apiKey: {
+                type: "string",
+              },
+              model: {
+                type: "string",
+              },
+            },
+          },
+          secretRef: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              source: {
+                type: "string",
+                enum: ["env", "file", "exec"],
+              },
+              provider: {
+                type: "string",
+              },
+              id: {
+                type: "string",
+              },
+            },
+            required: ["source", "provider", "id"],
+          },
+          secretInput: {
+            anyOf: [
+              {
+                type: "string",
+                minLength: 1,
+              },
+              {
+                $ref: "#/$defs/secretRef",
+              },
+            ],
+          },
+          account: {
+            type: "object",
+            additionalProperties: true,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              name: {
+                type: "string",
+              },
+              appId: {
+                type: "string",
+              },
+              clientSecret: {
+                $ref: "#/$defs/secretInput",
+              },
+              clientSecretFile: {
+                type: "string",
+              },
+              allowFrom: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              systemPrompt: {
+                type: "string",
+              },
+              markdownSupport: {
+                type: "boolean",
+              },
+              voiceDirectUploadFormats: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              audioFormatPolicy: {
+                $ref: "#/$defs/audioFormatPolicy",
+              },
+              urlDirectUpload: {
+                type: "boolean",
+              },
+              upgradeUrl: {
+                type: "string",
+              },
+              upgradeMode: {
+                type: "string",
+                enum: ["doc", "hot-reload"],
+              },
+              streaming: {
+                anyOf: [
+                  {
+                    type: "boolean",
+                  },
+                  {
+                    type: "object",
+                    additionalProperties: true,
+                    properties: {
+                      mode: {
+                        type: "string",
+                        enum: ["off", "partial"],
+                        default: "partial",
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        properties: {
+          enabled: {
+            type: "boolean",
+          },
+          name: {
+            type: "string",
+          },
+          appId: {
+            type: "string",
+          },
+          clientSecret: {
+            $ref: "#/$defs/secretInput",
+          },
+          clientSecretFile: {
+            type: "string",
+          },
+          allowFrom: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+          systemPrompt: {
+            type: "string",
+          },
+          markdownSupport: {
+            type: "boolean",
+          },
+          voiceDirectUploadFormats: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+          audioFormatPolicy: {
+            $ref: "#/$defs/audioFormatPolicy",
+          },
+          tts: {
+            $ref: "#/$defs/tts",
+          },
+          stt: {
+            $ref: "#/$defs/stt",
+          },
+          urlDirectUpload: {
+            type: "boolean",
+          },
+          upgradeUrl: {
+            type: "string",
+          },
+          upgradeMode: {
+            type: "string",
+            enum: ["doc", "hot-reload"],
+          },
+          streaming: {
+            anyOf: [
+              {
+                type: "boolean",
+              },
+              {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  mode: {
+                    type: "string",
+                    enum: ["off", "partial"],
+                    default: "partial",
+                  },
+                },
+              },
+            ],
+          },
+          accounts: {
+            type: "object",
+            additionalProperties: {
+              $ref: "#/$defs/account",
+            },
+          },
+          defaultAccount: {
+            type: "string",
+          },
+        },
+      },
+      channelConfigs: {
+        qqbot: {
+          schema: {
+            type: "object",
+            additionalProperties: true,
+            $defs: {
+              audioFormatPolicy: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  sttDirectFormats: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                    },
+                  },
+                  uploadDirectFormats: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                    },
+                  },
+                  transcodeEnabled: {
+                    type: "boolean",
+                  },
+                },
+              },
+              speechQueryParams: {
+                type: "object",
+                additionalProperties: {
+                  type: "string",
+                },
+              },
+              tts: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  enabled: {
+                    type: "boolean",
+                  },
+                  provider: {
+                    type: "string",
+                  },
+                  baseUrl: {
+                    type: "string",
+                  },
+                  apiKey: {
+                    type: "string",
+                  },
+                  model: {
+                    type: "string",
+                  },
+                  voice: {
+                    type: "string",
+                  },
+                  authStyle: {
+                    type: "string",
+                    enum: ["bearer", "api-key"],
+                  },
+                  queryParams: {
+                    $ref: "#/$defs/speechQueryParams",
+                  },
+                  speed: {
+                    type: "number",
+                  },
+                },
+              },
+              stt: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  enabled: {
+                    type: "boolean",
+                  },
+                  provider: {
+                    type: "string",
+                  },
+                  baseUrl: {
+                    type: "string",
+                  },
+                  apiKey: {
+                    type: "string",
+                  },
+                  model: {
+                    type: "string",
+                  },
+                },
+              },
+              secretRef: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  source: {
+                    type: "string",
+                    enum: ["env", "file", "exec"],
+                  },
+                  provider: {
+                    type: "string",
+                  },
+                  id: {
+                    type: "string",
+                  },
+                },
+                required: ["source", "provider", "id"],
+              },
+              secretInput: {
+                anyOf: [
+                  {
+                    type: "string",
+                    minLength: 1,
+                  },
+                  {
+                    $ref: "#/$defs/secretRef",
+                  },
+                ],
+              },
+              account: {
+                type: "object",
+                additionalProperties: true,
+                properties: {
+                  enabled: {
+                    type: "boolean",
+                  },
+                  name: {
+                    type: "string",
+                  },
+                  appId: {
+                    type: "string",
+                  },
+                  clientSecret: {
+                    $ref: "#/$defs/secretInput",
+                  },
+                  clientSecretFile: {
+                    type: "string",
+                  },
+                  allowFrom: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                    },
+                  },
+                  systemPrompt: {
+                    type: "string",
+                  },
+                  markdownSupport: {
+                    type: "boolean",
+                  },
+                  voiceDirectUploadFormats: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                    },
+                  },
+                  audioFormatPolicy: {
+                    $ref: "#/$defs/audioFormatPolicy",
+                  },
+                  urlDirectUpload: {
+                    type: "boolean",
+                  },
+                  upgradeUrl: {
+                    type: "string",
+                  },
+                  upgradeMode: {
+                    type: "string",
+                    enum: ["doc", "hot-reload"],
+                  },
+                  streaming: {
+                    anyOf: [
+                      {
+                        type: "boolean",
+                      },
+                      {
+                        type: "object",
+                        additionalProperties: true,
+                        properties: {
+                          mode: {
+                            type: "string",
+                            enum: ["off", "partial"],
+                            default: "partial",
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              name: {
+                type: "string",
+              },
+              appId: {
+                type: "string",
+              },
+              clientSecret: {
+                $ref: "#/$defs/secretInput",
+              },
+              clientSecretFile: {
+                type: "string",
+              },
+              allowFrom: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              systemPrompt: {
+                type: "string",
+              },
+              markdownSupport: {
+                type: "boolean",
+              },
+              voiceDirectUploadFormats: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              audioFormatPolicy: {
+                $ref: "#/$defs/audioFormatPolicy",
+              },
+              tts: {
+                $ref: "#/$defs/tts",
+              },
+              stt: {
+                $ref: "#/$defs/stt",
+              },
+              urlDirectUpload: {
+                type: "boolean",
+              },
+              upgradeUrl: {
+                type: "string",
+              },
+              upgradeMode: {
+                type: "string",
+                enum: ["doc", "hot-reload"],
+              },
+              streaming: {
+                anyOf: [
+                  {
+                    type: "boolean",
+                  },
+                  {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      mode: {
+                        type: "string",
+                        enum: ["off", "partial"],
+                        default: "partial",
+                      },
+                    },
+                  },
+                ],
+              },
+              accounts: {
+                type: "object",
+                additionalProperties: {
+                  $ref: "#/$defs/account",
+                },
+              },
+              defaultAccount: {
+                type: "string",
+              },
+            },
+          },
+          label: "QQ Bot",
+          description:
+            "connect to QQ via official QQ Bot API with group chat and direct message support.",
+        },
+      },
+    },
+  },
+  {
+    dirName: "qwen",
+    idHint: "qwen",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: [
       "api.js",
       "media-understanding-provider.js",
       "model-definitions.js",
       "models.js",
       "onboard.js",
       "provider-catalog.js",
-      "video-generation-provider.js"
+      "video-generation-provider.js",
     ],
-    "packageName": "@openclaw/qwen-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Qwen Cloud provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/qwen-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Qwen Cloud provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "qwen",
-      "enabledByDefault": true,
-      "providers": [
-        "qwen"
-      ],
-      "contracts": {
-        "mediaUnderstandingProviders": [
-          "qwen"
-        ],
-        "videoGenerationProviders": [
-          "qwen"
-        ]
+    manifest: {
+      id: "qwen",
+      enabledByDefault: true,
+      providers: ["qwen"],
+      contracts: {
+        mediaUnderstandingProviders: ["qwen"],
+        videoGenerationProviders: ["qwen"],
       },
-      "providerAuthEnvVars": {
-        "qwen": [
-          "QWEN_API_KEY",
-          "MODELSTUDIO_API_KEY",
-          "DASHSCOPE_API_KEY"
-        ]
+      providerAuthEnvVars: {
+        qwen: ["QWEN_API_KEY", "MODELSTUDIO_API_KEY", "DASHSCOPE_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "qwen",
-          "method": "standard-api-key-cn",
-          "choiceId": "qwen-standard-api-key-cn",
-          "deprecatedChoiceIds": [
-            "modelstudio-standard-api-key-cn"
-          ],
-          "choiceLabel": "Standard API Key for China (pay-as-you-go)",
-          "choiceHint": "Endpoint: dashscope.aliyuncs.com",
-          "groupId": "qwen",
-          "groupLabel": "Qwen Cloud",
-          "groupHint": "Standard / Coding Plan (CN / Global) + multimodal roadmap",
-          "optionKey": "modelstudioStandardApiKeyCn",
-          "cliFlag": "--modelstudio-standard-api-key-cn",
-          "cliOption": "--modelstudio-standard-api-key-cn <key>",
-          "cliDescription": "Qwen Cloud standard API key (China)"
+          provider: "qwen",
+          method: "standard-api-key-cn",
+          choiceId: "qwen-standard-api-key-cn",
+          deprecatedChoiceIds: ["modelstudio-standard-api-key-cn"],
+          choiceLabel: "Standard API Key for China (pay-as-you-go)",
+          choiceHint: "Endpoint: dashscope.aliyuncs.com",
+          groupId: "qwen",
+          groupLabel: "Qwen Cloud",
+          groupHint: "Standard / Coding Plan (CN / Global) + multimodal roadmap",
+          optionKey: "modelstudioStandardApiKeyCn",
+          cliFlag: "--modelstudio-standard-api-key-cn",
+          cliOption: "--modelstudio-standard-api-key-cn <key>",
+          cliDescription: "Qwen Cloud standard API key (China)",
         },
         {
-          "provider": "qwen",
-          "method": "standard-api-key",
-          "choiceId": "qwen-standard-api-key",
-          "deprecatedChoiceIds": [
-            "modelstudio-standard-api-key"
-          ],
-          "choiceLabel": "Standard API Key for Global/Intl (pay-as-you-go)",
-          "choiceHint": "Endpoint: dashscope-intl.aliyuncs.com",
-          "groupId": "qwen",
-          "groupLabel": "Qwen Cloud",
-          "groupHint": "Standard / Coding Plan (CN / Global) + multimodal roadmap",
-          "optionKey": "modelstudioStandardApiKey",
-          "cliFlag": "--modelstudio-standard-api-key",
-          "cliOption": "--modelstudio-standard-api-key <key>",
-          "cliDescription": "Qwen Cloud standard API key (Global/Intl)"
+          provider: "qwen",
+          method: "standard-api-key",
+          choiceId: "qwen-standard-api-key",
+          deprecatedChoiceIds: ["modelstudio-standard-api-key"],
+          choiceLabel: "Standard API Key for Global/Intl (pay-as-you-go)",
+          choiceHint: "Endpoint: dashscope-intl.aliyuncs.com",
+          groupId: "qwen",
+          groupLabel: "Qwen Cloud",
+          groupHint: "Standard / Coding Plan (CN / Global) + multimodal roadmap",
+          optionKey: "modelstudioStandardApiKey",
+          cliFlag: "--modelstudio-standard-api-key",
+          cliOption: "--modelstudio-standard-api-key <key>",
+          cliDescription: "Qwen Cloud standard API key (Global/Intl)",
         },
         {
-          "provider": "qwen",
-          "method": "api-key-cn",
-          "choiceId": "qwen-api-key-cn",
-          "deprecatedChoiceIds": [
-            "modelstudio-api-key-cn"
-          ],
-          "choiceLabel": "Coding Plan API Key for China (subscription)",
-          "choiceHint": "Endpoint: coding.dashscope.aliyuncs.com",
-          "groupId": "qwen",
-          "groupLabel": "Qwen Cloud",
-          "groupHint": "Standard / Coding Plan (CN / Global) + multimodal roadmap",
-          "optionKey": "modelstudioApiKeyCn",
-          "cliFlag": "--modelstudio-api-key-cn",
-          "cliOption": "--modelstudio-api-key-cn <key>",
-          "cliDescription": "Qwen Cloud Coding Plan API key (China)"
+          provider: "qwen",
+          method: "api-key-cn",
+          choiceId: "qwen-api-key-cn",
+          deprecatedChoiceIds: ["modelstudio-api-key-cn"],
+          choiceLabel: "Coding Plan API Key for China (subscription)",
+          choiceHint: "Endpoint: coding.dashscope.aliyuncs.com",
+          groupId: "qwen",
+          groupLabel: "Qwen Cloud",
+          groupHint: "Standard / Coding Plan (CN / Global) + multimodal roadmap",
+          optionKey: "modelstudioApiKeyCn",
+          cliFlag: "--modelstudio-api-key-cn",
+          cliOption: "--modelstudio-api-key-cn <key>",
+          cliDescription: "Qwen Cloud Coding Plan API key (China)",
         },
         {
-          "provider": "qwen",
-          "method": "api-key",
-          "choiceId": "qwen-api-key",
-          "deprecatedChoiceIds": [
-            "modelstudio-api-key"
-          ],
-          "choiceLabel": "Coding Plan API Key for Global/Intl (subscription)",
-          "choiceHint": "Endpoint: coding-intl.dashscope.aliyuncs.com",
-          "groupId": "qwen",
-          "groupLabel": "Qwen Cloud",
-          "groupHint": "Standard / Coding Plan (CN / Global) + multimodal roadmap",
-          "optionKey": "modelstudioApiKey",
-          "cliFlag": "--modelstudio-api-key",
-          "cliOption": "--modelstudio-api-key <key>",
-          "cliDescription": "Qwen Cloud Coding Plan API key (Global/Intl)"
-        }
+          provider: "qwen",
+          method: "api-key",
+          choiceId: "qwen-api-key",
+          deprecatedChoiceIds: ["modelstudio-api-key"],
+          choiceLabel: "Coding Plan API Key for Global/Intl (subscription)",
+          choiceHint: "Endpoint: coding-intl.dashscope.aliyuncs.com",
+          groupId: "qwen",
+          groupLabel: "Qwen Cloud",
+          groupHint: "Standard / Coding Plan (CN / Global) + multimodal roadmap",
+          optionKey: "modelstudioApiKey",
+          cliFlag: "--modelstudio-api-key",
+          cliOption: "--modelstudio-api-key <key>",
+          cliDescription: "Qwen Cloud Coding Plan API key (Global/Intl)",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "runway",
-    "idHint": "runway",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "runway",
+    idHint: "runway",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "video-generation-provider.js"
-    ],
-    "packageName": "@openclaw/runway-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Runway video provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["video-generation-provider.js"],
+    packageName: "@openclaw/runway-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Runway video provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "runway",
-      "enabledByDefault": true,
-      "providerAuthEnvVars": {
-        "runway": [
-          "RUNWAYML_API_SECRET",
-          "RUNWAY_API_KEY"
-        ]
+    manifest: {
+      id: "runway",
+      enabledByDefault: true,
+      providerAuthEnvVars: {
+        runway: ["RUNWAYML_API_SECRET", "RUNWAY_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "runway",
-          "method": "api-key",
-          "choiceId": "runway-api-key",
-          "choiceLabel": "Runway API key",
-          "groupId": "runway",
-          "groupLabel": "Runway",
-          "groupHint": "API key",
-          "optionKey": "runwayApiKey",
-          "cliFlag": "--runway-api-key",
-          "cliOption": "--runway-api-key <key>",
-          "cliDescription": "Runway API key"
-        }
+          provider: "runway",
+          method: "api-key",
+          choiceId: "runway-api-key",
+          choiceLabel: "Runway API key",
+          groupId: "runway",
+          groupLabel: "Runway",
+          groupHint: "API key",
+          optionKey: "runwayApiKey",
+          cliFlag: "--runway-api-key",
+          cliOption: "--runway-api-key <key>",
+          cliDescription: "Runway API key",
+        },
       ],
-      "contracts": {
-        "videoGenerationProviders": [
-          "runway"
-        ]
+      contracts: {
+        videoGenerationProviders: ["runway"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "searxng",
-    "idHint": "searxng",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "searxng",
+    idHint: "searxng",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "web-search-provider.js"
-    ],
-    "packageName": "@openclaw/searxng-plugin",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw SearXNG plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["web-search-provider.js"],
+    packageName: "@openclaw/searxng-plugin",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw SearXNG plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "searxng",
-      "uiHints": {
+    manifest: {
+      id: "searxng",
+      uiHints: {
         "webSearch.baseUrl": {
-          "label": "SearXNG Base URL",
-          "help": "Base URL of your SearXNG instance, such as http://localhost:8080 or https://search.example.com/searxng."
+          label: "SearXNG Base URL",
+          help: "Base URL of your SearXNG instance, such as http://localhost:8080 or https://search.example.com/searxng.",
         },
         "webSearch.categories": {
-          "label": "SearXNG Categories",
-          "help": "Optional comma-separated categories such as general, news, or science."
+          label: "SearXNG Categories",
+          help: "Optional comma-separated categories such as general, news, or science.",
         },
         "webSearch.language": {
-          "label": "SearXNG Language",
-          "help": "Optional language code for results such as en, de, or fr."
-        }
+          label: "SearXNG Language",
+          help: "Optional language code for results such as en, de, or fr.",
+        },
       },
-      "contracts": {
-        "webSearchProviders": [
-          "searxng"
-        ]
+      contracts: {
+        webSearchProviders: ["searxng"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "baseUrl": {
-                "type": [
-                  "string",
-                  "object"
-                ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              baseUrl: {
+                type: ["string", "object"],
               },
-              "categories": {
-                "type": "string"
+              categories: {
+                type: "string",
               },
-              "language": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    }
+              language: {
+                type: "string",
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "sglang",
-    "idHint": "sglang",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "sglang",
+    idHint: "sglang",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "defaults.js",
-      "models.js"
-    ],
-    "packageName": "@openclaw/sglang-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw SGLang provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "defaults.js", "models.js"],
+    packageName: "@openclaw/sglang-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw SGLang provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "sglang",
-      "enabledByDefault": true,
-      "providers": [
-        "sglang"
-      ],
-      "providerAuthEnvVars": {
-        "sglang": [
-          "SGLANG_API_KEY"
-        ]
+    manifest: {
+      id: "sglang",
+      enabledByDefault: true,
+      providers: ["sglang"],
+      providerAuthEnvVars: {
+        sglang: ["SGLANG_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "sglang",
-          "method": "custom",
-          "choiceId": "sglang",
-          "choiceLabel": "SGLang",
-          "choiceHint": "Fast self-hosted OpenAI-compatible server",
-          "groupId": "sglang",
-          "groupLabel": "SGLang",
-          "groupHint": "Fast self-hosted server"
-        }
+          provider: "sglang",
+          method: "custom",
+          choiceId: "sglang",
+          choiceLabel: "SGLang",
+          choiceHint: "Fast self-hosted OpenAI-compatible server",
+          groupId: "sglang",
+          groupLabel: "SGLang",
+          groupHint: "Fast self-hosted server",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "signal",
-    "idHint": "signal",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "signal",
+    idHint: "signal",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "channel-config-api.js",
       "channel-entry.js",
@@ -6477,66 +6043,60 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "contract-api.js",
       "reaction-runtime-api.js",
       "runtime-api.js",
-      "secret-contract-api.js"
+      "secret-contract-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/signal",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Signal channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "signal",
-        "label": "Signal",
-        "selectionLabel": "Signal (signal-cli)",
-        "detailLabel": "Signal REST",
-        "docsPath": "/channels/signal",
-        "docsLabel": "signal",
-        "blurb": "signal-cli linked device; more setup (David Reagans: \"Hop on Discord.\").",
-        "systemImage": "antenna.radiowaves.left.and.right",
-        "markdownCapable": true
-      }
-    },
-    "manifest": {
-      "id": "signal",
-      "channels": [
-        "signal"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/signal",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Signal channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "signal",
+        label: "Signal",
+        selectionLabel: "Signal (signal-cli)",
+        detailLabel: "Signal REST",
+        docsPath: "/channels/signal",
+        docsLabel: "signal",
+        blurb: 'signal-cli linked device; more setup (David Reagans: "Hop on Discord.").',
+        systemImage: "antenna.radiowaves.left.and.right",
+        markdownCapable: true,
       },
-      "channelConfigs": {
-        "signal": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+    },
+    manifest: {
+      id: "signal",
+      channels: ["signal"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+      channelConfigs: {
+        signal: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Signal",
-          "description": "signal-cli linked device; more setup (David Reagans: \"Hop on Discord.\")."
-        }
-      }
-    }
+          label: "Signal",
+          description: 'signal-cli linked device; more setup (David Reagans: "Hop on Discord.").',
+        },
+      },
+    },
   },
   {
-    "dirName": "slack",
-    "idHint": "slack",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "slack",
+    idHint: "slack",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "channel-config-api.js",
       "channel-entry.js",
@@ -6548,404 +6108,347 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "runtime-api.js",
       "secret-contract-api.js",
       "security-contract-api.js",
-      "setup-plugin-api.js"
+      "setup-plugin-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/slack",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Slack channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "slack",
-        "label": "Slack",
-        "selectionLabel": "Slack (Socket Mode)",
-        "detailLabel": "Slack Bot",
-        "docsPath": "/channels/slack",
-        "docsLabel": "slack",
-        "blurb": "supported (Socket Mode).",
-        "systemImage": "number",
-        "markdownCapable": true,
-        "configuredState": {
-          "specifier": "./configured-state",
-          "exportName": "hasSlackConfiguredState"
-        }
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/slack",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Slack channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "slack",
+        label: "Slack",
+        selectionLabel: "Slack (Socket Mode)",
+        detailLabel: "Slack Bot",
+        docsPath: "/channels/slack",
+        docsLabel: "slack",
+        blurb: "supported (Socket Mode).",
+        systemImage: "number",
+        markdownCapable: true,
+        configuredState: {
+          specifier: "./configured-state",
+          exportName: "hasSlackConfiguredState",
+        },
       },
-      "bundle": {
-        "stageRuntimeDependencies": true
-      }
+      bundle: {
+        stageRuntimeDependencies: true,
+      },
     },
-    "manifest": {
-      "id": "slack",
-      "channels": [
-        "slack"
-      ],
-      "channelEnvVars": {
-        "slack": [
-          "SLACK_BOT_TOKEN",
-          "SLACK_APP_TOKEN",
-          "SLACK_USER_TOKEN"
-        ]
+    manifest: {
+      id: "slack",
+      channels: ["slack"],
+      channelEnvVars: {
+        slack: ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "SLACK_USER_TOKEN"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "slack": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        slack: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Slack",
-          "description": "supported (Socket Mode)."
-        }
-      }
-    }
+          label: "Slack",
+          description: "supported (Socket Mode).",
+        },
+      },
+    },
   },
   {
-    "dirName": "stepfun",
-    "idHint": "stepfun",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "stepfun",
+    idHint: "stepfun",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/stepfun-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw StepFun provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/stepfun-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw StepFun provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "stepfun",
-      "enabledByDefault": true,
-      "providers": [
-        "stepfun",
-        "stepfun-plan"
-      ],
-      "autoEnableWhenConfiguredProviders": [
-        "stepfun",
-        "stepfun-plan"
-      ],
-      "providerAuthEnvVars": {
-        "stepfun": [
-          "STEPFUN_API_KEY"
-        ],
-        "stepfun-plan": [
-          "STEPFUN_API_KEY"
-        ]
+    manifest: {
+      id: "stepfun",
+      enabledByDefault: true,
+      providers: ["stepfun", "stepfun-plan"],
+      autoEnableWhenConfiguredProviders: ["stepfun", "stepfun-plan"],
+      providerAuthEnvVars: {
+        stepfun: ["STEPFUN_API_KEY"],
+        "stepfun-plan": ["STEPFUN_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "stepfun",
-          "method": "standard-api-key-cn",
-          "choiceId": "stepfun-standard-api-key-cn",
-          "choiceLabel": "StepFun Standard API key (China)",
-          "choiceHint": "Endpoint: api.stepfun.com/v1",
-          "groupId": "stepfun",
-          "groupLabel": "StepFun",
-          "groupHint": "Standard / Step Plan (China / Global)",
-          "optionKey": "stepfunApiKey",
-          "cliFlag": "--stepfun-api-key",
-          "cliOption": "--stepfun-api-key <key>",
-          "cliDescription": "StepFun API key"
+          provider: "stepfun",
+          method: "standard-api-key-cn",
+          choiceId: "stepfun-standard-api-key-cn",
+          choiceLabel: "StepFun Standard API key (China)",
+          choiceHint: "Endpoint: api.stepfun.com/v1",
+          groupId: "stepfun",
+          groupLabel: "StepFun",
+          groupHint: "Standard / Step Plan (China / Global)",
+          optionKey: "stepfunApiKey",
+          cliFlag: "--stepfun-api-key",
+          cliOption: "--stepfun-api-key <key>",
+          cliDescription: "StepFun API key",
         },
         {
-          "provider": "stepfun",
-          "method": "standard-api-key-intl",
-          "choiceId": "stepfun-standard-api-key-intl",
-          "choiceLabel": "StepFun Standard API key (Global/Intl)",
-          "choiceHint": "Endpoint: api.stepfun.ai/v1",
-          "groupId": "stepfun",
-          "groupLabel": "StepFun",
-          "groupHint": "Standard / Step Plan (China / Global)",
-          "optionKey": "stepfunApiKey",
-          "cliFlag": "--stepfun-api-key",
-          "cliOption": "--stepfun-api-key <key>",
-          "cliDescription": "StepFun API key"
+          provider: "stepfun",
+          method: "standard-api-key-intl",
+          choiceId: "stepfun-standard-api-key-intl",
+          choiceLabel: "StepFun Standard API key (Global/Intl)",
+          choiceHint: "Endpoint: api.stepfun.ai/v1",
+          groupId: "stepfun",
+          groupLabel: "StepFun",
+          groupHint: "Standard / Step Plan (China / Global)",
+          optionKey: "stepfunApiKey",
+          cliFlag: "--stepfun-api-key",
+          cliOption: "--stepfun-api-key <key>",
+          cliDescription: "StepFun API key",
         },
         {
-          "provider": "stepfun-plan",
-          "method": "plan-api-key-cn",
-          "choiceId": "stepfun-plan-api-key-cn",
-          "choiceLabel": "StepFun Step Plan API key (China)",
-          "choiceHint": "Endpoint: api.stepfun.com/step_plan/v1",
-          "groupId": "stepfun",
-          "groupLabel": "StepFun",
-          "groupHint": "Standard / Step Plan (China / Global)",
-          "optionKey": "stepfunApiKey",
-          "cliFlag": "--stepfun-api-key",
-          "cliOption": "--stepfun-api-key <key>",
-          "cliDescription": "StepFun API key"
+          provider: "stepfun-plan",
+          method: "plan-api-key-cn",
+          choiceId: "stepfun-plan-api-key-cn",
+          choiceLabel: "StepFun Step Plan API key (China)",
+          choiceHint: "Endpoint: api.stepfun.com/step_plan/v1",
+          groupId: "stepfun",
+          groupLabel: "StepFun",
+          groupHint: "Standard / Step Plan (China / Global)",
+          optionKey: "stepfunApiKey",
+          cliFlag: "--stepfun-api-key",
+          cliOption: "--stepfun-api-key <key>",
+          cliDescription: "StepFun API key",
         },
         {
-          "provider": "stepfun-plan",
-          "method": "plan-api-key-intl",
-          "choiceId": "stepfun-plan-api-key-intl",
-          "choiceLabel": "StepFun Step Plan API key (Global/Intl)",
-          "choiceHint": "Endpoint: api.stepfun.ai/step_plan/v1",
-          "groupId": "stepfun",
-          "groupLabel": "StepFun",
-          "groupHint": "Standard / Step Plan (China / Global)",
-          "optionKey": "stepfunApiKey",
-          "cliFlag": "--stepfun-api-key",
-          "cliOption": "--stepfun-api-key <key>",
-          "cliDescription": "StepFun API key"
-        }
+          provider: "stepfun-plan",
+          method: "plan-api-key-intl",
+          choiceId: "stepfun-plan-api-key-intl",
+          choiceLabel: "StepFun Step Plan API key (Global/Intl)",
+          choiceHint: "Endpoint: api.stepfun.ai/step_plan/v1",
+          groupId: "stepfun",
+          groupLabel: "StepFun",
+          groupHint: "Standard / Step Plan (China / Global)",
+          optionKey: "stepfunApiKey",
+          cliFlag: "--stepfun-api-key",
+          cliOption: "--stepfun-api-key <key>",
+          cliDescription: "StepFun API key",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "synology-chat",
-    "idHint": "synology-chat",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "synology-chat",
+    idHint: "synology-chat",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "contract-api.js",
-      "setup-api.js"
-    ],
-    "packageName": "@openclaw/synology-chat",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "Synology Chat channel plugin for OpenClaw",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "synology-chat",
-        "label": "Synology Chat",
-        "selectionLabel": "Synology Chat (Webhook)",
-        "docsPath": "/channels/synology-chat",
-        "docsLabel": "synology-chat",
-        "blurb": "Connect your Synology NAS Chat to OpenClaw with full agent capabilities.",
-        "order": 90
+    publicSurfaceArtifacts: ["api.js", "contract-api.js", "setup-api.js"],
+    packageName: "@openclaw/synology-chat",
+    packageVersion: "2026.4.11",
+    packageDescription: "Synology Chat channel plugin for OpenClaw",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "synology-chat",
+        label: "Synology Chat",
+        selectionLabel: "Synology Chat (Webhook)",
+        docsPath: "/channels/synology-chat",
+        docsLabel: "synology-chat",
+        blurb: "Connect your Synology NAS Chat to OpenClaw with full agent capabilities.",
+        order: 90,
       },
-      "install": {
-        "npmSpec": "@openclaw/synology-chat",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
-      }
+      install: {
+        npmSpec: "@openclaw/synology-chat",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
+      },
     },
-    "manifest": {
-      "id": "synology-chat",
-      "channels": [
-        "synology-chat"
-      ],
-      "channelEnvVars": {
+    manifest: {
+      id: "synology-chat",
+      channels: ["synology-chat"],
+      channelEnvVars: {
         "synology-chat": [
           "SYNOLOGY_CHAT_TOKEN",
           "SYNOLOGY_CHAT_INCOMING_URL",
           "SYNOLOGY_NAS_HOST",
           "SYNOLOGY_ALLOWED_USER_IDS",
           "SYNOLOGY_RATE_LIMIT",
-          "OPENCLAW_BOT_NAME"
-        ]
+          "OPENCLAW_BOT_NAME",
+        ],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
+      channelConfigs: {
         "synology-chat": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Synology Chat",
-          "description": "Connect your Synology NAS Chat to OpenClaw with full agent capabilities."
-        }
-      }
-    }
+          label: "Synology Chat",
+          description: "Connect your Synology NAS Chat to OpenClaw with full agent capabilities.",
+        },
+      },
+    },
   },
   {
-    "dirName": "synthetic",
-    "idHint": "synthetic",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "synthetic",
+    idHint: "synthetic",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "models.js",
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/synthetic-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Synthetic provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/synthetic-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Synthetic provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "synthetic",
-      "enabledByDefault": true,
-      "providers": [
-        "synthetic"
-      ],
-      "providerAuthEnvVars": {
-        "synthetic": [
-          "SYNTHETIC_API_KEY"
-        ]
+    manifest: {
+      id: "synthetic",
+      enabledByDefault: true,
+      providers: ["synthetic"],
+      providerAuthEnvVars: {
+        synthetic: ["SYNTHETIC_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "synthetic",
-          "method": "api-key",
-          "choiceId": "synthetic-api-key",
-          "choiceLabel": "Synthetic API key",
-          "groupId": "synthetic",
-          "groupLabel": "Synthetic",
-          "groupHint": "Anthropic-compatible (multi-model)",
-          "optionKey": "syntheticApiKey",
-          "cliFlag": "--synthetic-api-key",
-          "cliOption": "--synthetic-api-key <key>",
-          "cliDescription": "Synthetic API key"
-        }
+          provider: "synthetic",
+          method: "api-key",
+          choiceId: "synthetic-api-key",
+          choiceLabel: "Synthetic API key",
+          groupId: "synthetic",
+          groupLabel: "Synthetic",
+          groupHint: "Anthropic-compatible (multi-model)",
+          optionKey: "syntheticApiKey",
+          cliFlag: "--synthetic-api-key",
+          cliOption: "--synthetic-api-key <key>",
+          cliDescription: "Synthetic API key",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
-  },
-  {
-    "dirName": "talk-voice",
-    "idHint": "talk-voice",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js"
-    ],
-    "manifest": {
-      "id": "talk-voice",
-      "enabledByDefault": true,
-      "name": "Talk Voice",
-      "description": "Manage Talk voice selection (list/set).",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
-  },
-  {
-    "dirName": "tavily",
-    "idHint": "tavily",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "web-search-contract-api.js",
-      "web-search-provider.js"
-    ],
-    "packageName": "@openclaw/tavily-plugin",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Tavily plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "tavily",
-      "skills": [
-        "./skills"
-      ],
-      "providerAuthEnvVars": {
-        "tavily": [
-          "TAVILY_API_KEY"
-        ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "uiHints": {
+    },
+  },
+  {
+    dirName: "talk-voice",
+    idHint: "talk-voice",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: ["api.js"],
+    manifest: {
+      id: "talk-voice",
+      enabledByDefault: true,
+      name: "Talk Voice",
+      description: "Manage Talk voice selection (list/set).",
+      commandAliases: [
+        {
+          name: "voice",
+          kind: "runtime-slash",
+        },
+      ],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    dirName: "tavily",
+    idHint: "tavily",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: ["web-search-contract-api.js", "web-search-provider.js"],
+    packageName: "@openclaw/tavily-plugin",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Tavily plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "tavily",
+      skills: ["./skills"],
+      providerAuthEnvVars: {
+        tavily: ["TAVILY_API_KEY"],
+      },
+      uiHints: {
         "webSearch.apiKey": {
-          "label": "Tavily API Key",
-          "help": "Tavily API key for web search and extraction (fallback: TAVILY_API_KEY env var).",
-          "sensitive": true,
-          "placeholder": "tvly-..."
+          label: "Tavily API Key",
+          help: "Tavily API key for web search and extraction (fallback: TAVILY_API_KEY env var).",
+          sensitive: true,
+          placeholder: "tvly-...",
         },
         "webSearch.baseUrl": {
-          "label": "Tavily Base URL",
-          "help": "Tavily API base URL override."
-        }
+          label: "Tavily Base URL",
+          help: "Tavily API base URL override.",
+        },
       },
-      "contracts": {
-        "webSearchProviders": [
-          "tavily"
-        ],
-        "tools": [
-          "tavily_search",
-          "tavily_extract"
-        ]
+      contracts: {
+        webSearchProviders: ["tavily"],
+        tools: ["tavily_search", "tavily_extract"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": [
-                  "string",
-                  "object"
-                ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: ["string", "object"],
               },
-              "baseUrl": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      }
-    }
+              baseUrl: {
+                type: "string",
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "telegram",
-    "idHint": "telegram",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "telegram",
+    idHint: "telegram",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "allow-from.js",
       "api.js",
       "channel-config-api.js",
@@ -6957,508 +6460,426 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "secret-contract-api.js",
       "session-key-api.js",
       "setup-plugin-api.js",
-      "update-offset-runtime-api.js"
+      "update-offset-runtime-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/telegram",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Telegram channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "telegram",
-        "label": "Telegram",
-        "selectionLabel": "Telegram (Bot API)",
-        "detailLabel": "Telegram Bot",
-        "docsPath": "/channels/telegram",
-        "docsLabel": "telegram",
-        "blurb": "simplest way to get started — register a bot with @BotFather and get going.",
-        "systemImage": "paperplane",
-        "selectionDocsPrefix": "",
-        "selectionDocsOmitLabel": true,
-        "selectionExtras": [
-          "https://openclaw.ai"
-        ],
-        "markdownCapable": true,
-        "configuredState": {
-          "specifier": "./configured-state",
-          "exportName": "hasTelegramConfiguredState"
-        }
-      },
-      "bundle": {
-        "stageRuntimeDependencies": true
-      }
-    },
-    "manifest": {
-      "id": "telegram",
-      "channels": [
-        "telegram"
-      ],
-      "channelEnvVars": {
-        "telegram": [
-          "TELEGRAM_BOT_TOKEN"
-        ]
-      },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      },
-      "channelConfigs": {
-        "telegram": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
-          },
-          "label": "Telegram",
-          "description": "simplest way to get started — register a bot with @BotFather and get going."
-        }
-      }
-    }
-  },
-  {
-    "dirName": "thread-ownership",
-    "idHint": "thread-ownership",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js"
-    ],
-    "manifest": {
-      "id": "thread-ownership",
-      "name": "Thread Ownership",
-      "description": "Prevents multiple agents from responding in the same Slack thread. Uses HTTP calls to the slack-forwarder ownership API.",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "forwarderUrl": {
-            "type": "string"
-          },
-          "abTestChannels": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "uiHints": {
-        "forwarderUrl": {
-          "label": "Forwarder URL",
-          "help": "Base URL of the slack-forwarder ownership API (default: http://slack-forwarder:8750)"
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/telegram",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Telegram channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "telegram",
+        label: "Telegram",
+        selectionLabel: "Telegram (Bot API)",
+        detailLabel: "Telegram Bot",
+        docsPath: "/channels/telegram",
+        docsLabel: "telegram",
+        blurb: "simplest way to get started — register a bot with @BotFather and get going.",
+        systemImage: "paperplane",
+        selectionDocsPrefix: "",
+        selectionDocsOmitLabel: true,
+        selectionExtras: ["https://openclaw.ai"],
+        markdownCapable: true,
+        configuredState: {
+          specifier: "./configured-state",
+          exportName: "hasTelegramConfiguredState",
         },
-        "abTestChannels": {
-          "label": "A/B Test Channels",
-          "help": "Slack channel IDs where thread ownership is enforced"
-        }
-      }
-    }
-  },
-  {
-    "dirName": "tlon",
-    "idHint": "tlon",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "runtime-api.js",
-      "setup-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/tlon",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Tlon/Urbit channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "tlon",
-        "label": "Tlon",
-        "selectionLabel": "Tlon (Urbit)",
-        "docsPath": "/channels/tlon",
-        "docsLabel": "tlon",
-        "blurb": "decentralized messaging on Urbit; install the plugin to enable.",
-        "order": 90,
-        "quickstartAllowFrom": true
       },
-      "install": {
-        "npmSpec": "@openclaw/tlon",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
-      }
-    },
-    "manifest": {
-      "id": "tlon",
-      "channels": [
-        "tlon"
-      ],
-      "skills": [
-        "node_modules/@tloncorp/tlon-skill"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      bundle: {
+        stageRuntimeDependencies: true,
       },
-      "channelConfigs": {
-        "tlon": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+    },
+    manifest: {
+      id: "telegram",
+      channels: ["telegram"],
+      channelEnvVars: {
+        telegram: ["TELEGRAM_BOT_TOKEN"],
+      },
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+      channelConfigs: {
+        telegram: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Tlon",
-          "description": "decentralized messaging on Urbit; install the plugin to enable."
-        }
-      }
-    }
+          label: "Telegram",
+          description:
+            "simplest way to get started — register a bot with @BotFather and get going.",
+        },
+      },
+    },
   },
   {
-    "dirName": "together",
-    "idHint": "together",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "thread-ownership",
+    idHint: "thread-ownership",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: ["api.js"],
+    manifest: {
+      id: "thread-ownership",
+      name: "Thread Ownership",
+      description:
+        "Prevents multiple agents from responding in the same Slack thread. Uses HTTP calls to the slack-forwarder ownership API.",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          forwarderUrl: {
+            type: "string",
+          },
+          abTestChannels: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+        },
+      },
+      uiHints: {
+        forwarderUrl: {
+          label: "Forwarder URL",
+          help: "Base URL of the slack-forwarder ownership API (default: http://slack-forwarder:8750)",
+        },
+        abTestChannels: {
+          label: "A/B Test Channels",
+          help: "Slack channel IDs where thread ownership is enforced",
+        },
+      },
+    },
+  },
+  {
+    dirName: "tlon",
+    idHint: "tlon",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
+    },
+    publicSurfaceArtifacts: ["api.js", "runtime-api.js", "setup-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/tlon",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Tlon/Urbit channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "tlon",
+        label: "Tlon",
+        selectionLabel: "Tlon (Urbit)",
+        docsPath: "/channels/tlon",
+        docsLabel: "tlon",
+        blurb: "decentralized messaging on Urbit; install the plugin to enable.",
+        order: 90,
+        quickstartAllowFrom: true,
+      },
+      install: {
+        npmSpec: "@openclaw/tlon",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
+      },
+    },
+    manifest: {
+      id: "tlon",
+      channels: ["tlon"],
+      skills: ["node_modules/@tloncorp/tlon-skill"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+      channelConfigs: {
+        tlon: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
+          },
+          label: "Tlon",
+          description: "decentralized messaging on Urbit; install the plugin to enable.",
+        },
+      },
+    },
+  },
+  {
+    dirName: "together",
+    idHint: "together",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: [
       "api.js",
       "models.js",
       "onboard.js",
       "provider-catalog.js",
-      "video-generation-provider.js"
+      "video-generation-provider.js",
     ],
-    "packageName": "@openclaw/together-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Together provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/together-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Together provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "together",
-      "enabledByDefault": true,
-      "providers": [
-        "together"
-      ],
-      "providerAuthEnvVars": {
-        "together": [
-          "TOGETHER_API_KEY"
-        ]
+    manifest: {
+      id: "together",
+      enabledByDefault: true,
+      providers: ["together"],
+      providerAuthEnvVars: {
+        together: ["TOGETHER_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "together",
-          "method": "api-key",
-          "choiceId": "together-api-key",
-          "choiceLabel": "Together AI API key",
-          "groupId": "together",
-          "groupLabel": "Together AI",
-          "groupHint": "API key",
-          "optionKey": "togetherApiKey",
-          "cliFlag": "--together-api-key",
-          "cliOption": "--together-api-key <key>",
-          "cliDescription": "Together AI API key"
-        }
+          provider: "together",
+          method: "api-key",
+          choiceId: "together-api-key",
+          choiceLabel: "Together AI API key",
+          groupId: "together",
+          groupLabel: "Together AI",
+          groupHint: "API key",
+          optionKey: "togetherApiKey",
+          cliFlag: "--together-api-key",
+          cliOption: "--together-api-key <key>",
+          cliDescription: "Together AI API key",
+        },
       ],
-      "contracts": {
-        "videoGenerationProviders": [
-          "together"
-        ]
+      contracts: {
+        videoGenerationProviders: ["together"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "twitch",
-    "idHint": "twitch",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "twitch",
+    idHint: "twitch",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/twitch",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Twitch channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "install": {
-        "minHostVersion": ">=2026.4.9"
+    publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/twitch",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Twitch channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      install: {
+        minHostVersion: ">=2026.4.11",
       },
-      "channel": {
-        "id": "twitch",
-        "label": "Twitch",
-        "selectionLabel": "Twitch (Chat)",
-        "docsPath": "/channels/twitch",
-        "blurb": "Twitch chat integration",
-        "aliases": [
-          "twitch-chat"
-        ]
-      }
+      channel: {
+        id: "twitch",
+        label: "Twitch",
+        selectionLabel: "Twitch (Chat)",
+        docsPath: "/channels/twitch",
+        blurb: "Twitch chat integration",
+        aliases: ["twitch-chat"],
+      },
     },
-    "manifest": {
-      "id": "twitch",
-      "channels": [
-        "twitch"
-      ],
-      "channelEnvVars": {
-        "twitch": [
-          "OPENCLAW_TWITCH_ACCESS_TOKEN"
-        ]
+    manifest: {
+      id: "twitch",
+      channels: ["twitch"],
+      channelEnvVars: {
+        twitch: ["OPENCLAW_TWITCH_ACCESS_TOKEN"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "twitch": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        twitch: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Twitch",
-          "description": "Twitch chat integration"
-        }
-      }
-    }
-  },
-  {
-    "dirName": "venice",
-    "idHint": "venice",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "models.js",
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/venice-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Venice provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "venice",
-      "enabledByDefault": true,
-      "providers": [
-        "venice"
-      ],
-      "providerAuthEnvVars": {
-        "venice": [
-          "VENICE_API_KEY"
-        ]
+          label: "Twitch",
+          description: "Twitch chat integration",
+        },
       },
-      "providerAuthChoices": [
-        {
-          "provider": "venice",
-          "method": "api-key",
-          "choiceId": "venice-api-key",
-          "choiceLabel": "Venice AI API key",
-          "groupId": "venice",
-          "groupLabel": "Venice AI",
-          "groupHint": "Privacy-focused (uncensored models)",
-          "optionKey": "veniceApiKey",
-          "cliFlag": "--venice-api-key",
-          "cliOption": "--venice-api-key <key>",
-          "cliDescription": "Venice API key"
-        }
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    },
   },
   {
-    "dirName": "vercel-ai-gateway",
-    "idHint": "vercel-ai-gateway",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "venice",
+    idHint: "venice",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "models.js",
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/vercel-ai-gateway-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Vercel AI Gateway provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/venice-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Venice provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "vercel-ai-gateway",
-      "enabledByDefault": true,
-      "providers": [
-        "vercel-ai-gateway"
-      ],
-      "providerAuthEnvVars": {
-        "vercel-ai-gateway": [
-          "AI_GATEWAY_API_KEY"
-        ]
+    manifest: {
+      id: "venice",
+      enabledByDefault: true,
+      providers: ["venice"],
+      providerAuthEnvVars: {
+        venice: ["VENICE_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "vercel-ai-gateway",
-          "method": "api-key",
-          "choiceId": "ai-gateway-api-key",
-          "choiceLabel": "Vercel AI Gateway API key",
-          "groupId": "ai-gateway",
-          "groupLabel": "Vercel AI Gateway",
-          "groupHint": "API key",
-          "optionKey": "aiGatewayApiKey",
-          "cliFlag": "--ai-gateway-api-key",
-          "cliOption": "--ai-gateway-api-key <key>",
-          "cliDescription": "Vercel AI Gateway API key"
-        }
+          provider: "venice",
+          method: "api-key",
+          choiceId: "venice-api-key",
+          choiceLabel: "Venice AI API key",
+          groupId: "venice",
+          groupLabel: "Venice AI",
+          groupHint: "Privacy-focused (uncensored models)",
+          optionKey: "veniceApiKey",
+          cliFlag: "--venice-api-key",
+          cliOption: "--venice-api-key <key>",
+          cliDescription: "Venice API key",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
-  },
-  {
-    "dirName": "vllm",
-    "idHint": "vllm",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "defaults.js",
-      "models.js",
-      "register.runtime.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "register.runtime.js"
-    ],
-    "packageName": "@openclaw/vllm-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw vLLM provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "vllm",
-      "enabledByDefault": true,
-      "providers": [
-        "vllm"
-      ],
-      "providerAuthEnvVars": {
-        "vllm": [
-          "VLLM_API_KEY"
-        ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "providerAuthChoices": [
-        {
-          "provider": "vllm",
-          "method": "custom",
-          "choiceId": "vllm",
-          "choiceLabel": "vLLM",
-          "choiceHint": "Local/self-hosted OpenAI-compatible server",
-          "groupId": "vllm",
-          "groupLabel": "vLLM",
-          "groupHint": "Local/self-hosted OpenAI-compatible"
-        }
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+    },
   },
   {
-    "dirName": "voice-call",
-    "idHint": "voice-call",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "vercel-ai-gateway",
+    idHint: "vercel-ai-gateway",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: ["api.js", "models.js", "onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/vercel-ai-gateway-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Vercel AI Gateway provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "vercel-ai-gateway",
+      enabledByDefault: true,
+      providers: ["vercel-ai-gateway"],
+      providerAuthEnvVars: {
+        "vercel-ai-gateway": ["AI_GATEWAY_API_KEY"],
+      },
+      providerAuthChoices: [
+        {
+          provider: "vercel-ai-gateway",
+          method: "api-key",
+          choiceId: "ai-gateway-api-key",
+          choiceLabel: "Vercel AI Gateway API key",
+          groupId: "ai-gateway",
+          groupLabel: "Vercel AI Gateway",
+          groupHint: "API key",
+          optionKey: "aiGatewayApiKey",
+          cliFlag: "--ai-gateway-api-key",
+          cliOption: "--ai-gateway-api-key <key>",
+          cliDescription: "Vercel AI Gateway API key",
+        },
+      ],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    dirName: "vllm",
+    idHint: "vllm",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: ["api.js", "defaults.js", "models.js", "register.runtime.js"],
+    runtimeSidecarArtifacts: ["register.runtime.js"],
+    packageName: "@openclaw/vllm-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw vLLM provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+    },
+    manifest: {
+      id: "vllm",
+      enabledByDefault: true,
+      providers: ["vllm"],
+      providerAuthEnvVars: {
+        vllm: ["VLLM_API_KEY"],
+      },
+      providerAuthChoices: [
+        {
+          provider: "vllm",
+          method: "custom",
+          choiceId: "vllm",
+          choiceLabel: "vLLM",
+          choiceHint: "Local/self-hosted OpenAI-compatible server",
+          groupId: "vllm",
+          groupLabel: "vLLM",
+          groupHint: "Local/self-hosted OpenAI-compatible",
+        },
+      ],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+  },
+  {
+    dirName: "voice-call",
+    idHint: "voice-call",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    publicSurfaceArtifacts: [
       "api.js",
       "cli-metadata.js",
       "config-api.js",
       "runtime-api.js",
       "runtime-entry.js",
-      "setup-api.js"
+      "setup-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/voice-call",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw voice-call plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "install": {
-        "minHostVersion": ">=2026.4.9"
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/voice-call",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw voice-call plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      install: {
+        minHostVersion: ">=2026.4.11",
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "voice-call",
-      "channelEnvVars": {
+    manifest: {
+      id: "voice-call",
+      channelEnvVars: {
         "voice-call": [
           "TELNYX_API_KEY",
           "TELNYX_CONNECTION_ID",
@@ -7468,1011 +6889,921 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
           "PLIVO_AUTH_ID",
           "PLIVO_AUTH_TOKEN",
           "NGROK_AUTHTOKEN",
-          "NGROK_DOMAIN"
-        ]
+          "NGROK_DOMAIN",
+        ],
       },
-      "uiHints": {
-        "provider": {
-          "label": "Provider",
-          "help": "Use twilio, telnyx, or mock for dev/no-network."
+      uiHints: {
+        provider: {
+          label: "Provider",
+          help: "Use twilio, telnyx, or mock for dev/no-network.",
         },
-        "fromNumber": {
-          "label": "From Number",
-          "placeholder": "+15550001234"
+        fromNumber: {
+          label: "From Number",
+          placeholder: "+15550001234",
         },
-        "toNumber": {
-          "label": "Default To Number",
-          "placeholder": "+15550001234"
+        toNumber: {
+          label: "Default To Number",
+          placeholder: "+15550001234",
         },
-        "inboundPolicy": {
-          "label": "Inbound Policy"
+        inboundPolicy: {
+          label: "Inbound Policy",
         },
-        "allowFrom": {
-          "label": "Inbound Allowlist"
+        allowFrom: {
+          label: "Inbound Allowlist",
         },
-        "inboundGreeting": {
-          "label": "Inbound Greeting",
-          "advanced": true
+        inboundGreeting: {
+          label: "Inbound Greeting",
+          advanced: true,
         },
         "telnyx.apiKey": {
-          "label": "Telnyx API Key",
-          "sensitive": true
+          label: "Telnyx API Key",
+          sensitive: true,
         },
         "telnyx.connectionId": {
-          "label": "Telnyx Connection ID"
+          label: "Telnyx Connection ID",
         },
         "telnyx.publicKey": {
-          "label": "Telnyx Public Key",
-          "sensitive": true
+          label: "Telnyx Public Key",
+          sensitive: true,
         },
         "twilio.accountSid": {
-          "label": "Twilio Account SID"
+          label: "Twilio Account SID",
         },
         "twilio.authToken": {
-          "label": "Twilio Auth Token",
-          "sensitive": true
+          label: "Twilio Auth Token",
+          sensitive: true,
         },
         "outbound.defaultMode": {
-          "label": "Default Call Mode"
+          label: "Default Call Mode",
         },
         "outbound.notifyHangupDelaySec": {
-          "label": "Notify Hangup Delay (sec)",
-          "advanced": true
+          label: "Notify Hangup Delay (sec)",
+          advanced: true,
         },
         "serve.port": {
-          "label": "Webhook Port"
+          label: "Webhook Port",
         },
         "serve.bind": {
-          "label": "Webhook Bind"
+          label: "Webhook Bind",
         },
         "serve.path": {
-          "label": "Webhook Path"
+          label: "Webhook Path",
         },
         "tailscale.mode": {
-          "label": "Tailscale Mode",
-          "advanced": true
+          label: "Tailscale Mode",
+          advanced: true,
         },
         "tailscale.path": {
-          "label": "Tailscale Path",
-          "advanced": true
+          label: "Tailscale Path",
+          advanced: true,
         },
         "tunnel.provider": {
-          "label": "Tunnel Provider",
-          "advanced": true
+          label: "Tunnel Provider",
+          advanced: true,
         },
         "tunnel.ngrokAuthToken": {
-          "label": "ngrok Auth Token",
-          "sensitive": true,
-          "advanced": true
+          label: "ngrok Auth Token",
+          sensitive: true,
+          advanced: true,
         },
         "tunnel.ngrokDomain": {
-          "label": "ngrok Domain",
-          "advanced": true
+          label: "ngrok Domain",
+          advanced: true,
         },
         "tunnel.allowNgrokFreeTierLoopbackBypass": {
-          "label": "Allow ngrok Free Tier (Loopback Bypass)",
-          "advanced": true
+          label: "Allow ngrok Free Tier (Loopback Bypass)",
+          advanced: true,
         },
         "streaming.enabled": {
-          "label": "Enable Streaming",
-          "advanced": true
+          label: "Enable Streaming",
+          advanced: true,
         },
         "streaming.provider": {
-          "label": "Streaming Provider",
-          "help": "Uses the first registered realtime transcription provider when unset.",
-          "advanced": true
+          label: "Streaming Provider",
+          help: "Uses the first registered realtime transcription provider when unset.",
+          advanced: true,
         },
         "streaming.providers": {
-          "label": "Streaming Provider Config",
-          "advanced": true
+          label: "Streaming Provider Config",
+          advanced: true,
         },
         "streaming.streamPath": {
-          "label": "Media Stream Path",
-          "advanced": true
+          label: "Media Stream Path",
+          advanced: true,
         },
         "realtime.enabled": {
-          "label": "Enable Realtime Voice",
-          "advanced": true
+          label: "Enable Realtime Voice",
+          advanced: true,
         },
         "realtime.provider": {
-          "label": "Realtime Voice Provider",
-          "help": "Uses the first registered realtime voice provider when unset.",
-          "advanced": true
+          label: "Realtime Voice Provider",
+          help: "Uses the first registered realtime voice provider when unset.",
+          advanced: true,
         },
         "realtime.streamPath": {
-          "label": "Realtime Stream Path",
-          "advanced": true
+          label: "Realtime Stream Path",
+          advanced: true,
         },
         "realtime.instructions": {
-          "label": "Realtime Instructions",
-          "advanced": true
+          label: "Realtime Instructions",
+          advanced: true,
         },
         "realtime.providers": {
-          "label": "Realtime Provider Config",
-          "advanced": true
+          label: "Realtime Provider Config",
+          advanced: true,
         },
         "tts.provider": {
-          "label": "TTS Provider Override",
-          "help": "Deep-merges with messages.tts (Microsoft is ignored for calls).",
-          "advanced": true
+          label: "TTS Provider Override",
+          help: "Deep-merges with messages.tts (Microsoft is ignored for calls).",
+          advanced: true,
         },
         "tts.providers": {
-          "label": "TTS Provider Config",
-          "advanced": true
+          label: "TTS Provider Config",
+          advanced: true,
         },
-        "publicUrl": {
-          "label": "Public Webhook URL",
-          "advanced": true
+        publicUrl: {
+          label: "Public Webhook URL",
+          advanced: true,
         },
-        "skipSignatureVerification": {
-          "label": "Skip Signature Verification",
-          "advanced": true
+        skipSignatureVerification: {
+          label: "Skip Signature Verification",
+          advanced: true,
         },
-        "store": {
-          "label": "Call Log Store Path",
-          "advanced": true
+        store: {
+          label: "Call Log Store Path",
+          advanced: true,
         },
-        "responseModel": {
-          "label": "Response Model",
-          "help": "Optional override. Falls back to the runtime default model when unset.",
-          "advanced": true
+        responseModel: {
+          label: "Response Model",
+          help: "Optional override. Falls back to the runtime default model when unset.",
+          advanced: true,
         },
-        "responseSystemPrompt": {
-          "label": "Response System Prompt",
-          "advanced": true
+        responseSystemPrompt: {
+          label: "Response System Prompt",
+          advanced: true,
         },
-        "responseTimeoutMs": {
-          "label": "Response Timeout (ms)",
-          "advanced": true
-        }
+        responseTimeoutMs: {
+          label: "Response Timeout (ms)",
+          advanced: true,
+        },
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean"
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          enabled: {
+            type: "boolean",
           },
-          "provider": {
-            "type": "string",
-            "enum": [
-              "telnyx",
-              "twilio",
-              "plivo",
-              "mock"
-            ]
+          provider: {
+            type: "string",
+            enum: ["telnyx", "twilio", "plivo", "mock"],
           },
-          "telnyx": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": "string"
+          telnyx: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: "string",
               },
-              "connectionId": {
-                "type": "string"
+              connectionId: {
+                type: "string",
               },
-              "publicKey": {
-                "type": "string"
-              }
-            }
+              publicKey: {
+                type: "string",
+              },
+            },
           },
-          "twilio": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "accountSid": {
-                "type": "string"
+          twilio: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              accountSid: {
+                type: "string",
               },
-              "authToken": {
-                "type": "string"
-              }
-            }
+              authToken: {
+                type: "string",
+              },
+            },
           },
-          "plivo": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "authId": {
-                "type": "string"
+          plivo: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              authId: {
+                type: "string",
               },
-              "authToken": {
-                "type": "string"
-              }
-            }
+              authToken: {
+                type: "string",
+              },
+            },
           },
-          "fromNumber": {
-            "type": "string",
-            "pattern": "^\\+[1-9]\\d{1,14}$"
+          fromNumber: {
+            type: "string",
+            pattern: "^\\+[1-9]\\d{1,14}$",
           },
-          "toNumber": {
-            "type": "string",
-            "pattern": "^\\+[1-9]\\d{1,14}$"
+          toNumber: {
+            type: "string",
+            pattern: "^\\+[1-9]\\d{1,14}$",
           },
-          "inboundPolicy": {
-            "type": "string",
-            "enum": [
-              "disabled",
-              "allowlist",
-              "pairing",
-              "open"
-            ]
+          inboundPolicy: {
+            type: "string",
+            enum: ["disabled", "allowlist", "pairing", "open"],
           },
-          "allowFrom": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^\\+[1-9]\\d{1,14}$"
-            }
+          allowFrom: {
+            type: "array",
+            items: {
+              type: "string",
+              pattern: "^\\+[1-9]\\d{1,14}$",
+            },
           },
-          "inboundGreeting": {
-            "type": "string"
+          inboundGreeting: {
+            type: "string",
           },
-          "outbound": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "defaultMode": {
-                "type": "string",
-                "enum": [
-                  "notify",
-                  "conversation"
-                ]
+          outbound: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              defaultMode: {
+                type: "string",
+                enum: ["notify", "conversation"],
               },
-              "notifyHangupDelaySec": {
-                "type": "integer",
-                "minimum": 0
-              }
-            }
+              notifyHangupDelaySec: {
+                type: "integer",
+                minimum: 0,
+              },
+            },
           },
-          "maxDurationSeconds": {
-            "type": "integer",
-            "minimum": 1
+          maxDurationSeconds: {
+            type: "integer",
+            minimum: 1,
           },
-          "staleCallReaperSeconds": {
-            "type": "integer",
-            "minimum": 0
+          staleCallReaperSeconds: {
+            type: "integer",
+            minimum: 0,
           },
-          "silenceTimeoutMs": {
-            "type": "integer",
-            "minimum": 1
+          silenceTimeoutMs: {
+            type: "integer",
+            minimum: 1,
           },
-          "transcriptTimeoutMs": {
-            "type": "integer",
-            "minimum": 1
+          transcriptTimeoutMs: {
+            type: "integer",
+            minimum: 1,
           },
-          "ringTimeoutMs": {
-            "type": "integer",
-            "minimum": 1
+          ringTimeoutMs: {
+            type: "integer",
+            minimum: 1,
           },
-          "maxConcurrentCalls": {
-            "type": "integer",
-            "minimum": 1
+          maxConcurrentCalls: {
+            type: "integer",
+            minimum: 1,
           },
-          "serve": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "port": {
-                "type": "integer",
-                "minimum": 1
+          serve: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              port: {
+                type: "integer",
+                minimum: 1,
               },
-              "bind": {
-                "type": "string"
+              bind: {
+                type: "string",
               },
-              "path": {
-                "type": "string"
-              }
-            }
+              path: {
+                type: "string",
+              },
+            },
           },
-          "tailscale": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "mode": {
-                "type": "string",
-                "enum": [
-                  "off",
-                  "serve",
-                  "funnel"
-                ]
+          tailscale: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              mode: {
+                type: "string",
+                enum: ["off", "serve", "funnel"],
               },
-              "path": {
-                "type": "string"
-              }
-            }
+              path: {
+                type: "string",
+              },
+            },
           },
-          "tunnel": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "provider": {
-                "type": "string",
-                "enum": [
-                  "none",
-                  "ngrok",
-                  "tailscale-serve",
-                  "tailscale-funnel"
-                ]
+          tunnel: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              provider: {
+                type: "string",
+                enum: ["none", "ngrok", "tailscale-serve", "tailscale-funnel"],
               },
-              "ngrokAuthToken": {
-                "type": "string"
+              ngrokAuthToken: {
+                type: "string",
               },
-              "ngrokDomain": {
-                "type": "string"
+              ngrokDomain: {
+                type: "string",
               },
-              "allowNgrokFreeTierLoopbackBypass": {
-                "type": "boolean"
-              }
-            }
+              allowNgrokFreeTierLoopbackBypass: {
+                type: "boolean",
+              },
+            },
           },
-          "webhookSecurity": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "allowedHosts": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "trustForwardingHeaders": {
-                "type": "boolean"
-              },
-              "trustedProxyIPs": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "streaming": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "provider": {
-                "type": "string"
-              },
-              "streamPath": {
-                "type": "string"
-              },
-              "providers": {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              },
-              "preStartTimeoutMs": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "maxPendingConnections": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "maxPendingConnectionsPerIp": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "maxConnections": {
-                "type": "integer",
-                "minimum": 1
-              }
-            }
-          },
-          "realtime": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "provider": {
-                "type": "string"
-              },
-              "streamPath": {
-                "type": "string"
-              },
-              "instructions": {
-                "type": "string"
-              },
-              "tools": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "enum": [
-                        "function"
-                      ]
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "type": "string"
-                    },
-                    "parameters": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "properties": {
-                        "type": {
-                          "type": "string",
-                          "enum": [
-                            "object"
-                          ]
-                        },
-                        "properties": {
-                          "type": "object",
-                          "additionalProperties": true
-                        },
-                        "required": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        }
-                      },
-                      "required": [
-                        "type",
-                        "properties"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "type",
-                    "name",
-                    "description",
-                    "parameters"
-                  ]
-                }
-              },
-              "providers": {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              }
-            }
-          },
-          "publicUrl": {
-            "type": "string"
-          },
-          "skipSignatureVerification": {
-            "type": "boolean"
-          },
-          "tts": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "auto": {
-                "type": "string",
-                "enum": [
-                  "off",
-                  "always",
-                  "inbound",
-                  "tagged"
-                ]
-              },
-              "enabled": {
-                "type": "boolean"
-              },
-              "mode": {
-                "type": "string",
-                "enum": [
-                  "final",
-                  "all"
-                ]
-              },
-              "provider": {
-                "type": "string"
-              },
-              "summaryModel": {
-                "type": "string"
-              },
-              "modelOverrides": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "enabled": {
-                    "type": "boolean"
-                  },
-                  "allowText": {
-                    "type": "boolean"
-                  },
-                  "allowProvider": {
-                    "type": "boolean"
-                  },
-                  "allowVoice": {
-                    "type": "boolean"
-                  },
-                  "allowModelId": {
-                    "type": "boolean"
-                  },
-                  "allowVoiceSettings": {
-                    "type": "boolean"
-                  },
-                  "allowNormalization": {
-                    "type": "boolean"
-                  },
-                  "allowSeed": {
-                    "type": "boolean"
-                  }
-                }
-              },
-              "providers": {
-                "type": "object",
-                "properties": {
-                  "openai": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "apiKey": {
-                        "type": "string"
-                      },
-                      "baseUrl": {
-                        "type": "string"
-                      },
-                      "model": {
-                        "type": "string"
-                      },
-                      "voice": {
-                        "type": "string"
-                      },
-                      "speed": {
-                        "type": "number",
-                        "minimum": 0.25,
-                        "maximum": 4
-                      },
-                      "instructions": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "elevenlabs": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "apiKey": {
-                        "type": "string"
-                      },
-                      "baseUrl": {
-                        "type": "string"
-                      },
-                      "voiceId": {
-                        "type": "string"
-                      },
-                      "modelId": {
-                        "type": "string"
-                      },
-                      "seed": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 4294967295
-                      },
-                      "applyTextNormalization": {
-                        "type": "string",
-                        "enum": [
-                          "auto",
-                          "on",
-                          "off"
-                        ]
-                      },
-                      "languageCode": {
-                        "type": "string"
-                      },
-                      "voiceSettings": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "properties": {
-                          "stability": {
-                            "type": "number",
-                            "minimum": 0,
-                            "maximum": 1
-                          },
-                          "similarityBoost": {
-                            "type": "number",
-                            "minimum": 0,
-                            "maximum": 1
-                          },
-                          "style": {
-                            "type": "number",
-                            "minimum": 0,
-                            "maximum": 1
-                          },
-                          "useSpeakerBoost": {
-                            "type": "boolean"
-                          },
-                          "speed": {
-                            "type": "number",
-                            "minimum": 0.5,
-                            "maximum": 2
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "microsoft": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "voice": {
-                        "type": "string"
-                      },
-                      "lang": {
-                        "type": "string"
-                      },
-                      "outputFormat": {
-                        "type": "string"
-                      },
-                      "pitch": {
-                        "type": "string"
-                      },
-                      "rate": {
-                        "type": "string"
-                      },
-                      "volume": {
-                        "type": "string"
-                      },
-                      "saveSubtitles": {
-                        "type": "boolean"
-                      },
-                      "proxy": {
-                        "type": "string"
-                      },
-                      "timeoutMs": {
-                        "type": "integer",
-                        "minimum": 1000,
-                        "maximum": 120000
-                      }
-                    }
-                  },
-                  "edge": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "enabled": {
-                        "type": "boolean"
-                      },
-                      "voice": {
-                        "type": "string"
-                      },
-                      "lang": {
-                        "type": "string"
-                      },
-                      "outputFormat": {
-                        "type": "string"
-                      },
-                      "pitch": {
-                        "type": "string"
-                      },
-                      "rate": {
-                        "type": "string"
-                      },
-                      "volume": {
-                        "type": "string"
-                      },
-                      "saveSubtitles": {
-                        "type": "boolean"
-                      },
-                      "proxy": {
-                        "type": "string"
-                      },
-                      "timeoutMs": {
-                        "type": "integer",
-                        "minimum": 1000,
-                        "maximum": 120000
-                      }
-                    }
-                  }
+          webhookSecurity: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              allowedHosts: {
+                type: "array",
+                items: {
+                  type: "string",
                 },
-                "additionalProperties": {
-                  "type": "object",
-                  "properties": {
-                    "apiKey": {
-                      "type": "string"
-                    }
+              },
+              trustForwardingHeaders: {
+                type: "boolean",
+              },
+              trustedProxyIPs: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+            },
+          },
+          streaming: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              provider: {
+                type: "string",
+              },
+              streamPath: {
+                type: "string",
+              },
+              providers: {
+                type: "object",
+                additionalProperties: {
+                  type: "object",
+                  additionalProperties: true,
+                },
+              },
+              preStartTimeoutMs: {
+                type: "integer",
+                minimum: 1,
+              },
+              maxPendingConnections: {
+                type: "integer",
+                minimum: 1,
+              },
+              maxPendingConnectionsPerIp: {
+                type: "integer",
+                minimum: 1,
+              },
+              maxConnections: {
+                type: "integer",
+                minimum: 1,
+              },
+            },
+          },
+          realtime: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              provider: {
+                type: "string",
+              },
+              streamPath: {
+                type: "string",
+              },
+              instructions: {
+                type: "string",
+              },
+              tools: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    type: {
+                      type: "string",
+                      enum: ["function"],
+                    },
+                    name: {
+                      type: "string",
+                    },
+                    description: {
+                      type: "string",
+                    },
+                    parameters: {
+                      type: "object",
+                      additionalProperties: false,
+                      properties: {
+                        type: {
+                          type: "string",
+                          enum: ["object"],
+                        },
+                        properties: {
+                          type: "object",
+                          additionalProperties: true,
+                        },
+                        required: {
+                          type: "array",
+                          items: {
+                            type: "string",
+                          },
+                        },
+                      },
+                      required: ["type", "properties"],
+                    },
                   },
-                  "additionalProperties": true
-                }
+                  required: ["type", "name", "description", "parameters"],
+                },
               },
-              "prefsPath": {
-                "type": "string"
+              providers: {
+                type: "object",
+                additionalProperties: {
+                  type: "object",
+                  additionalProperties: true,
+                },
               },
-              "maxTextLength": {
-                "type": "integer",
-                "minimum": 1
+            },
+          },
+          publicUrl: {
+            type: "string",
+          },
+          skipSignatureVerification: {
+            type: "boolean",
+          },
+          tts: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              auto: {
+                type: "string",
+                enum: ["off", "always", "inbound", "tagged"],
               },
-              "timeoutMs": {
-                "type": "integer",
-                "minimum": 1000,
-                "maximum": 120000
-              }
-            }
+              enabled: {
+                type: "boolean",
+              },
+              mode: {
+                type: "string",
+                enum: ["final", "all"],
+              },
+              provider: {
+                type: "string",
+              },
+              summaryModel: {
+                type: "string",
+              },
+              modelOverrides: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  enabled: {
+                    type: "boolean",
+                  },
+                  allowText: {
+                    type: "boolean",
+                  },
+                  allowProvider: {
+                    type: "boolean",
+                  },
+                  allowVoice: {
+                    type: "boolean",
+                  },
+                  allowModelId: {
+                    type: "boolean",
+                  },
+                  allowVoiceSettings: {
+                    type: "boolean",
+                  },
+                  allowNormalization: {
+                    type: "boolean",
+                  },
+                  allowSeed: {
+                    type: "boolean",
+                  },
+                },
+              },
+              providers: {
+                type: "object",
+                properties: {
+                  openai: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      apiKey: {
+                        type: "string",
+                      },
+                      baseUrl: {
+                        type: "string",
+                      },
+                      model: {
+                        type: "string",
+                      },
+                      voice: {
+                        type: "string",
+                      },
+                      speed: {
+                        type: "number",
+                        minimum: 0.25,
+                        maximum: 4,
+                      },
+                      instructions: {
+                        type: "string",
+                      },
+                    },
+                  },
+                  elevenlabs: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      apiKey: {
+                        type: "string",
+                      },
+                      baseUrl: {
+                        type: "string",
+                      },
+                      voiceId: {
+                        type: "string",
+                      },
+                      modelId: {
+                        type: "string",
+                      },
+                      seed: {
+                        type: "integer",
+                        minimum: 0,
+                        maximum: 4294967295,
+                      },
+                      applyTextNormalization: {
+                        type: "string",
+                        enum: ["auto", "on", "off"],
+                      },
+                      languageCode: {
+                        type: "string",
+                      },
+                      voiceSettings: {
+                        type: "object",
+                        additionalProperties: false,
+                        properties: {
+                          stability: {
+                            type: "number",
+                            minimum: 0,
+                            maximum: 1,
+                          },
+                          similarityBoost: {
+                            type: "number",
+                            minimum: 0,
+                            maximum: 1,
+                          },
+                          style: {
+                            type: "number",
+                            minimum: 0,
+                            maximum: 1,
+                          },
+                          useSpeakerBoost: {
+                            type: "boolean",
+                          },
+                          speed: {
+                            type: "number",
+                            minimum: 0.5,
+                            maximum: 2,
+                          },
+                        },
+                      },
+                    },
+                  },
+                  microsoft: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      enabled: {
+                        type: "boolean",
+                      },
+                      voice: {
+                        type: "string",
+                      },
+                      lang: {
+                        type: "string",
+                      },
+                      outputFormat: {
+                        type: "string",
+                      },
+                      pitch: {
+                        type: "string",
+                      },
+                      rate: {
+                        type: "string",
+                      },
+                      volume: {
+                        type: "string",
+                      },
+                      saveSubtitles: {
+                        type: "boolean",
+                      },
+                      proxy: {
+                        type: "string",
+                      },
+                      timeoutMs: {
+                        type: "integer",
+                        minimum: 1000,
+                        maximum: 120000,
+                      },
+                    },
+                  },
+                  edge: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      enabled: {
+                        type: "boolean",
+                      },
+                      voice: {
+                        type: "string",
+                      },
+                      lang: {
+                        type: "string",
+                      },
+                      outputFormat: {
+                        type: "string",
+                      },
+                      pitch: {
+                        type: "string",
+                      },
+                      rate: {
+                        type: "string",
+                      },
+                      volume: {
+                        type: "string",
+                      },
+                      saveSubtitles: {
+                        type: "boolean",
+                      },
+                      proxy: {
+                        type: "string",
+                      },
+                      timeoutMs: {
+                        type: "integer",
+                        minimum: 1000,
+                        maximum: 120000,
+                      },
+                    },
+                  },
+                },
+                additionalProperties: {
+                  type: "object",
+                  properties: {
+                    apiKey: {
+                      type: "string",
+                    },
+                  },
+                  additionalProperties: true,
+                },
+              },
+              prefsPath: {
+                type: "string",
+              },
+              maxTextLength: {
+                type: "integer",
+                minimum: 1,
+              },
+              timeoutMs: {
+                type: "integer",
+                minimum: 1000,
+                maximum: 120000,
+              },
+            },
           },
-          "store": {
-            "type": "string"
+          store: {
+            type: "string",
           },
-          "responseModel": {
-            "type": "string"
+          responseModel: {
+            type: "string",
           },
-          "responseSystemPrompt": {
-            "type": "string"
+          responseSystemPrompt: {
+            type: "string",
           },
-          "responseTimeoutMs": {
-            "type": "integer",
-            "minimum": 1
-          }
-        }
+          responseTimeoutMs: {
+            type: "integer",
+            minimum: 1,
+          },
+        },
       },
-      "configContracts": {
-        "compatibilityMigrationPaths": [
-          "plugins.entries.voice-call.config"
-        ]
-      }
-    }
+      configContracts: {
+        compatibilityMigrationPaths: ["plugins.entries.voice-call.config"],
+      },
+    },
   },
   {
-    "dirName": "volcengine",
-    "idHint": "volcengine",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "volcengine",
+    idHint: "volcengine",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "models.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/volcengine-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Volcengine provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "models.js", "provider-catalog.js"],
+    packageName: "@openclaw/volcengine-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Volcengine provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "volcengine",
-      "enabledByDefault": true,
-      "providers": [
-        "volcengine",
-        "volcengine-plan"
-      ],
-      "providerAuthEnvVars": {
-        "volcengine": [
-          "VOLCANO_ENGINE_API_KEY"
-        ]
+    manifest: {
+      id: "volcengine",
+      enabledByDefault: true,
+      providers: ["volcengine", "volcengine-plan"],
+      providerAuthEnvVars: {
+        volcengine: ["VOLCANO_ENGINE_API_KEY"],
       },
-      "providerAuthAliases": {
-        "volcengine-plan": "volcengine"
+      providerAuthAliases: {
+        "volcengine-plan": "volcengine",
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "volcengine",
-          "method": "api-key",
-          "choiceId": "volcengine-api-key",
-          "choiceLabel": "Volcano Engine API key",
-          "groupId": "volcengine",
-          "groupLabel": "Volcano Engine",
-          "groupHint": "API key",
-          "optionKey": "volcengineApiKey",
-          "cliFlag": "--volcengine-api-key",
-          "cliOption": "--volcengine-api-key <key>",
-          "cliDescription": "Volcano Engine API key"
-        }
+          provider: "volcengine",
+          method: "api-key",
+          choiceId: "volcengine-api-key",
+          choiceLabel: "Volcano Engine API key",
+          groupId: "volcengine",
+          groupLabel: "Volcano Engine",
+          groupHint: "API key",
+          optionKey: "volcengineApiKey",
+          cliFlag: "--volcengine-api-key",
+          cliOption: "--volcengine-api-key <key>",
+          cliDescription: "Volcano Engine API key",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "vydra",
-    "idHint": "vydra",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "vydra",
+    idHint: "vydra",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "image-generation-provider.js",
       "onboard.js",
       "shared.js",
       "speech-provider.js",
-      "video-generation-provider.js"
+      "video-generation-provider.js",
     ],
-    "packageName": "@openclaw/vydra-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Vydra media provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/vydra-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Vydra media provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "vydra",
-      "enabledByDefault": true,
-      "providers": [
-        "vydra"
-      ],
-      "providerAuthEnvVars": {
-        "vydra": [
-          "VYDRA_API_KEY"
-        ]
+    manifest: {
+      id: "vydra",
+      enabledByDefault: true,
+      providers: ["vydra"],
+      providerAuthEnvVars: {
+        vydra: ["VYDRA_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "vydra",
-          "method": "api-key",
-          "choiceId": "vydra-api-key",
-          "choiceLabel": "Vydra API key",
-          "groupId": "vydra",
-          "groupLabel": "Vydra",
-          "groupHint": "Image, video, and speech",
-          "onboardingScopes": [
-            "image-generation"
-          ],
-          "optionKey": "vydraApiKey",
-          "cliFlag": "--vydra-api-key",
-          "cliOption": "--vydra-api-key <key>",
-          "cliDescription": "Vydra API key"
-        }
-      ],
-      "contracts": {
-        "speechProviders": [
-          "vydra"
-        ],
-        "imageGenerationProviders": [
-          "vydra"
-        ],
-        "videoGenerationProviders": [
-          "vydra"
-        ]
-      },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
-  },
-  {
-    "dirName": "webhooks",
-    "idHint": "webhooks",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
-    },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "runtime-api.js"
-    ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/webhooks",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw webhook bridge plugin",
-    "packageManifest": {
-      "bundle": {
-        "stageRuntimeDependencies": true
-      },
-      "extensions": [
-        "./index.ts"
-      ]
-    },
-    "manifest": {
-      "id": "webhooks",
-      "name": "Webhooks",
-      "description": "Authenticated inbound webhooks that bind external automation to OpenClaw TaskFlows.",
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "$defs": {
-          "secretRef": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "source": {
-                "type": "string",
-                "enum": [
-                  "env",
-                  "file",
-                  "exec"
-                ]
-              },
-              "provider": {
-                "type": "string"
-              },
-              "id": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "source",
-              "provider",
-              "id"
-            ]
-          },
-          "secretInput": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "$ref": "#/$defs/secretRef"
-              }
-            ]
-          },
-          "route": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
-              },
-              "path": {
-                "type": "string",
-                "minLength": 1
-              },
-              "sessionKey": {
-                "type": "string",
-                "minLength": 1
-              },
-              "secret": {
-                "$ref": "#/$defs/secretInput"
-              },
-              "controllerId": {
-                "type": "string",
-                "minLength": 1
-              },
-              "description": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "sessionKey",
-              "secret"
-            ]
-          }
+          provider: "vydra",
+          method: "api-key",
+          choiceId: "vydra-api-key",
+          choiceLabel: "Vydra API key",
+          groupId: "vydra",
+          groupLabel: "Vydra",
+          groupHint: "Image, video, and speech",
+          onboardingScopes: ["image-generation"],
+          optionKey: "vydraApiKey",
+          cliFlag: "--vydra-api-key",
+          cliOption: "--vydra-api-key <key>",
+          cliDescription: "Vydra API key",
         },
-        "properties": {
-          "routes": {
-            "type": "object",
-            "additionalProperties": {
-              "$ref": "#/$defs/route"
-            }
-          }
-        }
-      }
-    }
+      ],
+      contracts: {
+        speechProviders: ["vydra"],
+        imageGenerationProviders: ["vydra"],
+        videoGenerationProviders: ["vydra"],
+      },
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "whatsapp",
-    "idHint": "whatsapp",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "webhooks",
+    idHint: "webhooks",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    publicSurfaceArtifacts: ["api.js", "runtime-api.js"],
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/webhooks",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw webhook bridge plugin",
+    packageManifest: {
+      bundle: {
+        stageRuntimeDependencies: true,
+      },
+      extensions: ["./index.ts"],
     },
-    "publicSurfaceArtifacts": [
+    manifest: {
+      id: "webhooks",
+      name: "Webhooks",
+      description:
+        "Authenticated inbound webhooks that bind external automation to OpenClaw TaskFlows.",
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        $defs: {
+          secretRef: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              source: {
+                type: "string",
+                enum: ["env", "file", "exec"],
+              },
+              provider: {
+                type: "string",
+              },
+              id: {
+                type: "string",
+              },
+            },
+            required: ["source", "provider", "id"],
+          },
+          secretInput: {
+            anyOf: [
+              {
+                type: "string",
+                minLength: 1,
+              },
+              {
+                $ref: "#/$defs/secretRef",
+              },
+            ],
+          },
+          route: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              path: {
+                type: "string",
+                minLength: 1,
+              },
+              sessionKey: {
+                type: "string",
+                minLength: 1,
+              },
+              secret: {
+                $ref: "#/$defs/secretInput",
+              },
+              controllerId: {
+                type: "string",
+                minLength: 1,
+              },
+              description: {
+                type: "string",
+              },
+            },
+            required: ["sessionKey", "secret"],
+          },
+        },
+        properties: {
+          routes: {
+            type: "object",
+            additionalProperties: {
+              $ref: "#/$defs/route",
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    dirName: "whatsapp",
+    idHint: "whatsapp",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
+    },
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
+    },
+    publicSurfaceArtifacts: [
       "action-runtime-api.js",
       "action-runtime.runtime.js",
       "api.js",
@@ -8489,82 +7820,74 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "secret-contract-api.js",
       "security-contract-api.js",
       "setup-plugin-api.js",
-      "targets.js"
+      "targets.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "action-runtime.runtime.js",
-      "login-qr-runtime.js",
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/whatsapp",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw WhatsApp channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "whatsapp",
-        "label": "WhatsApp",
-        "selectionLabel": "WhatsApp (QR link)",
-        "detailLabel": "WhatsApp Web",
-        "docsPath": "/channels/whatsapp",
-        "docsLabel": "whatsapp",
-        "blurb": "works with your own number; recommend a separate phone + eSIM.",
-        "systemImage": "message",
-        "persistedAuthState": {
-          "specifier": "./auth-presence",
-          "exportName": "hasAnyWhatsAppAuth"
-        }
+    runtimeSidecarArtifacts: ["action-runtime.runtime.js", "login-qr-runtime.js", "runtime-api.js"],
+    packageName: "@openclaw/whatsapp",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw WhatsApp channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "whatsapp",
+        label: "WhatsApp",
+        selectionLabel: "WhatsApp (QR link)",
+        detailLabel: "WhatsApp Web",
+        docsPath: "/channels/whatsapp",
+        docsLabel: "whatsapp",
+        blurb: "works with your own number; recommend a separate phone + eSIM.",
+        systemImage: "message",
+        persistedAuthState: {
+          specifier: "./auth-presence",
+          exportName: "hasAnyWhatsAppAuth",
+        },
       },
-      "install": {
-        "npmSpec": "@openclaw/whatsapp",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
+      install: {
+        npmSpec: "@openclaw/whatsapp",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "whatsapp",
-      "channels": [
-        "whatsapp"
-      ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+    manifest: {
+      id: "whatsapp",
+      channels: ["whatsapp"],
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "whatsapp": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        whatsapp: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "WhatsApp",
-          "description": "works with your own number; recommend a separate phone + eSIM."
-        }
-      }
-    }
+          label: "WhatsApp",
+          description: "works with your own number; recommend a separate phone + eSIM.",
+        },
+      },
+    },
   },
   {
-    "dirName": "xai",
-    "idHint": "xai",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "xai",
+    idHint: "xai",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "code-execution.js",
       "model-definitions.js",
@@ -8578,523 +7901,464 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "web-search-contract-api.js",
       "web-search.js",
       "x-search-tool-shared.js",
-      "x-search.js"
+      "x-search.js",
     ],
-    "packageName": "@openclaw/xai-plugin",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw xAI plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    packageName: "@openclaw/xai-plugin",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw xAI plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "xai",
-      "enabledByDefault": true,
-      "providers": [
-        "xai"
-      ],
-      "providerAuthEnvVars": {
-        "xai": [
-          "XAI_API_KEY"
-        ]
+    manifest: {
+      id: "xai",
+      enabledByDefault: true,
+      providers: ["xai"],
+      providerAuthEnvVars: {
+        xai: ["XAI_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "xai",
-          "method": "api-key",
-          "choiceId": "xai-api-key",
-          "choiceLabel": "xAI API key",
-          "groupId": "xai",
-          "groupLabel": "xAI (Grok)",
-          "groupHint": "API key",
-          "optionKey": "xaiApiKey",
-          "cliFlag": "--xai-api-key",
-          "cliOption": "--xai-api-key <key>",
-          "cliDescription": "xAI API key"
-        }
+          provider: "xai",
+          method: "api-key",
+          choiceId: "xai-api-key",
+          choiceLabel: "xAI API key",
+          groupId: "xai",
+          groupLabel: "xAI (Grok)",
+          groupHint: "API key",
+          optionKey: "xaiApiKey",
+          cliFlag: "--xai-api-key",
+          cliOption: "--xai-api-key <key>",
+          cliDescription: "xAI API key",
+        },
       ],
-      "uiHints": {
+      uiHints: {
         "webSearch.apiKey": {
-          "label": "Grok Search API Key",
-          "help": "xAI API key for Grok web search (fallback: XAI_API_KEY env var).",
-          "sensitive": true
+          label: "Grok Search API Key",
+          help: "xAI API key for Grok web search (fallback: XAI_API_KEY env var).",
+          sensitive: true,
         },
         "webSearch.model": {
-          "label": "Grok Search Model",
-          "help": "Grok model override for web search."
+          label: "Grok Search Model",
+          help: "Grok model override for web search.",
         },
         "webSearch.inlineCitations": {
-          "label": "Inline Citations",
-          "help": "Include inline markdown citations in Grok responses."
+          label: "Inline Citations",
+          help: "Include inline markdown citations in Grok responses.",
         },
         "codeExecution.enabled": {
-          "label": "Enable Code Execution",
-          "help": "Enable the code_execution tool for remote xAI sandbox analysis."
+          label: "Enable Code Execution",
+          help: "Enable the code_execution tool for remote xAI sandbox analysis.",
         },
         "xSearch.enabled": {
-          "label": "Enable X Search",
-          "help": "Enable the x_search tool for searching X posts with xAI."
+          label: "Enable X Search",
+          help: "Enable the x_search tool for searching X posts with xAI.",
         },
         "xSearch.model": {
-          "label": "X Search Model",
-          "help": "xAI model override for x_search."
+          label: "X Search Model",
+          help: "xAI model override for x_search.",
         },
         "xSearch.inlineCitations": {
-          "label": "X Search Inline Citations",
-          "help": "Keep inline markdown citations from xAI in x_search responses when available."
+          label: "X Search Inline Citations",
+          help: "Keep inline markdown citations from xAI in x_search responses when available.",
         },
         "xSearch.maxTurns": {
-          "label": "X Search Max Turns",
-          "help": "Optional max internal tool turns xAI may use per x_search request."
+          label: "X Search Max Turns",
+          help: "Optional max internal tool turns xAI may use per x_search request.",
         },
         "xSearch.timeoutSeconds": {
-          "label": "X Search Timeout",
-          "help": "Timeout in seconds for x_search requests."
+          label: "X Search Timeout",
+          help: "Timeout in seconds for x_search requests.",
         },
         "xSearch.cacheTtlMinutes": {
-          "label": "X Search Cache TTL",
-          "help": "Cache TTL in minutes for x_search results."
+          label: "X Search Cache TTL",
+          help: "Cache TTL in minutes for x_search results.",
         },
         "codeExecution.model": {
-          "label": "Code Execution Model",
-          "help": "xAI model override for code_execution."
+          label: "Code Execution Model",
+          help: "xAI model override for code_execution.",
         },
         "codeExecution.maxTurns": {
-          "label": "Code Execution Max Turns",
-          "help": "Optional max internal tool turns xAI may use for code_execution."
+          label: "Code Execution Max Turns",
+          help: "Optional max internal tool turns xAI may use for code_execution.",
         },
         "codeExecution.timeoutSeconds": {
-          "label": "Code Execution Timeout",
-          "help": "Timeout in seconds for code_execution requests."
-        }
+          label: "Code Execution Timeout",
+          help: "Timeout in seconds for code_execution requests.",
+        },
       },
-      "contracts": {
-        "webSearchProviders": [
-          "grok"
-        ],
-        "videoGenerationProviders": [
-          "xai"
-        ],
-        "tools": [
-          "code_execution",
-          "x_search"
-        ]
+      contracts: {
+        webSearchProviders: ["grok"],
+        videoGenerationProviders: ["xai"],
+        tools: ["code_execution", "x_search"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "webSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "apiKey": {
-                "type": [
-                  "string",
-                  "object"
-                ]
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          webSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              apiKey: {
+                type: ["string", "object"],
               },
-              "model": {
-                "type": "string"
+              model: {
+                type: "string",
               },
-              "inlineCitations": {
-                "type": "boolean"
-              }
-            }
+              inlineCitations: {
+                type: "boolean",
+              },
+            },
           },
-          "xSearch": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
+          xSearch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
               },
-              "model": {
-                "type": "string"
+              model: {
+                type: "string",
               },
-              "inlineCitations": {
-                "type": "boolean"
+              inlineCitations: {
+                type: "boolean",
               },
-              "maxTurns": {
-                "type": "number"
+              maxTurns: {
+                type: "number",
               },
-              "timeoutSeconds": {
-                "type": "number"
+              timeoutSeconds: {
+                type: "number",
               },
-              "cacheTtlMinutes": {
-                "type": "number"
-              }
-            }
+              cacheTtlMinutes: {
+                type: "number",
+              },
+            },
           },
-          "codeExecution": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "enabled": {
-                "type": "boolean"
+          codeExecution: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: {
+                type: "boolean",
               },
-              "model": {
-                "type": "string"
+              model: {
+                type: "string",
               },
-              "maxTurns": {
-                "type": "number"
+              maxTurns: {
+                type: "number",
               },
-              "timeoutSeconds": {
-                "type": "number"
-              }
-            }
-          }
-        }
-      }
-    }
+              timeoutSeconds: {
+                type: "number",
+              },
+            },
+          },
+        },
+      },
+    },
   },
   {
-    "dirName": "xiaomi",
-    "idHint": "xiaomi",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "xiaomi",
+    idHint: "xiaomi",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
-      "api.js",
-      "onboard.js",
-      "provider-catalog.js"
-    ],
-    "packageName": "@openclaw/xiaomi-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Xiaomi provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    publicSurfaceArtifacts: ["api.js", "onboard.js", "provider-catalog.js"],
+    packageName: "@openclaw/xiaomi-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Xiaomi provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "xiaomi",
-      "enabledByDefault": true,
-      "providers": [
-        "xiaomi"
-      ],
-      "providerAuthEnvVars": {
-        "xiaomi": [
-          "XIAOMI_API_KEY"
-        ]
+    manifest: {
+      id: "xiaomi",
+      enabledByDefault: true,
+      providers: ["xiaomi"],
+      providerAuthEnvVars: {
+        xiaomi: ["XIAOMI_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "xiaomi",
-          "method": "api-key",
-          "choiceId": "xiaomi-api-key",
-          "choiceLabel": "Xiaomi API key",
-          "groupId": "xiaomi",
-          "groupLabel": "Xiaomi",
-          "groupHint": "API key",
-          "optionKey": "xiaomiApiKey",
-          "cliFlag": "--xiaomi-api-key",
-          "cliOption": "--xiaomi-api-key <key>",
-          "cliDescription": "Xiaomi API key"
-        }
+          provider: "xiaomi",
+          method: "api-key",
+          choiceId: "xiaomi-api-key",
+          choiceLabel: "Xiaomi API key",
+          groupId: "xiaomi",
+          groupLabel: "Xiaomi",
+          groupHint: "API key",
+          optionKey: "xiaomiApiKey",
+          cliFlag: "--xiaomi-api-key",
+          cliOption: "--xiaomi-api-key <key>",
+          cliDescription: "Xiaomi API key",
+        },
       ],
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "zai",
-    "idHint": "zai",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "zai",
+    idHint: "zai",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "config-api.js",
       "detect.js",
       "media-understanding-provider.js",
       "model-definitions.js",
       "onboard.js",
-      "runtime-api.js"
+      "runtime-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/zai-provider",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Z.AI provider plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ]
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/zai-provider",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Z.AI provider plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
     },
-    "manifest": {
-      "id": "zai",
-      "enabledByDefault": true,
-      "providers": [
-        "zai"
-      ],
-      "providerAuthEnvVars": {
-        "zai": [
-          "ZAI_API_KEY",
-          "Z_AI_API_KEY"
-        ]
+    manifest: {
+      id: "zai",
+      enabledByDefault: true,
+      providers: ["zai"],
+      providerAuthEnvVars: {
+        zai: ["ZAI_API_KEY", "Z_AI_API_KEY"],
       },
-      "providerAuthChoices": [
+      providerAuthChoices: [
         {
-          "provider": "zai",
-          "method": "api-key",
-          "choiceId": "zai-api-key",
-          "choiceLabel": "Z.AI API key",
-          "groupId": "zai",
-          "groupLabel": "Z.AI",
-          "groupHint": "GLM Coding Plan / Global / CN",
-          "optionKey": "zaiApiKey",
-          "cliFlag": "--zai-api-key",
-          "cliOption": "--zai-api-key <key>",
-          "cliDescription": "Z.AI API key"
+          provider: "zai",
+          method: "api-key",
+          choiceId: "zai-api-key",
+          choiceLabel: "Z.AI API key",
+          groupId: "zai",
+          groupLabel: "Z.AI",
+          groupHint: "GLM Coding Plan / Global / CN",
+          optionKey: "zaiApiKey",
+          cliFlag: "--zai-api-key",
+          cliOption: "--zai-api-key <key>",
+          cliDescription: "Z.AI API key",
         },
         {
-          "provider": "zai",
-          "method": "coding-global",
-          "choiceId": "zai-coding-global",
-          "choiceLabel": "Coding-Plan-Global",
-          "choiceHint": "GLM Coding Plan Global (api.z.ai)",
-          "groupId": "zai",
-          "groupLabel": "Z.AI",
-          "groupHint": "GLM Coding Plan / Global / CN",
-          "optionKey": "zaiApiKey",
-          "cliFlag": "--zai-api-key",
-          "cliOption": "--zai-api-key <key>",
-          "cliDescription": "Z.AI API key"
+          provider: "zai",
+          method: "coding-global",
+          choiceId: "zai-coding-global",
+          choiceLabel: "Coding-Plan-Global",
+          choiceHint: "GLM Coding Plan Global (api.z.ai)",
+          groupId: "zai",
+          groupLabel: "Z.AI",
+          groupHint: "GLM Coding Plan / Global / CN",
+          optionKey: "zaiApiKey",
+          cliFlag: "--zai-api-key",
+          cliOption: "--zai-api-key <key>",
+          cliDescription: "Z.AI API key",
         },
         {
-          "provider": "zai",
-          "method": "coding-cn",
-          "choiceId": "zai-coding-cn",
-          "choiceLabel": "Coding-Plan-CN",
-          "choiceHint": "GLM Coding Plan CN (open.bigmodel.cn)",
-          "groupId": "zai",
-          "groupLabel": "Z.AI",
-          "groupHint": "GLM Coding Plan / Global / CN",
-          "optionKey": "zaiApiKey",
-          "cliFlag": "--zai-api-key",
-          "cliOption": "--zai-api-key <key>",
-          "cliDescription": "Z.AI API key"
+          provider: "zai",
+          method: "coding-cn",
+          choiceId: "zai-coding-cn",
+          choiceLabel: "Coding-Plan-CN",
+          choiceHint: "GLM Coding Plan CN (open.bigmodel.cn)",
+          groupId: "zai",
+          groupLabel: "Z.AI",
+          groupHint: "GLM Coding Plan / Global / CN",
+          optionKey: "zaiApiKey",
+          cliFlag: "--zai-api-key",
+          cliOption: "--zai-api-key <key>",
+          cliDescription: "Z.AI API key",
         },
         {
-          "provider": "zai",
-          "method": "global",
-          "choiceId": "zai-global",
-          "choiceLabel": "Global",
-          "choiceHint": "Z.AI Global (api.z.ai)",
-          "groupId": "zai",
-          "groupLabel": "Z.AI",
-          "groupHint": "GLM Coding Plan / Global / CN",
-          "optionKey": "zaiApiKey",
-          "cliFlag": "--zai-api-key",
-          "cliOption": "--zai-api-key <key>",
-          "cliDescription": "Z.AI API key"
+          provider: "zai",
+          method: "global",
+          choiceId: "zai-global",
+          choiceLabel: "Global",
+          choiceHint: "Z.AI Global (api.z.ai)",
+          groupId: "zai",
+          groupLabel: "Z.AI",
+          groupHint: "GLM Coding Plan / Global / CN",
+          optionKey: "zaiApiKey",
+          cliFlag: "--zai-api-key",
+          cliOption: "--zai-api-key <key>",
+          cliDescription: "Z.AI API key",
         },
         {
-          "provider": "zai",
-          "method": "cn",
-          "choiceId": "zai-cn",
-          "choiceLabel": "CN",
-          "choiceHint": "Z.AI CN (open.bigmodel.cn)",
-          "groupId": "zai",
-          "groupLabel": "Z.AI",
-          "groupHint": "GLM Coding Plan / Global / CN",
-          "optionKey": "zaiApiKey",
-          "cliFlag": "--zai-api-key",
-          "cliOption": "--zai-api-key <key>",
-          "cliDescription": "Z.AI API key"
-        }
+          provider: "zai",
+          method: "cn",
+          choiceId: "zai-cn",
+          choiceLabel: "CN",
+          choiceHint: "Z.AI CN (open.bigmodel.cn)",
+          groupId: "zai",
+          groupLabel: "Z.AI",
+          groupHint: "GLM Coding Plan / Global / CN",
+          optionKey: "zaiApiKey",
+          cliFlag: "--zai-api-key",
+          cliOption: "--zai-api-key <key>",
+          cliDescription: "Z.AI API key",
+        },
       ],
-      "contracts": {
-        "mediaUnderstandingProviders": [
-          "zai"
-        ]
+      contracts: {
+        mediaUnderstandingProviders: ["zai"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
-      }
-    }
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
   },
   {
-    "dirName": "zalo",
-    "idHint": "zalo",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "zalo",
+    idHint: "zalo",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "contract-api.js",
       "runtime-api.js",
       "secret-contract-api.js",
-      "setup-api.js"
+      "setup-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/zalo",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Zalo channel plugin",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "zalo",
-        "label": "Zalo",
-        "selectionLabel": "Zalo (Bot API)",
-        "docsPath": "/channels/zalo",
-        "docsLabel": "zalo",
-        "blurb": "Vietnam-focused messaging platform with Bot API.",
-        "aliases": [
-          "zl"
-        ],
-        "order": 80,
-        "quickstartAllowFrom": true
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/zalo",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Zalo channel plugin",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "zalo",
+        label: "Zalo",
+        selectionLabel: "Zalo (Bot API)",
+        docsPath: "/channels/zalo",
+        docsLabel: "zalo",
+        blurb: "Vietnam-focused messaging platform with Bot API.",
+        aliases: ["zl"],
+        order: 80,
+        quickstartAllowFrom: true,
       },
-      "install": {
-        "npmSpec": "@openclaw/zalo",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
+      install: {
+        npmSpec: "@openclaw/zalo",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "zalo",
-      "channels": [
-        "zalo"
-      ],
-      "channelEnvVars": {
-        "zalo": [
-          "ZALO_BOT_TOKEN",
-          "ZALO_WEBHOOK_SECRET"
-        ]
+    manifest: {
+      id: "zalo",
+      channels: ["zalo"],
+      channelEnvVars: {
+        zalo: ["ZALO_BOT_TOKEN", "ZALO_WEBHOOK_SECRET"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "zalo": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        zalo: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Zalo",
-          "description": "Vietnam-focused messaging platform with Bot API."
-        }
-      }
-    }
+          label: "Zalo",
+          description: "Vietnam-focused messaging platform with Bot API.",
+        },
+      },
+    },
   },
   {
-    "dirName": "zalouser",
-    "idHint": "zalouser",
-    "source": {
-      "source": "./index.ts",
-      "built": "index.js"
+    dirName: "zalouser",
+    idHint: "zalouser",
+    source: {
+      source: "./index.ts",
+      built: "index.js",
     },
-    "setupSource": {
-      "source": "./setup-entry.ts",
-      "built": "setup-entry.js"
+    setupSource: {
+      source: "./setup-entry.ts",
+      built: "setup-entry.js",
     },
-    "publicSurfaceArtifacts": [
+    publicSurfaceArtifacts: [
       "api.js",
       "contract-api.js",
       "runtime-api.js",
-      "secret-contract-api.js"
+      "secret-contract-api.js",
     ],
-    "runtimeSidecarArtifacts": [
-      "runtime-api.js"
-    ],
-    "packageName": "@openclaw/zalouser",
-    "packageVersion": "2026.4.9",
-    "packageDescription": "OpenClaw Zalo Personal Account plugin via native zca-js integration",
-    "packageManifest": {
-      "extensions": [
-        "./index.ts"
-      ],
-      "setupEntry": "./setup-entry.ts",
-      "channel": {
-        "id": "zalouser",
-        "label": "Zalo Personal",
-        "selectionLabel": "Zalo (Personal Account)",
-        "docsPath": "/channels/zalouser",
-        "docsLabel": "zalouser",
-        "blurb": "Zalo personal account via QR code login.",
-        "aliases": [
-          "zlu"
-        ],
-        "order": 85,
-        "quickstartAllowFrom": false
+    runtimeSidecarArtifacts: ["runtime-api.js"],
+    packageName: "@openclaw/zalouser",
+    packageVersion: "2026.4.11",
+    packageDescription: "OpenClaw Zalo Personal Account plugin via native zca-js integration",
+    packageManifest: {
+      extensions: ["./index.ts"],
+      setupEntry: "./setup-entry.ts",
+      channel: {
+        id: "zalouser",
+        label: "Zalo Personal",
+        selectionLabel: "Zalo (Personal Account)",
+        docsPath: "/channels/zalouser",
+        docsLabel: "zalouser",
+        blurb: "Zalo personal account via QR code login.",
+        aliases: ["zlu"],
+        order: 85,
+        quickstartAllowFrom: false,
       },
-      "install": {
-        "npmSpec": "@openclaw/zalouser",
-        "defaultChoice": "npm",
-        "minHostVersion": ">=2026.4.9"
+      install: {
+        npmSpec: "@openclaw/zalouser",
+        defaultChoice: "npm",
+        minHostVersion: ">=2026.4.11",
       },
-      "compat": {
-        "pluginApi": ">=2026.4.9"
+      compat: {
+        pluginApi: ">=2026.4.11",
       },
-      "build": {
-        "openclawVersion": "2026.4.9"
+      build: {
+        openclawVersion: "2026.4.11",
       },
-      "release": {
-        "publishToClawHub": true,
-        "publishToNpm": true
-      }
+      release: {
+        publishToClawHub: true,
+        publishToNpm: true,
+      },
     },
-    "manifest": {
-      "id": "zalouser",
-      "channels": [
-        "zalouser"
-      ],
-      "channelEnvVars": {
-        "zalouser": [
-          "ZALOUSER_PROFILE",
-          "ZCA_PROFILE"
-        ]
+    manifest: {
+      id: "zalouser",
+      channels: ["zalouser"],
+      channelEnvVars: {
+        zalouser: ["ZALOUSER_PROFILE", "ZCA_PROFILE"],
       },
-      "configSchema": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {}
+      configSchema: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
       },
-      "channelConfigs": {
-        "zalouser": {
-          "schema": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {}
+      channelConfigs: {
+        zalouser: {
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {},
           },
-          "label": "Zalo Personal",
-          "description": "Zalo personal account via QR code login."
-        }
-      }
-    }
-  }
+          label: "Zalo Personal",
+          description: "Zalo personal account via QR code login.",
+        },
+      },
+    },
+  },
 ] as const;

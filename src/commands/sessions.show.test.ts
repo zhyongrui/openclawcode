@@ -109,7 +109,6 @@ describe("sessionsShowCommand", () => {
       status: "running",
       deliveryStatus: "pending",
       notifyPolicy: "state_changes",
-      createdAt: Date.now() - 4 * 60_000,
       lastEventAt: Date.now() - 2 * 60_000,
     });
     createManagedTaskFlow({

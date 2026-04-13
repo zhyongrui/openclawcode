@@ -30,7 +30,7 @@ const currentConfig = vi.hoisted(() => ({
     session: {
       store: "/tmp/openclaw-placeholder-sessions.json",
     },
-  },
+  } as any,
 }));
 
 vi.mock("../config/config.js", async (importOriginal) => {
@@ -138,7 +138,6 @@ describe("tasksListCommand detached session lifecycle", () => {
       status: "running",
       deliveryStatus: "pending",
       notifyPolicy: "state_changes",
-      createdAt: Date.now() - 4 * 60_000,
       lastEventAt: Date.now() - 2 * 60_000,
     });
     createManagedTaskFlow({

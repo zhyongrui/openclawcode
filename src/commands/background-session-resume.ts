@@ -276,6 +276,22 @@ export function describeBackgroundChildSessions(params: {
     | ReadonlyMap<string, BackgroundSessionCompletionRouting>
     | Readonly<Record<string, BackgroundSessionCompletionRouting | undefined>>;
 }): BackgroundSessionResumeDetail[] {
+  const resolveCompletionRouting = (
+    sessionKey: string,
+  ): BackgroundSessionCompletionRouting | undefined => {
+    const completionRoutingBySessionKey = params.completionRoutingBySessionKey;
+    if (!completionRoutingBySessionKey) {
+      return undefined;
+    }
+    if (completionRoutingBySessionKey instanceof Map) {
+      return completionRoutingBySessionKey.get(sessionKey);
+    }
+    const routingByKey = completionRoutingBySessionKey as Readonly<
+      Record<string, BackgroundSessionCompletionRouting | undefined>
+    >;
+    return routingByKey[sessionKey];
+  };
+
   const uniqueKeys = Array.from(
     new Set(
       Array.from(params.sessionKeys, (value) => value?.trim()).filter(
@@ -284,10 +300,7 @@ export function describeBackgroundChildSessions(params: {
     ),
   );
   return uniqueKeys.flatMap((sessionKey) => {
-    const completionRouting =
-      params.completionRoutingBySessionKey instanceof Map
-        ? params.completionRoutingBySessionKey.get(sessionKey)
-        : params.completionRoutingBySessionKey?.[sessionKey];
+    const completionRouting = resolveCompletionRouting(sessionKey);
     const detail = describeBackgroundSessionResume({
       cfg: params.cfg,
       sessionKey,

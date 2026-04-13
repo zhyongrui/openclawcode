@@ -319,7 +319,7 @@ describe("resolveEffectiveToolInventory", () => {
 
   it("surfaces effective runtime context flags in the assembly metadata", async () => {
     const { resolveEffectiveToolInventory } = await loadHarness({
-      tools: [{ name: "exec", label: "Exec", description: "Run shell commands" }],
+      tools: [mockTool({ name: "exec", label: "Exec", description: "Run shell commands" })],
     });
 
     const result = resolveEffectiveToolInventory({
@@ -376,7 +376,7 @@ describe("resolveEffectiveToolInventory", () => {
 
   it("surfaces active presets from effective tool policy", async () => {
     const { resolveEffectiveToolInventory } = await loadHarness({
-      tools: [{ name: "browser", label: "Browser", description: "Browse the web" }],
+      tools: [mockTool({ name: "browser", label: "Browser", description: "Browse the web" })],
       effectivePolicy: { profile: "minimal", presets: ["browser", "remote"] },
     });
 

@@ -57,7 +57,7 @@ import {
   openclawCodeSeedValidationIssueTemplateIds,
   openclawCodeWorkItemsShowCommand,
 } from "./openclawcode.js";
-import { createTestRuntime } from "./test-runtime-config-helpers.js";
+import { createTestRuntime, type TestRuntime } from "./test-runtime-config-helpers.js";
 
 const mocks = vi.hoisted(() => {
   return {
@@ -74,6 +74,15 @@ const mocks = vi.hoisted(() => {
     verifierCtorArgs: [] as unknown[],
   };
 });
+
+// The command layer writes JSON payloads via runtime.log; test assertions treat them as loose objects.
+// oxlint-disable-next-line typescript/no-explicit-any
+function parseLoggedJson(runtime: TestRuntime, callIndex = 0): any {
+  const call =
+    callIndex < 0 ? runtime.log.mock.calls.at(callIndex) : runtime.log.mock.calls[callIndex];
+  const firstArg = call?.[0];
+  return JSON.parse(typeof firstArg === "string" ? firstArg : "null");
+}
 
 vi.mock("../openclawcode/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../openclawcode/index.js")>();
@@ -265,7 +274,7 @@ describe("openclawCodeRunCommand", () => {
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
     expect(runtime.log).toHaveBeenCalledTimes(1);
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.contractVersion).toBe(1);
     expect(payload.runCreatedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(payload.runUpdatedAt).toBe("2026-01-01T00:00:00.000Z");
@@ -541,7 +550,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot, json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.operatorProgram).toMatchObject({
       available: true,
       artifactPath: path.join(repoRoot, ".openclawcode", "operator-program.json"),
@@ -770,7 +779,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.contractVersion).toBe(1);
     expect(payload.runHasUpdatedAt).toBe(true);
     expect(payload.runAgeSeconds).toBe(0);
@@ -944,7 +953,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.stage).toBe("awaiting-plan-approval");
     expect(payload.stageLabel).toBe("Awaiting Plan Approval");
     expect(payload.planApprovalRequired).toBe(true);
@@ -981,7 +990,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.planEditCount).toBe(1);
     expect(payload.planEdited).toBe(true);
     expect(payload.planLastEditedAt).toBe("2026-01-01T00:00:30.000Z");
@@ -1001,7 +1010,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.suitabilityDecisionIsAutoRun).toBe(false);
     expect(payload.suitabilityDecisionIsNeedsHumanReview).toBe(false);
     expect(payload.suitabilityDecisionIsEscalate).toBe(false);
@@ -1020,7 +1029,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.totalAttemptCount).toBeNull();
     expect(payload.planningAttemptCount).toBeNull();
     expect(payload.buildAttemptCount).toBeNull();
@@ -1039,7 +1048,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.issueTitle).toBeNull();
     expect(payload.issueTitleLength).toBeNull();
   });
@@ -1056,7 +1065,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.issueRepo).toBeNull();
     expect(payload.issueRepoOwnerPair).toBeNull();
   });
@@ -1073,7 +1082,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.issueOwner).toBeNull();
     expect(payload.issueRepoOwnerPair).toBeNull();
   });
@@ -1087,7 +1096,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.runCreatedAt).toBeNull();
     expect(payload.runAgeSeconds).toBeNull();
   });
@@ -1101,7 +1110,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.runUpdatedAt).toBeNull();
     expect(payload.runHasUpdatedAt).toBe(false);
     expect(payload.runAgeSeconds).toBeNull();
@@ -1116,7 +1125,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.runUpdatedAt).toBeNull();
     expect(payload.runHasUpdatedAt).toBe(false);
     expect(payload.runAgeSeconds).toBeNull();
@@ -1134,7 +1143,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.issueNumber).toBeNull();
   });
 
@@ -1150,7 +1159,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.issueUrl).toBeNull();
   });
 
@@ -1166,7 +1175,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.issueLabelCount).toBeNull();
     expect(payload.issueLabelListPresent).toBe(false);
     expect(payload.issueFirstLabel).toBeNull();
@@ -1185,7 +1194,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.issueHasLabels).toBe(false);
   });
 
@@ -1201,7 +1210,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.issueLabelCount).toBe(0);
     expect(payload.issueHasLabels).toBe(false);
     expect(payload.issueLabelListPresent).toBe(true);
@@ -1221,7 +1230,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.issueHasBody).toBe(false);
     expect(payload.issueBodyLength).toBeNull();
   });
@@ -1238,7 +1247,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.issueHasBody).toBe(false);
     expect(payload.issueBodyLength).toBe(3);
   });
@@ -1247,15 +1256,15 @@ describe("openclawCodeRunCommand", () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         workspace: {
-          ...createRun().workspace,
-          baseBranch: undefined as unknown as WorkflowRun["workspace"]["baseBranch"],
+          ...createRun().workspace!,
+          baseBranch: undefined as unknown as NonNullable<WorkflowRun["workspace"]>["baseBranch"],
         },
       }),
     );
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.workspaceBaseBranch).toBeNull();
   });
 
@@ -1284,7 +1293,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.stage).toBe("escalated");
     expect(payload.workspaceBaseBranch).toBeNull();
     expect(payload.workspaceBranchName).toBeNull();
@@ -1301,15 +1310,15 @@ describe("openclawCodeRunCommand", () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         workspace: {
-          ...createRun().workspace,
-          branchName: undefined as unknown as WorkflowRun["workspace"]["branchName"],
+          ...createRun().workspace!,
+          branchName: undefined as unknown as NonNullable<WorkflowRun["workspace"]>["branchName"],
         },
       }),
     );
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.workspaceBranchName).toBeNull();
     expect(payload.workspaceBranchMatchesIssue).toBe(false);
   });
@@ -1318,15 +1327,15 @@ describe("openclawCodeRunCommand", () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         workspace: {
-          ...createRun().workspace,
-          repoRoot: undefined as unknown as WorkflowRun["workspace"]["repoRoot"],
+          ...createRun().workspace!,
+          repoRoot: undefined as unknown as NonNullable<WorkflowRun["workspace"]>["repoRoot"],
         },
       }),
     );
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.workspaceRepoRoot).toBeNull();
     expect(payload.workspaceRepoRootPresent).toBe(false);
   });
@@ -1335,15 +1344,15 @@ describe("openclawCodeRunCommand", () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         workspace: {
-          ...createRun().workspace,
-          preparedAt: undefined as unknown as WorkflowRun["workspace"]["preparedAt"],
+          ...createRun().workspace!,
+          preparedAt: undefined as unknown as NonNullable<WorkflowRun["workspace"]>["preparedAt"],
         },
       }),
     );
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.workspacePreparedAt).toBeNull();
     expect(payload.workspaceHasPreparedAt).toBe(false);
   });
@@ -1352,15 +1361,16 @@ describe("openclawCodeRunCommand", () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         workspace: {
-          ...createRun().workspace,
-          worktreePath: undefined as unknown as WorkflowRun["workspace"]["worktreePath"],
+          ...createRun().workspace!,
+          worktreePath:
+            undefined as unknown as NonNullable<WorkflowRun["workspace"]>["worktreePath"],
         },
       }),
     );
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.workspaceWorktreePath).toBeNull();
     expect(payload.workspaceHasWorktreePath).toBe(false);
   });
@@ -1369,7 +1379,7 @@ describe("openclawCodeRunCommand", () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         workspace: {
-          ...createRun().workspace,
+          ...createRun().workspace!,
           branchName: "openclawcode/issue-999",
         },
       }),
@@ -1377,7 +1387,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.workspaceBranchName).toBe("openclawcode/issue-999");
     expect(payload.workspaceBranchMatchesIssue).toBe(false);
   });
@@ -1394,7 +1404,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.verificationHasSignals).toBe(true);
     expect(payload.verificationHasFollowUps).toBe(true);
     expect(payload.verificationFollowUpCount).toBe(1);
@@ -1415,7 +1425,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.verificationHasSignals).toBe(true);
     expect(payload.verificationHasMissingCoverage).toBe(true);
     expect(payload.verificationMissingCoverageCount).toBe(1);
@@ -1483,7 +1493,7 @@ describe("openclawCodeRunCommand", () => {
       expect.any(Object),
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.rerunRequested).toBe(true);
     expect(payload.rerunHasReviewContext).toBe(true);
     expect(payload.rerunReason).toBe("Address GitHub review feedback");
@@ -1522,7 +1532,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.rerunRequested).toBe(true);
     expect(payload.rerunHasReviewContext).toBe(false);
     expect(payload.rerunReasonPresent).toBe(true);
@@ -1550,7 +1560,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.rerunRequested).toBe(false);
     expect(payload.rerunHasReviewContext).toBe(false);
     expect(payload.rerunReasonPresent).toBe(false);
@@ -1576,7 +1586,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.draftPullRequestBranchName).toBe("openclawcode/issue-2");
     expect(payload.draftPullRequestBaseBranch).toBe("main");
     expect(payload.draftPullRequestHasTitle).toBe(true);
@@ -1614,7 +1624,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.draftPullRequestHasNumber).toBe(false);
     expect(payload.draftPullRequestNumber).toBeNull();
     expect(payload.draftPullRequestHasUrl).toBe(true);
@@ -1636,21 +1646,21 @@ describe("openclawCodeRunCommand", () => {
     expect(payload.publishedPullRequestOpenedAt).toBe("2026-01-01T00:00:00.000Z");
   });
 
-  it("marks publishedPullRequestHasNumber true when the stored number contains at least one entry", async () => {
+  it("marks publishedPullRequestHasNumber true when the stored number is present", async () => {
     mocks.runIssueWorkflow.mockResolvedValue(
       createRun({
         draftPullRequest: {
           ...createRun().draftPullRequest!,
-          number: [42],
+          number: 42,
         },
       }),
     );
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.pullRequestPublished).toBe(true);
-    expect(payload.publishedPullRequestNumber).toEqual([42]);
+    expect(payload.publishedPullRequestNumber).toBe(42);
     expect(payload.publishedPullRequestHasNumber).toBe(true);
   });
 
@@ -1666,7 +1676,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.pullRequestPublished).toBe(true);
     expect(payload.draftPullRequestHasBody).toBe(false);
     expect(payload.publishedPullRequestBody).toBe("   ");
@@ -1679,14 +1689,14 @@ describe("openclawCodeRunCommand", () => {
       createRun({
         draftPullRequest: {
           ...createRun().draftPullRequest!,
-          title: undefined,
+          title: undefined as unknown as NonNullable<WorkflowRun["draftPullRequest"]>["title"],
         },
       }),
     );
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.draftPullRequestHasTitle).toBe(false);
     expect(payload.draftPullRequestTitle).toBeNull();
     expect(payload.publishedPullRequestHasTitle).toBe(false);
@@ -1715,7 +1725,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.changedFiles).toEqual([]);
     expect(payload.changeDisposition).toBe("no-op");
     expect(payload.changeDispositionReason).toBe(
@@ -1760,7 +1770,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.stage).toBe("completed-without-changes");
     expect(payload.stageLabel).toBe("Completed Without Changes");
     expect(payload.changeDisposition).toBe("no-op");
@@ -1784,7 +1794,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.autoMergeDisposition).toBeNull();
     expect(payload.autoMergeDispositionReason).toBeNull();
     expect(payload.verificationSummary).toBeNull();
@@ -1822,7 +1832,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.autoMergeDisposition).toBe("skipped");
     expect(payload.autoMergeDispositionReason).toBe(
       "Auto-merge skipped: policy requires an auto-run suitability decision, command-layer scope, and a passing scope check",
@@ -1854,7 +1864,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.scopeCheckSummary).toBe("Scope check failed for command-layer issue.");
     expect(payload.scopeCheckSummaryPresent).toBe(true);
     expect(payload.scopeCheckPassed).toBe(false);
@@ -1886,7 +1896,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.scopeCheckSummary).toBe("");
     expect(payload.scopeCheckSummaryPresent).toBe(false);
     expect(payload.scopeCheckPassed).toBe(true);
@@ -1904,7 +1914,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.changedFilesPresent).toBe(true);
     expect(payload.changedFileListStable).toBe(false);
   });
@@ -1924,7 +1934,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.verificationApprovedForHumanReview).toBe(false);
     expect(payload.verificationDecisionIsApprove).toBe(false);
     expect(payload.verificationDecisionIsRequestChanges).toBe(true);
@@ -1988,7 +1998,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.preCodeDisciplineStatus).toBe("blocked");
     expect(payload.preCodeDisciplinePlanStatus).toBe("awaiting-approval");
     expect(payload.preCodeDisciplineBlockingReasons).toEqual([
@@ -2027,7 +2037,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.preCodeDisciplineStatus).toBe("blocked");
     expect(payload.preCodeDisciplineIsolatedWorktreePrepared).toBe(false);
     expect(payload.preCodeDisciplineBlockingReasons).toEqual([
@@ -2089,7 +2099,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.preCodeDisciplineStatus).toBe("warn");
     expect(payload.preCodeDisciplineModeSpecificContextsPresent).toBe(false);
     expect(payload.preCodeDisciplineFreshRoleExecutionPresent).toBe(false);
@@ -2121,7 +2131,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.loopHealthStatus).toBe("blocked");
     expect(payload.loopHealthFailureSummary).toBe("Build failed: HTTP 400: Internal server error");
     expect(payload.loopHealthPromptFootprintChars).toBe(12904);
@@ -2150,7 +2160,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.verificationDecision).toBe("escalate");
     expect(payload.verificationDecisionIsApprove).toBe(false);
     expect(payload.verificationDecisionIsRequestChanges).toBe(false);
@@ -2173,7 +2183,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.verificationSummaryPresent).toBe(true);
     expect(payload.verificationHasSignals).toBe(true);
   });
@@ -2193,7 +2203,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.verificationSummary).toBe("");
     expect(payload.verificationSummaryPresent).toBe(false);
     expect(payload.verificationHasSignals).toBe(false);
@@ -2216,7 +2226,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.suitabilityDecision).toBe("escalate");
     expect(payload.suitabilityDecisionIsAutoRun).toBe(false);
     expect(payload.suitabilityDecisionIsNeedsHumanReview).toBe(false);
@@ -2248,16 +2258,8 @@ describe("openclawCodeRunCommand", () => {
             "Run the openclawcode-targeted Vitest config.",
           ],
           risks: [
-            {
-              id: "risk-provider-output",
-              summary: "Downstream tooling could still ignore the new field accidentally.",
-              mitigation: "Add a stable top-level count for direct JSON consumers.",
-            },
-            {
-              id: "risk-null-shape",
-              summary: "Missing execution metadata could still change the payload shape.",
-              mitigation: "Emit null when executionSpec is unavailable.",
-            },
+            "Downstream tooling could still ignore the new field accidentally.",
+            "Missing execution metadata could still change the payload shape.",
           ],
           assumptions: [
             "The execution spec continues to carry assumptions as a top-level array.",
@@ -2286,7 +2288,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.acceptanceCriteriaCount).toBe(1);
     expect(payload.acceptanceCriteriaPresent).toBe(true);
     expect(payload.openQuestionCount).toBe(2);
@@ -2329,7 +2331,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.acceptanceCriteriaCount).toBeNull();
     expect(payload.acceptanceCriteriaPresent).toBe(false);
     expect(payload.openQuestionCount).toBeNull();
@@ -2394,7 +2396,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.failureDiagnosticsPresent).toBe(true);
     expect(payload.failureDiagnosticsSummary).toBe("HTTP 400: Internal server error");
     expect(payload.failureDiagnosticSummaryPresent).toBe(true);
@@ -2440,7 +2442,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.failureDiagnosticBootstrapWarningShown).toBe(true);
   });
 
@@ -2456,7 +2458,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.autoMergeDisposition).toBe("failed");
     expect(payload.autoMergeDispositionReason).toBe(
       "Auto-merge failed: GitHub token cannot merge pull requests.",
@@ -2474,7 +2476,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.stageLabel).toBe("Merged");
     expect(payload.pullRequestMerged).toBe(true);
     expect(payload.mergedPullRequestMergedAt).toBe("2026-01-02T03:04:05.000Z");
@@ -2493,7 +2495,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.pullRequestMerged).toBe(true);
     expect(payload.mergedPullRequestMergedAt).toBe("2026-01-02T03:04:05.000Z");
     expect(payload.autoMergeDisposition).toBeNull();
@@ -2509,7 +2511,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeRunCommand({ issue: "2", repoRoot: "/repo", json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.draftPullRequestDisposition).toBe("published");
     expect(payload.draftPullRequestDispositionReason).toBe(
       "Pull request opened: https://github.com/openclaw/openclaw/pull/42",
@@ -2530,7 +2532,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       blueprintPath: path.join(repoRoot, "PROJECT-BLUEPRINT.md"),
@@ -2573,7 +2575,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       blueprintPath: path.join(repoRoot, "PROJECT-BLUEPRINT.md"),
@@ -2692,7 +2694,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.status).toBe("agreed");
     expect(payload.hasAgreementCheckpoint).toBe(true);
     expect(payload.agreedAt).toMatch(/^202\d-/);
@@ -2747,7 +2749,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.updatedRole).toBe("reviewer");
     expect(payload.provider).toBe("Claude Code");
     expect(payload.blueprint.providerRoleAssignments.reviewer).toBe("Claude Code");
@@ -2781,7 +2783,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.updatedSection).toBe("Goal");
     expect(payload.blueprint.goalSummary).toBe(
       "Capture blueprint-first goals from chat before issue creation starts.",
@@ -2820,7 +2822,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.exists).toBe(true);
     expect(payload.questionCount).toBeGreaterThan(0);
     expect(payload.suggestionCount).toBeGreaterThan(0);
@@ -2855,7 +2857,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.exists).toBe(false);
     expect(payload.questionCount).toBe(1);
     expect(payload.questions[0]).toContain("No project blueprint exists yet.");
@@ -2945,7 +2947,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       inventoryPath: path.join(repoRoot, ".openclawcode", "work-items.json"),
@@ -3062,7 +3064,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.workItems[0].class).toBe("bugfix");
     expect(payload.workItems[0].executionMode).toBe("bugfix");
     expect(payload.workItems[0].githubIssueDraft.body).toContain("Bug triage expectations");
@@ -3144,7 +3146,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.workItems.map((item: { class: string }) => item.class)).toEqual([
       "docs",
       "sync",
@@ -3312,7 +3314,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.workItemCount).toBe(2);
     expect(payload.supersededWorkItemCount).toBe(1);
     expect(payload.workItems).toEqual(
@@ -3350,7 +3352,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       inventoryPath: path.join(repoRoot, ".openclawcode", "work-items.json"),
@@ -3444,7 +3446,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.exists).toBe(true);
     expect(payload.artifactStale).toBe(true);
   });
@@ -3529,7 +3531,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       exists: true,
@@ -3616,7 +3618,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeNextWorkShowCommand({ repoRoot, json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.decision).toBe("blocked-on-human");
     expect(payload.blockingGateId).toBe("execution-start");
     expect(payload.canContinueAutonomously).toBe(false);
@@ -3710,7 +3712,7 @@ describe("openclawCodeRunCommand", () => {
 
     await openclawCodeNextWorkShowCommand({ repoRoot, json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.decision).toBe("ready-to-execute");
     expect(payload.blockingGateId).toBeNull();
     expect(payload.canContinueAutonomously).toBe(true);
@@ -3788,7 +3790,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.decision).toBe("blocked-on-missing-clarification");
     expect(payload.canContinueAutonomously).toBe(false);
     expect(payload.blockingGateId).toBe("work-item-projection");
@@ -3882,7 +3884,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.decision).toBe("blocked-on-human");
     expect(payload.blockingGateId).toBe("execution-start");
     expect(payload.discoveryEvidenceCount).toBeGreaterThan(0);
@@ -3991,7 +3993,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       exists: true,
@@ -4012,7 +4014,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const shown = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const shown = parseLoggedJson(runtime);
     expect(shown.entries).toEqual([
       expect.objectContaining({
         workItemId: "planned-01-materialize-the-selected-work-item-into-a-github",
@@ -4203,7 +4205,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.outcome).toBe("reused");
     expect(payload.selectedIssueNumber).toBe(444);
     expect(mocks.createIssue).toHaveBeenCalledTimes(1);
@@ -4306,7 +4308,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const progress = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const progress = parseLoggedJson(runtime);
     expect(progress).toMatchObject({
       repoRoot,
       exists: true,
@@ -4401,7 +4403,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const loop = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const loop = parseLoggedJson(runtime);
     expect(loop).toMatchObject({
       repoRoot,
       exists: true,
@@ -4478,7 +4480,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const shown = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const shown = parseLoggedJson(runtime);
     expect(shown.status).toBe("materialized-only");
     expect(typeof shown.selectedIssueNumber).toBe("number");
     expect(shown.selectedWorkItemExecutionMode).toBe("feature");
@@ -4559,7 +4561,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const loop = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const loop = parseLoggedJson(runtime);
     expect(loop).toMatchObject({
       repoRoot,
       exists: true,
@@ -4682,7 +4684,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const loop = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const loop = parseLoggedJson(runtime);
     expect(loop).toMatchObject({
       status: "materialized-only",
       nextWorkDecision: "ready-to-execute",
@@ -4769,7 +4771,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const loop = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const loop = parseLoggedJson(runtime);
     expect(loop).toMatchObject({
       mode: "repeat",
       status: "materialized-only",
@@ -4920,7 +4922,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const loop = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const loop = parseLoggedJson(runtime);
     expect(loop).toMatchObject({
       mode: "once",
       status: "materialized-and-queued",
@@ -5114,7 +5116,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const progress = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const progress = parseLoggedJson(runtime);
     expect(progress.roleRoutes).toEqual([
       expect.objectContaining({
         roleId: "planner",
@@ -5184,7 +5186,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const loop = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const loop = parseLoggedJson(runtime);
     expect(loop).toMatchObject({
       status: "blocked",
       stopReason: "A run is already active for this repository.",
@@ -5216,7 +5218,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       contractVersion: 1,
       stateDir,
@@ -5248,7 +5250,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       contractVersion: 1,
       chatCommands: expect.arrayContaining([
@@ -5437,7 +5439,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoKey: "openclaw/openclawcode",
       projectScoped: true,
@@ -5519,7 +5521,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.entries[0]).toMatchObject({
       issueKey: "openclaw/openclawcode#107",
       historyTail: [
@@ -5696,7 +5698,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       contractVersion: 1,
       stateDir,
@@ -5839,7 +5841,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const created = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const created = parseLoggedJson(runtime);
     expect(created).toMatchObject({
       repoRoot,
       exists: true,
@@ -5938,7 +5940,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       exists: true,
@@ -6048,7 +6050,7 @@ describe("openclawCodeRunCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.workItemArtifactStale).toBe(true);
     expect(
       payload.evidence.some(
@@ -6189,7 +6191,7 @@ EOF
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.evidenceCount).toBe(5);
     expect(payload.highestPriority).toBe("high");
     expect(payload.evidence.map((entry: { source: string }) => entry.source)).toEqual(
@@ -6317,7 +6319,7 @@ EOF
         runtime,
       );
 
-      let payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+      let payload = parseLoggedJson(runtime);
       expect(payload).toMatchObject({
         repoRoot,
         exists: true,
@@ -6385,7 +6387,7 @@ EOF
         runtime,
       );
 
-      payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+      payload = parseLoggedJson(runtime);
       expect(payload.exists).toBe(true);
       expect(payload.fallbackChain).toEqual(["openai/gpt-5", "anthropic/claude-sonnet"]);
     } finally {
@@ -6423,7 +6425,7 @@ EOF
       runtime,
     );
 
-    let payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    let payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       exists: true,
@@ -6449,7 +6451,7 @@ EOF
       runtime,
     );
 
-    payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       exists: true,
@@ -6467,7 +6469,7 @@ EOF
       runtime,
     );
 
-    payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    payload = parseLoggedJson(runtime);
     expect(payload.overrideCount).toBe(0);
     expect(payload.overrides).toEqual([]);
   });
@@ -6551,7 +6553,7 @@ EOF
       runtime,
     );
 
-    let payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    let payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       exists: true,
@@ -6585,7 +6587,7 @@ EOF
       runtime,
     );
 
-    payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    payload = parseLoggedJson(runtime);
     expect(payload.gates).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -6608,7 +6610,7 @@ EOF
       runtime,
     );
 
-    payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    payload = parseLoggedJson(runtime);
     expect(payload.decisions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -6688,7 +6690,7 @@ EOF
     runtime.log.mockClear();
     await openclawCodeStageGatesRefreshCommand({ repoRoot, json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.gates).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -6732,7 +6734,7 @@ EOF
       runtime,
     );
 
-    let payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    let payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       exists: true,
@@ -6763,7 +6765,7 @@ EOF
       runtime,
     );
 
-    payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    payload = parseLoggedJson(runtime);
     expect(payload.exists).toBe(true);
     expect(payload.artifactPath).toBe(path.join(repoRoot, ".openclawcode", "promotion-gate.json"));
   });
@@ -6788,7 +6790,7 @@ EOF
       runtime,
     );
 
-    let payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    let payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       exists: true,
@@ -6816,7 +6818,7 @@ EOF
       runtime,
     );
 
-    payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    payload = parseLoggedJson(runtime);
     expect(payload.exists).toBe(true);
     expect(payload.reason).toContain("baseline branch");
   });
@@ -6864,7 +6866,7 @@ EOF
       runtime,
     );
 
-    let payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    let payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       exists: true,
@@ -6893,7 +6895,7 @@ EOF
       runtime,
     );
 
-    payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    payload = parseLoggedJson(runtime);
     expect(payload.exists).toBe(true);
     expect(payload.artifactPath).toBe(
       path.join(repoRoot, ".openclawcode", "promotion-receipt.json"),
@@ -6931,7 +6933,7 @@ EOF
       runtime,
     );
 
-    let payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    let payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       repoRoot,
       exists: true,
@@ -6959,7 +6961,7 @@ EOF
       runtime,
     );
 
-    payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    payload = parseLoggedJson(runtime);
     expect(payload.exists).toBe(true);
     expect(payload.artifactPath).toBe(
       path.join(repoRoot, ".openclawcode", "rollback-receipt.json"),
@@ -6980,7 +6982,7 @@ EOF
     );
 
     expect(mocks.createIssue).not.toHaveBeenCalled();
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       template: "command-json-boolean",
       issueClass: "command-layer",
@@ -7008,7 +7010,7 @@ EOF
     );
 
     expect(mocks.createIssue).not.toHaveBeenCalled();
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       template: "command-json-string",
       issueClass: "command-layer",
@@ -7057,7 +7059,7 @@ EOF
         runtime,
       );
 
-      const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+      const payload = parseLoggedJson(runtime);
       expect(payload.template).toBe(entry.template);
       expect(payload.body).toContain(entry.snippet);
       expect(payload.body).toContain("string | null");
@@ -7083,7 +7085,7 @@ EOF
       title: "[Docs]: Clarify restart-window retries in setup-check",
       body: expect.stringContaining("`docs/openclawcode/operator-setup.md`"),
     });
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       template: "operator-doc-note",
       issueClass: "operator-docs",
@@ -7110,7 +7112,7 @@ EOF
     );
 
     expect(mocks.createIssue).not.toHaveBeenCalled();
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       template: "command-json-boolean",
       issueClass: "command-layer",
@@ -7146,7 +7148,7 @@ EOF
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       contractVersion: 1,
       owner: "openclaw",
@@ -7207,7 +7209,7 @@ EOF
       repo: "openclaw",
       state: "open",
     });
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       contractVersion: 1,
       owner: "openclaw",
@@ -7319,7 +7321,7 @@ EOF
     );
 
     expect(mocks.closeIssue).not.toHaveBeenCalled();
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       contractVersion: 1,
       owner: "openclaw",
@@ -7363,7 +7365,7 @@ EOF
       repo: "openclaw",
       issueNumber: 99,
     });
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       contractVersion: 1,
       closeImplemented: true,
@@ -7407,7 +7409,7 @@ EOF
         "[Validation]: Webhook intake should precheck-escalate credential or secret exposure requests",
       body: expect.stringContaining("credential or secret exposure requests"),
     });
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       contractVersion: 1,
       closeImplemented: true,
@@ -7469,7 +7471,7 @@ EOF
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       contractVersion: 1,
       issueKey: "openclaw/openclawcode#321",
@@ -7540,7 +7542,7 @@ EOF
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       issueKey: "openclaw/openclawcode#322",
       outcome: "queued-rerun",
@@ -7608,7 +7610,7 @@ EOF
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       issueKey: "openclaw/openclawcode#323",
       outcome: "queued-update",
@@ -7681,7 +7683,7 @@ EOF
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       issueKey: "openclaw/openclawcode#324",
       outcome: "deferred",
@@ -7736,7 +7738,7 @@ EOF
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload).toMatchObject({
       issueKey: "openclaw/openclawcode#325",
       outcome: "blocked",
@@ -7834,7 +7836,7 @@ describe("openclawCodeBootstrapCommand", () => {
     setupCheckSpy.mockRestore();
     webhookUrlSpy.mockRestore();
 
-    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.contractVersion).toBe(1);
     expect(payload.repo.repoKey).toBe("acme/demo");
     expect(payload.repo.repoRoot).toBe(targetRepoRoot);
@@ -7927,6 +7929,7 @@ describe("openclawCodeBootstrapCommand", () => {
             lowRiskProofReady: true,
             fallbackProofReady: false,
             promotionReady: true,
+            chatSetupRoutingReady: false,
             gatewayReachable: false,
             routeProbeReady: true,
             routeProbeSkipped: false,
@@ -7964,7 +7967,7 @@ describe("openclawCodeBootstrapCommand", () => {
     setupCheckSpy.mockRestore();
     webhookUrlSpy.mockRestore();
 
-    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.config.testCommands).toEqual([]);
     expect(payload.config.testCommandSource).toBe("empty-repo-blueprint");
     expect(payload.config.blueprintFirstBootstrap).toBe(true);
@@ -8069,7 +8072,7 @@ describe("openclawCodeBootstrapCommand", () => {
     setupCheckSpy.mockRestore();
     webhookUrlSpy.mockRestore();
 
-    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.repo.repoRootSelection).toBe("existing-operator-config");
     expect(payload.mode).toBe("chatops");
     expect(payload.notify.bindingMode).toBe("explicit");
@@ -8179,7 +8182,7 @@ describe("openclawCodeBootstrapCommand", () => {
     setupCheckSpy.mockRestore();
     webhookUrlSpy.mockRestore();
 
-    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.mode).toBe("chatops");
     expect(payload.notify.bindingMode).toBe("auto-discovered");
     expect(payload.notify.notifyChannel).toBe("feishu");
@@ -8295,7 +8298,7 @@ describe("openclawCodeBootstrapCommand", () => {
     setupCheckSpy.mockRestore();
     webhookUrlSpy.mockRestore();
 
-    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.notify.bindingMode).toBe("auto-discovered");
     expect(payload.notify.notifyChannel).toBe("feishu");
     expect(payload.notify.notifyTarget).toBe("user:preferred-operator");
@@ -8374,7 +8377,7 @@ describe("openclawCodeBootstrapCommand", () => {
     setupCheckSpy.mockRestore();
     webhookUrlSpy.mockRestore();
 
-    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.notify.bindingMode).toBe("chat-placeholder");
     expect(payload.proofReadiness.cliProofReady).toBe(true);
     expect(payload.proofReadiness.chatProofReady).toBe(false);
@@ -8467,7 +8470,7 @@ describe("openclawCodeBootstrapCommand", () => {
     setupCheckSpy.mockRestore();
     webhookUrlSpy.mockRestore();
 
-    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.nextAction).toBe("repair-plugin-activation");
     expect(payload.pluginActivation).toMatchObject({
       ready: false,
@@ -8563,7 +8566,7 @@ describe("openclawCodeBootstrapCommand", () => {
 
     setupCheckSpy.mockRestore();
 
-    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime, -1);
     expect(mocks.ensureRepoWebhook).toHaveBeenCalledWith({
       owner: "acme",
       repo: "demo",
@@ -8663,7 +8666,7 @@ describe("openclawCodeBootstrapCommand", () => {
     resolveWebhookUrlSpy.mockRestore();
     startTunnelSpy.mockRestore();
 
-    const payload = JSON.parse(runtime.log.mock.calls.at(-1)?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.gateway.action).toBe("started");
     expect(payload.tunnel.action).toBe("started");
     expect(payload.tunnel.url).toBe("https://bootstrap.example.test/plugins/openclawcode/github");
@@ -8725,7 +8728,7 @@ describe("openclawCodeRepoPlanCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(String(runtime.log.mock.calls.at(-1)?.[0] ?? "{}"));
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.mode).toBe("existing");
     expect(payload.credentials.githubTokenSource).toBe("GH_TOKEN");
     expect(payload.repositories).toHaveLength(2);
@@ -8761,7 +8764,7 @@ describe("openclawCodeRepoPlanCommand", () => {
       description: "Shared image gallery for family albums",
       private: false,
     });
-    const payload = JSON.parse(String(runtime.log.mock.calls.at(-1)?.[0] ?? "{}"));
+    const payload = parseLoggedJson(runtime, -1);
     expect(payload.mode).toBe("new");
     expect(payload.createdRepository.repo).toBe("igallery-app");
     expect(payload.nextAction).toBe("openclaw code bootstrap --repo acme/igallery-app --json");
@@ -8784,7 +8787,7 @@ describe("openclawCodeRecommendCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.contractVersion).toBe(1);
     expect(payload.inputKind).toBe("goal");
     expect(payload.recommendedApproach).toContain("discovery-and-recommendation layer");
@@ -8828,7 +8831,7 @@ describe("openclawCodeSpecDraftCommand", () => {
       runtime,
     );
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.contractVersion).toBe(1);
     expect(payload.recommendedMode).toBe("spec");
     expect(payload.implementationShape).toBe("spec-first");
@@ -8866,7 +8869,7 @@ describe("openclawCodePolicyShowCommand", () => {
   it("prints a machine-readable policy snapshot", async () => {
     await openclawCodePolicyShowCommand({ json: true }, runtime);
 
-    const payload = JSON.parse(runtime.log.mock.calls[0]?.[0] ?? "null");
+    const payload = parseLoggedJson(runtime);
     expect(payload.contractVersion).toBe(1);
     expect(payload.suitability.lowRiskLabels).toContain("json");
     expect(payload.suitability.highRiskLabels).toContain("security");
@@ -9130,6 +9133,12 @@ function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
           source: "blueprint",
           configured: true,
           fallbackChain: ["openai/gpt-5.4"],
+          runtimeCapable: true,
+          rerouteCapable: true,
+          resolvedBackend: "claude-code",
+          resolvedAgentId: "claude-planner",
+          appliedSource: "blueprint",
+          stages: ["planning"],
         },
         {
           roleId: "coder",
@@ -9137,6 +9146,12 @@ function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
           source: "blueprint",
           configured: true,
           fallbackChain: ["openai/gpt-5.4"],
+          runtimeCapable: true,
+          rerouteCapable: true,
+          resolvedBackend: "codex",
+          resolvedAgentId: "codex-coder",
+          appliedSource: "blueprint",
+          stages: ["building"],
         },
         {
           roleId: "reviewer",
@@ -9144,6 +9159,12 @@ function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
           source: "blueprint",
           configured: true,
           fallbackChain: ["openai/gpt-5.4"],
+          runtimeCapable: true,
+          rerouteCapable: true,
+          resolvedBackend: "claude-code",
+          resolvedAgentId: "claude-reviewer",
+          appliedSource: "blueprint",
+          stages: ["ready-for-human-review"],
         },
         {
           roleId: "verifier",
@@ -9151,6 +9172,12 @@ function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
           source: "blueprint",
           configured: true,
           fallbackChain: ["openai/gpt-5.4"],
+          runtimeCapable: true,
+          rerouteCapable: true,
+          resolvedBackend: "codex",
+          resolvedAgentId: "codex-verifier",
+          appliedSource: "blueprint",
+          stages: ["verifying"],
         },
         {
           roleId: "docWriter",
@@ -9158,8 +9185,15 @@ function createRun(overrides: Partial<WorkflowRun> = {}): WorkflowRun {
           source: "blueprint",
           configured: true,
           fallbackChain: ["openai/gpt-5.4"],
+          runtimeCapable: true,
+          rerouteCapable: true,
+          resolvedBackend: "codex",
+          resolvedAgentId: "codex-docwriter",
+          appliedSource: "blueprint",
+          stages: ["ready-for-human-review"],
         },
       ],
+      stageRoutes: [],
     },
     runtimeRouting: {
       selections: [
