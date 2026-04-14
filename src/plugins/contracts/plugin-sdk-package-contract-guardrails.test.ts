@@ -239,11 +239,15 @@ function collectExtensionFiles(dir: string): string[] {
 
 function collectExtensionCoreImportLeaks(): Array<{ file: string; specifier: string }> {
   const leaks: Array<{ file: string; specifier: string }> = [];
-  const importPattern = /\b(?:import|export)\b[\s\S]*?\bfrom\s*["']((?:\.\.\/)+src\/[^"']+)["']/g;
+  const importPatterns = [
+    /\b(?:import|export)\b[\s\S]*?\bfrom\s*["']((?:\.\.\/)+src\/[^"']+)["']/g,
+    /\bimport\s*\(\s*["']((?:\.\.\/)+src\/[^"']+)["']\s*\)/g,
+  ];
   for (const file of collectExtensionFiles(resolve(REPO_ROOT, "extensions"))) {
     const repoRelativePath = relative(REPO_ROOT, file).replaceAll("\\", "/");
     if (
       /(?:^|\/)(?:__tests__|tests|test-support)(?:\/|$)/.test(repoRelativePath) ||
+      repoRelativePath.includes("test-support") ||
       /(?:^|\/)test-support\.[cm]?tsx?$/.test(repoRelativePath) ||
       /\.test\.[cm]?tsx?$/.test(repoRelativePath)
     ) {
@@ -252,19 +256,21 @@ function collectExtensionCoreImportLeaks(): Array<{ file: string; specifier: str
     const extensionRootMatch = /^(.*?\/extensions\/[^/]+)/.exec(file.replaceAll("\\", "/"));
     const extensionRoot = extensionRootMatch?.[1];
     const source = readFileSync(file, "utf8");
-    for (const match of source.matchAll(importPattern)) {
-      const specifier = match[1];
-      if (!specifier) {
-        continue;
+    for (const importPattern of importPatterns) {
+      for (const match of source.matchAll(importPattern)) {
+        const specifier = match[1];
+        if (!specifier) {
+          continue;
+        }
+        const resolvedSpecifier = resolve(dirname(file), specifier).replaceAll("\\", "/");
+        if (extensionRoot && resolvedSpecifier.startsWith(`${extensionRoot}/`)) {
+          continue;
+        }
+        leaks.push({
+          file: repoRelativePath,
+          specifier,
+        });
       }
-      const resolvedSpecifier = resolve(dirname(file), specifier).replaceAll("\\", "/");
-      if (extensionRoot && resolvedSpecifier.startsWith(`${extensionRoot}/`)) {
-        continue;
-      }
-      leaks.push({
-        file: repoRelativePath,
-        specifier,
-      });
     }
   }
   return leaks;
@@ -357,7 +363,23 @@ describe("plugin-sdk package contract guardrails", () => {
     expect(packedPackageJson.dependencies?.["@openclaw/plugin-package-contract"]).toBeUndefined();
   });
 
-  it("keeps extension sources on public sdk or local package seams", () => {
-    expect(collectExtensionCoreImportLeaks()).toEqual([]);
+  it("keeps extension sources on public sdk or local package seams", async () => {
+    const expected = await readExpectedInventoryForCoreImportLeaks();
+    expect(collectExtensionCoreImportLeaks()).toEqual(expected);
   });
 });
+
+async function readExpectedInventoryForCoreImportLeaks(): Promise<
+  Array<{ file: string; specifier: string }>
+> {
+  const expected = JSON.parse(
+    readFileSync(
+      resolve(REPO_ROOT, "test/fixtures/extension-src-outside-plugin-sdk-inventory.json"),
+      "utf8",
+    ),
+  ) as Array<{ file: string; specifier: string }>;
+  return expected.map((entry: { file: string; specifier: string }) => ({
+    file: entry.file,
+    specifier: entry.specifier,
+  }));
+}

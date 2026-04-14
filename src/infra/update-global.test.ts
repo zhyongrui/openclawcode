@@ -25,7 +25,7 @@ import {
   type CommandRunner,
 } from "./update-global.js";
 
-const MATRIX_HELPER_API = bundledDistPluginFile("matrix", "helper-api.js");
+const MATRIX_RUNTIME_API = bundledDistPluginFile("matrix", "runtime-api.js");
 
 describe("update global helpers", () => {
   let envSnapshot: ReturnType<typeof captureEnv> | undefined;
@@ -365,7 +365,7 @@ describe("update global helpers", () => {
     });
   });
 
-  it("checks bundled runtime sidecars, including Matrix helper-api", async () => {
+  it("checks bundled runtime sidecars, including Matrix runtime-api", async () => {
     await withTempDir({ prefix: "openclaw-update-global-pkg-" }, async (packageRoot) => {
       await fs.writeFile(
         path.join(packageRoot, "package.json"),
@@ -380,9 +380,9 @@ describe("update global helpers", () => {
 
       await expect(collectInstalledGlobalPackageErrors({ packageRoot })).resolves.toEqual([]);
 
-      await fs.rm(path.join(packageRoot, MATRIX_HELPER_API));
+      await fs.rm(path.join(packageRoot, MATRIX_RUNTIME_API));
       await expect(collectInstalledGlobalPackageErrors({ packageRoot })).resolves.toContain(
-        `missing bundled runtime sidecar ${MATRIX_HELPER_API}`,
+        `missing bundled runtime sidecar ${MATRIX_RUNTIME_API}`,
       );
     });
   });

@@ -3,15 +3,15 @@ import { ErrorCodes } from "../protocol/index.js";
 import { toolsEffectiveHandlers } from "./tools-effective.js";
 
 const runtimeMocks = vi.hoisted(() => ({
-  deliveryContextFromSession: vi.fn(() => ({
+  deliveryContextFromSession: vi.fn((_entry?: unknown) => ({
     channel: "telegram",
     to: "channel-1",
     accountId: "acct-1",
     threadId: "thread-2",
   })),
-  listAgentIds: vi.fn(() => ["main"]),
+  listAgentIds: vi.fn((_cfg?: unknown) => ["main"]),
   loadConfig: vi.fn(() => ({})),
-  loadSessionEntry: vi.fn(() => ({
+  loadSessionEntry: vi.fn((_sessionKey?: string) => ({
     cfg: {},
     canonicalKey: "main:abc",
     entry: {
@@ -74,8 +74,83 @@ const runtimeMocks = vi.hoisted(() => ({
     ],
   })),
   resolveReplyToMode: vi.fn(() => "first"),
-  resolveSessionAgentId: vi.fn(() => "main"),
-  resolveSessionModelRef: vi.fn(() => ({ provider: "openai", model: "gpt-4.1" })),
+  resolveSessionAgentId: vi.fn((_params?: unknown) => "main"),
+  resolveSessionModelRef: vi.fn((_cfg?: unknown, _entry?: unknown, _agentId?: string) => ({
+    provider: "openai",
+    model: "gpt-4.1",
+  })),
+  resolveSessionToolsEffectiveInventoryParams: vi.fn(
+    (params: { sessionKey: string; requestedAgentId?: string; senderIsOwner: boolean }) => {
+      const loaded = runtimeMocks.loadSessionEntry(params.sessionKey) as {
+        cfg: Record<string, unknown>;
+        canonicalKey?: string;
+        entry?: {
+          lastChannel?: string;
+          lastAccountId?: string;
+          lastThreadId?: string | number;
+          origin?: {
+            provider?: string;
+            accountId?: string;
+            threadId?: string | number;
+          };
+          groupId?: string;
+          groupChannel?: string;
+          space?: string;
+          chatType?: string;
+          modelProvider?: string;
+          model?: string;
+        };
+      };
+      if (!loaded.entry) {
+        throw new Error(`unknown session key "${params.sessionKey}"`);
+      }
+      const sessionAgentId = runtimeMocks.resolveSessionAgentId({
+        sessionKey: loaded.canonicalKey ?? params.sessionKey,
+        config: loaded.cfg,
+      });
+      if (params.requestedAgentId && params.requestedAgentId !== sessionAgentId) {
+        throw new Error(
+          `agent id "${params.requestedAgentId}" does not match session agent "${sessionAgentId}"`,
+        );
+      }
+      const delivery = runtimeMocks.deliveryContextFromSession(loaded.entry) as {
+        channel?: string;
+        to?: string;
+        accountId?: string;
+        threadId?: string | number;
+      };
+      const resolvedModel = runtimeMocks.resolveSessionModelRef(
+        loaded.cfg,
+        loaded.entry,
+        sessionAgentId,
+      ) as { provider?: string; model?: string };
+      return {
+        cfg: loaded.cfg,
+        agentId: sessionAgentId,
+        sessionKey: params.sessionKey,
+        senderIsOwner: params.senderIsOwner,
+        modelProvider: resolvedModel.provider,
+        modelId: resolvedModel.model,
+        messageProvider:
+          delivery?.channel ?? loaded.entry.lastChannel ?? loaded.entry.origin?.provider,
+        accountId:
+          delivery?.accountId ?? loaded.entry.lastAccountId ?? loaded.entry.origin?.accountId,
+        currentChannelId: delivery?.to,
+        currentThreadTs:
+          delivery?.threadId != null
+            ? String(delivery.threadId)
+            : loaded.entry.lastThreadId != null
+              ? String(loaded.entry.lastThreadId)
+              : loaded.entry.origin?.threadId != null
+                ? String(loaded.entry.origin.threadId)
+                : undefined,
+        groupId: loaded.entry.groupId,
+        groupChannel: loaded.entry.groupChannel,
+        groupSpace: loaded.entry.space,
+        replyToMode: runtimeMocks.resolveReplyToMode(),
+      };
+    },
+  ),
 }));
 
 vi.mock("./tools-effective.runtime.js", () => runtimeMocks);

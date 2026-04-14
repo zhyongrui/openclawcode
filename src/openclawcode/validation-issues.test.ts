@@ -268,6 +268,24 @@ describe("validation issue templates", () => {
           "Seed a low-risk JSON string-or-null field issue derived from nested metadata.",
       },
       {
+        id: "command-json-string-timestamp",
+        issueClass: "command-layer",
+        description:
+          "Seed a low-risk JSON timestamp-string-or-null field issue derived from nested metadata.",
+      },
+      {
+        id: "command-json-string-url",
+        issueClass: "command-layer",
+        description:
+          "Seed a low-risk JSON URL-string-or-null field issue derived from nested metadata.",
+      },
+      {
+        id: "command-json-string-enum",
+        issueClass: "command-layer",
+        description:
+          "Seed a low-risk JSON enum-string-or-null field issue derived from nested metadata.",
+      },
+      {
         id: "operator-doc-note",
         issueClass: "operator-docs",
         description: "Seed a low-risk docs or operator note issue for one specific file.",

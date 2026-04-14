@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type {
@@ -1873,7 +1874,7 @@ export class OpenClawCodeChatopsStore {
 
   private async saveState(state: OpenClawCodeQueueState): Promise<void> {
     await fs.mkdir(path.dirname(this.statePath), { recursive: true });
-    const tempPath = `${this.statePath}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
+    const tempPath = `${this.statePath}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`;
     await fs.writeFile(tempPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
     await fs.rename(tempPath, this.statePath);
   }

@@ -4649,6 +4649,10 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
             type: "number",
             minimum: 1000,
           },
+          defaultNotificationLocale: {
+            type: "string",
+            enum: ["zh-CN", "en"],
+          },
           feishuOperatorBinding: {
             type: "object",
             additionalProperties: false,
@@ -4752,6 +4756,10 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
         pollIntervalMs: {
           label: "Runner Poll Interval",
           help: "How often the plugin checks for queued openclawcode runs.",
+        },
+        defaultNotificationLocale: {
+          label: "Default Notification Locale",
+          help: "Preferred language for proactive OpenClaw Code notifications. Falls back to the host locale when unset.",
         },
         feishuOperatorBinding: {
           label: "Feishu Operator Binding",

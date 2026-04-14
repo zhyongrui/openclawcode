@@ -1,4 +1,5 @@
 import * as childProcess from "node:child_process";
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs/promises";
 import path from "node:path";
 import { formatCliCommand } from "../cli/command-format.js";
@@ -403,10 +404,7 @@ export async function startOnboardingGitHubCliDeviceLogin(params: {
 }): Promise<OnboardingGitHubCliDeviceLoginStartResult> {
   const logDir = path.join(params.stateDir, "plugins", "openclawcode", "setup");
   await onboardingOpenClawCodeDeps.mkdir(logDir, { recursive: true });
-  const logPath = path.join(
-    logDir,
-    `gh-auth-login-${Date.now()}-${Math.random().toString(16).slice(2)}.log`,
-  );
+  const logPath = path.join(logDir, `gh-auth-login-${Date.now()}-${randomUUID()}.log`);
   const logFile = await onboardingOpenClawCodeDeps.openTextFile(logPath, "a");
   try {
     const child = onboardingOpenClawCodeDeps.spawnGitHubCliCommand(

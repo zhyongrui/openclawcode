@@ -1,13 +1,12 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { classifyBundledExtensionSourcePath } from "../../../../scripts/lib/extension-source-classifier.mjs";
 import { GUARDED_EXTENSION_PUBLIC_SURFACE_BASENAMES } from "../../../../test/helpers/plugins/public-artifacts.js";
 import { loadPluginManifestRegistry } from "../../../plugins/manifest-registry.js";
 
-const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const REPO_ROOT = resolve(ROOT_DIR, "..");
+const REPO_ROOT = process.cwd();
+const ROOT_DIR = resolve(REPO_ROOT, "src");
 const ALLOWED_EXTENSION_PUBLIC_SURFACES = new Set(GUARDED_EXTENSION_PUBLIC_SURFACE_BASENAMES);
 ALLOWED_EXTENSION_PUBLIC_SURFACES.add("test-api.js");
 const BUNDLED_PLUGIN_ROOT_DIR = "extensions";
@@ -16,7 +15,9 @@ const bundledPluginRecords = loadPluginManifestRegistry({
   config: {},
 }).plugins.filter((plugin) => plugin.origin === "bundled");
 const bundledPluginRoots = new Map(
-  bundledPluginRecords.map((plugin) => [plugin.id, plugin.rootDir] as const),
+  bundledPluginRecords.map(
+    (plugin) => [plugin.id, resolve(REPO_ROOT, "extensions", plugin.id)] as const,
+  ),
 );
 const BUNDLED_EXTENSION_IDS = [...bundledPluginRoots.keys()].toSorted(
   (left, right) => right.length - left.length,

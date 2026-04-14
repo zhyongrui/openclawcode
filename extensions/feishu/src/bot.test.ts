@@ -650,6 +650,23 @@ describe("handleFeishuMessage command authorization", () => {
     mockEnsureConfiguredBindingRouteReady.mockReset().mockResolvedValue({ ok: true });
     mockResolveBoundConversation.mockReset().mockReturnValue(null);
     mockTouchBinding.mockReset();
+    mockHookRunnerHasHooks.mockReset().mockReturnValue(false);
+    mockHookRunnerRunInboundClaim.mockReset().mockResolvedValue(undefined);
+    mockClaimPendingFeishuOperatorScanCode.mockReset().mockResolvedValue({ status: "mismatch" });
+    mockHasFeishuOperatorWelcomeReceipt.mockReset().mockResolvedValue(false);
+    mockMarkFeishuOperatorWelcomeReceiptSent.mockReset().mockResolvedValue(undefined);
+    mockSetPreferredOperatorChatTarget.mockReset().mockResolvedValue({
+      status: "created",
+      binding: {
+        channel: "feishu",
+        accountId: "default",
+        target: "user:ou-scan-user",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    mockAddChannelAllowFromStoreEntry.mockReset().mockResolvedValue(undefined);
+    mockResolveFeishuReasoningPreviewEnabled.mockReset().mockReturnValue(false);
     mockResolveAgentRoute.mockReturnValue(buildDefaultResolveRoute());
     mockCreateFeishuClient.mockReturnValue({
       contact: {

@@ -10,10 +10,6 @@ function mainWorkspaceMountSuffix(access: SandboxWorkspaceAccess): "" | ":ro" {
   return access === "rw" ? "" : ":ro";
 }
 
-function agentWorkspaceMountSuffix(access: SandboxWorkspaceAccess): "" | ":ro" {
-  return access === "ro" ? ":ro" : "";
-}
-
 function formatManagedWorkspaceBind(params: {
   hostPath: string;
   containerPath: string;

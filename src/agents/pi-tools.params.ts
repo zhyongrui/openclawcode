@@ -51,6 +51,8 @@ type EditReplacement = {
   newText: string;
 };
 
+const PATH_PARAM_ALIASES = ["file_path", "filePath", "filepath", "file"] as const;
+
 function isValidEditReplacement(value: unknown): value is EditReplacement {
   if (!value || typeof value !== "object") {
     return false;
@@ -84,8 +86,98 @@ export const REQUIRED_PARAM_GROUPS = {
   ],
 } as const;
 
+function readFirstStringParam(
+  record: Record<string, unknown>,
+  keys: readonly string[],
+): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function normalizePathAliases(
+  record: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  if (typeof record.path === "string" && record.path.trim().length > 0) {
+    return undefined;
+  }
+  const aliasPath = readFirstStringParam(record, PATH_PARAM_ALIASES);
+  if (!aliasPath) {
+    return undefined;
+  }
+  return {
+    ...record,
+    path: aliasPath,
+  };
+}
+
+function normalizeEditAliases(
+  record: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  let normalized = normalizePathAliases(record);
+  const working = normalized ?? record;
+  if (hasValidEditReplacements(working)) {
+    return normalized;
+  }
+
+  const oldText = readFirstStringParam(working, ["oldText", "old_string"]);
+  const newTextCandidate = working.newText ?? working.new_string;
+  if (!oldText || typeof newTextCandidate !== "string") {
+    return normalized;
+  }
+
+  return {
+    ...working,
+    edits: [{ oldText, newText: newTextCandidate }],
+  };
+}
+
 export function getToolParamsRecord(params: unknown): Record<string, unknown> | undefined {
   return params && typeof params === "object" ? (params as Record<string, unknown>) : undefined;
+}
+
+export function normalizeReadToolParams(params: unknown): unknown {
+  const record = getToolParamsRecord(params);
+  if (!record) {
+    return params;
+  }
+  return normalizePathAliases(record) ?? params;
+}
+
+export function normalizeWriteToolParams(params: unknown): unknown {
+  const record = getToolParamsRecord(params);
+  if (!record) {
+    return params;
+  }
+  return normalizePathAliases(record) ?? params;
+}
+
+export function normalizeEditToolParams(params: unknown): unknown {
+  const record = getToolParamsRecord(params);
+  if (!record) {
+    return params;
+  }
+  return normalizeEditAliases(record) ?? params;
+}
+
+function normalizeToolParamsForValidation(
+  params: unknown,
+  groups: readonly RequiredParamGroup[] | undefined,
+): unknown {
+  if (groups === REQUIRED_PARAM_GROUPS.read) {
+    return normalizeReadToolParams(params);
+  }
+  if (groups === REQUIRED_PARAM_GROUPS.write) {
+    return normalizeWriteToolParams(params);
+  }
+  if (groups === REQUIRED_PARAM_GROUPS.edit) {
+    return normalizeEditToolParams(params);
+  }
+  return params;
 }
 
 export function assertRequiredParams(
@@ -136,11 +228,12 @@ export function wrapToolParamValidation(
   return {
     ...tool,
     execute: async (toolCallId, params, signal, onUpdate) => {
-      const record = getToolParamsRecord(params);
+      const normalizedParams = normalizeToolParamsForValidation(params, requiredParamGroups);
+      const record = getToolParamsRecord(normalizedParams);
       if (requiredParamGroups?.length) {
         assertRequiredParams(record, requiredParamGroups, tool.name);
       }
-      return tool.execute(toolCallId, params, signal, onUpdate);
+      return tool.execute(toolCallId, normalizedParams, signal, onUpdate);
     },
   };
 }

@@ -10,11 +10,13 @@ export {
   handleFeishuSubagentEnded,
   handleFeishuSubagentSpawning,
 } from "./src/subagent-hooks.js";
+export { inspectFeishuCredentials } from "./src/accounts.js";
 export * from "./src/conversation-id.js";
 export * from "./src/setup-core.js";
 export * from "./src/setup-surface.js";
 export * from "./src/thread-bindings.js";
 export { __testing as feishuThreadBindingTesting } from "./src/thread-bindings.js";
 export { createClackPrompter } from "openclaw/plugin-sdk/setup-runtime";
+export type { FeishuConfig } from "./src/types.js";
 
 export const feishuSessionBindingAdapterChannels = ["feishu"] as const;

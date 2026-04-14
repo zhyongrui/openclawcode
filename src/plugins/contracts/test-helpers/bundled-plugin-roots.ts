@@ -1,10 +1,12 @@
 import { relative, resolve } from "node:path";
 import { loadPluginManifestRegistry } from "../../manifest-registry.js";
 
+const REPO_ROOT = process.cwd();
+
 const bundledPluginRoots = new Map(
   loadPluginManifestRegistry({ cache: true, config: {} })
     .plugins.filter((plugin) => plugin.origin === "bundled")
-    .map((plugin) => [plugin.id, plugin.rootDir] as const),
+    .map((plugin) => [plugin.id, resolve(REPO_ROOT, "extensions", plugin.id)] as const),
 );
 
 export function getBundledPluginRoots(): ReadonlyMap<string, string> {

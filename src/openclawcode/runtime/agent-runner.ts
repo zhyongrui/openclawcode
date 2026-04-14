@@ -76,7 +76,7 @@ const OPENCLAWCODE_WORKTREE_SKILL_FILTER = ["coding-agent"] as const;
 
 function resolveOpenClawCodeDeniedTools(env: NodeJS.ProcessEnv = process.env): string[] {
   const enabled = new Set(
-    String(env[OPENCLAWCODE_ENABLE_FS_TOOLS_ENV] ?? "")
+    (env[OPENCLAWCODE_ENABLE_FS_TOOLS_ENV] ?? "")
       .split(",")
       .map((entry) => entry.trim().toLowerCase())
       .filter((entry): entry is "edit" | "write" => entry === "edit" || entry === "write"),
@@ -87,7 +87,7 @@ function resolveOpenClawCodeDeniedTools(env: NodeJS.ProcessEnv = process.env): s
 function resolveOpenClawCodeModelFallbacks(env: NodeJS.ProcessEnv = process.env): string[] {
   return Array.from(
     new Set(
-      String(env[OPENCLAWCODE_MODEL_FALLBACKS_ENV] ?? "")
+      (env[OPENCLAWCODE_MODEL_FALLBACKS_ENV] ?? "")
         .split(",")
         .map((entry) => entry.trim())
         .filter(Boolean),

@@ -1,6 +1,10 @@
 import * as http from "http";
 import crypto from "node:crypto";
 import * as Lark from "@larksuiteoapi/node-sdk";
+import {
+  clearFeishuTransportReady,
+  markFeishuTransportReady,
+} from "../../../src/operator-chat-targets/feishu-scan-code.js";
 import { createFeishuWSClient } from "./client.js";
 import {
   applyBasicWebhookRequestGuards,
@@ -20,10 +24,6 @@ import {
   wsClients,
 } from "./monitor.state.js";
 import type { ResolvedFeishuAccount } from "./types.js";
-import {
-  clearFeishuTransportReady,
-  markFeishuTransportReady,
-} from "../../../src/operator-chat-targets/feishu-scan-code.js";
 
 export type MonitorTransportParams = {
   account: ResolvedFeishuAccount;
@@ -136,8 +136,6 @@ export async function monitorWebSocket({
     abortSignal?.addEventListener("abort", handleAbort, { once: true });
 
     try {
-      wsClient.start({ eventDispatcher });
-      void markFeishuTransportReady({ accountId }).catch(() => undefined);
       void wsClient.start({ eventDispatcher });
       void markFeishuTransportReady({ accountId }).catch(() => undefined);
       log(`feishu[${accountId}]: WebSocket client started`);

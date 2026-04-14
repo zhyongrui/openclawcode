@@ -19,6 +19,7 @@ const ALLOWED_EXTENSION_PATH_STRING_TESTS = new Set([
   "src/commands/doctor-legacy-config.migrations.test.ts",
   "src/plugins/contracts/bundled-extension-config-api-guardrails.test.ts",
   "src/scripts/test-projects.test.ts",
+  "src/wizard/setup.finalize.test.ts",
 ]);
 
 const ALLOWED_CONTRACT_BUNDLED_PATH_HELPERS = new Set([

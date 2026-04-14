@@ -1,11 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { bundledPluginFile, getBundledPluginRoots } from "./test-helpers/bundled-plugin-roots.js";
 
-const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const ROOT_DIR = resolve(process.cwd(), "src");
 
 const RUNTIME_API_EXPORT_GUARDS: Record<string, readonly string[]> = {
   [bundledPluginFile({ rootDir: ROOT_DIR, pluginId: "discord", relativePath: "runtime-api.ts" })]: [

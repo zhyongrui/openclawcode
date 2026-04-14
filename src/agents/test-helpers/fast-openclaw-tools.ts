@@ -1,7 +1,11 @@
 import { vi } from "vitest";
 import { stubTool } from "./fast-tool-stubs.js";
 
-function stubActionTool(name: string, actions: string[]) {
+function stubActionTool(
+  name: string,
+  actions: string[],
+  extraProperties?: Record<string, unknown>,
+) {
   return {
     ...stubTool(name),
     parameters: {
@@ -11,6 +15,7 @@ function stubActionTool(name: string, actions: string[]) {
           type: "string" as const,
           enum: actions,
         },
+        ...extraProperties,
       },
       required: ["action"],
     },
@@ -22,7 +27,11 @@ const coreTools = [
   stubActionTool("nodes", ["list", "invoke"]),
   stubActionTool("cron", ["schedule", "cancel"]),
   stubActionTool("message", ["send", "reply"]),
-  stubActionTool("gateway", ["status"]),
+  stubActionTool("gateway", ["status"], {
+    raw: {
+      type: "string" as const,
+    },
+  }),
   stubActionTool("agents_list", ["list", "show"]),
   stubActionTool("sessions_list", ["list", "show"]),
   stubActionTool("sessions_history", ["read", "tail"]),

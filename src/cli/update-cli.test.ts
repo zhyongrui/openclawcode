@@ -200,7 +200,10 @@ type UpdateCliScenario = {
 };
 
 describe("update-cli", () => {
-  const fixtureRoot = "/tmp/openclaw-update-tests";
+  const fixtureRoot = path.join(
+    os.tmpdir(),
+    `openclaw-update-tests-${process.pid}-${Date.now().toString(36)}`,
+  );
   let fixtureCount = 0;
 
   const createCaseDir = (prefix: string) => {

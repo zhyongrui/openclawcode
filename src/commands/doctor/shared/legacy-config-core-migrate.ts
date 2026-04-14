@@ -1,6 +1,7 @@
 import type { OpenClawConfig } from "../../../config/types.openclaw.js";
 import { runPluginSetupConfigMigrations } from "../../../plugins/setup-registry.js";
 import { collectChannelDoctorCompatibilityMutations } from "./channel-doctor.js";
+import { applyLegacyDoctorMigrations } from "./legacy-config-compat.js";
 import {
   normalizeLegacyBrowserConfig,
   normalizeLegacyCrossContextMessageConfig,
@@ -19,7 +20,12 @@ export function normalizeCompatibilityConfigValues(cfg: OpenClawConfig): {
   changes: string[];
 } {
   const changes: string[] = [];
-  let next = seedMissingDefaultAccountsFromSingleAccountBase(cfg, changes);
+  const legacyMigration = applyLegacyDoctorMigrations(cfg);
+  let next = (legacyMigration.next as OpenClawConfig | null) ?? cfg;
+  if (legacyMigration.changes.length > 0) {
+    changes.push(...legacyMigration.changes);
+  }
+  next = seedMissingDefaultAccountsFromSingleAccountBase(next, changes);
   next = normalizeLegacyBrowserConfig(next, changes);
 
   const setupMigration = runPluginSetupConfigMigrations({

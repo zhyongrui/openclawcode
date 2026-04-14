@@ -18,6 +18,7 @@ const buildProgramMock = vi.hoisted(() => vi.fn());
 const getProgramContextMock = vi.hoisted(() => vi.fn(() => null));
 const registerCoreCliByNameMock = vi.hoisted(() => vi.fn());
 const registerSubCliByNameMock = vi.hoisted(() => vi.fn());
+const awaitPendingSubCliRegistrationsMock = vi.hoisted(() => vi.fn(async () => undefined));
 const restoreTerminalStateMock = vi.hoisted(() => vi.fn());
 const maybeRunCliInContainerMock = vi.hoisted(() =>
   vi.fn<
@@ -87,6 +88,7 @@ vi.mock("./program/command-registry.js", () => ({
 }));
 
 vi.mock("./program/register.subclis.js", () => ({
+  awaitPendingSubCliRegistrations: awaitPendingSubCliRegistrationsMock,
   registerSubCliByName: registerSubCliByNameMock,
 }));
 
@@ -185,7 +187,7 @@ describe("runCli exit behavior", () => {
 
     await expect(runCli(["node", "openclaw", "status"])).resolves.toBeUndefined();
 
-    expect(registerSubCliByNameMock).toHaveBeenCalledWith(expect.anything(), "status");
+    expect(registerSubCliByNameMock).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(1);
     process.exitCode = exitCode;
   });
@@ -206,7 +208,7 @@ describe("runCli exit behavior", () => {
       "doctor",
       "--help",
     ]);
-    expect(registerSubCliByNameMock).toHaveBeenCalledWith(expect.anything(), "doctor");
+    expect(registerSubCliByNameMock).not.toHaveBeenCalled();
   });
 
   it("restores terminal state before uncaught CLI exits", async () => {

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearSessionStoreCacheForTest } from "../../../src/config/sessions/store.js";
 import { telegramApprovalCapability, telegramNativeApprovalAdapter } from "./approval-native.js";
 
@@ -24,7 +24,8 @@ function buildConfig(
   } as OpenClawConfig;
 }
 
-const STORE_PATH = path.join(os.tmpdir(), "openclaw-telegram-approval-native-test.json");
+let storeDir = "";
+let STORE_PATH = "";
 
 function writeStore(store: Record<string, unknown>) {
   fs.writeFileSync(STORE_PATH, `${JSON.stringify(store, null, 2)}\n`, "utf8");
@@ -32,6 +33,20 @@ function writeStore(store: Record<string, unknown>) {
 }
 
 describe("telegram native approval adapter", () => {
+  beforeEach(() => {
+    storeDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-telegram-approval-native-"));
+    STORE_PATH = path.join(storeDir, "sessions.json");
+  });
+
+  afterEach(() => {
+    clearSessionStoreCacheForTest();
+    if (storeDir) {
+      fs.rmSync(storeDir, { recursive: true, force: true });
+    }
+    storeDir = "";
+    STORE_PATH = "";
+  });
+
   it("describes the correct Telegram exec-approval setup path", () => {
     const text = telegramApprovalCapability.describeExecApprovalSetup?.({
       channel: "telegram",

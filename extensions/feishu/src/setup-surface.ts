@@ -645,7 +645,7 @@ async function runNewAppFlow(params: {
           ? existingGroupAllowFrom.map(String).join(", ")
           : undefined,
     });
-    const parts = splitSetupEntries(groupAllowFrom);
+    const parts = splitSetupEntries(groupAllowFrom ?? "");
     if (parts.length > 0) {
       next = patchFeishuConfig(next, targetAccountId, { groupAllowFrom: parts });
     }

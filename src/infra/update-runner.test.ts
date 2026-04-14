@@ -11,7 +11,7 @@ import { runGatewayUpdate } from "./update-runner.js";
 
 type CommandResponse = { stdout?: string; stderr?: string; code?: number | null };
 type CommandResult = { stdout: string; stderr: string; code: number | null };
-const WHATSAPP_LIGHT_RUNTIME_API = bundledDistPluginFile("whatsapp", "light-runtime-api.js");
+const WHATSAPP_RUNTIME_API = bundledDistPluginFile("whatsapp", "runtime-api.js");
 const fixtureRootTracker = createSuiteTempRootTracker({ prefix: "openclaw-update-" });
 
 function toCommandResult(response?: CommandResponse): CommandResult {
@@ -1185,7 +1185,7 @@ describe("runGatewayUpdate", () => {
     expect(result.status).toBe("error");
     expect(result.reason).toBe("global install verify");
     expect(result.steps.at(-1)?.stderrTail).toContain(
-      `missing bundled runtime sidecar ${WHATSAPP_LIGHT_RUNTIME_API}`,
+      `missing bundled runtime sidecar ${WHATSAPP_RUNTIME_API}`,
     );
   });
 

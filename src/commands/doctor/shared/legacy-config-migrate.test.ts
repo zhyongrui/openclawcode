@@ -284,11 +284,10 @@ describe("legacy migrate channel streaming aliases", () => {
     const migrated = migrateLegacyConfigForTest(raw);
 
     expect(res.changes).toContain(
-      "Moved channels.slack.streaming (boolean) → channels.slack.streaming.mode (off).",
+      "Moved channels.slack.streaming (boolean) → channels.slack.streaming.nativeTransport.",
     );
     expect(migrated.config?.channels?.slack).toMatchObject({
       streaming: {
-        mode: "off",
         nativeTransport: false,
       },
     });

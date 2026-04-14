@@ -29,13 +29,13 @@ export function resolveChatNextSuggestedCommand(params: {
   if (issueRunMatch) {
     return `/occode-start ${repoKey}#${issueRunMatch[1]}`;
   }
-  if (/^openclaw code stage-gates-show --repo-root /.test(command)) {
+  if (command.startsWith("openclaw code stage-gates-show --repo-root ")) {
     return `/occode-gates ${repoKey}`;
   }
-  if (/^openclaw code issue-materialize --repo-root /.test(command)) {
+  if (command.startsWith("openclaw code issue-materialize --repo-root ")) {
     return `/occode-materialize ${repoKey}`;
   }
-  if (/^openclaw code project-progress-show --repo-root /.test(command)) {
+  if (command.startsWith("openclaw code project-progress-show --repo-root ")) {
     return `/occode-progress ${repoKey}`;
   }
   return command;

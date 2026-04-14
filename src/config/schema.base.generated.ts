@@ -6807,6 +6807,28 @@ export const GENERATED_BASE_CONFIG_SCHEMA: BaseConfigSchemaResponse = {
                       description:
                         "Per-agent override for tool profile selection when one agent needs a different capability baseline. Use this sparingly so policy differences across agents stay intentional and reviewable.",
                     },
+                    presets: {
+                      type: "array",
+                      items: {
+                        anyOf: [
+                          {
+                            type: "string",
+                            const: "browser",
+                          },
+                          {
+                            type: "string",
+                            const: "delegate",
+                          },
+                          {
+                            type: "string",
+                            const: "remote",
+                          },
+                        ],
+                      },
+                      title: "Agent Tool Presets",
+                      description:
+                        "Per-agent additive preset bundles layered on top of the resolved profile baseline. Use this to stage targeted capability slices for one agent without forking the whole profile.",
+                    },
                     allow: {
                       type: "array",
                       items: {
@@ -6873,6 +6895,25 @@ export const GENERATED_BASE_CONFIG_SCHEMA: BaseConfigSchemaResponse = {
                                 const: "full",
                               },
                             ],
+                          },
+                          presets: {
+                            type: "array",
+                            items: {
+                              anyOf: [
+                                {
+                                  type: "string",
+                                  const: "browser",
+                                },
+                                {
+                                  type: "string",
+                                  const: "delegate",
+                                },
+                                {
+                                  type: "string",
+                                  const: "remote",
+                                },
+                              ],
+                            },
                           },
                         },
                         additionalProperties: false,
@@ -7224,6 +7265,28 @@ export const GENERATED_BASE_CONFIG_SCHEMA: BaseConfigSchemaResponse = {
             description:
               "Global tool profile name used to select a predefined tool policy baseline before applying allow/deny overrides. Use this for consistent environment posture across agents and keep profile names stable.",
           },
+          presets: {
+            type: "array",
+            items: {
+              anyOf: [
+                {
+                  type: "string",
+                  const: "browser",
+                },
+                {
+                  type: "string",
+                  const: "delegate",
+                },
+                {
+                  type: "string",
+                  const: "remote",
+                },
+              ],
+            },
+            title: "Tool Presets",
+            description:
+              "Named additive tool bundles merged on top of the selected profile baseline before later allow/deny filtering. Use presets for rollout-ready capability slices like browser, delegate, or remote without redefining whole profiles.",
+          },
           allow: {
             type: "array",
             items: {
@@ -7296,6 +7359,25 @@ export const GENERATED_BASE_CONFIG_SCHEMA: BaseConfigSchemaResponse = {
                       const: "full",
                     },
                   ],
+                },
+                presets: {
+                  type: "array",
+                  items: {
+                    anyOf: [
+                      {
+                        type: "string",
+                        const: "browser",
+                      },
+                      {
+                        type: "string",
+                        const: "delegate",
+                      },
+                      {
+                        type: "string",
+                        const: "remote",
+                      },
+                    ],
+                  },
                 },
               },
               additionalProperties: false,
@@ -23671,6 +23753,11 @@ export const GENERATED_BASE_CONFIG_SCHEMA: BaseConfigSchemaResponse = {
       help: "Global tool profile name used to select a predefined tool policy baseline before applying allow/deny overrides. Use this for consistent environment posture across agents and keep profile names stable.",
       tags: ["storage", "tools"],
     },
+    "tools.presets": {
+      label: "Tool Presets",
+      help: "Named additive tool bundles merged on top of the selected profile baseline before later allow/deny filtering. Use presets for rollout-ready capability slices like browser, delegate, or remote without redefining whole profiles.",
+      tags: ["tools"],
+    },
     "tools.alsoAllow": {
       label: "Tool Allowlist Additions",
       help: "Extra tool allowlist entries merged on top of the selected tool profile and default policy. Keep this list small and explicit so audits can quickly identify intentional policy exceptions.",
@@ -23680,6 +23767,11 @@ export const GENERATED_BASE_CONFIG_SCHEMA: BaseConfigSchemaResponse = {
       label: "Agent Tool Profile",
       help: "Per-agent override for tool profile selection when one agent needs a different capability baseline. Use this sparingly so policy differences across agents stay intentional and reviewable.",
       tags: ["storage"],
+    },
+    "agents.list[].tools.presets": {
+      label: "Agent Tool Presets",
+      help: "Per-agent additive preset bundles layered on top of the resolved profile baseline. Use this to stage targeted capability slices for one agent without forking the whole profile.",
+      tags: ["advanced"],
     },
     "agents.list[].tools.alsoAllow": {
       label: "Agent Tool Allowlist Additions",

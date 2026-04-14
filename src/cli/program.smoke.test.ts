@@ -10,6 +10,7 @@ import {
   setupCommand,
   setupWizardCommand,
 } from "./program.test-mocks.js";
+import { awaitPendingSubCliRegistrations } from "./program/register.subclis.js";
 
 installBaseProgramMocks();
 installSmokeProgramMocks();
@@ -32,6 +33,7 @@ describe("cli program (smoke)", () => {
   }
 
   async function runProgram(argv: string[]) {
+    await awaitPendingSubCliRegistrations(program);
     await program.parseAsync(argv, { from: "user" });
   }
 

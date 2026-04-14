@@ -74,6 +74,10 @@ export const runGatewayUpdate = vi
   .mockResolvedValue(createGatewayUpdateResult()) as unknown as MockFn;
 export const collectRelevantDoctorPluginIds = vi.fn(() => []) as unknown as MockFn;
 export const listPluginDoctorLegacyConfigRules = vi.fn(() => []) as unknown as MockFn;
+export const applyPluginDoctorCompatibilityMigrations = vi.fn((cfg: Record<string, unknown>) => ({
+  config: cfg,
+  changes: [],
+})) as unknown as MockFn;
 export const runDoctorHealthContributions = vi.fn(
   defaultRunDoctorHealthContributions,
 ) as unknown as MockFn;
@@ -364,6 +368,7 @@ vi.mock("./doctor-memory-search.js", () => ({
 }));
 
 vi.mock("../plugins/doctor-contract-registry.js", () => ({
+  applyPluginDoctorCompatibilityMigrations,
   collectRelevantDoctorPluginIds,
   listPluginDoctorLegacyConfigRules,
 }));

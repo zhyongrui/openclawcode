@@ -234,8 +234,11 @@ function moveLegacyStreamingShapeForPath(params: {
     streaming: legacyStreaming,
   };
   const hadLegacyStreamMode = hasOwnKey(params.entry, "streamMode");
+  const treatBooleanStreamingAsNativeTransportOnly =
+    typeof legacyStreaming === "boolean" && Boolean(params.resolveNativeTransport);
   const hadLegacyStreamingScalar =
-    typeof legacyStreaming === "string" || typeof legacyStreaming === "boolean";
+    typeof legacyStreaming === "string" ||
+    (typeof legacyStreaming === "boolean" && !treatBooleanStreamingAsNativeTransportOnly);
 
   if (params.resolveMode && (hadLegacyStreamMode || hadLegacyStreamingScalar)) {
     const streaming = ensureNestedRecord(params.entry, "streaming");
@@ -247,7 +250,7 @@ function moveLegacyStreamingShapeForPath(params: {
           `Moved ${params.pathPrefix}.streamMode → ${params.pathPrefix}.streaming.mode (${resolvedMode}).`,
         );
       }
-      if (typeof legacyStreaming === "boolean") {
+      if (typeof legacyStreaming === "boolean" && !treatBooleanStreamingAsNativeTransportOnly) {
         params.changes.push(
           `Moved ${params.pathPrefix}.streaming (boolean) → ${params.pathPrefix}.streaming.mode (${resolvedMode}).`,
         );

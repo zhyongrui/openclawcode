@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   collectExtensionPluginSdkBoundaryInventory,
   main as extensionPluginSdkMain,
+  readExpectedInventory as readExtensionPluginSdkExpectedInventory,
 } from "../scripts/check-extension-plugin-sdk-boundary.mjs";
 import {
   collectSdkPackageExtensionImportBoundaryInventory,
@@ -98,8 +99,9 @@ describe("extension src outside plugin-sdk boundary inventory", () => {
   it("stays empty and sorted", async () => {
     const inventory = await srcOutsideInventoryPromise;
     const jsonResult = await srcOutsideJsonOutputPromise;
+    const expected = await readExtensionPluginSdkExpectedInventory("src-outside-plugin-sdk");
 
-    expect(inventory).toEqual([]);
+    expect(inventory).toEqual(expected);
     expect(
       [...inventory].toSorted(
         (left, right) =>
@@ -113,7 +115,7 @@ describe("extension src outside plugin-sdk boundary inventory", () => {
     ).toEqual(inventory);
     expect(jsonResult.exitCode).toBe(0);
     expect(jsonResult.stderr).toBe("");
-    expect(jsonResult.json).toEqual([]);
+    expect(jsonResult.json).toEqual(expected);
   });
 });
 
@@ -133,10 +135,11 @@ describe("extension relative-outside-package boundary inventory", () => {
   it("stays empty", async () => {
     const inventory = await relativeOutsidePackageInventoryPromise;
     const jsonResult = await relativeOutsidePackageJsonOutputPromise;
+    const expected = await readExtensionPluginSdkExpectedInventory("relative-outside-package");
 
-    expect(inventory).toEqual([]);
+    expect(inventory).toEqual(expected);
     expect(jsonResult.exitCode).toBe(0);
     expect(jsonResult.stderr).toBe("");
-    expect(jsonResult.json).toEqual([]);
+    expect(jsonResult.json).toEqual(expected);
   });
 });

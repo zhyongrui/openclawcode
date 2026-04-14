@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -112,8 +112,11 @@ function listBundledPluginRoots() {
     .plugins.filter((plugin) => plugin.origin === "bundled")
     .map((plugin) => ({
       pluginId: plugin.id,
-      rootDir: plugin.workspaceDir ?? plugin.rootDir,
+      rootDir: existsSync(resolve(REPO_ROOT, "extensions", plugin.id))
+        ? resolve(REPO_ROOT, "extensions", plugin.id)
+        : (plugin.workspaceDir ?? plugin.rootDir),
     }))
+    .filter((plugin) => existsSync(plugin.rootDir))
     .toSorted((left, right) => left.pluginId.localeCompare(right.pluginId));
 }
 

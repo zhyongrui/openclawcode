@@ -2,11 +2,11 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { OpenClawCodeIssueStatusSnapshot } from "../integrations/openclaw-plugin/store.js";
+import type { WorkflowRun } from "./contracts/index.js";
 import type { RepoRef } from "./github/index.js";
+import { deriveWorkflowLoopHealth } from "./loop-health.js";
 import type { OpenClawCodeOperatorStatusSnapshot } from "./operator-status.js";
 import { FileSystemWorkflowRunStore } from "./persistence/index.js";
-import type { WorkflowRun } from "./contracts/index.js";
-import { deriveWorkflowLoopHealth } from "./loop-health.js";
 import { deriveWorkflowQualityGate } from "./quality-gate.js";
 
 export const PROJECT_WORKFLOW_HISTORY_SCHEMA_VERSION = 2;
@@ -168,10 +168,7 @@ function resolveHistoryTailReferenceArtifactPath(params: {
   );
 }
 
-async function buildHistoryTail(params: {
-  run?: WorkflowRun;
-  repoRoot: string;
-}): Promise<{
+async function buildHistoryTail(params: { run?: WorkflowRun; repoRoot: string }): Promise<{
   historyTail: string[];
   historyTailReferences: ProjectWorkflowHistoryTailReference[];
 }> {
@@ -186,7 +183,11 @@ async function buildHistoryTail(params: {
   const historyTailReferences: ProjectWorkflowHistoryTailReference[] = [];
   const tailStartIndex = Math.max(0, params.run.history.length - HISTORY_TAIL_LIMIT);
 
-  for (let historyIndex = tailStartIndex; historyIndex < params.run.history.length; historyIndex += 1) {
+  for (
+    let historyIndex = tailStartIndex;
+    historyIndex < params.run.history.length;
+    historyIndex += 1
+  ) {
     const rawEntry = params.run.history[historyIndex];
     const summary = summarizeHistoryTailEntry(rawEntry);
     if (!summary || typeof rawEntry !== "string") {
@@ -307,7 +308,7 @@ async function buildEntryFromRun(params: {
 }
 
 function sortHistoryEntries(entries: ProjectWorkflowHistoryEntry[]): ProjectWorkflowHistoryEntry[] {
-  return [...entries].sort((left, right) => {
+  return entries.toSorted((left, right) => {
     if (left.currentSessionFirst !== right.currentSessionFirst) {
       return left.currentSessionFirst ? -1 : 1;
     }
@@ -350,13 +351,14 @@ export async function writeProjectWorkflowHistoryArtifact(params: {
         !params.repo ||
         (run.issue.owner === params.repo.owner && run.issue.repo === params.repo.repo),
     )
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    .toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   const runsById = new Map(workflowRuns.map((run) => [run.id, run]));
 
   const snapshots =
     params.repo && params.operatorSnapshot
       ? params.operatorSnapshot.issueSnapshots.filter(
-          (snapshot) => snapshot.owner === params.repo?.owner && snapshot.repo === params.repo?.repo,
+          (snapshot) =>
+            snapshot.owner === params.repo?.owner && snapshot.repo === params.repo?.repo,
         )
       : [];
 

@@ -5,7 +5,10 @@ import { describe, expect, it } from "vitest";
 import { OpenClawCodeChatopsStore } from "../../integrations/openclaw-plugin/store.js";
 import type { WorkflowRun } from "../contracts/index.js";
 import { readOpenClawCodeOperatorStatusSnapshot } from "../operator-status.js";
-import { readProjectWorkflowHistoryArtifact, writeProjectWorkflowHistoryArtifact } from "../workflow-history.js";
+import {
+  readProjectWorkflowHistoryArtifact,
+  writeProjectWorkflowHistoryArtifact,
+} from "../workflow-history.js";
 
 function createRun(params: {
   id: string;
@@ -85,7 +88,11 @@ describe("project workflow history artifact", () => {
           issueNumber: 106,
           title: "Earlier issue",
           updatedAt: "2026-04-02T09:00:00.000Z",
-          history: ["Planning completed", "Requested rerun", "Verification approved for human review"],
+          history: [
+            "Planning completed",
+            "Requested rerun",
+            "Verification approved for human review",
+          ],
         }),
         null,
         2,
@@ -200,9 +207,9 @@ describe("project workflow history artifact", () => {
       runId: "run-106",
       rerunReason: "Address review feedback",
     });
-    expect(
-      artifact.entries.some((entry) => entry.issueKey === "openclaw/other-repo#200"),
-    ).toBe(false);
+    expect(artifact.entries.some((entry) => entry.issueKey === "openclaw/other-repo#200")).toBe(
+      false,
+    );
 
     const persisted = await readProjectWorkflowHistoryArtifact(repoRoot);
     expect(persisted.entries).toHaveLength(2);
@@ -264,6 +271,6 @@ describe("project workflow history artifact", () => {
 
     const referencePath = artifact.entries[0]?.historyTailReferences[0]?.artifactPath;
     expect(referencePath).toBeTruthy();
-    await expect(readFile(referencePath!, "utf8")).resolves.toBe(multilineTail);
+    await expect(readFile(referencePath ?? "", "utf8")).resolves.toBe(multilineTail);
   });
 });

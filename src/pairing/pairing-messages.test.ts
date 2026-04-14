@@ -75,7 +75,8 @@ describe("buildPairingReply", () => {
     });
 
     expect(text).toContain("OpenClaw: access not configured.");
-    expect(text).toContain("Pairing code: ABCDEFGH");
+    expect(text).toContain("Pairing code:");
+    expect(text).toContain("```\nABCDEFGH\n```");
     expect(text).toContain("This chat command is blocked until pairing is approved.");
     expect(text).toContain("After approval, resend:");
     expect(text).toContain("/occode-setup");

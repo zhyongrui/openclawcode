@@ -4,7 +4,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { RuntimeEnv } from "../runtime.js";
 import { makeTempWorkspace } from "../test-helpers/workspace.js";
 import { captureEnv } from "../test-utils/env.js";
-import { onboardingOpenClawCodeDeps } from "../wizard/setup.code.js";
 import { createThrowingRuntime, readJsonFile } from "./onboard-non-interactive.test-helpers.js";
 import type { installGatewayDaemonNonInteractive } from "./onboard-non-interactive/local/daemon-install.js";
 
@@ -126,6 +125,15 @@ async function loadGatewayOnboardModules(): Promise<void> {
   vi.resetModules();
   ({ runNonInteractiveSetup } = await import("./onboard-non-interactive.js"));
   ({ resolveConfigPath: resolveStateConfigPath } = await import("../config/paths.js"));
+}
+
+async function setAuthenticatedViewerMock(viewer: {
+  login: string;
+  name?: string;
+  email?: string;
+}): Promise<void> {
+  const { onboardingOpenClawCodeDeps } = await import("../wizard/setup.code.js");
+  onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(async () => viewer);
 }
 
 async function loadCallGateway(): Promise<typeof import("../gateway/call.js").callGateway> {
@@ -439,11 +447,11 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
   it("prints the active OpenClaw Code GitHub identity in non-interactive local output", async () => {
     await withStateDir("state-openclawcode-summary-", async (stateDir) => {
       process.env.GH_TOKEN = "gho_test";
-      onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(async () => ({
+      await setAuthenticatedViewerMock({
         login: "zhyongrui",
         name: "Zhongrui Ye",
         email: "zyr@example.com",
-      }));
+      });
       const runtimeWithLogs = {
         log: vi.fn(),
         error: (...args: unknown[]) => {
@@ -489,11 +497,11 @@ describe("onboard (non-interactive): gateway and remote auth", () => {
   it("includes OpenClaw Code auth details in non-interactive local JSON output", async () => {
     await withStateDir("state-openclawcode-json-", async (stateDir) => {
       process.env.GITHUB_TOKEN = "gho_json_test";
-      onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(async () => ({
+      await setAuthenticatedViewerMock({
         login: "json-user",
         name: "JSON User",
         email: "json@example.com",
-      }));
+      });
       const runtimeWithLogs = {
         log: vi.fn(),
         error: (...args: unknown[]) => {

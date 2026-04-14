@@ -16,6 +16,34 @@ vi.mock("node:fs/promises", async () => {
   };
 });
 
+vi.mock("../infra/runtime-guard.js", () => ({
+  isSupportedNodeVersion: (version: string | null) => {
+    if (!version) {
+      return false;
+    }
+    const match = version.match(/(\d+)\.(\d+)\.(\d+)/);
+    if (!match) {
+      return false;
+    }
+    const major = Number.parseInt(match[1] ?? "0", 10);
+    const minor = Number.parseInt(match[2] ?? "0", 10);
+    const patch = Number.parseInt(match[3] ?? "0", 10);
+    if (major > 22) {
+      return true;
+    }
+    if (major < 22) {
+      return false;
+    }
+    if (minor > 14) {
+      return true;
+    }
+    if (minor < 14) {
+      return false;
+    }
+    return patch >= 0;
+  },
+}));
+
 import {
   renderSystemNodeWarning,
   resolvePreferredNodePath,

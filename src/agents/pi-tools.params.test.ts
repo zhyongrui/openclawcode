@@ -25,7 +25,7 @@ describe("assertRequiredParams", () => {
     ).toThrow(/\(received: path\)/);
   });
 
-  it("does not normalize legacy aliases during validation", async () => {
+  it("normalizes legacy path aliases before validating the remaining required params", async () => {
     const tool = wrapToolParamValidation(
       {
         name: "write",
@@ -38,7 +38,7 @@ describe("assertRequiredParams", () => {
     );
     await expect(
       tool.execute("id", { file_path: "test.txt" }, new AbortController().signal, vi.fn()),
-    ).rejects.toThrow(/\(received: file_path\)/);
+    ).rejects.toThrow(/\(received: (?:file_path, path|path, file_path)\)/);
   });
 
   it("excludes null and undefined values from received hint", () => {

@@ -10,7 +10,6 @@ import {
   readFileWithinRoot,
   writeFileWithinRoot,
 } from "../infra/fs-safe.js";
-import { trySafeFileURLToPath } from "../infra/local-file-access.js";
 import { detectMime } from "../media/mime.js";
 import { sniffMimeFromBase64 } from "../media/sniff-mime-from-base64.js";
 import type { ImageSanitizationLimits } from "./image-sanitization.js";
@@ -20,6 +19,7 @@ import {
   REQUIRED_PARAM_GROUPS,
   assertRequiredParams,
   getToolParamsRecord,
+  normalizeReadToolParams,
   wrapToolParamValidation,
 } from "./pi-tools.params.js";
 import { createDeterministicSandboxEditTool } from "./pi-tools.sandbox-edit.js";
@@ -653,7 +653,9 @@ export function wrapToolWorkspaceRootGuardWithOptions(
   },
 ): AnyAgentTool {
   const pathParamKeys =
-    options?.pathParamKeys && options.pathParamKeys.length > 0 ? options.pathParamKeys : ["path"];
+    options?.pathParamKeys && options.pathParamKeys.length > 0
+      ? options.pathParamKeys
+      : ["path", "file_path", "filePath"];
   return {
     ...tool,
     execute: async (toolCallId, args, signal, onUpdate) => {
@@ -772,7 +774,8 @@ export function createOpenClawReadTool(
   return {
     ...base,
     execute: async (toolCallId, params, signal) => {
-      const record = getToolParamsRecord(params);
+      const normalizedParams = normalizeReadToolParams(params);
+      const record = getToolParamsRecord(normalizedParams);
       assertRequiredParams(record, REQUIRED_PARAM_GROUPS.read, base.name);
       const directoryResult = await maybeReadDirectoryListing({
         args: record ?? {},

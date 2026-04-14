@@ -84,7 +84,7 @@ function collectPublicSurfaceArtifacts(pluginDir, primaryEntries) {
     .map(rewriteBuiltPath)
     .filter((entry) => !primaryEntries.has(entry))
     .filter((entry, index, all) => all.indexOf(entry) === index)
-    .sort((left, right) => left.localeCompare(right));
+    .toSorted((left, right) => left.localeCompare(right));
   return artifacts.length > 0 ? artifacts : undefined;
 }
 
@@ -115,9 +115,9 @@ function loadSyntheticChannelConfigs(pluginDir, manifest) {
       ]),
     );
   };
-  const modulePath = CHANNEL_CONFIG_MODULE_CANDIDATES.map((candidate) => path.join(pluginDir, candidate)).find(
-    (candidate) => fs.existsSync(candidate),
-  );
+  const modulePath = CHANNEL_CONFIG_MODULE_CANDIDATES.map((candidate) =>
+    path.join(pluginDir, candidate),
+  ).find((candidate) => fs.existsSync(candidate));
   if (!modulePath) {
     return fallback();
   }
@@ -178,9 +178,10 @@ function toPascalCase(value) {
 function pickChannelSchemaExport(mod, manifest) {
   const entries = Object.entries(mod ?? {});
   const exportMap = new Map(entries);
-  const ids = Array.isArray(manifest?.channels) && manifest.channels.length > 0
-    ? manifest.channels
-    : [manifest?.id].filter(Boolean);
+  const ids =
+    Array.isArray(manifest?.channels) && manifest.channels.length > 0
+      ? manifest.channels
+      : [manifest?.id].filter(Boolean);
   const preferredNames = ids.flatMap((id) => {
     const base = toPascalCase(id);
     return [`${base}ChannelConfigSchema`, `${base}ConfigSchema`];
@@ -190,18 +191,21 @@ function pickChannelSchemaExport(mod, manifest) {
       return exportMap.get(name);
     }
   }
-  return entries.find(
-    ([key, value]) =>
-      /(?:Channel)?ConfigSchema$/u.test(key) &&
-      value &&
-      typeof value === "object" &&
-      ("schema" in value || typeof value.safeParse === "function"),
-  )?.[1] ?? entries.find(
-    ([, value]) =>
-      value &&
-      typeof value === "object" &&
-      ("schema" in value || typeof value.safeParse === "function"),
-  )?.[1];
+  return (
+    entries.find(
+      ([key, value]) =>
+        /(?:Channel)?ConfigSchema$/u.test(key) &&
+        value &&
+        typeof value === "object" &&
+        ("schema" in value || typeof value.safeParse === "function"),
+    )?.[1] ??
+    entries.find(
+      ([, value]) =>
+        value &&
+        typeof value === "object" &&
+        ("schema" in value || typeof value.safeParse === "function"),
+    )?.[1]
+  );
 }
 
 function mergeChannelConfigs(pluginDir, manifest, packageManifest) {
@@ -210,28 +214,28 @@ function mergeChannelConfigs(pluginDir, manifest, packageManifest) {
     return manifest;
   }
   const merged = {
-    ...(manifest.channelConfigs ?? {}),
+    ...manifest.channelConfigs,
   };
   for (const [channelId, syntheticConfig] of Object.entries(synthetic)) {
     const existing = merged[channelId];
     const packageMeta = resolvePackageChannelMeta(packageManifest, channelId);
     merged[channelId] = existing
       ? {
-        ...(packageMeta ?? {}),
-        ...existing,
-        schema: syntheticConfig.schema,
-        ...(syntheticConfig.uiHints || existing.uiHints
-          ? {
+          ...packageMeta,
+          ...existing,
+          schema: syntheticConfig.schema,
+          ...(syntheticConfig.uiHints || existing.uiHints
+            ? {
                 uiHints: {
-                  ...(syntheticConfig.uiHints ?? {}),
-                  ...(existing.uiHints ?? {}),
+                  ...syntheticConfig.uiHints,
+                  ...existing.uiHints,
                 },
               }
             : {}),
         }
       : {
           ...syntheticConfig,
-          ...(packageMeta ?? {}),
+          ...packageMeta,
         };
   }
   return {
@@ -260,7 +264,10 @@ export async function collectBundledPluginMetadata(params = {}) {
         primarySourceEntry.built,
         ...(setupSource ? [setupSource.built] : []),
       ]);
-      const publicSurfaceArtifacts = collectPublicSurfaceArtifacts(source.pluginDir, primaryEntries);
+      const publicSurfaceArtifacts = collectPublicSurfaceArtifacts(
+        source.pluginDir,
+        primaryEntries,
+      );
       const runtimeSidecarArtifacts = collectRuntimeSidecarArtifacts(publicSurfaceArtifacts);
       return {
         dirName: source.dirName,
@@ -279,7 +286,7 @@ export async function collectBundledPluginMetadata(params = {}) {
       };
     })
     .filter(Boolean)
-    .sort((left, right) => left.dirName.localeCompare(right.dirName));
+    .toSorted((left, right) => left.dirName.localeCompare(right.dirName));
 }
 
 export async function writeBundledPluginMetadataModule(params = {}) {

@@ -188,14 +188,11 @@ describe("runEmbeddedPiAgent usage reporting", () => {
   });
 
   it("forwards bootstrap context overrides into embedded attempts", async () => {
-    mockedRunEmbeddedAttempt.mockResolvedValueOnce({
-      aborted: false,
-      promptError: null,
-      timedOut: false,
-      sessionIdUsed: "test-session",
-      assistantTexts: [],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    mockedRunEmbeddedAttempt.mockResolvedValueOnce(
+      makeAttemptResult({
+        assistantTexts: [],
+      }),
+    );
 
     await runEmbeddedPiAgent({
       sessionId: "test-session",

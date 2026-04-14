@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearSessionStoreCacheForTest } from "../../../src/config/sessions/store.js";
 import {
   createDiscordNativeApprovalAdapter,
@@ -9,7 +9,8 @@ import {
   shouldHandleDiscordApprovalRequest,
 } from "./approval-native.js";
 
-const STORE_PATH = path.join(os.tmpdir(), "openclaw-discord-approval-native-test.json");
+let storeDir = "";
+let storePath = "";
 const NATIVE_APPROVAL_CFG = {
   commands: {
     ownerAllowFrom: ["discord:555555555"],
@@ -17,11 +18,26 @@ const NATIVE_APPROVAL_CFG = {
 } as const;
 
 function writeStore(store: Record<string, unknown>) {
-  fs.writeFileSync(STORE_PATH, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+  fs.writeFileSync(storePath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
   clearSessionStoreCacheForTest();
 }
 
 describe("createDiscordNativeApprovalAdapter", () => {
+  beforeEach(() => {
+    storeDir = fs.mkdtempSync(path.join(os.tmpdir(), "openclaw-discord-approval-native-"));
+    storePath = path.join(storeDir, "sessions.json");
+    clearSessionStoreCacheForTest();
+  });
+
+  afterEach(() => {
+    clearSessionStoreCacheForTest();
+    if (storeDir) {
+      fs.rmSync(storeDir, { recursive: true, force: true });
+    }
+    storeDir = "";
+    storePath = "";
+  });
+
   it("keeps approval availability enabled when approvers exist but native delivery is off", () => {
     const adapter = createDiscordNativeApprovalAdapter({
       enabled: false,
@@ -176,7 +192,7 @@ describe("createDiscordNativeApprovalAdapter", () => {
     const target = await adapter.native?.resolveOriginTarget?.({
       cfg: {
         ...NATIVE_APPROVAL_CFG,
-        session: { store: STORE_PATH },
+        session: { store: storePath },
       } as never,
       accountId: "main",
       approvalKind: "plugin",

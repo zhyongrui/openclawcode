@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-
 import type { WorkflowRun } from "../contracts/index.js";
 
 export interface WorkflowRunStore {
@@ -10,7 +9,7 @@ export interface WorkflowRunStore {
 }
 
 function sortByCreatedAt(runs: WorkflowRun[]): WorkflowRun[] {
-  return [...runs].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  return runs.toSorted((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
 export class FileSystemWorkflowRunStore implements WorkflowRunStore {
@@ -54,7 +53,7 @@ export class FileSystemWorkflowRunStore implements WorkflowRunStore {
           .map(async (entry) => {
             const body = await fs.readFile(path.join(this.rootDir, entry.name), "utf8");
             return JSON.parse(body) as WorkflowRun;
-          })
+          }),
       );
 
       return sortByCreatedAt(runs);

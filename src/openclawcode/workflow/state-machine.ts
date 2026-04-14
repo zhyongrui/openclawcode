@@ -117,4 +117,7 @@ export function applyVerificationDecision(
         verificationReport: report,
       };
   }
+  const unreachableDecision: never = report.decision;
+  void unreachableDecision;
+  throw new Error("Unhandled verification decision");
 }

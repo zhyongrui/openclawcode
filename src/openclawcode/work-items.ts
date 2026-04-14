@@ -670,6 +670,9 @@ function resolveProjectedWorkItemStatus(params: {
   if (params.previous?.status === "completed") {
     return "completed";
   }
+  if (params.previous) {
+    return params.previous.status;
+  }
   return params.fallback;
 }
 

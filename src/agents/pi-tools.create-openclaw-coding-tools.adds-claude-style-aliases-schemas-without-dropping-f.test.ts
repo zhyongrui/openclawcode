@@ -40,32 +40,50 @@ describe("createOpenClawCodingTools", () => {
     }
   });
 
-  it("rejects legacy alias parameters", async () => {
+  it("accepts legacy alias parameters", async () => {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-legacy-alias-"));
     try {
       const tools = createOpenClawCodingTools({ workspaceDir: tmpDir });
       const { readTool, writeTool, editTool } = expectReadWriteEditTools(tools);
 
-      await expect(
-        writeTool?.execute("tool-legacy-write", {
-          file: "legacy.txt",
-          content: "hello old value",
-        }),
-      ).rejects.toThrow(/Missing required parameter: path/);
+      await writeTool?.execute("tool-legacy-write", {
+        file: "legacy.txt",
+        content: "hello old value",
+      });
+
+      await editTool?.execute("tool-legacy-edit", {
+        filePath: "legacy.txt",
+        oldText: "old",
+        newText: "new",
+      });
+
+      const result = await readTool?.execute("tool-legacy-read", {
+        file_path: "legacy.txt",
+      });
+
+      const textBlocks = result?.content?.filter((block) => block.type === "text") as
+        | Array<{ text?: string }>
+        | undefined;
+      const combinedText = textBlocks?.map((block) => block.text ?? "").join("\n");
+      expect(combinedText).toContain("hello new value");
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("still rejects incomplete legacy edit aliases", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-legacy-alias-invalid-"));
+    try {
+      const tools = createOpenClawCodingTools({ workspaceDir: tmpDir });
+      const { editTool } = expectReadWriteEditTools(tools);
 
       await expect(
-        editTool?.execute("tool-legacy-edit", {
-          filePath: "legacy.txt",
+        editTool?.execute("tool-legacy-edit-invalid", {
+          file: "legacy.txt",
           old_text: "old",
           newString: "new",
         }),
-      ).rejects.toThrow(/Missing required parameters: path, edits/);
-
-      await expect(
-        readTool?.execute("tool-legacy-read", {
-          file_path: "legacy.txt",
-        }),
-      ).rejects.toThrow(/Missing required parameter: path/);
+      ).rejects.toThrow(/Missing required parameter: edits/);
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }

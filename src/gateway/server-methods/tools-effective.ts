@@ -7,11 +7,11 @@ import {
   formatValidationErrors,
   validateToolsEffectiveParams,
 } from "../protocol/index.js";
-import { resolveSessionToolsEffectiveInventoryParams } from "../tools-effective-context.js";
 import {
   listAgentIds,
   loadConfig,
   resolveEffectiveToolInventory,
+  resolveSessionToolsEffectiveInventoryParams,
 } from "./tools-effective.runtime.js";
 import type { GatewayRequestHandlers, RespondFn } from "./types.js";
 
@@ -78,10 +78,6 @@ export const toolsEffectiveHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    respond(
-      true,
-      resolveEffectiveToolInventory(trustedContext),
-      undefined,
-    );
+    respond(true, resolveEffectiveToolInventory(trustedContext), undefined);
   },
 };

@@ -192,10 +192,10 @@ describe("agentCliCommand", () => {
       await agentCliCommand({ message: "hi", sessionId: "sess-bg-2", background: true }, runtime);
 
       expect(runtime.log).toHaveBeenCalledWith(
-        'continue: openclaw sessions continue sess-bg-2 --message "Continue from the latest background task state."',
+        'continue: openclaw sessions continue agent:main:explicit:sess-bg-2 --message "Continue from the latest background task state."',
       );
       expect(runtime.log).toHaveBeenCalledWith(
-        'resume: openclaw agent --session-id sess-bg-2 --message "Continue from the latest background task state."',
+        'resume: openclaw agent --session-key agent:main:explicit:sess-bg-2 --message "Continue from the latest background task state."',
       );
     });
   });

@@ -5,7 +5,7 @@
     "kind": "import",
     "specifier": "../../../src/plugins/commands.js",
     "resolvedPath": "src/plugins/commands.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/bot.ts",
@@ -13,7 +13,7 @@
     "kind": "import",
     "specifier": "../../../src/config/paths.js",
     "resolvedPath": "src/config/paths.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/bot.ts",
@@ -21,7 +21,7 @@
     "kind": "import",
     "specifier": "../../../src/integrations/openclaw-plugin/index.js",
     "resolvedPath": "src/integrations/openclaw-plugin/index.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/bot.ts",
@@ -29,7 +29,7 @@
     "kind": "import",
     "specifier": "../../../src/operator-chat-targets/feishu-scan-code.js",
     "resolvedPath": "src/operator-chat-targets/feishu-scan-code.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/bot.ts",
@@ -37,7 +37,7 @@
     "kind": "import",
     "specifier": "../../../src/operator-chat-targets/feishu-welcome-receipts.js",
     "resolvedPath": "src/operator-chat-targets/feishu-welcome-receipts.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/bot.ts",
@@ -45,7 +45,7 @@
     "kind": "import",
     "specifier": "../../../src/operator-chat-targets/store.js",
     "resolvedPath": "src/operator-chat-targets/store.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/bot.ts",
@@ -53,7 +53,7 @@
     "kind": "import",
     "specifier": "../../../src/openclawcode/operator-chat-targets.js",
     "resolvedPath": "src/openclawcode/operator-chat-targets.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/bot.ts",
@@ -61,7 +61,7 @@
     "kind": "import",
     "specifier": "../../../src/pairing/pairing-store.js",
     "resolvedPath": "src/pairing/pairing-store.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/bot.ts",
@@ -69,7 +69,7 @@
     "kind": "import",
     "specifier": "../../../src/pairing/pairing-messages.js",
     "resolvedPath": "src/pairing/pairing-messages.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/bot.ts",
@@ -77,7 +77,7 @@
     "kind": "import",
     "specifier": "../../../src/plugins/hook-runner-global.js",
     "resolvedPath": "src/plugins/hook-runner-global.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/monitor.account.ts",
@@ -85,7 +85,7 @@
     "kind": "import",
     "specifier": "../../../src/operator-chat-targets/store.js",
     "resolvedPath": "src/operator-chat-targets/store.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/monitor.transport.ts",
@@ -93,7 +93,7 @@
     "kind": "import",
     "specifier": "../../../src/operator-chat-targets/feishu-scan-code.js",
     "resolvedPath": "src/operator-chat-targets/feishu-scan-code.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/setup-surface.ts",
@@ -101,7 +101,7 @@
     "kind": "import",
     "specifier": "../../../src/config/types.plugins.js",
     "resolvedPath": "src/config/types.plugins.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/feishu/src/setup-surface.ts",
@@ -109,7 +109,7 @@
     "kind": "import",
     "specifier": "../../../src/operator-chat-targets/store.js",
     "resolvedPath": "src/operator-chat-targets/store.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -117,7 +117,7 @@
     "kind": "import",
     "specifier": "../../src/cli/command-format.js",
     "resolvedPath": "src/cli/command-format.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -125,7 +125,7 @@
     "kind": "import",
     "specifier": "../../src/config/paths.js",
     "resolvedPath": "src/config/paths.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -133,7 +133,7 @@
     "kind": "import",
     "specifier": "../../src/infra/http-body.js",
     "resolvedPath": "src/infra/http-body.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -141,7 +141,7 @@
     "kind": "import",
     "specifier": "../../src/integrations/openclaw-plugin/index.js",
     "resolvedPath": "src/integrations/openclaw-plugin/index.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -149,7 +149,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/autonomous-loop.js",
     "resolvedPath": "src/openclawcode/autonomous-loop.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -157,7 +157,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/blueprint-discussion.js",
     "resolvedPath": "src/openclawcode/blueprint-discussion.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -165,7 +165,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/blueprint.js",
     "resolvedPath": "src/openclawcode/blueprint.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -173,7 +173,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/chat-command-localization.js",
     "resolvedPath": "src/openclawcode/chat-command-localization.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -181,7 +181,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/github/index.js",
     "resolvedPath": "src/openclawcode/github/index.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -189,7 +189,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/github/index.js",
     "resolvedPath": "src/openclawcode/github/index.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -197,7 +197,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/issue-materialization.js",
     "resolvedPath": "src/openclawcode/issue-materialization.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -205,7 +205,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/next-suggested-command.js",
     "resolvedPath": "src/openclawcode/next-suggested-command.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -213,7 +213,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/next-work.js",
     "resolvedPath": "src/openclawcode/next-work.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -221,7 +221,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/operator-chat-targets.js",
     "resolvedPath": "src/openclawcode/operator-chat-targets.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -229,7 +229,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/operator-status.js",
     "resolvedPath": "src/openclawcode/operator-status.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -237,7 +237,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/operator-status.js",
     "resolvedPath": "src/openclawcode/operator-status.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -245,7 +245,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/policy.js",
     "resolvedPath": "src/openclawcode/policy.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -253,7 +253,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/project-progress.js",
     "resolvedPath": "src/openclawcode/project-progress.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -261,7 +261,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/promotion-artifacts.js",
     "resolvedPath": "src/openclawcode/promotion-artifacts.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -269,7 +269,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/recommendation.js",
     "resolvedPath": "src/openclawcode/recommendation.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -277,7 +277,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/role-routing.js",
     "resolvedPath": "src/openclawcode/role-routing.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -285,7 +285,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/runtime-steering.js",
     "resolvedPath": "src/openclawcode/runtime-steering.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -293,7 +293,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/stage-gates.js",
     "resolvedPath": "src/openclawcode/stage-gates.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -301,7 +301,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/validation-issues.js",
     "resolvedPath": "src/openclawcode/validation-issues.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -309,7 +309,7 @@
     "kind": "import",
     "specifier": "../../src/openclawcode/work-items.js",
     "resolvedPath": "src/openclawcode/work-items.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -317,7 +317,7 @@
     "kind": "import",
     "specifier": "../../src/operator-chat-targets/feishu-scan-code.js",
     "resolvedPath": "src/operator-chat-targets/feishu-scan-code.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -325,7 +325,7 @@
     "kind": "import",
     "specifier": "../../src/operator-chat-targets/feishu-welcome-receipts.js",
     "resolvedPath": "src/operator-chat-targets/feishu-welcome-receipts.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -333,7 +333,7 @@
     "kind": "import",
     "specifier": "../../src/operator-chat-targets/store.js",
     "resolvedPath": "src/operator-chat-targets/store.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -341,7 +341,7 @@
     "kind": "import",
     "specifier": "../../src/pairing/pairing-store.js",
     "resolvedPath": "src/pairing/pairing-store.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -349,7 +349,7 @@
     "kind": "import",
     "specifier": "../../src/process/exec.js",
     "resolvedPath": "src/process/exec.js",
-    "reason": "imports core src path via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -357,31 +357,7 @@
     "kind": "import",
     "specifier": "../../src/wizard/setup.code.js",
     "resolvedPath": "src/wizard/setup.code.js",
-    "reason": "imports core src path via relative path outside the extension package"
-  },
-  {
-    "file": "extensions/openclawcode/index.ts",
-    "line": 151,
-    "kind": "import",
-    "specifier": "../feishu/src/accounts.js",
-    "resolvedPath": "extensions/feishu/src/accounts.js",
-    "reason": "imports another bundled plugin via relative path outside the extension package"
-  },
-  {
-    "file": "extensions/openclawcode/index.ts",
-    "line": 152,
-    "kind": "import",
-    "specifier": "../feishu/src/contact-user-id.js",
-    "resolvedPath": "extensions/feishu/src/contact-user-id.js",
-    "reason": "imports another bundled plugin via relative path outside the extension package"
-  },
-  {
-    "file": "extensions/openclawcode/index.ts",
-    "line": 153,
-    "kind": "import",
-    "specifier": "../feishu/src/types.js",
-    "resolvedPath": "extensions/feishu/src/types.js",
-    "reason": "imports another bundled plugin via relative path outside the extension package"
+    "reason": "imports core src path outside plugin-sdk from an extension"
   },
   {
     "file": "extensions/openclawcode/index.ts",
@@ -389,6 +365,6 @@
     "kind": "dynamic-import",
     "specifier": "../../src/infra/outbound/message-action-runner.js",
     "resolvedPath": "src/infra/outbound/message-action-runner.js",
-    "reason": "dynamically imports core src path via relative path outside the extension package"
+    "reason": "dynamically imports core src path outside plugin-sdk from an extension"
   }
 ]

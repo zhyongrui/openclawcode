@@ -16,7 +16,6 @@ import {
   type OpenClawCodeIssueStatusSnapshot,
   type OpenClawCodeRepoNotificationBinding,
 } from "../integrations/openclaw-plugin/index.js";
-import { discoverPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
 import {
   createProjectBlueprint,
   inspectProjectBlueprintClarifications,
@@ -32,6 +31,10 @@ import {
   updateProjectBlueprintStatus,
   type ProjectBlueprintStatus,
 } from "../openclawcode/blueprint.js";
+import {
+  readProjectDiscoveryInventory,
+  writeProjectDiscoveryInventory,
+} from "../openclawcode/discovery.js";
 import type {
   ExecutionSpec,
   ProjectRuntimeSteeringStageId,
@@ -60,7 +63,6 @@ import {
   AgentBackedBuilder,
   AgentBackedVerifier,
   createProjectOperatorProgram,
-  readProjectDiscoveryInventory,
   readProjectIssueMaterializationArtifact,
   readProjectOperatorProgram,
   readProjectRuntimeSteeringArtifact,
@@ -88,7 +90,6 @@ import {
   projectStageGateDecisionIds,
   projectStageGateIds,
   writeProjectStageGateArtifact,
-  writeProjectDiscoveryInventory,
   writeProjectPromotionGateArtifact,
   writeProjectPromotionReceiptArtifact,
   writeProjectRollbackReceiptArtifact,
@@ -112,6 +113,7 @@ import {
   resolveValidationPoolDeficits,
 } from "../openclawcode/index.js";
 import { isConcreteChatNotifyTarget } from "../openclawcode/operator-chat-targets.js";
+import { discoverPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
 import type { RuntimeEnv } from "../runtime.js";
 
 export interface OpenClawCodeRunOpts {
@@ -1610,10 +1612,9 @@ function buildBootstrapHandoffPlan(params: {
     params.mode === "chatops" && params.notifyBindingMode !== "chat-placeholder"
       ? "chatops"
       : "cli-only";
-  const reason =
-    params.blueprintFirstBootstrap
-      ? "Blueprint-first bootstrap is ready; clarify and decompose the project blueprint before the first issue run."
-      : recommendedProofMode === "chatops"
+  const reason = params.blueprintFirstBootstrap
+    ? "Blueprint-first bootstrap is ready; clarify and decompose the project blueprint before the first issue run."
+    : recommendedProofMode === "chatops"
       ? "Chat notifications are already routed to a concrete target."
       : params.mode === "chatops"
         ? "ChatOps is configured, but the repo still needs a real conversation bind."
@@ -1979,8 +1980,8 @@ export async function openclawCodeRepoPlanCommand(
     createdRepository,
     nextAction: createdRepository
       ? `openclaw code bootstrap --repo ${createdRepository.owner}/${createdRepository.repo} --json`
-      : createCommand ??
-        "Choose one suggested name or provide your own with --repo <name>, then rerun with --create when ready.",
+      : (createCommand ??
+        "Choose one suggested name or provide your own with --repo <name>, then rerun with --create when ready."),
   };
 
   if (opts.json) {
@@ -2375,7 +2376,9 @@ function logProjectIssueMaterializationArtifact(params: {
     runtime.log(`Execution mode: ${artifact.selectedWorkItemExecutionMode}`);
   }
   if (artifact.selectedIssueNumber != null) {
-    runtime.log(`Selected issue: #${artifact.selectedIssueNumber} | ${artifact.selectedIssueTitle}`);
+    runtime.log(
+      `Selected issue: #${artifact.selectedIssueNumber} | ${artifact.selectedIssueTitle}`,
+    );
     runtime.log(`Selected issue URL: ${artifact.selectedIssueUrl}`);
   }
   runtime.log(`Entries: ${artifact.entries.length}`);
@@ -2401,7 +2404,9 @@ function logProjectProgressArtifact(params: {
   runtime.log(`Project-progress path: ${artifact.artifactPath}`);
   runtime.log(`Exists: ${artifact.exists ? "yes" : "no"}`);
   runtime.log(`Generated at: ${artifact.generatedAt ?? "not yet generated"}`);
-  runtime.log(`Blueprint: ${artifact.blueprintStatus ?? "unknown"} | ${artifact.blueprintRevisionId ?? "unknown"}`);
+  runtime.log(
+    `Blueprint: ${artifact.blueprintStatus ?? "unknown"} | ${artifact.blueprintRevisionId ?? "unknown"}`,
+  );
   runtime.log(`Next work: ${artifact.nextWorkDecision}`);
   if (artifact.nextWorkBlockingGateId) {
     runtime.log(`Next-work gate: ${artifact.nextWorkBlockingGateId}`);
@@ -2419,7 +2424,9 @@ function logProjectProgressArtifact(params: {
     runtime.log(`Execution mode: ${artifact.selectedWorkItemExecutionMode}`);
   }
   if (artifact.selectedIssueNumber != null) {
-    runtime.log(`Selected issue: #${artifact.selectedIssueNumber} | ${artifact.selectedIssueTitle}`);
+    runtime.log(
+      `Selected issue: #${artifact.selectedIssueNumber} | ${artifact.selectedIssueTitle}`,
+    );
   }
   if (artifact.nextWorkPrimaryBlocker) {
     runtime.log(`Primary blocker: ${artifact.nextWorkPrimaryBlocker}`);
@@ -2525,7 +2532,9 @@ function logProjectAutonomousLoopArtifact(params: {
   runtime.log(`Enabled: ${artifact.enabled ? "yes" : "no"}`);
   runtime.log(`Mode: ${artifact.mode}`);
   runtime.log(`Status: ${artifact.status}`);
-  runtime.log(`Iterations: ${artifact.completedIterationCount}/${artifact.requestedIterationCount}`);
+  runtime.log(
+    `Iterations: ${artifact.completedIterationCount}/${artifact.requestedIterationCount}`,
+  );
   runtime.log(`Next work: ${artifact.nextWorkDecision}`);
   if (artifact.nextWorkBlockingGateId) {
     runtime.log(`Next-work gate: ${artifact.nextWorkBlockingGateId}`);
@@ -2587,7 +2596,9 @@ function logProjectAutonomousLoopArtifact(params: {
       const details = [
         `status=${iteration.status}`,
         `decision=${iteration.nextWorkDecision}`,
-        iteration.selectedIssueNumber != null ? `issue=#${iteration.selectedIssueNumber}` : undefined,
+        iteration.selectedIssueNumber != null
+          ? `issue=#${iteration.selectedIssueNumber}`
+          : undefined,
         iteration.queuedIssueKey ? `queued=${iteration.queuedIssueKey}` : undefined,
         iteration.stopReason ? `stop=${iteration.stopReason}` : undefined,
         iteration.message ? `message=${iteration.message}` : undefined,
@@ -2829,7 +2840,9 @@ function logOpenClawCodeRecommendation(params: {
   runtime.log(`Why: ${recommendation.rationale}`);
   runtime.log(`Alternatives: ${recommendation.alternatives.length}`);
   for (const alternative of recommendation.alternatives) {
-    runtime.log(`- ${alternative.approach} | when=${alternative.when} | tradeoff=${alternative.tradeoff}`);
+    runtime.log(
+      `- ${alternative.approach} | when=${alternative.when} | tradeoff=${alternative.tradeoff}`,
+    );
   }
   runtime.log(`Open questions: ${recommendation.openQuestions.length}`);
   for (const question of recommendation.openQuestions) {
@@ -3364,9 +3377,7 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
-function isAcceptanceCriteriaPatch(
-  value: unknown,
-): value is ExecutionSpec["acceptanceCriteria"] {
+function isAcceptanceCriteriaPatch(value: unknown): value is ExecutionSpec["acceptanceCriteria"] {
   return (
     Array.isArray(value) &&
     value.every(
@@ -3630,7 +3641,7 @@ async function toWorkflowRunJson(run: WorkflowRun, repoRoot?: string) {
     run.rerunContext?.reviewSubmittedAt != null ||
     run.rerunContext?.reviewSummary != null ||
     run.rerunContext?.reviewUrl != null;
-  const runHasUpdatedAt = run.updatedAt.length > 0;
+  const runHasUpdatedAt = typeof run.updatedAt === "string" && run.updatedAt.length > 0;
   const latestPlanEdit = run.planEdits?.at(-1) ?? null;
   const qualityGate = deriveWorkflowQualityGate(run);
   const preCodeDiscipline = deriveWorkflowPreCodeDiscipline(run);
@@ -4145,7 +4156,8 @@ export async function openclawCodeRerouteRunCommand(
   });
   const currentStatus = await store.getStatus(issueKey);
   const queueState = await store.snapshot();
-  const currentRun = queueState.currentRun?.issueKey === issueKey ? queueState.currentRun : undefined;
+  const currentRun =
+    queueState.currentRun?.issueKey === issueKey ? queueState.currentRun : undefined;
   const queuedRun = queueState.queue.find((entry) => entry.issueKey === issueKey);
 
   if (currentRun) {
@@ -4304,8 +4316,7 @@ export async function openclawCodeRerouteRunCommand(
     reviewSummary: snapshot.latestReviewSummary,
     reviewUrl: snapshot.latestReviewUrl,
     requestedCoderAgentId: requestedCoderAgentId ?? snapshot.rerunRequestedCoderAgentId,
-    requestedVerifierAgentId:
-      requestedVerifierAgentId ?? snapshot.rerunRequestedVerifierAgentId,
+    requestedVerifierAgentId: requestedVerifierAgentId ?? snapshot.rerunRequestedVerifierAgentId,
   } satisfies WorkflowRerunContext;
   const queued = await store.enqueue(
     {
@@ -4434,7 +4445,10 @@ export async function openclawCodeBootstrapCommand(
     discoveredNotifyBinding?.notifyChannel ||
     DEFAULT_OPENCLAWCODE_BOOTSTRAP_NOTIFY_CHANNEL;
   const notifyTarget =
-    concreteChatTarget || existingConfiguredChatTarget || discoveredNotifyBinding?.notifyTarget || defaultNotifyTarget;
+    concreteChatTarget ||
+    existingConfiguredChatTarget ||
+    discoveredNotifyBinding?.notifyTarget ||
+    defaultNotifyTarget;
   const notifyBindingMode: BootstrapNotifyBindingMode =
     explicitChannel && concreteChatTarget
       ? "explicit"
@@ -4588,23 +4602,20 @@ export async function openclawCodeBootstrapCommand(
   });
   const setupCheckNextAction =
     setupCheck.payload?.readiness.nextAction ??
-    (gateway.action === "failed"
-      ? "start-or-restart-live-gateway"
-      : "inspect-setup-check-output");
-  const nextAction =
-    blueprintFirstBootstrap
-      ? "clarify-project-blueprint"
-      : notifyBindingMode === "chat-placeholder"
-        ? "connect-chat-and-run-occode-bind"
-        : webhook.action === "failed"
-          ? "review-github-webhook-permissions"
-          : tunnel.action === "failed"
-            ? "start-or-restart-webhook-tunnel"
-            : setupCheckNextAction === "repair-plugin-activation"
-              ? setupCheckNextAction
-              : webhook.action === "skipped" && mode === "chatops"
-                ? "configure-public-webhook-url"
-                : setupCheckNextAction;
+    (gateway.action === "failed" ? "start-or-restart-live-gateway" : "inspect-setup-check-output");
+  const nextAction = blueprintFirstBootstrap
+    ? "clarify-project-blueprint"
+    : notifyBindingMode === "chat-placeholder"
+      ? "connect-chat-and-run-occode-bind"
+      : webhook.action === "failed"
+        ? "review-github-webhook-permissions"
+        : tunnel.action === "failed"
+          ? "start-or-restart-webhook-tunnel"
+          : setupCheckNextAction === "repair-plugin-activation"
+            ? setupCheckNextAction
+            : webhook.action === "skipped" && mode === "chatops"
+              ? "configure-public-webhook-url"
+              : setupCheckNextAction;
   const handoff = buildBootstrapHandoffPlan({
     repoKey,
     repoRef,
@@ -4742,9 +4753,7 @@ export async function openclawCodeBootstrapCommand(
   runtime.log(
     `Proof readiness: cli=${proofReadiness.cliProofReady ? "ready" : "blocked"} chat=${proofReadiness.chatProofReady ? "ready" : "blocked"} webhook=${proofReadiness.webhookReady ? "ready" : "blocked"}`,
   );
-  runtime.log(
-    `Chat setup routing: ${proofReadiness.chatSetupRoutingReady ? "ready" : "blocked"}`,
-  );
+  runtime.log(`Chat setup routing: ${proofReadiness.chatSetupRoutingReady ? "ready" : "blocked"}`);
   if (setupCheck.payload?.pluginActivation) {
     runtime.log(
       `Plugin activation: ready=${setupCheck.payload.pluginActivation.ready} | plugins=${setupCheck.payload.pluginActivation.pluginsEnabled} | allow=${setupCheck.payload.pluginActivation.allowlisted} | entry=${setupCheck.payload.pluginActivation.entryEnabled}`,
@@ -4760,7 +4769,7 @@ export async function openclawCodeBootstrapCommand(
   runtime.log(`Blueprint inspect: ${formatChatCommandWithAlias(handoff.blueprintCommand)}`);
   runtime.log(`Stage gates inspect: ${formatChatCommandWithAlias(handoff.gatesCommand)}`);
   runtime.log(`Gateway restart: ${handoff.gatewayRestartCommand}`);
-  if (payload.pluginActivation.ready === false || proofReadiness.chatSetupRoutingReady === false) {
+  if (!payload.pluginActivation.ready || !proofReadiness.chatSetupRoutingReady) {
     runtime.log(`Plugin activation repair: ${handoff.pluginActivationRepairCommand}`);
     if (handoff.chatSetupStatusCommand) {
       runtime.log(
@@ -4852,7 +4861,7 @@ export async function openclawCodeBlueprintSetStatusCommand(
   const repoRoot = path.resolve(opts.repoRoot ?? process.cwd());
   const summary = await updateProjectBlueprintStatus({
     repoRoot,
-    status: parseProjectBlueprintStatus(String(opts.status)),
+    status: parseProjectBlueprintStatus(opts.status),
   });
   logProjectBlueprintSummary({
     summary,
@@ -5277,8 +5286,8 @@ export async function openclawCodeStageGatesDecideCommand(
   const repoRoot = path.resolve(opts.repoRoot ?? process.cwd());
   const artifact = await recordProjectStageGateDecision({
     repoRoot,
-    gateId: parseProjectStageGateId(String(opts.gate)),
-    decision: parseProjectStageGateDecisionId(String(opts.decision)),
+    gateId: parseProjectStageGateId(opts.gate),
+    decision: parseProjectStageGateDecisionId(opts.decision),
     actor: opts.actor,
     note: opts.note,
   });

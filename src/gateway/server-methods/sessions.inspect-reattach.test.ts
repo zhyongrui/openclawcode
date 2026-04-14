@@ -38,7 +38,8 @@ vi.mock("../../commands/sessions.js", async (importOriginal) => {
 });
 
 vi.mock("../../commands/background-session-resume.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../commands/background-session-resume.js")>();
+  const actual =
+    await importOriginal<typeof import("../../commands/background-session-resume.js")>();
   return {
     ...actual,
     DEFAULT_BACKGROUND_RESUME_MESSAGE: "Continue from the latest background task state.",
@@ -166,14 +167,14 @@ beforeEach(() => {
 });
 
 describe("sessions.inspect handler", () => {
-  it("returns detached-session operator detail", () => {
+  it("returns detached-session operator detail", async () => {
     const args = createArgs({
       key: "agent:main:main",
       previewLimit: 4,
       previewMaxChars: 120,
     });
 
-    sessionsHandlers["sessions.inspect"]({
+    await sessionsHandlers["sessions.inspect"]({
       ...args,
       respond: args.respond as never,
     } as never);
@@ -251,9 +252,11 @@ describe("sessions.reattach handler", () => {
         mode: "foreground_history",
         summary: "history only",
       });
-    chatSendMock.mockImplementation(async ({ respond }: { respond: (...args: unknown[]) => void }) => {
-      respond(true, { status: "started", runId: "run-1" }, undefined, undefined);
-    });
+    chatSendMock.mockImplementation(
+      async ({ respond }: { respond: (...args: unknown[]) => void }) => {
+        respond(true, { status: "started", runId: "run-1" }, undefined, undefined);
+      },
+    );
     const args = createArgs({
       key: "agent:main:main",
     });

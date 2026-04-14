@@ -8,11 +8,11 @@ import {
 } from "../shared/string-coerce.js";
 import { resolveUserPath } from "../utils.js";
 import { detectBundleManifestFormat, loadBundleManifest } from "./bundle-manifest.js";
-import type { PluginBundleFormat, PluginDiagnostic, PluginFormat } from "./manifest-types.js";
 import {
   BUNDLED_PLUGIN_METADATA,
   resolveBundledPluginGeneratedLocation,
 } from "./bundled-plugin-metadata.js";
+import type { PluginBundleFormat, PluginDiagnostic, PluginFormat } from "./manifest-types.js";
 import {
   DEFAULT_PLUGIN_ENTRY_CANDIDATES,
   PLUGIN_MANIFEST_FILENAME,
@@ -891,6 +891,7 @@ function discoverFromPath(params: {
 
 function discoverBundledMetadataInDirectory(params: {
   dir: string;
+  preferResolvedSiblingRootsOnly?: boolean;
   ownershipUid?: number | null;
   candidates: PluginCandidate[];
   diagnostics: PluginDiagnostic[];
@@ -906,11 +907,17 @@ function discoverBundledMetadataInDirectory(params: {
     if (!fs.existsSync(sourceRootDir)) {
       continue;
     }
-    coveredDirectories.add(entry.dirName);
     const sourceLocation = resolveBundledPluginGeneratedLocation(sourceRootDir, entry.source);
     if (!sourceLocation) {
       continue;
     }
+    const sourceRootRealPath = safeRealpathSync(sourceRootDir) ?? path.resolve(sourceRootDir);
+    const resolvedRootRealPath =
+      safeRealpathSync(sourceLocation.rootDir) ?? path.resolve(sourceLocation.rootDir);
+    if (params.preferResolvedSiblingRootsOnly && sourceRootRealPath === resolvedRootRealPath) {
+      continue;
+    }
+    coveredDirectories.add(entry.dirName);
     const rootDir = sourceLocation.rootDir;
     const source = sourceLocation.path;
     const setupSource =
@@ -1024,6 +1031,7 @@ export function discoverOpenClawPlugins(params: {
       candidates,
       diagnostics,
       seen,
+      preferResolvedSiblingRootsOnly: Boolean(env.OPENCLAW_BUNDLED_PLUGINS_DIR?.trim()),
     });
     discoverInDirectory({
       dir: roots.stock,

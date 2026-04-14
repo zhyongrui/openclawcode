@@ -4,13 +4,8 @@ import {
   inspectProjectBlueprintClarifications,
   readProjectBlueprintDocument,
 } from "./blueprint.js";
-import {
-  deriveProjectDiscoveryInventory,
-} from "./discovery.js";
-import {
-  deriveProjectRoleRoutingPlan,
-  readProjectRoleRoutingPlan,
-} from "./role-routing.js";
+import type { ProjectDiscoveryInventory } from "./discovery.js";
+import { deriveProjectRoleRoutingPlan, readProjectRoleRoutingPlan } from "./role-routing.js";
 import { deriveProjectStageGateArtifact } from "./stage-gates.js";
 import type { ProjectStageGateId } from "./stage-gates.js";
 import {
@@ -99,9 +94,10 @@ function emptyProjectNextWorkSelection(params: {
     blueprintExists: params.blueprintExists,
     blueprintPath: params.blueprintPath,
     blueprintRevisionId: params.blueprintRevisionId,
-    decision: params.clarificationQuestions.length > 0
-      ? "blocked-on-missing-clarification"
-      : "no-actionable-work-item",
+    decision:
+      params.clarificationQuestions.length > 0
+        ? "blocked-on-missing-clarification"
+        : "no-actionable-work-item",
     canContinueAutonomously: false,
     blockingGateId: null,
     selectedWorkItem: null,
@@ -153,9 +149,10 @@ function toSelectedWorkItem(
   };
 }
 
-function buildExecutionModeGuidance(
-  executionMode: ProjectWorkItemExecutionMode,
-): { blockers: string[]; suggestions: string[] } {
+function buildExecutionModeGuidance(executionMode: ProjectWorkItemExecutionMode): {
+  blockers: string[];
+  suggestions: string[];
+} {
   switch (executionMode) {
     case "bugfix":
       return {
@@ -193,11 +190,11 @@ function buildExecutionModeGuidance(
 }
 
 function pickSelectedWorkItem(params: {
-  discovery: Awaited<ReturnType<typeof deriveProjectDiscoveryInventory>>;
+  discovery: ProjectDiscoveryInventory;
   workItems: Awaited<ReturnType<typeof deriveProjectWorkItemInventory>>;
 }): { selectedWorkItem: ProjectNextWorkCandidate | null; selectedReason: string | null } {
   if (params.discovery.evidence.length > 0) {
-    const highest = [...params.discovery.evidence].sort((left, right) => {
+    const highest = params.discovery.evidence.toSorted((left, right) => {
       const priority = compareDiscoveryPriority(left.priority, right.priority);
       if (priority !== 0) {
         return priority;
@@ -212,8 +209,9 @@ function pickSelectedWorkItem(params: {
     }
   }
 
-  const planned = params.workItems.workItems.find((item) =>
-    item.status !== "completed" && item.status !== "canceled" && item.status !== "superseded",
+  const planned = params.workItems.workItems.find(
+    (item) =>
+      item.status !== "completed" && item.status !== "canceled" && item.status !== "superseded",
   );
   if (!planned) {
     return { selectedWorkItem: null, selectedReason: null };
@@ -229,9 +227,7 @@ function pickSelectedWorkItem(params: {
 
 function classifyWorkItemProjectionBlockers(blockers: string[]): ProjectNextWorkDecisionId {
   if (
-    blockers.some((blocker) =>
-      /open questions|clarif|workstreams|project blueprint/i.test(blocker),
-    )
+    blockers.some((blocker) => /open questions|clarif|workstreams|project blueprint/i.test(blocker))
   ) {
     return "blocked-on-missing-clarification";
   }
@@ -261,6 +257,7 @@ export async function deriveProjectNextWorkSelection(
   }
 
   const workItems = await readProjectWorkItemInventory(repoRoot);
+  const { deriveProjectDiscoveryInventory } = await import("./discovery.js");
   const discovery = await deriveProjectDiscoveryInventory(repoRoot);
   const storedRoleRouting = await readProjectRoleRoutingPlan(repoRoot);
   const roleRouting = storedRoleRouting.exists
@@ -361,8 +358,7 @@ export async function deriveProjectNextWorkSelection(
     highestDiscoveryPriority: discovery.highestPriority,
     workItemCount: workItems.workItemCount,
     plannedWorkItemCount: workItems.plannedWorkItemCount,
-    discoveredWorkItemCount:
-      workItems.discoveredWorkItemCount + discovery.discoveredWorkItemCount,
+    discoveredWorkItemCount: workItems.discoveredWorkItemCount + discovery.discoveredWorkItemCount,
     blockedGateCount: stageGates.blockedGateCount,
     needsHumanDecisionCount: stageGates.needsHumanDecisionCount,
     unresolvedRoleCount: roleRouting.unresolvedRoleCount,

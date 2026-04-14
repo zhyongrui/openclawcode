@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import {
   loadValidatedConfigForPluginRegistration,
   registerSubCliByName,
@@ -32,7 +33,9 @@ const { isQaLabCliAvailable, registerQaLabCli } = vi.hoisted(() => ({
 }));
 
 const pluginsCliModule = vi.hoisted(() => ({
-  loadValidatedConfigForPluginRegistration: vi.fn<() => Promise<unknown | null>>(async () => null),
+  loadValidatedConfigForPluginRegistration: vi.fn<() => Promise<OpenClawConfig | null>>(
+    async () => null,
+  ),
   registerPluginCliCommandsFromValidatedConfig: vi.fn(async () => undefined),
 }));
 

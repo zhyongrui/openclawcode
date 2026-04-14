@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import qrcode from "qrcode-terminal";
+import { inspectFeishuCredentials } from "../../extensions/feishu/api.js";
+import type { FeishuConfig } from "../../extensions/feishu/api.js";
 import { DEFAULT_BOOTSTRAP_FILENAME } from "../agents/workspace.js";
 import { formatCliCommand } from "../cli/command-format.js";
 import {
@@ -49,8 +51,6 @@ function writeRuntimeStdout(runtime: RuntimeEnv, value: string) {
   }
   runtime.log(value);
 }
-import { inspectFeishuCredentials } from "../../extensions/feishu/src/accounts.js";
-import type { FeishuConfig } from "../../extensions/feishu/src/types.js";
 import { runOnboardingOpenClawCode } from "./setup.code.js";
 import { resolveSetupSecretInputString } from "./setup.secret-input.js";
 import type { GatewayWizardSettings, WizardFlow } from "./setup.types.js";

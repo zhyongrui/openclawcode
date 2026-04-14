@@ -1,3 +1,4 @@
+import path from "node:path";
 import {
   listBundledPluginMetadata,
   resolveBundledPluginGeneratedPath,
@@ -20,8 +21,10 @@ export function resolveBundledChannelGeneratedPath(
   entry: BundledPluginMetadata["source"] | BundledPluginMetadata["setupSource"],
   pluginDirName?: string,
 ): string | null {
-  void pluginDirName;
-  return resolveBundledPluginGeneratedPath(rootDir, entry);
+  const effectiveRootDir = pluginDirName
+    ? path.join(path.resolve(rootDir), "extensions", pluginDirName)
+    : rootDir;
+  return resolveBundledPluginGeneratedPath(effectiveRootDir, entry);
 }
 
 export function resolveBundledChannelWorkspacePath(params: {

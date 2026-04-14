@@ -8,6 +8,7 @@ import { makeModelFallbackCfg } from "./test-helpers/model-fallback-config-fixtu
 // Mock auth-profile submodules — must be before importing model-fallback
 vi.mock("./auth-profiles/store.js", () => ({
   ensureAuthProfileStore: vi.fn(),
+  hasAnyAuthProfileStoreSource: vi.fn(() => true),
   loadAuthProfileStoreForRuntime: vi.fn(),
 }));
 

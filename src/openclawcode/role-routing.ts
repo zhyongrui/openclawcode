@@ -95,6 +95,9 @@ function resolveRoleEnvVar(roleId: ProjectBlueprintRoleId): string {
     case "docWriter":
       return "OPENCLAWCODE_ROLE_DOC_WRITER";
   }
+  const unreachableRoleId: never = roleId;
+  void unreachableRoleId;
+  throw new Error("Unhandled project blueprint role id");
 }
 
 function resolveRoleAgentEnvVar(roleId: ProjectBlueprintRoleId): string | null {
@@ -136,6 +139,9 @@ function resolveRoleLabel(roleId: ProjectBlueprintRoleId): string {
     case "docWriter":
       return "doc-writer";
   }
+  const unreachableRoleId: never = roleId;
+  void unreachableRoleId;
+  throw new Error("Unhandled project blueprint role id");
 }
 
 function resolveFallbackChain(): string[] {
@@ -166,6 +172,9 @@ function resolveRoleFallbackEnvVar(roleId: ProjectBlueprintRoleId): string {
     case "docWriter":
       return "OPENCLAWCODE_ROLE_DOC_WRITER_FALLBACKS";
   }
+  const unreachableRoleId: never = roleId;
+  void unreachableRoleId;
+  throw new Error("Unhandled project blueprint role id");
 }
 
 function mergeFallbackChains(primary: string[], secondary: string[]): string[] {
@@ -204,6 +213,9 @@ function resolveRoleStages(roleId: ProjectBlueprintRoleId): WorkflowStage[] {
     case "docWriter":
       return ["completed-without-changes", "merged"];
   }
+  const unreachableRoleId: never = roleId;
+  void unreachableRoleId;
+  throw new Error("Unhandled project blueprint role id");
 }
 
 function buildStageRoutes(routes: ProjectRoleRoute[]): ProjectStageRoute[] {

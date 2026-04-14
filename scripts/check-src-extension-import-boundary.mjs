@@ -21,6 +21,12 @@ import {
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const scanRoots = resolveSourceRoots(repoRoot, ["src"]);
 let cachedInventoryPromise = null;
+const ALLOWED_EXTENSION_PUBLIC_SURFACES = new Set([
+  "api.js",
+  "runtime-api.js",
+  "setup-api.js",
+  "test-api.js",
+]);
 
 function compareEntries(left, right) {
   return (
@@ -63,6 +69,10 @@ function scanImportBoundaryViolations(sourceFile, filePath) {
   visitModuleSpecifiers(ts, sourceFile, ({ kind, specifier, specifierNode }) => {
     const resolvedPath = resolveRepoSpecifier(repoRoot, specifier, filePath);
     if (!resolvedPath?.startsWith(BUNDLED_PLUGIN_PATH_PREFIX)) {
+      return;
+    }
+    const basename = path.posix.basename(resolvedPath);
+    if (ALLOWED_EXTENSION_PUBLIC_SURFACES.has(basename)) {
       return;
     }
     entries.push({

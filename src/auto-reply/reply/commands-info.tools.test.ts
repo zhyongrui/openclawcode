@@ -6,6 +6,8 @@ import {
   createTestRegistry,
 } from "../../test-utils/channel-plugins.js";
 
+const resolveSessionAgentIdMock = vi.hoisted(() => vi.fn(() => "main"));
+
 async function loadToolsHarness(options?: {
   resolveToolsMock?: ReturnType<typeof vi.fn>;
   resolveToolsDiffMock?: ReturnType<typeof vi.fn>;
@@ -64,7 +66,7 @@ async function loadToolsHarness(options?: {
     return {
       ...actual,
       listAgentIds: () => ["main", "coder"],
-      resolveSessionAgentId: () => "main",
+      resolveSessionAgentId: resolveSessionAgentIdMock,
     };
   });
   const resolveToolsMock =
@@ -495,9 +497,14 @@ describe("handleToolsCommand", () => {
       resolveSessionToolsParamsMock,
     } = await loadToolsHarness();
     const result = await handleToolsCommand(
-      buildCommandTestParams("/tools compare agent:coder:acp:other verbose", buildConfig(), undefined, {
-        workspaceDir: "/tmp",
-      }),
+      buildCommandTestParams(
+        "/tools compare agent:coder:acp:other verbose",
+        buildConfig(),
+        undefined,
+        {
+          workspaceDir: "/tmp",
+        },
+      ),
       true,
     );
 
@@ -603,8 +610,7 @@ describe("handleToolsCommand", () => {
   });
 
   it("uses the canonical target session agent for /tools inventory", async () => {
-    const { resolveSessionAgentId } = await import("../../agents/agent-scope.js");
-    vi.mocked(resolveSessionAgentId).mockReturnValue("target");
+    resolveSessionAgentIdMock.mockReturnValue("target");
     const { buildCommandTestParams, handleToolsCommand, resolveToolsMock } =
       await loadToolsHarness();
     const params = buildCommandTestParams("/tools", buildConfig(), undefined, {
@@ -625,8 +631,7 @@ describe("handleToolsCommand", () => {
   });
 
   it("does not forward a stale ambient agentDir for session-bound /tools", async () => {
-    const { resolveSessionAgentId } = await import("../../agents/agent-scope.js");
-    vi.mocked(resolveSessionAgentId).mockReturnValue("target");
+    resolveSessionAgentIdMock.mockReturnValue("target");
     const { buildCommandTestParams, handleToolsCommand, resolveToolsMock } =
       await loadToolsHarness();
     const params = buildCommandTestParams("/tools", buildConfig(), undefined, {

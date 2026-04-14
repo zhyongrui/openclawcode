@@ -4,8 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawCodeChatopsStore } from "../integrations/openclaw-plugin/store.js";
-import { setPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
 import type { WorkflowRun } from "../openclawcode/index.js";
+import { setPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
 import {
   openclawCodeBootstrapCommand,
   openclawCodeBlueprintClarifyCommand,
@@ -75,8 +75,6 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-// The command layer writes JSON payloads via runtime.log; test assertions treat them as loose objects.
-// oxlint-disable-next-line typescript/no-explicit-any
 function parseLoggedJson(runtime: TestRuntime, callIndex = 0): any {
   const call =
     callIndex < 0 ? runtime.log.mock.calls.at(callIndex) : runtime.log.mock.calls[callIndex];
@@ -86,6 +84,13 @@ function parseLoggedJson(runtime: TestRuntime, callIndex = 0): any {
 
 vi.mock("../openclawcode/index.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../openclawcode/index.js")>();
+  function NoopConstructor() {}
+  function TrackingBuilder(options: unknown) {
+    mocks.builderCtorArgs.push(options);
+  }
+  function TrackingVerifier(options: unknown) {
+    mocks.verifierCtorArgs.push(options);
+  }
   class MockGitHubRestClient {
     createIssue = mocks.createIssue;
     listIssues = mocks.listIssues;
@@ -99,22 +104,14 @@ vi.mock("../openclawcode/index.js", async (importOriginal) => {
     ...actual,
     resolveGitHubRepoFromGit: mocks.resolveGitHubRepoFromGit,
     runIssueWorkflow: mocks.runIssueWorkflow,
-    HostShellRunner: class {},
-    GitWorktreeManager: class {},
+    HostShellRunner: NoopConstructor,
+    GitWorktreeManager: NoopConstructor,
     GitHubRestClient: MockGitHubRestClient,
-    HeuristicPlanner: class {},
-    OpenClawAgentRunner: class {},
-    AgentBackedBuilder: class {
-      constructor(options: unknown) {
-        mocks.builderCtorArgs.push(options);
-      }
-    },
-    AgentBackedVerifier: class {
-      constructor(options: unknown) {
-        mocks.verifierCtorArgs.push(options);
-      }
-    },
-    FileSystemWorkflowRunStore: class {},
+    HeuristicPlanner: NoopConstructor,
+    OpenClawAgentRunner: NoopConstructor,
+    AgentBackedBuilder: TrackingBuilder,
+    AgentBackedVerifier: TrackingVerifier,
+    FileSystemWorkflowRunStore: NoopConstructor,
   };
 });
 
@@ -497,7 +494,9 @@ describe("openclawCodeRunCommand", () => {
   });
 
   it("mirrors operator-program policy into run --json output when the artifact exists", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-run-json-operator-program-"));
+    const repoRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-run-json-operator-program-"),
+    );
     await mkdir(path.join(repoRoot, ".openclawcode"), { recursive: true });
     await writeFile(
       path.join(repoRoot, ".openclawcode", "operator-program.json"),
@@ -939,8 +938,7 @@ describe("openclawCodeRunCommand", () => {
         planReview: {
           required: true,
           status: "awaiting-approval",
-          planDigest:
-            "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          planDigest: "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
           requestedAt: "2026-01-01T00:01:00.000Z",
           suppliedDigest: "sha256:stale",
           approvedAt: null,
@@ -1362,8 +1360,9 @@ describe("openclawCodeRunCommand", () => {
       createRun({
         workspace: {
           ...createRun().workspace!,
-          worktreePath:
-            undefined as unknown as NonNullable<WorkflowRun["workspace"]>["worktreePath"],
+          worktreePath: undefined as unknown as NonNullable<
+            WorkflowRun["workspace"]
+          >["worktreePath"],
         },
       }),
     );
@@ -2068,11 +2067,10 @@ describe("openclawCodeRunCommand", () => {
         roleRouting: {
           ...createRun().roleRouting!,
           mixedMode: false,
-          routes: createRun()
-            .roleRouting!.routes.map((route) => ({
-              ...route,
-              adapterId: "codex",
-            })),
+          routes: createRun().roleRouting!.routes.map((route) => ({
+            ...route,
+            adapterId: "codex",
+          })),
         },
         runtimeRouting: {
           selections: [
@@ -2659,7 +2657,8 @@ describe("openclawCodeRunCommand", () => {
           summary: "Keep autonomous execution inside the active blueprint slice.",
           mutableSurfaceMode: "scoped-by-work-item",
           mutableSurfacePaths: [],
-          validationBudgetSummary: "Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+          validationBudgetSummary:
+            "Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
           validationBudgetMaxPrimaryCommands: 2,
           requireOneExecutableProof: true,
           advancementRuleSummary:
@@ -4317,10 +4316,8 @@ describe("openclawCodeRunCommand", () => {
       activeWorkstreamIndex: 1,
       activeWorkstreamCount: 1,
       activeWorkstreamTitle: "Show blueprint-aware progress in one artifact.",
-      activeWorkstreamSummary:
-        "Workstream 1/1 | Show blueprint-aware progress in one artifact.",
-      nextSuggestedCommand:
-        `openclaw code issue-materialize --repo-root ${repoRoot}`,
+      activeWorkstreamSummary: "Workstream 1/1 | Show blueprint-aware progress in one artifact.",
+      nextSuggestedCommand: `openclaw code issue-materialize --repo-root ${repoRoot}`,
       nextSuggestedChatCommand: "/occode-materialize openclaw/openclaw",
       selectedWorkItemId: "planned-01-show-blueprint-aware-progress-in-one-artifact",
       selectedWorkItemExecutionMode: "feature",
@@ -4378,9 +4375,7 @@ describe("openclawCodeRunCommand", () => {
     expect(progressLines).toContain(
       "Operator program budget: Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
     );
-    expect(progressLines).toContain(
-      "Operator program criteria: keep=3 | discard=2 | retry=2",
-    );
+    expect(progressLines).toContain("Operator program criteria: keep=3 | discard=2 | retry=2");
     expect(progressLines).toContain(
       "Operator program advancement: Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
     );
@@ -4415,10 +4410,8 @@ describe("openclawCodeRunCommand", () => {
       activeWorkstreamIndex: 1,
       activeWorkstreamCount: 1,
       activeWorkstreamTitle: "Show blueprint-aware progress in one artifact.",
-      activeWorkstreamSummary:
-        "Workstream 1/1 | Show blueprint-aware progress in one artifact.",
-      nextSuggestedCommand:
-        `openclaw code run --issue 654 --repo-root ${repoRoot}`,
+      activeWorkstreamSummary: "Workstream 1/1 | Show blueprint-aware progress in one artifact.",
+      nextSuggestedCommand: `openclaw code run --issue 654 --repo-root ${repoRoot}`,
       nextSuggestedChatCommand: "/occode-start openclaw/openclaw#654",
       selectedWorkItemId: "planned-01-show-blueprint-aware-progress-in-one-artifact",
       selectedWorkItemExecutionMode: "feature",
@@ -4451,9 +4444,10 @@ describe("openclawCodeRunCommand", () => {
       "Active workstream: Workstream 1/1 | Show blueprint-aware progress in one artifact.",
     );
     expect(
-      loopLines.some((line) =>
-        line.startsWith("Next suggested command: openclaw code run --issue ") &&
-        line.endsWith(` --repo-root ${repoRoot}`),
+      loopLines.some(
+        (line) =>
+          line.startsWith("Next suggested command: openclaw code run --issue ") &&
+          line.endsWith(` --repo-root ${repoRoot}`),
       ),
     ).toBe(true);
     expect(
@@ -4463,11 +4457,12 @@ describe("openclawCodeRunCommand", () => {
     ).toBe(true);
     expect(loopLines).toContain("Iteration history:");
     expect(
-      loopLines.some((line) =>
-        line.startsWith("- 1: status=materialized-only | decision=ready-to-execute | issue=#") &&
-        line.includes(
-          " | message=Materialized the next issue. | workstream=Workstream 1/1 | Show blueprint-aware progress in one artifact.",
-        ),
+      loopLines.some(
+        (line) =>
+          line.startsWith("- 1: status=materialized-only | decision=ready-to-execute | issue=#") &&
+          line.includes(
+            " | message=Materialized the next issue. | workstream=Workstream 1/1 | Show blueprint-aware progress in one artifact.",
+          ),
       ),
     ).toBe(true);
 
@@ -4487,7 +4482,9 @@ describe("openclawCodeRunCommand", () => {
   });
 
   it("keeps autonomous loop blocked with explicit execution-mode context for refactor work", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-autonomous-loop-refactor-"));
+    const repoRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-autonomous-loop-refactor-"),
+    );
 
     await writeFile(
       path.join(repoRoot, "PROJECT-BLUEPRINT.md"),
@@ -4570,9 +4567,7 @@ describe("openclawCodeRunCommand", () => {
       nextWorkBlockingGateId: "execution-start",
       selectedWorkItemExecutionMode: "refactor",
     });
-    expect(loop.selectedWorkItemId).toContain(
-      "refactor-autonomous-loop-queue-handoff-into-a-de",
-    );
+    expect(loop.selectedWorkItemId).toContain("refactor-autonomous-loop-queue-handoff-into-a-de");
     expect(loop.nextWorkPrimaryBlocker).toBe(
       "Selected refactor slice requires explicit execution-start approval: Refactor autonomous-loop queue handoff into a dedicated coordinator.",
     );
@@ -4799,7 +4794,9 @@ describe("openclawCodeRunCommand", () => {
   });
 
   it("queues CLI autopilot work through the operator store when repo config exists", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-autonomous-loop-cli-queue-"));
+    const repoRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-autonomous-loop-cli-queue-"),
+    );
     const stateDir = await mkdtemp(
       path.join(os.tmpdir(), "openclawcode-autonomous-loop-cli-queue-state-"),
     );
@@ -4957,8 +4954,12 @@ describe("openclawCodeRunCommand", () => {
   });
 
   it("surfaces active-run stage and role routing through project progress and autopilot artifacts", async () => {
-    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-project-progress-active-run-"));
-    const stateDir = await mkdtemp(path.join(os.tmpdir(), "openclawcode-project-progress-active-run-state-"));
+    const repoRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-project-progress-active-run-"),
+    );
+    const stateDir = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-project-progress-active-run-state-"),
+    );
     const store = OpenClawCodeChatopsStore.fromStateDir(stateDir);
 
     vi.stubEnv("OPENCLAWCODE_ADAPTER_CODEX_AGENT_ID", "codex-main");
@@ -5743,59 +5744,56 @@ describe("openclawCodeRunCommand", () => {
         queuedRunCount: 0,
         currentRunCount: 1,
         readyForHumanReviewCount: 1,
-      qualityGatePassCount: 0,
-      qualityGateWarnCount: 1,
-      qualityGateFailCount: 0,
-      qualityGatePendingCount: 0,
-      preCodeDisciplineReadyCount: 0,
-      preCodeDisciplineWarnCount: 1,
-      preCodeDisciplineBlockedCount: 0,
-      preCodeDisciplinePendingCount: 0,
-      preCodeDisciplineGapCounts: {
-        isolatedWorktree: 0,
-        modeSpecificContexts: 1,
-        freshRoleExecution: 1,
-      },
-      preCodeDisciplineGapSummary:
-        "mode-specific-contexts=1 | fresh-role-execution=1",
-      preCodeDisciplineNextActionCode:
-        "enforce-mode-specific-contexts",
-      preCodeDisciplineNextActionSummary:
-        "make planner/coder/verifier contexts mode-specific",
-      preCodeDisciplineRepairActions: [
-        "review /occode-routing openclaw/openclawcode and set missing role bindings with /occode-route-set openclaw/openclawcode <role> <provider>",
-        "review /occode-runtime-steering openclaw/openclawcode and split building/verifying with /occode-runtime-steering-set openclaw/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
-      ],
-      preCodeDisciplineRepairSummary:
-        "review /occode-routing openclaw/openclawcode and set missing role bindings with /occode-route-set openclaw/openclawcode <role> <provider>; then review /occode-runtime-steering openclaw/openclawcode and split building/verifying with /occode-runtime-steering-set openclaw/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
-      operatorProgramAvailable: true,
-      operatorProgramArtifactPath: `${repoRoot}/.openclawcode/operator-program.json`,
-      operatorProgramTitle: "Repo-local operator program",
-      operatorProgramSummary:
-        "Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
-      operatorProgramMutableSurfaceMode: "scoped-by-work-item",
-      operatorProgramMutableSurfacePathCount: 0,
-      operatorProgramMutableSurfacePathsPresent: false,
-      operatorProgramValidationBudgetSummary:
-        "Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
-      operatorProgramValidationBudgetMaxPrimaryCommands: 2,
-      operatorProgramRequireOneExecutableProof: true,
-      operatorProgramAdvancementRuleSummary:
-        "Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
-      operatorProgramKeepCriteriaCount: 3,
-      operatorProgramDiscardCriteriaCount: 2,
-      operatorProgramRetryCriteriaCount: 2,
-      operatorProgramSimplificationBias: true,
-      operatorProgramAttemptLedgerRequired: true,
-      operatorProgramNextActionCode: "narrow-mutation-scope",
-      operatorProgramNextActionSummary:
-        "Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
-      operatorProgramLinkedBlueprintPath: "PROJECT-BLUEPRINT.md",
-      operatorProgramLinkedWorkItemsPath: ".openclawcode/work-items.json",
-      operatorProgramLinkedStageGatesPath: ".openclawcode/stage-gates.json",
-      loopHealthHealthyCount: 0,
-      loopHealthWarnCount: 1,
-      loopHealthBlockedCount: 0,
+        qualityGatePassCount: 0,
+        qualityGateWarnCount: 1,
+        qualityGateFailCount: 0,
+        qualityGatePendingCount: 0,
+        preCodeDisciplineReadyCount: 0,
+        preCodeDisciplineWarnCount: 1,
+        preCodeDisciplineBlockedCount: 0,
+        preCodeDisciplinePendingCount: 0,
+        preCodeDisciplineGapCounts: {
+          isolatedWorktree: 0,
+          modeSpecificContexts: 1,
+          freshRoleExecution: 1,
+        },
+        preCodeDisciplineGapSummary: "mode-specific-contexts=1 | fresh-role-execution=1",
+        preCodeDisciplineNextActionCode: "enforce-mode-specific-contexts",
+        preCodeDisciplineNextActionSummary: "make planner/coder/verifier contexts mode-specific",
+        preCodeDisciplineRepairActions: [
+          "review /occode-routing openclaw/openclawcode and set missing role bindings with /occode-route-set openclaw/openclawcode <role> <provider>",
+          "review /occode-runtime-steering openclaw/openclawcode and split building/verifying with /occode-runtime-steering-set openclaw/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
+        ],
+        preCodeDisciplineRepairSummary:
+          "review /occode-routing openclaw/openclawcode and set missing role bindings with /occode-route-set openclaw/openclawcode <role> <provider>; then review /occode-runtime-steering openclaw/openclawcode and split building/verifying with /occode-runtime-steering-set openclaw/openclawcode <building|verifying> <agent-id> [adapter=<id>]",
+        operatorProgramAvailable: true,
+        operatorProgramArtifactPath: `${repoRoot}/.openclawcode/operator-program.json`,
+        operatorProgramTitle: "Repo-local operator program",
+        operatorProgramSummary:
+          "Define mutable scope, validation budget, and keep/discard rules for autonomous delivery.",
+        operatorProgramMutableSurfaceMode: "scoped-by-work-item",
+        operatorProgramMutableSurfacePathCount: 0,
+        operatorProgramMutableSurfacePathsPresent: false,
+        operatorProgramValidationBudgetSummary:
+          "Prefer one focused proof plus the smallest targeted checks needed to validate the active slice.",
+        operatorProgramValidationBudgetMaxPrimaryCommands: 2,
+        operatorProgramRequireOneExecutableProof: true,
+        operatorProgramAdvancementRuleSummary:
+          "Keep changes only when the proof stays green and the slice meaningfully improves the active work item.",
+        operatorProgramKeepCriteriaCount: 3,
+        operatorProgramDiscardCriteriaCount: 2,
+        operatorProgramRetryCriteriaCount: 2,
+        operatorProgramSimplificationBias: true,
+        operatorProgramAttemptLedgerRequired: true,
+        operatorProgramNextActionCode: "narrow-mutation-scope",
+        operatorProgramNextActionSummary:
+          "Set mutableSurfacePaths when a work item can safely run inside a narrower file or directory allowlist.",
+        operatorProgramLinkedBlueprintPath: "PROJECT-BLUEPRINT.md",
+        operatorProgramLinkedWorkItemsPath: ".openclawcode/work-items.json",
+        operatorProgramLinkedStageGatesPath: ".openclawcode/stage-gates.json",
+        loopHealthHealthyCount: 0,
+        loopHealthWarnCount: 1,
+        loopHealthBlockedCount: 0,
         loopHealthPendingCount: 0,
         incidentLearningSummary:
           "provider-failures=1 | review-reruns=1 | manual-recoveries=1 | runtime-reroutes=1",
@@ -5866,7 +5864,11 @@ describe("openclawCodeRunCommand", () => {
     const lines = runtime.log.mock.calls.map((call) => String(call[0]));
     expect(lines).toContain(`Repo root: ${repoRoot}`);
     expect(
-      lines.some((line) => line.includes("Operator-program path:") && line.includes(".openclawcode/operator-program.json")),
+      lines.some(
+        (line) =>
+          line.includes("Operator-program path:") &&
+          line.includes(".openclawcode/operator-program.json"),
+      ),
     ).toBe(true);
     expect(lines).toContain("Mutable surface mode: scoped-by-work-item");
     expect(lines).toContain("Require executable proof: yes");
@@ -6065,7 +6067,12 @@ describe("openclawCodeRunCommand", () => {
     const stateDir = await mkdtemp(path.join(os.tmpdir(), "openclawcode-discovery-state-"));
     vi.stubEnv("OPENCLAW_STATE_DIR", stateDir);
 
-    runGitTestCommand(repoRoot, ["remote", "add", "origin", "git@github.com:openclaw/openclaw.git"]);
+    runGitTestCommand(repoRoot, [
+      "remote",
+      "add",
+      "origin",
+      "git@github.com:openclaw/openclaw.git",
+    ]);
     await attachUpstreamDriftFixture(repoRoot);
 
     await openclawCodeBlueprintDecomposeCommand(

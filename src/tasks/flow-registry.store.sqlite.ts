@@ -206,8 +206,26 @@ function ensureSchema(db: DatabaseSync) {
   ensureColumn(db, "flow_runs", "shape", "TEXT");
   ensureColumn(db, "flow_runs", "origin_kind", "TEXT");
   ensureColumn(db, "flow_runs", "origin_session_key", "TEXT");
+  ensureColumn(db, "flow_runs", "owner_session_key", "TEXT");
+  db.exec(`
+    UPDATE flow_runs
+    SET owner_session_key = COALESCE(NULLIF(trim(owner_session_key), ''), origin_session_key, '')
+    WHERE owner_session_key IS NULL OR trim(owner_session_key) = ''
+  `);
+  ensureColumn(db, "flow_runs", "requester_origin_json", "TEXT");
+  ensureColumn(db, "flow_runs", "notify_policy", "TEXT");
+  db.exec(`
+    UPDATE flow_runs
+    SET notify_policy = 'done_only'
+    WHERE notify_policy IS NULL OR trim(notify_policy) = ''
+  `);
+  ensureColumn(db, "flow_runs", "goal", "TEXT");
+  ensureColumn(db, "flow_runs", "current_step", "TEXT");
   ensureColumn(db, "flow_runs", "blocked_task_id", "TEXT");
   ensureColumn(db, "flow_runs", "blocked_summary", "TEXT");
+  ensureColumn(db, "flow_runs", "created_at", "INTEGER");
+  ensureColumn(db, "flow_runs", "updated_at", "INTEGER");
+  ensureColumn(db, "flow_runs", "ended_at", "INTEGER");
   db.exec(`CREATE INDEX IF NOT EXISTS idx_flow_runs_status ON flow_runs(status);`);
   db.exec(
     `CREATE INDEX IF NOT EXISTS idx_flow_runs_owner_session_key ON flow_runs(owner_session_key);`,

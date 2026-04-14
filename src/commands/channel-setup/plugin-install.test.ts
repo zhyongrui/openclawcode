@@ -18,8 +18,8 @@ vi.mock("node:fs", async () => {
   };
 });
 
-const installPluginFromNpmSpec = vi.fn();
-const applyPluginAutoEnable = vi.fn();
+const installPluginFromNpmSpec = vi.hoisted(() => vi.fn());
+const applyPluginAutoEnable = vi.hoisted(() => vi.fn());
 vi.mock("../../plugins/install.js", () => ({
   installPluginFromNpmSpec: (...args: unknown[]) => installPluginFromNpmSpec(...args),
 }));
@@ -28,8 +28,8 @@ vi.mock("../../config/plugin-auto-enable.js", () => ({
   applyPluginAutoEnable: (...args: unknown[]) => applyPluginAutoEnable(...args),
 }));
 
-const resolveBundledPluginSources = vi.fn();
-const getChannelPluginCatalogEntry = vi.fn();
+const resolveBundledPluginSources = vi.hoisted(() => vi.fn());
+const getChannelPluginCatalogEntry = vi.hoisted(() => vi.fn());
 vi.mock("../../channels/plugins/catalog.js", async () => {
   const actual = await vi.importActual<typeof import("../../channels/plugins/catalog.js")>(
     "../../channels/plugins/catalog.js",
@@ -40,7 +40,7 @@ vi.mock("../../channels/plugins/catalog.js", async () => {
   };
 });
 
-const loadPluginManifestRegistry = vi.fn();
+const loadPluginManifestRegistry = vi.hoisted(() => vi.fn());
 vi.mock("../../plugins/manifest-registry.js", () => ({
   loadPluginManifestRegistry: (...args: unknown[]) => loadPluginManifestRegistry(...args),
 }));
@@ -74,7 +74,7 @@ vi.mock("../../plugins/loader.js", () => ({
   loadOpenClawPlugins: vi.fn(),
 }));
 
-const clearPluginDiscoveryCache = vi.fn();
+const clearPluginDiscoveryCache = vi.hoisted(() => vi.fn());
 vi.mock("../../plugins/discovery.js", () => ({
   clearPluginDiscoveryCache: () => clearPluginDiscoveryCache(),
 }));
@@ -633,7 +633,7 @@ describe("ensureChannelSetupPluginInstalled", () => {
     const runtime = makeRuntime();
     const cfg: OpenClawConfig = {};
     loadPluginManifestRegistry.mockReturnValue({
-      plugins: [{ id: "custom-telegram-plugin", channels: ["telegram"] }],
+      plugins: [{ id: "custom-telegram-plugin", channels: ["telegram"], origin: "bundled" }],
       diagnostics: [],
     });
 
@@ -666,6 +666,7 @@ describe("ensureChannelSetupPluginInstalled", () => {
         {
           id: "custom-telegram-plugin",
           channels: [],
+          origin: "bundled",
           activation: {
             onChannels: ["telegram"],
           },

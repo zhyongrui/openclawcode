@@ -131,7 +131,7 @@ describe("applyNodesToolWorkspaceGuard", () => {
       "call-sandbox",
       {
         action: "screen_record",
-        outPath: `${WORKSPACE_ROOT}/videos/capture.mp4`,
+        outPath: "videos/capture.mp4",
       },
       undefined,
       undefined,

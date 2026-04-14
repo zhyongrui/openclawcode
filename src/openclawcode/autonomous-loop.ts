@@ -522,14 +522,13 @@ export async function runProjectAutonomousLoop(params: {
       maxIterations,
     });
     if (!decision.continue) {
-      latest = {
-        ...latest,
+      latest = Object.assign(latest, {
         requestedIterationCount: maxIterations,
         completedIterationCount: iterations.length,
         iterations,
         mode: maxIterations > 1 ? "repeat" : "once",
         stopReason: decision.stopReason ?? latest.stopReason,
-      };
+      });
       await mkdir(path.dirname(artifactPath), { recursive: true });
       await writeFile(artifactPath, `${JSON.stringify(latest, null, 2)}\n`, "utf8");
       return latest;

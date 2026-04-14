@@ -148,6 +148,7 @@ function createHost(): TestGatewayHost {
     chatStream: null,
     chatStreamStartedAt: null,
     chatRunId: null,
+    chatBackgroundRunIds: new Set<string>(),
     chatSideResult: null,
     chatSending: false,
     toolStreamById: new Map(),
