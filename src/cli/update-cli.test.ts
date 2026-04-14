@@ -330,10 +330,11 @@ describe("update-cli", () => {
 
   const setupUpdatedRootRefresh = (params?: {
     gatewayUpdateImpl?: () => Promise<UpdateRunResult>;
+    entrypoints?: string[];
   }) => {
     const root = createCaseDir("openclaw-updated-root");
-    const entryPath = path.join(root, "dist", "entry.js");
-    pathExists.mockImplementation(async (candidate: string) => candidate === entryPath);
+    const entrypoints = params?.entrypoints ?? [path.join(root, "dist", "entry.js")];
+    pathExists.mockImplementation(async (candidate: string) => entrypoints.includes(candidate));
     if (params?.gatewayUpdateImpl) {
       vi.mocked(runGatewayUpdate).mockImplementation(params.gatewayUpdateImpl);
     } else {
@@ -346,7 +347,7 @@ describe("update-cli", () => {
       });
     }
     serviceLoaded.mockResolvedValue(true);
-    return { root, entryPath };
+    return { root, entrypoints };
   };
 
   beforeEach(() => {
@@ -460,13 +461,13 @@ describe("update-cli", () => {
   });
 
   it("respawns into the updated package root before running post-update tasks", async () => {
-    const { entryPath } = setupUpdatedRootRefresh();
+    const { entrypoints } = setupUpdatedRootRefresh();
 
     await updateCommand({ yes: true });
 
     expect(spawn).toHaveBeenCalledWith(
       expect.stringMatching(/node/),
-      [entryPath, "update", "--yes"],
+      [entrypoints[0], "update", "--yes"],
       expect.objectContaining({
         stdio: "inherit",
         env: expect.objectContaining({
@@ -1324,7 +1325,7 @@ describe("update-cli", () => {
       mock: { calls: Array<[unknown, { cwd?: string }?]> };
     };
     const root = setup?.root ?? runCommandWithTimeoutMock.mock.calls[0]?.[1]?.cwd;
-    const entryPath = setup?.entryPath ?? path.join(String(root), "dist", "entry.js");
+    const entryPath = setup?.entrypoints?.[0] ?? path.join(String(root), "dist", "entry.js");
 
     expect(runCommandWithTimeout).toHaveBeenCalledWith(
       [expect.stringMatching(/node/), entryPath, "gateway", "install", "--force"],

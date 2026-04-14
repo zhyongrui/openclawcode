@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { URL } from "node:url";
 import type { AgentToolResult } from "@mariozechner/pi-agent-core";
 import { createEditTool, createReadTool, createWriteTool } from "@mariozechner/pi-coding-agent";
+import { isWindowsDrivePath } from "../infra/archive-path.js";
 import {
   appendFileWithinRoot,
   SafeOpenError,
@@ -10,6 +11,7 @@ import {
   readFileWithinRoot,
   writeFileWithinRoot,
 } from "../infra/fs-safe.js";
+import { hasEncodedFileUrlSeparator, trySafeFileURLToPath } from "../infra/local-file-access.js";
 import { detectMime } from "../media/mime.js";
 import { sniffMimeFromBase64 } from "../media/sniff-mime-from-base64.js";
 import type { ImageSanitizationLimits } from "./image-sanitization.js";
@@ -451,6 +453,11 @@ function normalizeToolPathCandidate(filePath: string): string | null {
     return candidate;
   }
 
+  const localFilePath = trySafeFileURLToPath(candidate);
+  if (localFilePath) {
+    return localFilePath;
+  }
+
   try {
     const parsed = new URL(candidate);
     if (parsed.protocol !== "file:") {
@@ -460,7 +467,10 @@ function normalizeToolPathCandidate(filePath: string): string | null {
     if (hostname && hostname !== "localhost") {
       return candidate;
     }
-    return fileURLToPath(parsed);
+    if (hasEncodedFileUrlSeparator(parsed.pathname)) {
+      return null;
+    }
+    return decodeURIComponent(parsed.pathname).replace(/\\/g, "/");
   } catch {
     return null;
   }
@@ -498,9 +508,13 @@ export function resolveToolPathAgainstWorkspaceRoot(params: {
   if (!candidate) {
     return params.filePath;
   }
-  return path.isAbsolute(candidate)
-    ? path.resolve(candidate)
-    : path.resolve(params.root, candidate || ".");
+  if (isWindowsDrivePath(candidate)) {
+    return path.win32.normalize(candidate);
+  }
+  if (path.isAbsolute(candidate)) {
+    return path.resolve(candidate);
+  }
+  return path.resolve(params.root, candidate || ".");
 }
 
 type MemoryFlushAppendOnlyWriteOptions = {

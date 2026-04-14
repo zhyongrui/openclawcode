@@ -118,10 +118,11 @@ import {
   updateSkillEdit,
   updateSkillEnabled,
 } from "./controllers/skills.ts";
-import "./components/dashboard-header.ts";
 import { buildExternalLinkRel, EXTERNAL_LINK_TARGET } from "./external-link.ts";
+import "./components/dashboard-header.ts";
 import { icons } from "./icons.ts";
 import { normalizeBasePath, TAB_GROUPS, subtitleForTab, titleForTab } from "./navigation.ts";
+import { isPluginEnabledInConfigSnapshot } from "./plugin-activation.ts";
 import { agentLogoUrl } from "./views/agents-utils.ts";
 import {
   resolveAgentConfig,
@@ -238,32 +239,6 @@ function uniquePreserveOrder(values: string[]): string[] {
     output.push(normalized);
   }
   return output;
-}
-
-function isPluginExplicitlyEnabled(
-  configSnapshot: AppViewState["configSnapshot"],
-  pluginId: string,
-): boolean {
-  const config = configSnapshot?.config;
-  if (!config || typeof config !== "object" || Array.isArray(config)) {
-    return true;
-  }
-  const plugins =
-    "plugins" in config && config.plugins && typeof config.plugins === "object"
-      ? (config.plugins as Record<string, unknown>)
-      : null;
-  if (plugins?.enabled === false) {
-    return false;
-  }
-  const entries =
-    plugins && "entries" in plugins && plugins.entries && typeof plugins.entries === "object"
-      ? (plugins.entries as Record<string, unknown>)
-      : null;
-  const entry = entries?.[pluginId];
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-    return true;
-  }
-  return (entry as { enabled?: unknown }).enabled !== false;
 }
 
 type DismissedUpdateBanner = {
@@ -461,12 +436,15 @@ export function renderApp(state: AppViewState) {
   const dreamingLoading = state.dreamingStatusLoading || state.dreamingModeSaving;
   const dreamingRefreshLoading = state.dreamingStatusLoading || state.dreamDiaryLoading;
   const refreshDreaming = () => {
-    void Promise.all([
-      loadDreamingStatus(state),
-      loadDreamDiary(state),
-      loadWikiImportInsights(state),
-      loadWikiMemoryPalace(state),
-    ]);
+    void (async () => {
+      await loadConfig(state);
+      await Promise.all([
+        loadDreamingStatus(state),
+        loadDreamDiary(state),
+        loadWikiImportInsights(state),
+        loadWikiMemoryPalace(state),
+      ]);
+    })();
   };
   const openWikiPage = async (lookup: string) => {
     if (!state.client || !state.connected) {
@@ -1139,13 +1117,17 @@ export function renderApp(state: AppViewState) {
               onSessionKeyChange: (next) => {
                 state.sessionKey = next;
                 state.chatMessage = "";
+                state.chatMessages = [];
+                state.chatToolMessages = [];
+                state.chatStream = null;
+                state.chatRunId = null;
+                state.chatQueue = [];
                 state.resetToolStream();
                 state.applySettings({
                   ...state.settings,
                   sessionKey: next,
                   lastActiveSessionKey: next,
                 });
-                void state.loadAssistantIdentity();
               },
               onToggleGatewayTokenVisibility: () => {
                 state.overviewShowGatewayToken = !state.overviewShowGatewayToken;
@@ -2051,7 +2033,11 @@ export function renderApp(state: AppViewState) {
               dreamDiaryError: state.dreamDiaryError,
               dreamDiaryPath: state.dreamDiaryPath,
               dreamDiaryContent: state.dreamDiaryContent,
-              memoryWikiEnabled: isPluginExplicitlyEnabled(state.configSnapshot, "memory-wiki"),
+              memoryWikiEnabled: isPluginEnabledInConfigSnapshot(
+                state.configSnapshot,
+                "memory-wiki",
+                { enabledByDefault: false },
+              ),
               wikiImportInsightsLoading: state.wikiImportInsightsLoading,
               wikiImportInsightsError: state.wikiImportInsightsError,
               wikiImportInsights: state.wikiImportInsights,
@@ -2060,8 +2046,18 @@ export function renderApp(state: AppViewState) {
               wikiMemoryPalace: state.wikiMemoryPalace,
               onRefresh: refreshDreaming,
               onRefreshDiary: () => loadDreamDiary(state),
-              onRefreshImports: () => loadWikiImportInsights(state),
-              onRefreshMemoryPalace: () => loadWikiMemoryPalace(state),
+              onRefreshImports: () => {
+                void (async () => {
+                  await loadConfig(state);
+                  await loadWikiImportInsights(state);
+                })();
+              },
+              onRefreshMemoryPalace: () => {
+                void (async () => {
+                  await loadConfig(state);
+                  await loadWikiMemoryPalace(state);
+                })();
+              },
               onOpenConfig: () => openConfigFile(state),
               onOpenWikiPage: (lookup: string) => openWikiPage(lookup),
               onBackfillDiary: () => backfillDreamDiary(state),

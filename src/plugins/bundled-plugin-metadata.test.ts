@@ -6,13 +6,13 @@ import {
   resolveBundledPluginGeneratedLocation,
   resolveBundledPluginGeneratedPath,
 } from "./bundled-plugin-metadata.js";
-import { BUNDLED_RUNTIME_SIDECAR_PATHS } from "./runtime-sidecar-paths.js";
 import {
   createGeneratedPluginTempRoot,
   installGeneratedPluginTempRootCleanup,
   pluginTestRepoRoot as repoRoot,
   writeJson,
 } from "./generated-plugin-test-helpers.js";
+import { BUNDLED_RUNTIME_SIDECAR_PATHS } from "./runtime-sidecar-paths.js";
 
 const BUNDLED_PLUGIN_METADATA_TEST_TIMEOUT_MS = 300_000;
 
@@ -42,28 +42,19 @@ function expectTestOnlyArtifactsExcluded(artifacts: readonly string[]) {
 
 function expectGeneratedPathResolution(rootDir: string, expectedPath: string) {
   expect(
-    resolveBundledPluginGeneratedPath(
-      rootDir,
-      {
-        source: "./index.ts",
-        built: "index.js",
-      },
-    ),
+    resolveBundledPluginGeneratedPath(rootDir, {
+      source: "./index.ts",
+      built: "index.js",
+    }),
   ).toBe(expectedPath);
 }
 
-function expectPluginScopedGeneratedPathResolution(
-  rootDir: string,
-  expectedPath: string,
-) {
+function expectPluginScopedGeneratedPathResolution(rootDir: string, expectedPath: string) {
   expect(
-    resolveBundledPluginGeneratedPath(
-      rootDir,
-      {
-        source: "./index.ts",
-        built: "index.js",
-      },
-    ),
+    resolveBundledPluginGeneratedPath(rootDir, {
+      source: "./index.ts",
+      built: "index.js",
+    }),
   ).toBe(expectedPath);
 }
 
@@ -160,6 +151,68 @@ describe("bundled plugin metadata", () => {
         schema: expect.objectContaining({ type: "object" }),
       }),
     );
+  });
+
+  it("loads tlon channel config metadata from the lightweight schema surface", () => {
+    const tlon = BUNDLED_PLUGIN_METADATA.find((entry) => entry.dirName === "tlon");
+    expect(tlon?.manifest.channelConfigs?.tlon).toEqual(
+      expect.objectContaining({
+        schema: expect.objectContaining({ type: "object" }),
+      }),
+    );
+  });
+
+  it("keeps bundled persisted-auth metadata on channel package manifests", () => {
+    const whatsapp = BUNDLED_PLUGIN_METADATA.find((entry) => entry.dirName === "whatsapp");
+    expect(whatsapp?.packageManifest?.channel?.persistedAuthState).toEqual({
+      specifier: "./auth-presence",
+      exportName: "hasAnyWhatsAppAuth",
+    });
+
+    const matrix = BUNDLED_PLUGIN_METADATA.find((entry) => entry.dirName === "matrix");
+    expect(matrix?.packageManifest?.channel?.persistedAuthState).toEqual({
+      specifier: "./auth-presence",
+      exportName: "hasAnyMatrixAuth",
+    });
+  });
+
+  it("keeps bundled configured-state metadata on channel package manifests", () => {
+    const configuredChannels = BUNDLED_PLUGIN_METADATA.filter((entry) =>
+      ["discord", "irc", "slack", "telegram"].includes(entry.dirName),
+    ).map((entry) => ({
+      dir: entry.dirName,
+      configuredState: entry.packageManifest?.channel?.configuredState,
+    }));
+    expect(configuredChannels).toEqual([
+      {
+        dir: "discord",
+        configuredState: {
+          specifier: "./configured-state",
+          exportName: "hasDiscordConfiguredState",
+        },
+      },
+      {
+        dir: "irc",
+        configuredState: {
+          specifier: "./configured-state",
+          exportName: "hasIrcConfiguredState",
+        },
+      },
+      {
+        dir: "slack",
+        configuredState: {
+          specifier: "./configured-state",
+          exportName: "hasSlackConfiguredState",
+        },
+      },
+      {
+        dir: "telegram",
+        configuredState: {
+          specifier: "./configured-state",
+          exportName: "hasTelegramConfiguredState",
+        },
+      },
+    ]);
   });
 
   it("excludes test-only public surface artifacts", () => {

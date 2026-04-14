@@ -100,15 +100,12 @@ describe("createNextcloudTalkWebhookServer replay handling", () => {
     });
 
     return async (message: NextcloudTalkInboundMessage): Promise<void> => {
-      const result = await processNextcloudTalkReplayGuardedMessage({
+      await processNextcloudTalkReplayGuardedMessage({
         replayGuard,
         accountId: params.accountId ?? "acct",
         message,
         handleMessage: () => params.handleMessage(message),
       });
-      if (result === "duplicate") {
-        return;
-      }
     };
   }
 
