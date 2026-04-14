@@ -522,6 +522,8 @@ function createSetupEntryChannelPluginFixture(params: {
   setupBlurb: string;
   configured: boolean;
   startupDeferConfiguredChannelFullLoadUntilAfterListen?: boolean;
+  setupEntryContract?: "legacy" | "bundled";
+  includeSetupSecrets?: boolean;
 }) {
   useNoBundledPlugins();
   const pluginDir = makeTempDir();
@@ -531,6 +533,45 @@ function createSetupEntryChannelPluginFixture(params: {
   const resolveAccount = params.configured
     ? '({ accountId: "default", token: "configured" })'
     : '({ accountId: "default" })';
+  const setupPlugin = `{
+    id: ${JSON.stringify(params.id)},
+    meta: {
+      id: ${JSON.stringify(params.id)},
+      label: ${JSON.stringify(params.label)},
+      selectionLabel: ${JSON.stringify(params.label)},
+      docsPath: ${JSON.stringify(`/channels/${params.id}`)},
+      blurb: ${JSON.stringify(params.setupBlurb)},
+    },
+    capabilities: { chatTypes: ["direct"] },
+    config: {
+      listAccountIds: () => ${listAccountIds},
+      resolveAccount: () => ${resolveAccount},
+    },
+    outbound: { deliveryMode: "direct" },
+  }`;
+  const setupSecrets = params.includeSetupSecrets
+    ? `
+  loadSetupSecrets() {
+    return {
+      list() {
+        return [];
+      },
+    };
+  },`
+    : "";
+  const setupEntryBody =
+    params.setupEntryContract === "bundled"
+      ? `require("node:fs").writeFileSync(${JSON.stringify(setupMarker)}, "loaded", "utf-8");
+module.exports = {
+  kind: "bundled-channel-setup-entry",
+  loadSetupPlugin() {
+    return ${setupPlugin};
+  },${setupSecrets}
+};`
+      : `require("node:fs").writeFileSync(${JSON.stringify(setupMarker)}, "loaded", "utf-8");
+module.exports = {
+  plugin: ${setupPlugin},
+};`;
 
   fs.writeFileSync(
     path.join(pluginDir, "package.json"),
@@ -595,29 +636,7 @@ module.exports = {
 };`,
     "utf-8",
   );
-  fs.writeFileSync(
-    path.join(pluginDir, "setup-entry.cjs"),
-    `require("node:fs").writeFileSync(${JSON.stringify(setupMarker)}, "loaded", "utf-8");
-module.exports = {
-  plugin: {
-    id: ${JSON.stringify(params.id)},
-    meta: {
-      id: ${JSON.stringify(params.id)},
-      label: ${JSON.stringify(params.label)},
-      selectionLabel: ${JSON.stringify(params.label)},
-      docsPath: ${JSON.stringify(`/channels/${params.id}`)},
-      blurb: ${JSON.stringify(params.setupBlurb)},
-    },
-    capabilities: { chatTypes: ["direct"] },
-    config: {
-      listAccountIds: () => ${listAccountIds},
-      resolveAccount: () => ${resolveAccount},
-    },
-    outbound: { deliveryMode: "direct" },
-  },
-};`,
-    "utf-8",
-  );
+  fs.writeFileSync(path.join(pluginDir, "setup-entry.cjs"), setupEntryBody, "utf-8");
 
   return { pluginDir, fullMarker, setupMarker };
 }
@@ -3169,6 +3188,33 @@ module.exports = {
       expectedChannels: 1,
     },
     {
+      name: "uses bundled setupEntry contract for enabled but unconfigured channel loads",
+      fixture: {
+        id: "setup-runtime-bundled-test",
+        label: "Setup Runtime Bundled Test",
+        packageName: "@openclaw/setup-runtime-bundled-test",
+        fullBlurb: "full entry should not run while bundled setup contract handles onboarding",
+        setupBlurb: "setup runtime bundled",
+        configured: false,
+        setupEntryContract: "bundled" as const,
+        includeSetupSecrets: true,
+      },
+      load: ({ pluginDir }: { pluginDir: string }) =>
+        loadOpenClawPlugins({
+          cache: false,
+          config: {
+            plugins: {
+              load: { paths: [pluginDir] },
+              allow: ["setup-runtime-bundled-test"],
+            },
+          },
+        }),
+      expectFullLoaded: false,
+      expectSetupLoaded: true,
+      expectedChannels: 1,
+      expectSetupSecrets: true,
+    },
+    {
       name: "does not prefer setupEntry for configured channel loads without startup opt-in",
       fixture: {
         id: "setup-runtime-not-preferred-test",
@@ -3199,15 +3245,29 @@ module.exports = {
       expectSetupLoaded: false,
       expectedChannels: 1,
     },
-  ])("$name", ({ fixture, load, expectFullLoaded, expectSetupLoaded, expectedChannels }) => {
-    const built = createSetupEntryChannelPluginFixture(fixture);
-    const registry = load({ pluginDir: built.pluginDir });
+  ])(
+    "$name",
+    ({
+      fixture,
+      load,
+      expectFullLoaded,
+      expectSetupLoaded,
+      expectedChannels,
+      expectSetupSecrets,
+    }) => {
+      const built = createSetupEntryChannelPluginFixture(fixture);
+      const registry = load({ pluginDir: built.pluginDir });
 
-    expect(fs.existsSync(built.fullMarker)).toBe(expectFullLoaded);
-    expect(fs.existsSync(built.setupMarker)).toBe(expectSetupLoaded);
-    expect(registry.channelSetups).toHaveLength(1);
-    expect(registry.channels).toHaveLength(expectedChannels);
-  });
+      expect(fs.existsSync(built.fullMarker)).toBe(expectFullLoaded);
+      expect(fs.existsSync(built.setupMarker)).toBe(expectSetupLoaded);
+      expect(registry.channelSetups).toHaveLength(1);
+      expect(registry.channels).toHaveLength(expectedChannels);
+      if (expectSetupSecrets === true) {
+        expect(registry.channelSetups[0]?.plugin.secrets).toBeDefined();
+        expect(registry.channels[0]?.plugin.secrets).toBeDefined();
+      }
+    },
+  );
 
   it("prefers setupEntry for configured channel loads during startup when opted in", () => {
     expect(

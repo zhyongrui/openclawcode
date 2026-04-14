@@ -651,6 +651,35 @@ function resolveSetupChannelRegistration(moduleExport: unknown): {
   if (!resolved || typeof resolved !== "object") {
     return {};
   }
+  const bundledSetup = resolved as {
+    kind?: unknown;
+    loadSetupPlugin?: unknown;
+    loadSetupSecrets?: unknown;
+  };
+  if (
+    bundledSetup.kind === "bundled-channel-setup-entry" &&
+    typeof bundledSetup.loadSetupPlugin === "function"
+  ) {
+    const plugin = bundledSetup.loadSetupPlugin();
+    if (!plugin || typeof plugin !== "object") {
+      return {};
+    }
+    const secrets =
+      typeof bundledSetup.loadSetupSecrets === "function"
+        ? bundledSetup.loadSetupSecrets()
+        : undefined;
+    if (secrets === undefined) {
+      return {
+        plugin: plugin as ChannelPlugin,
+      };
+    }
+    return {
+      plugin: {
+        ...(plugin as ChannelPlugin),
+        secrets: secrets as ChannelPlugin["secrets"],
+      },
+    };
+  }
   const setup = resolved as {
     plugin?: unknown;
   };
