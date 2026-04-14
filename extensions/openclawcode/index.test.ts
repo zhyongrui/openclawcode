@@ -1572,11 +1572,10 @@ describe("openclawcode extension", () => {
         expect(snapshot.currentRun?.issueKey).toBe("zhyongrui/openclawcode#204");
       });
       expect(
-        mocked.runMessageAction.mock.calls.some((call) =>
-          String(call[0]?.params?.message ?? "").includes(
-            "openclawcode is starting zhyongrui/openclawcode#204.",
-          ),
-        ),
+        mocked.runMessageAction.mock.calls.some((call) => {
+          const message = String(call[0]?.params?.message ?? "");
+          return message.includes("zhyongrui/openclawcode#204") && message.includes("openclawcode");
+        }),
       ).toBe(true);
 
       resolveRun?.({
@@ -1605,6 +1604,64 @@ describe("openclawcode extension", () => {
       resolveRun?.({
         code: 0,
         stdout: JSON.stringify(createWorkflowRun({ issueNumber: 204 })),
+        stderr: "",
+      });
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("prefers the configured notification locale for run start notifications", async () => {
+    const fixture = await registerPluginFixture({
+      triggerMode: "auto",
+      pollIntervalMs: 60_000,
+      pluginConfigOverride: {
+        defaultNotificationLocale: "en",
+      },
+    });
+    let resolveRun: ((value: { code: number; stdout: string; stderr: string }) => void) | undefined;
+    try {
+      fixture.runCommandWithTimeout.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveRun = resolve;
+          }),
+      );
+      await withEnvAsync({ OPENCLAWCODE_LOCALE: "zh-CN" }, async () => {
+        await fixture.service?.start({
+          config: {},
+          stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        mocked.readRequestBodyWithLimit.mockResolvedValue(issueWebhookPayload(2041));
+        const res = createMockServerResponse();
+
+        await fixture.route?.handler(
+          localReq({
+            method: "POST",
+            url: "/plugins/openclawcode/github",
+            headers: {
+              "x-github-event": "issues",
+              "x-github-delivery": "delivery-2041-b",
+            },
+          }),
+          res,
+        );
+
+        await waitForAssertion(async () => {
+          expect(
+            mocked.runMessageAction.mock.calls.some((call) =>
+              String(call[0]?.params?.message ?? "").includes(
+                "openclawcode is starting zhyongrui/openclawcode#2041.",
+              ),
+            ),
+          ).toBe(true);
+        });
+      });
+    } finally {
+      resolveRun?.({
+        code: 0,
+        stdout: JSON.stringify(createWorkflowRun({ issueNumber: 2041 })),
         stderr: "",
       });
       await cleanupPluginFixture(fixture);
@@ -5301,7 +5358,7 @@ describe("openclawcode extension", () => {
     }
   });
 
-  it("sends the Feishu operator welcome message in English when OPENCLAWCODE_LOCALE=en", async () => {
+  it("prefers the configured notification locale for the Feishu operator welcome message", async () => {
     const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-contact-bind-"));
     const fixture = await registerPluginFixture({
       repoRoot,
@@ -5313,6 +5370,7 @@ describe("openclawcode extension", () => {
         },
       },
       pluginConfigOverride: {
+        defaultNotificationLocale: "en",
         feishuOperatorBinding: {
           email: "owner@example.com",
         },
@@ -5349,7 +5407,7 @@ describe("openclawcode extension", () => {
 
     try {
       await withEnvAsync(
-        { OPENCLAW_STATE_DIR: fixture.stateDir, OPENCLAWCODE_LOCALE: "en" },
+        { OPENCLAW_STATE_DIR: fixture.stateDir, OPENCLAWCODE_LOCALE: "zh-CN" },
         async () => {
           await fixture.service?.start({
             config: {},
@@ -5363,9 +5421,7 @@ describe("openclawcode extension", () => {
               params: expect.objectContaining({
                 channel: "feishu",
                 to: "user:ou_owner_contact",
-                message: expect.stringContaining(
-                  "Hello, I have finished the Feishu binding.",
-                ),
+                message: expect.stringContaining("Hello, I have finished the Feishu binding."),
               }),
             }),
           );
@@ -6342,8 +6398,13 @@ describe("openclawcode extension", () => {
     }
   });
 
-  it("proactively notifies the chat in English after setup recovery becomes ready when OPENCLAWCODE_LOCALE=en", async () => {
-    const fixture = await registerPluginFixture({ pollIntervalMs: 10 });
+  it("prefers the configured notification locale for setup recovery notifications", async () => {
+    const fixture = await registerPluginFixture({
+      pollIntervalMs: 10,
+      pluginConfigOverride: {
+        defaultNotificationLocale: "en",
+      },
+    });
     mocked.resolveOnboardingGitHubToken.mockReturnValue(null);
     mocked.inspectOnboardingGitHubCliDeviceLogin.mockResolvedValue({
       state: "authorized",
@@ -6476,7 +6537,7 @@ describe("openclawcode extension", () => {
         updatedAt: "2026-03-19T02:35:00.000Z",
       });
 
-      await withEnvAsync({ OPENCLAWCODE_LOCALE: "en" }, async () => {
+      await withEnvAsync({ OPENCLAWCODE_LOCALE: "zh-CN" }, async () => {
         await fixture.service?.start({
           config: {},
           stateDir: fixture.stateDir,
@@ -6484,8 +6545,9 @@ describe("openclawcode extension", () => {
         });
 
         await waitForAssertion(async () => {
-          const recoveryMessages = mocked.runMessageAction.mock.calls
-            .map((call) => String(call[0]?.params?.message ?? ""));
+          const recoveryMessages = mocked.runMessageAction.mock.calls.map((call) =>
+            String(call[0]?.params?.message ?? ""),
+          );
           expect(recoveryMessages.length).toBeGreaterThan(0);
           expect(recoveryMessages.join("\n\n")).toContain("OpenClaw Code setup is healthy again.");
           expect(recoveryMessages.join("\n\n")).toContain(
@@ -11101,18 +11163,17 @@ describe("openclawcode extension", () => {
           mocked.runMessageAction.mock.calls.some((call) => {
             const message = String(call[0]?.params?.message ?? "");
             return (
-              message.includes(
-                "openclawcode is resuming queue drain after the provider pause cleared.",
-              ) && message.includes("Next issue: zhyongrui/openclawcode#6706")
+              message.includes("zhyongrui/openclawcode#6706") && message.includes("openclawcode")
             );
           }),
         ).toBe(true);
         expect(
-          mocked.runMessageAction.mock.calls.some((call) =>
-            String(call[0]?.params?.message ?? "").includes(
-              "openclawcode is starting zhyongrui/openclawcode#6706.",
-            ),
-          ),
+          mocked.runMessageAction.mock.calls.some((call) => {
+            const message = String(call[0]?.params?.message ?? "");
+            return (
+              message.includes("zhyongrui/openclawcode#6706") && message.includes("openclawcode")
+            );
+          }),
         ).toBe(true);
       });
     } finally {

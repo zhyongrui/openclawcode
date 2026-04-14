@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWizardPrompter as buildWizardPrompter } from "../../test/helpers/wizard-prompter.js";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
 import {
   buildOnboardingRepoNameSuggestions,
   createOnboardingRepositoryViaGh,
@@ -19,9 +20,11 @@ import {
 describe("runOnboardingOpenClawCode", () => {
   beforeEach(() => {
     onboardingOpenClawCodeDeps.resolveGitHubToken = vi.fn(() => null);
-    onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(
-      async () => ({ login: "zhyongrui", name: "Zhongrui Ye", email: "zyr@example.com" }),
-    );
+    onboardingOpenClawCodeDeps.fetchAuthenticatedViewer = vi.fn(async () => ({
+      login: "zhyongrui",
+      name: "Zhongrui Ye",
+      email: "zyr@example.com",
+    }));
     onboardingOpenClawCodeDeps.fetchRepositorySummary = vi.fn(async () => undefined);
     onboardingOpenClawCodeDeps.createRepository = vi.fn(
       async (_token, request) =>
@@ -92,6 +95,47 @@ describe("runOnboardingOpenClawCode", () => {
     expect(noteCalls.at(-1)?.[0]).toContain("OpenClaw will launch GitHub device auth for you");
   });
 
+  it("stores the onboarding notification locale in config when provided", async () => {
+    onboardingOpenClawCodeDeps.resolveGitHubToken = vi.fn(
+      () =>
+        ({
+          token: "gho_test",
+          source: "gh-auth-token",
+        }) satisfies ResolvedOnboardingGitHubToken,
+    );
+    const nextConfig: OpenClawConfig = {
+      plugins: {
+        entries: {
+          openclawcode: {
+            enabled: true,
+            config: {},
+          },
+        },
+      },
+    };
+    const prompter = buildWizardPrompter({
+      select: vi.fn(async (params: { message: string }) => {
+        if (params.message === "OpenClaw Code notification language") {
+          return "en";
+        }
+        if (params.message === "GitHub account for OpenClaw Code") {
+          return "use-existing";
+        }
+        if (params.message === "OpenClaw Code repo setup") {
+          return "skip";
+        }
+        return "skip";
+      }) as never,
+    });
+
+    await runOnboardingOpenClawCode({
+      prompter,
+      nextConfig,
+    });
+
+    expect(nextConfig.plugins?.entries?.openclawcode?.config?.defaultNotificationLocale).toBe("en");
+  });
+
   it("creates and bootstraps a new repo with a placeholder empty-repo test command", async () => {
     onboardingOpenClawCodeDeps.resolveGitHubToken = vi.fn(
       () =>
@@ -141,7 +185,9 @@ describe("runOnboardingOpenClawCode", () => {
     expect(accountNote?.[0]).toContain("Auth source: GH_TOKEN env var");
     const executionNote = noteCalls.find((call) => call[1] === "OpenClaw Code execution");
     expect(executionNote?.[0]).toContain("Target repo: zhyongrui/iGallery");
-    expect(executionNote?.[0]).toContain("Effect: create the repo on GitHub, then run bootstrap locally.");
+    expect(executionNote?.[0]).toContain(
+      "Effect: create the repo on GitHub, then run bootstrap locally.",
+    );
     expect(onboardingOpenClawCodeDeps.createRepository).toHaveBeenCalledWith("gho_test", {
       owner: "zhyongrui",
       name: "iGallery",
@@ -247,7 +293,9 @@ describe("runOnboardingOpenClawCode", () => {
     expect(onboardingOpenClawCodeDeps.createRepository).not.toHaveBeenCalled();
     expect(onboardingOpenClawCodeDeps.bootstrapRepository).not.toHaveBeenCalled();
     const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
-    const finalOpenClawCodeNote = noteCalls.filter((call) => call[1] === "OpenClaw Code").at(-1);
+    const finalOpenClawCodeNote = [...noteCalls]
+      .toReversed()
+      .find((call) => call[1] === "OpenClaw Code");
     expect(finalOpenClawCodeNote?.[0]).toContain("Skipped creating zhyongrui/iGallery.");
     expect(finalOpenClawCodeNote?.[0]).toContain("/occode-setup");
   });
@@ -282,9 +330,13 @@ describe("runOnboardingOpenClawCode", () => {
 
     expect(onboardingOpenClawCodeDeps.bootstrapRepository).not.toHaveBeenCalled();
     const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
-    const finalOpenClawCodeNote = noteCalls.filter((call) => call[1] === "OpenClaw Code").at(-1);
+    const finalOpenClawCodeNote = [...noteCalls]
+      .toReversed()
+      .find((call) => call[1] === "OpenClaw Code");
     expect(finalOpenClawCodeNote?.[0]).toContain("Skipped bootstrapping zhyongrui/iGallery.");
-    expect(finalOpenClawCodeNote?.[0]).toContain("openclaw code bootstrap --repo owner/repo --json");
+    expect(finalOpenClawCodeNote?.[0]).toContain(
+      "openclaw code bootstrap --repo owner/repo --json",
+    );
   });
 
   it("shows explicit chat and cli handoff when repo setup is skipped", async () => {
@@ -314,8 +366,12 @@ describe("runOnboardingOpenClawCode", () => {
     });
 
     const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
-    const finalOpenClawCodeNote = noteCalls.filter((call) => call[1] === "OpenClaw Code").at(-1);
-    expect(finalOpenClawCodeNote?.[0]).toContain("You can come back to OpenClaw Code later from either surface:");
+    const finalOpenClawCodeNote = [...noteCalls]
+      .toReversed()
+      .find((call) => call[1] === "OpenClaw Code");
+    expect(finalOpenClawCodeNote?.[0]).toContain(
+      "You can come back to OpenClaw Code later from either surface:",
+    );
     expect(finalOpenClawCodeNote?.[0]).toContain("/occode-setup");
     expect(finalOpenClawCodeNote?.[0]).toContain("/occ-setup");
     expect(finalOpenClawCodeNote?.[0]).toContain("/occode-setup existing owner/repo");
@@ -363,20 +419,20 @@ describe("runOnboardingOpenClawCode", () => {
     const note = vi.fn(async () => {});
     const prompter = buildWizardPrompter({
       note,
-      select: vi
-        .fn(async (params: { message: string }) => {
-          if (params.message === "GitHub account for OpenClaw Code") {
-            const accountPromptCount = (
-              prompter.select as unknown as ReturnType<typeof vi.fn>
-            ).mock.calls.filter((call) => call[0]?.message === "GitHub account for OpenClaw Code")
-              .length;
-            return accountPromptCount === 1 ? "switch-account" : "use-existing";
-          }
-          if (params.message === "OpenClaw Code repo setup") {
-            return "skip";
-          }
-          return "later";
-        }) as never,
+      select: vi.fn(async (params: { message: string }) => {
+        if (params.message === "GitHub account for OpenClaw Code") {
+          const accountPromptCount = (
+            prompter.select as unknown as ReturnType<typeof vi.fn>
+          ).mock.calls.filter(
+            (call) => call[0]?.message === "GitHub account for OpenClaw Code",
+          ).length;
+          return accountPromptCount === 1 ? "switch-account" : "use-existing";
+        }
+        if (params.message === "OpenClaw Code repo setup") {
+          return "skip";
+        }
+        return "later";
+      }) as never,
       confirm: vi.fn(async () => true),
     });
 
@@ -399,7 +455,9 @@ describe("runOnboardingOpenClawCode", () => {
       }),
     );
     const noteCalls = note.mock.calls as unknown as Array<[string, string?]>;
-    const finalOpenClawCodeNote = noteCalls.filter((call) => call[1] === "OpenClaw Code").at(-1);
+    const finalOpenClawCodeNote = [...noteCalls]
+      .toReversed()
+      .find((call) => call[1] === "OpenClaw Code");
     expect(finalOpenClawCodeNote?.[0]).toContain("GitHub username: right-account");
     expect(finalOpenClawCodeNote?.[0]).toContain("/occode-setup");
     expect(finalOpenClawCodeNote?.[0]).toContain(
@@ -460,9 +518,7 @@ describe("runOnboardingOpenClawCode", () => {
   });
 
   it("reports pending and authorized GitHub device login states", async () => {
-    const rootDir = await fsPromises.mkdtemp(
-      path.join(os.tmpdir(), "openclawcode-gh-auth-state-"),
-    );
+    const rootDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "openclawcode-gh-auth-state-"));
     const logPath = path.join(rootDir, "gh-auth.log");
     await fsPromises.writeFile(
       logPath,

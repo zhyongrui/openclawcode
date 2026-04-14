@@ -191,4 +191,24 @@ describe("openclawcode chatops run request plumbing", () => {
       sendWelcomeMessage: false,
     });
   });
+
+  it("parses a configured default notification locale", () => {
+    const config = resolveOpenClawCodePluginConfig({
+      defaultNotificationLocale: "en",
+      repos: [
+        {
+          owner: "zhyongrui",
+          repo: "openclawcode",
+          repoRoot: "/repo",
+          notifyChannel: "feishu",
+          notifyTarget: "user:primary",
+          builderAgent: "main-builder",
+          verifierAgent: "main-verifier",
+          testCommands: ["pnpm test"],
+        },
+      ],
+    });
+
+    expect(config.defaultNotificationLocale).toBe("en");
+  });
 });

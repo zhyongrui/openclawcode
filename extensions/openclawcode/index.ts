@@ -332,6 +332,24 @@ type OpenClawCodeLocale = "zh-CN" | "en";
 
 const DEFAULT_OPENCLAWCODE_LOCALE: OpenClawCodeLocale = "zh-CN";
 
+function resolveConfiguredOpenClawCodeLocale(
+  pluginConfig:
+    | Record<string, unknown>
+    | {
+        defaultNotificationLocale?: unknown;
+      }
+    | undefined,
+): OpenClawCodeLocale | undefined {
+  if (!pluginConfig || typeof pluginConfig !== "object") {
+    return undefined;
+  }
+  return normalizeOpenClawCodeLocale(
+    (pluginConfig as { defaultNotificationLocale?: unknown }).defaultNotificationLocale as
+      | string
+      | undefined,
+  );
+}
+
 function normalizeOpenClawCodeLocale(value: string | undefined): OpenClawCodeLocale | undefined {
   const normalized = value?.trim().toLowerCase();
   if (!normalized) {
@@ -352,8 +370,17 @@ function normalizeOpenClawCodeLocale(value: string | undefined): OpenClawCodeLoc
   return undefined;
 }
 
-function resolveOpenClawCodeLocale(): OpenClawCodeLocale {
+function resolveOpenClawCodeLocale(params?: {
+  locale?: OpenClawCodeLocale;
+  pluginConfig?:
+    | Record<string, unknown>
+    | {
+        defaultNotificationLocale?: unknown;
+      };
+}): OpenClawCodeLocale {
   return (
+    params?.locale ??
+    resolveConfiguredOpenClawCodeLocale(params?.pluginConfig) ??
     normalizeOpenClawCodeLocale(process.env.OPENCLAWCODE_LOCALE) ??
     normalizeOpenClawCodeLocale(process.env.OPENCLAWCODE_LANGUAGE) ??
     normalizeOpenClawCodeLocale(process.env.LC_ALL) ??
@@ -367,16 +394,29 @@ function localizeOpenClawCodeText(params: {
   zhCN: string;
   en: string;
   locale?: OpenClawCodeLocale;
+  pluginConfig?:
+    | Record<string, unknown>
+    | {
+        defaultNotificationLocale?: unknown;
+      };
 }): string {
-  return (params.locale ?? resolveOpenClawCodeLocale()) === "en" ? params.en : params.zhCN;
+  return resolveOpenClawCodeLocale({
+    locale: params.locale,
+    pluginConfig: params.pluginConfig,
+  }) === "en"
+    ? params.en
+    : params.zhCN;
 }
 
 function buildChatSetupAwaitingGitHubAuthMessage(params: {
   verificationUri: string;
   userCode: string;
   selectionLabel?: string;
+  locale?: OpenClawCodeLocale;
 }): string {
-  const locale = resolveOpenClawCodeLocale();
+  const locale = resolveOpenClawCodeLocale({
+    locale: params.locale,
+  });
   return [
     localizeOpenClawCodeText({
       locale,
@@ -426,8 +466,11 @@ function buildChatSetupReadyMessage(params: {
   name?: string;
   email?: string;
   repoKey?: string;
+  locale?: OpenClawCodeLocale;
 }): string {
-  const locale = resolveOpenClawCodeLocale();
+  const locale = resolveOpenClawCodeLocale({
+    locale: params.locale,
+  });
   return [
     localizeOpenClawCodeText({
       locale,
@@ -567,8 +610,11 @@ function buildChatSetupFailedMessage(params: {
   step?: "github-auth" | "repo-create" | "bootstrap" | "blueprint-sync";
   retryCommand?: string;
   needsOperatorAction?: boolean;
+  locale?: OpenClawCodeLocale;
 }): string {
-  const locale = resolveOpenClawCodeLocale();
+  const locale = resolveOpenClawCodeLocale({
+    locale: params.locale,
+  });
   const needsExplicitBootstrapTestCommands =
     params.step === "bootstrap" &&
     /Unable to infer test commands/i.test(params.reason) &&
@@ -1222,8 +1268,11 @@ function buildChatSetupRecoveryMessage(params: {
   readiness: SetupCheckReadinessPayload;
   pluginActivation?: SetupCheckPluginActivationPayload;
   statusCommand?: string | null;
+  locale?: OpenClawCodeLocale;
 }): string {
-  const locale = resolveOpenClawCodeLocale();
+  const locale = resolveOpenClawCodeLocale({
+    locale: params.locale,
+  });
   return [
     localizeOpenClawCodeText({
       locale,
@@ -1287,8 +1336,11 @@ function buildChatSetupBootstrapCompleteMessage(params: {
   bootstrap: NonNullable<
     NonNullable<Awaited<ReturnType<OpenClawCodeChatopsStore["getSetupSession"]>>>["bootstrap"]
   >;
+  locale?: OpenClawCodeLocale;
 }): string {
-  const locale = resolveOpenClawCodeLocale();
+  const locale = resolveOpenClawCodeLocale({
+    locale: params.locale,
+  });
   return [
     localizeOpenClawCodeText({
       locale,
@@ -1761,8 +1813,7 @@ function buildChatSetupRepoSwitchGuidanceLines(params: { repoKey?: string }): st
 
 function describeChatSetupBootstrap(): string {
   return localizeOpenClawCodeText({
-    zhCN:
-      "bootstrap 会为 OpenClaw Code 准备仓库，包括本地克隆或挂载、接通聊天与插件配置，并同步 PROJECT-BLUEPRINT.md 和 .openclawcode/ 这类仓库内产物。",
+    zhCN: "bootstrap 会为 OpenClaw Code 准备仓库，包括本地克隆或挂载、接通聊天与插件配置，并同步 PROJECT-BLUEPRINT.md 和 .openclawcode/ 这类仓库内产物。",
     en: "bootstrap prepares the repository for OpenClaw Code, including local clone or mount setup, chat and plugin wiring, and syncing in-repo artifacts such as PROJECT-BLUEPRINT.md and .openclawcode/.",
   });
 }
@@ -2954,6 +3005,7 @@ async function completeChatSetupProjectSelection(params: {
 async function completeChatSetupBootstrap(params: {
   store: OpenClawCodeChatopsStore;
   session: ChatSetupSession;
+  locale?: OpenClawCodeLocale;
 }): Promise<{
   session: ChatSetupSession;
   message?: string;
@@ -2971,6 +3023,7 @@ async function completeChatSetupBootstrap(params: {
         email: params.session.githubAuthEmail,
         repoKey: params.session.repoKey,
         bootstrap: params.session.bootstrap,
+        locale: params.locale,
       }),
     };
   }
@@ -3001,6 +3054,7 @@ async function completeChatSetupBootstrap(params: {
       message: buildChatSetupFailedMessage({
         reason: error instanceof Error ? error.message : String(error),
         repoKey: params.session.repoKey,
+        locale: params.locale,
       }),
     };
   }
@@ -3052,6 +3106,7 @@ async function completeChatSetupBootstrap(params: {
         message: buildChatSetupFailedMessage({
           reason: error instanceof Error ? error.message : String(error),
           repoKey: params.session.repoKey,
+          locale: params.locale,
         }),
       };
     }
@@ -3138,6 +3193,7 @@ async function completeChatSetupBootstrap(params: {
       email: updated.githubAuthEmail,
       repoKey: updated.repoKey,
       bootstrap: updated.bootstrap,
+      locale: params.locale,
     }),
   };
 }
@@ -3145,6 +3201,7 @@ async function completeChatSetupBootstrap(params: {
 async function continueChatSetupSession(params: {
   store: OpenClawCodeChatopsStore;
   session: ChatSetupSession;
+  locale?: OpenClawCodeLocale;
 }): Promise<string> {
   const synced = await syncChatSetupSession({
     store: params.store,
@@ -3165,6 +3222,7 @@ async function continueChatSetupSession(params: {
       const bootstrapped = await completeChatSetupBootstrap({
         store: params.store,
         session: completed.session,
+        locale: params.locale,
       });
       if (bootstrapped.message) {
         return bootstrapped.message;
@@ -3174,11 +3232,12 @@ async function continueChatSetupSession(params: {
       return completed.message;
     }
   }
-  return renderChatSetupSessionMessage(synced);
+  return renderChatSetupSessionMessage(synced, params.locale);
 }
 
 function renderChatSetupSessionMessage(
   synced: Awaited<ReturnType<typeof syncChatSetupSession>>,
+  locale?: OpenClawCodeLocale,
 ): string {
   if (isChatSetupBlueprintDraftSession(synced.session)) {
     return synced.session.stage === "awaiting-repo-choice"
@@ -3234,6 +3293,7 @@ function renderChatSetupSessionMessage(
       bootstrap: synced.session.bootstrap ?? {
         completedAt: new Date().toISOString(),
       },
+      locale,
     });
   }
   if (synced.session.stage === "github-authenticated" && synced.session.githubAuthSource) {
@@ -3243,6 +3303,7 @@ function renderChatSetupSessionMessage(
       name: synced.session.githubAuthName,
       email: synced.session.githubAuthEmail,
       repoKey: synced.session.repoKey,
+      locale,
     });
   }
   if (synced.status?.state === "pending") {
@@ -3250,6 +3311,7 @@ function renderChatSetupSessionMessage(
       verificationUri: synced.status.verificationUri,
       userCode: synced.status.userCode,
       selectionLabel: synced.session.repoKey ?? synced.session.pendingRepoName,
+      locale,
     });
   }
   return buildChatSetupFailedMessage({
@@ -3265,6 +3327,7 @@ function renderChatSetupSessionMessage(
       synced.session.lastFailure?.step === "repo-create" ||
       synced.session.lastFailure?.step === "bootstrap" ||
       synced.session.lastFailure?.step === "blueprint-sync",
+    locale,
   });
 }
 
@@ -3477,6 +3540,9 @@ async function proactivelyStartGitHubAuthForTargets(
   if (targets.length === 0) {
     return;
   }
+  const locale = resolveOpenClawCodeLocale({
+    pluginConfig: api.pluginConfig,
+  });
 
   for (const target of targets) {
     await autoAllowProactiveSetupTarget({
@@ -3540,6 +3606,7 @@ async function proactivelyStartGitHubAuthForTargets(
               reason,
               repoKey: target.repoKey,
               step: "github-auth",
+              locale,
             }),
           });
         } catch (sendError) {
@@ -3577,6 +3644,7 @@ async function proactivelyStartGitHubAuthForTargets(
           verificationUri: githubDeviceAuth.verificationUri ?? "https://github.com/login/device",
           userCode: githubDeviceAuth.userCode ?? "unknown",
           selectionLabel: target.repoKey,
+          locale,
         }),
       });
     } catch (error) {
@@ -3623,6 +3691,9 @@ async function processPendingSetupSessions(
   api: OpenClawPluginApi,
   store: OpenClawCodeChatopsStore,
 ): Promise<void> {
+  const locale = resolveOpenClawCodeLocale({
+    pluginConfig: api.pluginConfig,
+  });
   const sessions = await store.listSetupSessions();
   for (const session of sessions) {
     if (session.stage === "awaiting-chat-pairing") {
@@ -3639,6 +3710,7 @@ async function processPendingSetupSessions(
             ...session,
             updatedAt: new Date().toISOString(),
           },
+          locale,
         });
         await sendText({
           api,
@@ -3677,6 +3749,7 @@ async function processPendingSetupSessions(
     const message = await continueChatSetupSession({
       store,
       session: synced.session,
+      locale,
     });
     await sendText({
       api,
@@ -3709,6 +3782,9 @@ async function processSetupRecoveryNotifications(
   store: OpenClawCodeChatopsStore,
   repoConfigs: OpenClawCodeChatopsRepoConfig[],
 ): Promise<void> {
+  const locale = resolveOpenClawCodeLocale({
+    pluginConfig: api.pluginConfig,
+  });
   const sessions = await store.listSetupSessions();
   for (const session of sessions) {
     const bootstrap = session.bootstrap;
@@ -3822,6 +3898,7 @@ async function processSetupRecoveryNotifications(
             readiness: probe.readiness,
             pluginActivation: probe.pluginActivation,
             statusCommand: bootstrap.chatSetupStatusCommand,
+            locale,
           }),
         });
       } catch (error) {
@@ -4113,14 +4190,75 @@ function appendProviderPauseText(params: {
 function buildProviderPauseResumedMessage(params: {
   pause: ActiveProviderPause;
   issueKey: string;
+  locale?: OpenClawCodeLocale;
+}): string {
+  const locale = resolveOpenClawCodeLocale({
+    locale: params.locale,
+  });
+  return [
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: "openclawcode 在 provider 暂停恢复后继续处理队列。",
+      en: "openclawcode is resuming queue drain after the provider pause cleared.",
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `下一条 issue：${params.issueKey}`,
+      en: `Next issue: ${params.issueKey}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `上一段暂停窗口：${params.pause.until}`,
+      en: `Previous pause window: ${params.pause.until}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `恢复前最近失败：${params.pause.failureCount} 次 | 最后一次失败：${params.pause.lastFailureAt}`,
+      en: `Recent failures before recovery: ${params.pause.failureCount} | last failure: ${params.pause.lastFailureAt}`,
+    }),
+    localizeOpenClawCodeText({
+      locale,
+      zhCN: `原因：${params.pause.reason}`,
+      en: `Reason: ${params.pause.reason}`,
+    }),
+  ].join("\n");
+}
+
+function buildRunStartingNotificationMessage(params: {
+  issueKey: string;
+  locale?: OpenClawCodeLocale;
+}): string {
+  return localizeOpenClawCodeText({
+    locale: params.locale,
+    zhCN: `openclawcode 正在开始处理 ${params.issueKey}。`,
+    en: `openclawcode is starting ${params.issueKey}.`,
+  });
+}
+
+function buildRunFailedNotificationMessage(params: {
+  issueKey: string;
+  failure: string;
+  locale?: OpenClawCodeLocale;
 }): string {
   return [
-    "openclawcode is resuming queue drain after the provider pause cleared.",
-    `Next issue: ${params.issueKey}`,
-    `Previous pause window: ${params.pause.until}`,
-    `Recent failures before recovery: ${params.pause.failureCount} | last failure: ${params.pause.lastFailureAt}`,
-    `Reason: ${params.pause.reason}`,
+    localizeOpenClawCodeText({
+      locale: params.locale,
+      zhCN: `openclawcode 处理 ${params.issueKey} 失败了。`,
+      en: `openclawcode failed on ${params.issueKey}.`,
+    }),
+    params.failure,
   ].join("\n");
+}
+
+function buildRunParseFailedNotificationMessage(params: {
+  issueKey: string;
+  locale?: OpenClawCodeLocale;
+}): string {
+  return localizeOpenClawCodeText({
+    locale: params.locale,
+    zhCN: `openclawcode 已完成 ${params.issueKey}，但没能解析 workflow JSON 输出。`,
+    en: `openclawcode finished ${params.issueKey}, but could not parse the workflow JSON output.`,
+  });
 }
 
 function buildProviderFailureContextLines(params: {
@@ -5708,7 +5846,7 @@ function buildExecutionStartGateDeferredMessage(params: {
       ? "openclawcode created a new GitHub issue from chat, but execution start is currently gated."
       : params.source === "issue-materialization"
         ? "openclawcode materialized the next planned issue, but execution start is currently gated."
-      : "openclawcode received a new GitHub issue, but execution start is currently gated.",
+        : "openclawcode received a new GitHub issue, but execution start is currently gated.",
     `Issue: ${issueKey}`,
     `Title: ${params.issue.title}`,
     params.issue.url ? `URL: ${params.issue.url}` : undefined,
@@ -7980,8 +8118,12 @@ function scheduleNotification(params: {
   });
 }
 
-function buildFeishuOperatorBindingWelcomeMessage(): string {
-  const locale = resolveOpenClawCodeLocale();
+function buildFeishuOperatorBindingWelcomeMessage(params?: {
+  locale?: OpenClawCodeLocale;
+}): string {
+  const locale = resolveOpenClawCodeLocale({
+    locale: params?.locale,
+  });
   return [
     localizeOpenClawCodeText({
       locale,
@@ -8039,6 +8181,9 @@ async function finalizeFeishuOperatorBinding(params: {
   sendWelcomeMessage?: boolean;
   continueSetup: boolean;
 }): Promise<void> {
+  const locale = resolveOpenClawCodeLocale({
+    pluginConfig: params.api.pluginConfig,
+  });
   const stateDir = resolveCanonicalOpenClawStateDir();
   const openId = params.openId.trim();
   const accountId = params.accountId?.trim() || DEFAULT_ACCOUNT_ID;
@@ -8076,7 +8221,9 @@ async function finalizeFeishuOperatorBinding(params: {
         api: params.api,
         channel: "feishu",
         target,
-        text: buildFeishuOperatorBindingWelcomeMessage(),
+        text: buildFeishuOperatorBindingWelcomeMessage({
+          locale,
+        }),
       });
       await markFeishuOperatorWelcomeReceiptSent({
         stateDir,
@@ -9112,6 +9259,9 @@ async function processNextQueuedRun(
   if (!next) {
     return;
   }
+  const locale = resolveOpenClawCodeLocale({
+    pluginConfig: api.pluginConfig,
+  });
 
   workerActive = true;
   const startedAt = new Date().toISOString();
@@ -9124,6 +9274,7 @@ async function processNextQueuedRun(
         text: buildProviderPauseResumedMessage({
           pause: resumedProviderPause,
           issueKey: next.issueKey,
+          locale,
         }),
       });
     }
@@ -9131,7 +9282,10 @@ async function processNextQueuedRun(
       api,
       channel: next.notifyChannel,
       target: next.notifyTarget,
-      text: `openclawcode is starting ${next.issueKey}.`,
+      text: buildRunStartingNotificationMessage({
+        issueKey: next.issueKey,
+        locale,
+      }),
     });
 
     const argv = buildOpenClawCodeRunArgv(next.request);
@@ -9168,7 +9322,11 @@ async function processNextQueuedRun(
           api,
           channel: next.notifyChannel,
           target: next.notifyTarget,
-          text: `openclawcode failed on ${next.issueKey}.\n${failure}`,
+          text: buildRunFailedNotificationMessage({
+            issueKey: next.issueKey,
+            failure,
+            locale,
+          }),
         });
       }
       return;
@@ -9201,7 +9359,10 @@ async function processNextQueuedRun(
           api,
           channel: next.notifyChannel,
           target: next.notifyTarget,
-          text: `openclawcode finished ${next.issueKey}, but could not parse the workflow JSON output.`,
+          text: buildRunParseFailedNotificationMessage({
+            issueKey: next.issueKey,
+            locale,
+          }),
         });
       }
       return;
@@ -9262,7 +9423,11 @@ async function processNextQueuedRun(
         api,
         channel: next.notifyChannel,
         target: next.notifyTarget,
-        text: `openclawcode failed on ${next.issueKey}.\n${message}`,
+        text: buildRunFailedNotificationMessage({
+          issueKey: next.issueKey,
+          failure: message,
+          locale,
+        }),
       }).catch(() => undefined);
     }
   } finally {

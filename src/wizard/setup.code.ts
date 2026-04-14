@@ -3,6 +3,7 @@ import * as fs from "node:fs/promises";
 import path from "node:path";
 import { formatCliCommand } from "../cli/command-format.js";
 import type { OpenClawCodeBootstrapOpts } from "../commands/openclawcode.js";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type {
   CreateRepositoryRequest,
   GitHubAuthenticatedViewer,
@@ -67,6 +68,7 @@ export type OnboardingGitHubCliDeviceLoginStatus =
     };
 
 export type OnboardingProjectMode = "existing-repo" | "new-project";
+export type OpenClawCodeNotificationLocale = "zh-CN" | "en";
 
 export type OnboardingBootstrapSummary = {
   repo?: {
@@ -127,6 +129,80 @@ const DEFAULT_GITHUB_DEVICE_VERIFICATION_URI = "https://github.com/login/device"
 const GITHUB_DEVICE_CODE_PATTERN = /one-time code:\s*([A-Z0-9-]+)/i;
 const GITHUB_DEVICE_URI_PATTERN = /(https:\/\/github\.com\/login\/device)/i;
 
+function resolveConfiguredOpenClawCodeNotificationLocale(
+  config: OpenClawConfig | undefined,
+): OpenClawCodeNotificationLocale | undefined {
+  const raw = (
+    config?.plugins?.entries?.openclawcode as
+      | {
+          config?: {
+            defaultNotificationLocale?: unknown;
+          };
+        }
+      | undefined
+  )?.config?.defaultNotificationLocale;
+  if (typeof raw !== "string") {
+    return undefined;
+  }
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "zh" || normalized === "zh-cn") {
+    return "zh-CN";
+  }
+  if (normalized === "en") {
+    return "en";
+  }
+  return undefined;
+}
+
+function setConfiguredOpenClawCodeNotificationLocale(
+  config: OpenClawConfig,
+  locale: OpenClawCodeNotificationLocale,
+): void {
+  config.plugins ??= {};
+  config.plugins.entries ??= {};
+  const currentEntry = config.plugins.entries.openclawcode;
+  const currentPluginConfig = (
+    currentEntry as
+      | {
+          config?: Record<string, unknown>;
+        }
+      | undefined
+  )?.config;
+  config.plugins.entries.openclawcode = {
+    ...currentEntry,
+    config: {
+      ...currentPluginConfig,
+      defaultNotificationLocale: locale,
+    },
+  };
+}
+
+async function promptOpenClawCodeNotificationLocale(params: {
+  prompter: WizardPrompter;
+  nextConfig?: OpenClawConfig;
+}): Promise<void> {
+  if (!params.nextConfig) {
+    return;
+  }
+  const locale = await params.prompter.select<OpenClawCodeNotificationLocale>({
+    message: "OpenClaw Code notification language",
+    options: [
+      {
+        value: "zh-CN",
+        label: "中文",
+        hint: "Use Chinese for proactive OpenClaw Code notifications",
+      },
+      {
+        value: "en",
+        label: "English",
+        hint: "Use English for proactive OpenClaw Code notifications",
+      },
+    ],
+    initialValue: resolveConfiguredOpenClawCodeNotificationLocale(params.nextConfig) ?? "zh-CN",
+  });
+  setConfiguredOpenClawCodeNotificationLocale(params.nextConfig, locale);
+}
+
 function extractGitHubCliDeviceLoginDetails(output: string): {
   userCode?: string;
   verificationUri?: string;
@@ -182,6 +258,7 @@ export function formatOnboardingGitHubAuthSourceLabel(
     case "gh-auth-token":
       return "gh auth";
   }
+  return source;
 }
 
 function buildGitHubIdentityLines(params: {
@@ -558,8 +635,7 @@ async function fetchRepositorySummary(
     repo,
     description: payload.description ?? undefined,
     private: payload.private !== false,
-    defaultBranch:
-      typeof payload.default_branch === "string" ? payload.default_branch : undefined,
+    defaultBranch: typeof payload.default_branch === "string" ? payload.default_branch : undefined,
     url: payload.html_url?.trim() || `https://github.com/${owner}/${repo}`,
     updatedAt: typeof payload.updated_at === "string" ? payload.updated_at : undefined,
   };
@@ -886,7 +962,10 @@ async function handleNewRepositorySetup(params: {
     let doneMessage = "OpenClaw Code step finished.";
     try {
       progress.update(`Checking ${repoRef.owner}/${repoRef.repo}…`);
-      const existing = await onboardingOpenClawCodeDeps.fetchRepositorySummary(token.token, repoRef);
+      const existing = await onboardingOpenClawCodeDeps.fetchRepositorySummary(
+        token.token,
+        repoRef,
+      );
       if (existing) {
         await prompter.note(
           `${repoRef.owner}/${repoRef.repo} already exists. Enter a different repository name.`,
@@ -982,7 +1061,10 @@ async function handleExistingRepositorySetup(params: {
     let doneMessage = "OpenClaw Code step finished.";
     try {
       progress.update(`Checking ${repoRef.owner}/${repoRef.repo}…`);
-      const existing = await onboardingOpenClawCodeDeps.fetchRepositorySummary(token.token, repoRef);
+      const existing = await onboardingOpenClawCodeDeps.fetchRepositorySummary(
+        token.token,
+        repoRef,
+      );
       if (!existing) {
         await prompter.note(
           `${repoRef.owner}/${repoRef.repo} was not found or is not accessible with the current GitHub login.`,
@@ -1028,8 +1110,13 @@ async function handleExistingRepositorySetup(params: {
 
 export async function runOnboardingOpenClawCode(params: {
   prompter: WizardPrompter;
+  nextConfig?: OpenClawConfig;
 }): Promise<void> {
   const { prompter } = params;
+  await promptOpenClawCodeNotificationLocale({
+    prompter,
+    nextConfig: params.nextConfig,
+  });
   const resolvedToken = onboardingOpenClawCodeDeps.resolveGitHubToken();
   if (!resolvedToken) {
     await prompter.note(
@@ -1041,7 +1128,7 @@ export async function runOnboardingOpenClawCode(params: {
         "OpenClaw will launch GitHub device auth for you and continue setup in chat.",
         `CLI fallback: ${formatCliCommand("gh auth login")}`,
         "Then rerun onboarding or use OpenClaw Code later with:",
-        `  ${formatCliCommand('openclaw code bootstrap --repo owner/repo --json')}`,
+        `  ${formatCliCommand("openclaw code bootstrap --repo owner/repo --json")}`,
         "Docs: https://docs.openclaw.ai/cli/code",
       ].join("\n"),
       "OpenClaw Code",
@@ -1083,10 +1170,9 @@ export async function runOnboardingOpenClawCode(params: {
 
   if (choice === "skip") {
     await prompter.note(
-      [
-        ...buildGitHubIdentityLines(confirmedIdentity),
-        ...buildOpenClawCodeLaterActionLines(),
-      ].join("\n"),
+      [...buildGitHubIdentityLines(confirmedIdentity), ...buildOpenClawCodeLaterActionLines()].join(
+        "\n",
+      ),
       "OpenClaw Code",
     );
     return;

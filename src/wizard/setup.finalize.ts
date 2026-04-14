@@ -28,17 +28,17 @@ import { describeGatewayServiceRestart, resolveGatewayService } from "../daemon/
 import { isSystemdUserServiceAvailable } from "../daemon/systemd.js";
 import { ensureControlUiAssetsBuilt } from "../infra/control-ui-assets.js";
 import { formatErrorMessage } from "../infra/errors.js";
-import type { OutputRuntimeEnv, RuntimeEnv } from "../runtime.js";
-import { restoreTerminalState } from "../terminal/restore.js";
-import { runTui } from "../tui/tui.js";
-import { resolveUserPath } from "../utils.js";
-import { listConfiguredWebSearchProviders } from "../web-search/runtime.js";
 import {
   buildFeishuBotOpenUrl,
   getFeishuTransportReady,
   getPendingFeishuOperatorScanCode,
 } from "../operator-chat-targets/feishu-scan-code.js";
 import { getPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
+import type { OutputRuntimeEnv, RuntimeEnv } from "../runtime.js";
+import { restoreTerminalState } from "../terminal/restore.js";
+import { runTui } from "../tui/tui.js";
+import { resolveUserPath } from "../utils.js";
+import { listConfiguredWebSearchProviders } from "../web-search/runtime.js";
 import type { WizardPrompter } from "./prompts.js";
 import { setupWizardShellCompletion } from "./setup.completion.js";
 
@@ -49,11 +49,11 @@ function writeRuntimeStdout(runtime: RuntimeEnv, value: string) {
   }
   runtime.log(value);
 }
-import { resolveSetupSecretInputString } from "./setup.secret-input.js";
-import { runOnboardingOpenClawCode } from "./setup.code.js";
-import type { GatewayWizardSettings, WizardFlow } from "./setup.types.js";
 import { inspectFeishuCredentials } from "../../extensions/feishu/src/accounts.js";
 import type { FeishuConfig } from "../../extensions/feishu/src/types.js";
+import { runOnboardingOpenClawCode } from "./setup.code.js";
+import { resolveSetupSecretInputString } from "./setup.secret-input.js";
+import type { GatewayWizardSettings, WizardFlow } from "./setup.types.js";
 
 type FinalizeOnboardingOptions = {
   flow: WizardFlow;
@@ -69,7 +69,9 @@ type FinalizeOnboardingOptions = {
 const FEISHU_SCAN_DISPLAY_WAIT_MS = 60_000;
 const FEISHU_SCAN_DISPLAY_POLL_MS = 500;
 
-function resolveFeishuOperatorBindingMode(cfg: OpenClawConfig): "email" | "mobile" | "scan" | undefined {
+function resolveFeishuOperatorBindingMode(
+  cfg: OpenClawConfig,
+): "email" | "mobile" | "scan" | undefined {
   const binding = (
     cfg.plugins?.entries?.openclawcode as
       | { config?: { feishuOperatorBinding?: Record<string, unknown> } }
@@ -767,7 +769,10 @@ export async function finalizeSetupWizard(
     }
   }
 
-  await runOnboardingOpenClawCode({ prompter });
+  await runOnboardingOpenClawCode({
+    prompter,
+    nextConfig,
+  });
   if (codexNativeSummary) {
     await prompter.note(
       [

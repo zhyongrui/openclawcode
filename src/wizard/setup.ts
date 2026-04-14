@@ -673,6 +673,7 @@ export async function runSetupWizard(
     prompter,
     runtime,
   });
+  await writeConfigFile(nextConfig);
   if (launchedTui) {
     return;
   }

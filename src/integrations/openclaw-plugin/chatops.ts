@@ -70,6 +70,7 @@ export interface OpenClawCodeFeishuOperatorBindingConfig {
 export interface OpenClawCodePluginConfig {
   githubWebhookSecretEnv?: string;
   pollIntervalMs?: number;
+  defaultNotificationLocale?: "zh-CN" | "en";
   repos: OpenClawCodeChatopsRepoConfig[];
   feishuOperatorBinding?: OpenClawCodeFeishuOperatorBindingConfig;
 }
@@ -165,6 +166,20 @@ function readPositiveInteger(value: unknown): number | undefined {
   }
   const rounded = Math.floor(value);
   return rounded > 0 ? rounded : undefined;
+}
+
+function readOpenClawCodeNotificationLocale(value: unknown): "zh-CN" | "en" | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "zh" || normalized === "zh-cn") {
+    return "zh-CN";
+  }
+  if (normalized === "en") {
+    return "en";
+  }
+  return undefined;
 }
 
 function readTriggerMode(value: unknown): "approve" | "auto" | undefined {
@@ -318,6 +333,9 @@ export function resolveOpenClawCodePluginConfig(
   return {
     githubWebhookSecretEnv: readString(pluginConfig?.githubWebhookSecretEnv),
     pollIntervalMs: readPositiveInteger(pluginConfig?.pollIntervalMs),
+    defaultNotificationLocale: readOpenClawCodeNotificationLocale(
+      pluginConfig?.defaultNotificationLocale,
+    ),
     repos,
     feishuOperatorBinding,
   };
