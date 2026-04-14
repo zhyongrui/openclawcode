@@ -71,6 +71,8 @@ export type OnboardingGitHubCliDeviceLoginStatus =
 export type OnboardingProjectMode = "existing-repo" | "new-project";
 export type OpenClawCodeNotificationLocale = "zh-CN" | "en";
 
+const DEFAULT_OPENCLAWCODE_NOTIFICATION_LOCALE: OpenClawCodeNotificationLocale = "en";
+
 export type OnboardingBootstrapSummary = {
   repo?: {
     owner?: string;
@@ -199,7 +201,9 @@ async function promptOpenClawCodeNotificationLocale(params: {
         hint: "Use English for proactive OpenClaw Code notifications",
       },
     ],
-    initialValue: resolveConfiguredOpenClawCodeNotificationLocale(params.nextConfig) ?? "zh-CN",
+    initialValue:
+      resolveConfiguredOpenClawCodeNotificationLocale(params.nextConfig) ??
+      DEFAULT_OPENCLAWCODE_NOTIFICATION_LOCALE,
   });
   setConfiguredOpenClawCodeNotificationLocale(params.nextConfig, locale);
 }

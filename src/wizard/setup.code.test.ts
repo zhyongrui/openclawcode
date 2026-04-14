@@ -136,6 +136,67 @@ describe("runOnboardingOpenClawCode", () => {
     expect(nextConfig.plugins?.entries?.openclawcode?.config?.defaultNotificationLocale).toBe("en");
   });
 
+  it("defaults the onboarding notification language prompt to English with no skip option", async () => {
+    onboardingOpenClawCodeDeps.resolveGitHubToken = vi.fn(
+      () =>
+        ({
+          token: "gho_test",
+          source: "gh-auth-token",
+        }) satisfies ResolvedOnboardingGitHubToken,
+    );
+    const nextConfig: OpenClawConfig = {
+      plugins: {
+        entries: {
+          openclawcode: {
+            enabled: true,
+            config: {},
+          },
+        },
+      },
+    };
+    const selectMock = vi.fn(
+      async (params: {
+        message: string;
+        initialValue?: string;
+        options?: Array<{ value: string; label: string }>;
+      }) => {
+        if (params.message === "OpenClaw Code notification language") {
+          return params.initialValue;
+        }
+        if (params.message === "GitHub account for OpenClaw Code") {
+          return "use-existing";
+        }
+        if (params.message === "OpenClaw Code repo setup") {
+          return "skip";
+        }
+        return "skip";
+      },
+    );
+    const prompter = buildWizardPrompter({ select: selectMock as never });
+
+    await runOnboardingOpenClawCode({
+      prompter,
+      nextConfig,
+    });
+
+    const promptCall = selectMock.mock.calls.find(
+      (call: Array<{ message?: string }>) =>
+        call[0]?.message === "OpenClaw Code notification language",
+    )?.[0] as
+      | {
+          initialValue?: string;
+          options?: Array<{ value: string; label: string }>;
+        }
+      | undefined;
+
+    expect(promptCall?.initialValue).toBe("en");
+    expect(promptCall?.options?.map(({ value, label }) => ({ value, label }))).toEqual([
+      { value: "zh-CN", label: "中文" },
+      { value: "en", label: "English" },
+    ]);
+    expect(nextConfig.plugins?.entries?.openclawcode?.config?.defaultNotificationLocale).toBe("en");
+  });
+
   it("creates and bootstraps a new repo with a placeholder empty-repo test command", async () => {
     onboardingOpenClawCodeDeps.resolveGitHubToken = vi.fn(
       () =>
