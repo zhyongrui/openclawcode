@@ -18,6 +18,12 @@ This doc is a “how we test” guide:
 - How live tests discover credentials and select models/providers
 - How to add regressions for real-world model/provider issues
 
+Related:
+
+- [Full-Suite Regression Playbook](/help/full-suite-regression-playbook) for
+  the common "single test is green, owning shard/full suite is red" failure
+  mode and the concrete test-isolation rules that came out of issue `149`
+
 ## Quick start
 
 Most days:
