@@ -1,8 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import qrcode from "qrcode-terminal";
-import { inspectFeishuCredentials } from "../../extensions/feishu/api.js";
-import type { FeishuConfig } from "../../extensions/feishu/api.js";
 import { DEFAULT_BOOTSTRAP_FILENAME } from "../agents/workspace.js";
 import { formatCliCommand } from "../cli/command-format.js";
 import {
@@ -30,28 +27,14 @@ import { describeGatewayServiceRestart, resolveGatewayService } from "../daemon/
 import { isSystemdUserServiceAvailable } from "../daemon/systemd.js";
 import { ensureControlUiAssetsBuilt } from "../infra/control-ui-assets.js";
 import { formatErrorMessage } from "../infra/errors.js";
-import {
-  buildFeishuBotOpenUrl,
-  getFeishuTransportReady,
-  getPendingFeishuOperatorScanCode,
-} from "../operator-chat-targets/feishu-scan-code.js";
-import { getPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
-import type { OutputRuntimeEnv, RuntimeEnv } from "../runtime.js";
+import type { RuntimeEnv } from "../runtime.js";
 import { restoreTerminalState } from "../terminal/restore.js";
 import { runTui } from "../tui/tui.js";
 import { resolveUserPath } from "../utils.js";
 import { listConfiguredWebSearchProviders } from "../web-search/runtime.js";
 import type { WizardPrompter } from "./prompts.js";
-import { setupWizardShellCompletion } from "./setup.completion.js";
-
-function writeRuntimeStdout(runtime: RuntimeEnv, value: string) {
-  if (typeof (runtime as Partial<OutputRuntimeEnv>).writeStdout === "function") {
-    (runtime as OutputRuntimeEnv).writeStdout(value);
-    return;
-  }
-  runtime.log(value);
-}
 import { runOnboardingOpenClawCode } from "./setup.code.js";
+import { setupWizardShellCompletion } from "./setup.completion.js";
 import { resolveSetupSecretInputString } from "./setup.secret-input.js";
 import type { GatewayWizardSettings, WizardFlow } from "./setup.types.js";
 
@@ -65,123 +48,6 @@ type FinalizeOnboardingOptions = {
   prompter: WizardPrompter;
   runtime: RuntimeEnv;
 };
-
-const FEISHU_SCAN_DISPLAY_WAIT_MS = 60_000;
-const FEISHU_SCAN_DISPLAY_POLL_MS = 500;
-
-function resolveFeishuOperatorBindingMode(
-  cfg: OpenClawConfig,
-): "email" | "mobile" | "scan" | undefined {
-  const binding = (
-    cfg.plugins?.entries?.openclawcode as
-      | { config?: { feishuOperatorBinding?: Record<string, unknown> } }
-      | undefined
-  )?.config?.feishuOperatorBinding;
-  if (!binding || typeof binding !== "object") {
-    return undefined;
-  }
-  const mode = typeof binding.mode === "string" ? binding.mode.trim() : "";
-  if (mode === "scan" || mode === "email" || mode === "mobile") {
-    return mode;
-  }
-  if (typeof binding.email === "string" && binding.email.trim()) {
-    return "email";
-  }
-  if (typeof binding.mobile === "string" && binding.mobile.trim()) {
-    return "mobile";
-  }
-  return undefined;
-}
-
-function renderQrAscii(data: string): Promise<string> {
-  return new Promise((resolve) => {
-    qrcode.generate(data, { small: true }, (output: string) => {
-      resolve(output);
-    });
-  });
-}
-
-async function waitForFeishuScanAndCodeReady(params: {
-  cfg: OpenClawConfig;
-  runtime: RuntimeEnv;
-  prompter: WizardPrompter;
-}): Promise<void> {
-  if (resolveFeishuOperatorBindingMode(params.cfg) !== "scan") {
-    return;
-  }
-
-  const feishuCfg = params.cfg.channels?.feishu as FeishuConfig | undefined;
-  const creds = inspectFeishuCredentials(feishuCfg);
-  if (!creds?.appId) {
-    throw new Error("Feishu scan-and-code was selected, but channels.feishu.appId is unavailable.");
-  }
-
-  const accountId = "default";
-  const botUrl = buildFeishuBotOpenUrl({
-    appId: creds.appId,
-    domain: creds.domain,
-  });
-  const existingTarget = await getPreferredOperatorChatTarget({
-    channel: "feishu",
-    accountId,
-  });
-  if (existingTarget) {
-    await params.prompter.note(
-      [
-        `Feishu operator already configured as ${existingTarget.target}.`,
-        "Skipping scan-and-code because there is no pending code to claim.",
-        "Clear the existing Feishu operator target first if you want to test this flow again.",
-      ].join("\n"),
-      "Feishu scan-and-code",
-    );
-    return;
-  }
-
-  let readyCode: string | undefined;
-  const progress = params.prompter.progress("Feishu scan-and-code");
-  try {
-    progress.update("Waiting for Feishu bot startup…");
-    const deadline = Date.now() + FEISHU_SCAN_DISPLAY_WAIT_MS;
-    while (Date.now() < deadline) {
-      const [transportReady, pendingCode] = await Promise.all([
-        getFeishuTransportReady({ accountId }),
-        getPendingFeishuOperatorScanCode({ accountId }),
-      ]);
-      if (transportReady && pendingCode?.code) {
-        readyCode = pendingCode.code;
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, FEISHU_SCAN_DISPLAY_POLL_MS));
-    }
-  } finally {
-    progress.stop(readyCode ? "Feishu scan-and-code ready." : "Feishu scan-and-code not ready.");
-  }
-
-  if (!readyCode) {
-    throw new Error(
-      "Feishu scan-and-code was selected, but Gateway did not become ready to receive the code within 60 seconds.",
-    );
-  }
-
-  await params.prompter.note(
-    "Gateway and Feishu are ready. Scan the bot, then send the one-time code in a direct message.",
-    "Feishu scan-and-code",
-  );
-  const qrAscii = await renderQrAscii(botUrl);
-  writeRuntimeStdout(
-    params.runtime,
-    [
-      "",
-      "Feishu scan-and-code",
-      "",
-      qrAscii.trimEnd(),
-      "",
-      `One-time code: ${readyCode}`,
-      `Bot link: ${botUrl}`,
-      "",
-    ].join("\n"),
-  );
-}
 
 export async function finalizeSetupWizard(
   options: FinalizeOnboardingOptions,
@@ -509,16 +375,6 @@ export async function finalizeSetupWizard(
   let seededInBackground = false;
   let hatchChoice: "tui" | "web" | "later" | null = null;
   let launchedTui = false;
-  const shouldDisplayFeishuScanBeforeHatch = !opts.skipUi && gatewayProbe.ok;
-
-  if (!shouldDisplayFeishuScanBeforeHatch) {
-    await waitForFeishuScanAndCodeReady({
-      cfg: nextConfig,
-      runtime,
-      prompter,
-    });
-  }
-
   if (!opts.skipUi && gatewayProbe.ok) {
     if (hasBootstrap) {
       await prompter.note(
@@ -544,12 +400,6 @@ export async function finalizeSetupWizard(
       ].join("\n"),
       "Token",
     );
-
-    await waitForFeishuScanAndCodeReady({
-      cfg: nextConfig,
-      runtime,
-      prompter,
-    });
 
     hatchChoice = await prompter.select({
       message: "How do you want to hatch your bot?",

@@ -21,6 +21,12 @@ vi.mock("./app-registration.js", () => ({
   getAppOwnerOpenId: vi.fn(async () => undefined),
 }));
 
+import {
+  beginAppRegistration,
+  initAppRegistration,
+  pollAppRegistration,
+  printQrCode,
+} from "./app-registration.js";
 import { feishuPlugin } from "./channel.js";
 
 const baseStatusContext = {
@@ -98,6 +104,76 @@ describe("feishu setup wizard", () => {
         runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
       }),
     ).resolves.toBeTruthy();
+  });
+
+  it("uses scan-to-create open_id as the openclawcode operator binding target", async () => {
+    vi.mocked(initAppRegistration).mockResolvedValueOnce(undefined);
+    vi.mocked(beginAppRegistration).mockResolvedValueOnce({
+      deviceCode: "dev-123",
+      qrUrl: "https://example.com/qr",
+      userCode: "user-123",
+      interval: 1,
+      expireIn: 60,
+    });
+    vi.mocked(printQrCode).mockResolvedValueOnce(undefined);
+    vi.mocked(pollAppRegistration).mockResolvedValueOnce({
+      status: "success",
+      result: {
+        appId: "cli_from_scan",
+        appSecret: "secret_from_scan",
+        domain: "feishu",
+        openId: "ou_scanned_owner",
+      },
+    });
+
+    const text = vi.fn(async ({ message }: { message: string }) => {
+      if (message === "Group chat allowlist (chat_ids)") {
+        return "";
+      }
+      throw new Error(`Unexpected prompt: ${message}`);
+    });
+    const prompter = createTestWizardPrompter({
+      text,
+      confirm: vi.fn(async () => true),
+      select: vi.fn(async ({ message }: { message: string }) => {
+        if (message === "Group chat policy") {
+          return "allowlist";
+        }
+        throw new Error(`Unexpected select prompt: ${message}`);
+      }) as never,
+    });
+
+    const result = await runSetupWizardConfigure({
+      configure: feishuConfigure,
+      cfg: {
+        plugins: {
+          entries: {
+            openclawcode: {
+              enabled: true,
+            },
+          },
+        },
+      } as never,
+      prompter,
+      runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
+    });
+
+    expect(result.cfg.channels?.feishu).toMatchObject({
+      appId: "cli_from_scan",
+      connectionMode: "websocket",
+      allowFrom: ["ou_scanned_owner"],
+      dmPolicy: "allowlist",
+    });
+    expect(
+      (
+        result.cfg.plugins?.entries?.openclawcode as
+          | { config?: { feishuOperatorBinding?: Record<string, unknown> } }
+          | undefined
+      )?.config?.feishuOperatorBinding,
+    ).toEqual({
+      mode: "open_id",
+      openId: "ou_scanned_owner",
+    });
   });
 });
 

@@ -188,7 +188,38 @@ describe("openclawcode chatops run request plumbing", () => {
       email: "owner@example.com",
       mobile: undefined,
       mode: "email",
+      openId: undefined,
       sendWelcomeMessage: false,
+    });
+  });
+
+  it("parses a direct Feishu operator open_id binding", () => {
+    const config = resolveOpenClawCodePluginConfig({
+      feishuOperatorBinding: {
+        accountId: "ops",
+        openId: "ou_scanned_owner",
+      },
+      repos: [
+        {
+          owner: "zhyongrui",
+          repo: "openclawcode",
+          repoRoot: "/repo",
+          notifyChannel: "feishu",
+          notifyTarget: "bind-pending:zhyongrui/openclawcode",
+          builderAgent: "main-builder",
+          verifierAgent: "main-verifier",
+          testCommands: ["pnpm test"],
+        },
+      ],
+    });
+
+    expect(config.feishuOperatorBinding).toEqual({
+      accountId: "ops",
+      email: undefined,
+      mobile: undefined,
+      mode: "open_id",
+      openId: "ou_scanned_owner",
+      sendWelcomeMessage: undefined,
     });
   });
 

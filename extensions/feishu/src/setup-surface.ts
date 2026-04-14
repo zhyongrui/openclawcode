@@ -59,9 +59,10 @@ function resolveConfiguredFeishuOperatorContactBinding(params: {
 }):
   | {
       accountId?: string;
-      mode: "email" | "mobile" | "scan";
+      mode: "email" | "mobile" | "open_id" | "scan";
       email?: string;
       mobile?: string;
+      openId?: string;
     }
   | undefined {
   const binding = (
@@ -77,21 +78,25 @@ function resolveConfiguredFeishuOperatorContactBinding(params: {
     return undefined;
   }
   const mode =
-    normalizeString(binding.mode) === "scan"
-      ? "scan"
-      : normalizeString(binding.mode) === "mobile"
-        ? "mobile"
-        : "email";
+    normalizeString(binding.mode) === "open_id"
+      ? "open_id"
+      : normalizeString(binding.mode) === "scan"
+        ? "scan"
+        : normalizeString(binding.mode) === "mobile"
+          ? "mobile"
+          : "email";
   const email = normalizeString(binding.email);
   const mobile = normalizeString(binding.mobile);
-  if (!email && !mobile && mode !== "scan") {
+  const openId = normalizeString(binding.openId);
+  if (!email && !mobile && !openId && mode !== "scan") {
     return undefined;
   }
   return {
     accountId,
-    mode: email ? "email" : mobile ? "mobile" : mode,
+    mode: openId ? "open_id" : email ? "email" : mobile ? "mobile" : mode,
     email,
     mobile,
+    openId,
   };
 }
 
@@ -99,9 +104,10 @@ function patchOpenClawCodeFeishuOperatorContactBinding(params: {
   cfg: OpenClawConfig;
   binding?: {
     accountId?: string;
-    mode?: "email" | "mobile" | "scan";
+    mode?: "email" | "mobile" | "open_id" | "scan";
     email?: string;
     mobile?: string;
+    openId?: string;
   };
 }): OpenClawConfig {
   const entries =
@@ -126,6 +132,7 @@ function patchOpenClawCodeFeishuOperatorContactBinding(params: {
       ...(params.binding.mode ? { mode: params.binding.mode } : {}),
       ...(params.binding.email ? { email: params.binding.email } : {}),
       ...(params.binding.mobile ? { mobile: params.binding.mobile } : {}),
+      ...(params.binding.openId ? { openId: params.binding.openId } : {}),
     };
   } else {
     delete existingConfig.feishuOperatorBinding;
@@ -164,27 +171,22 @@ async function promptFeishuOperatorContactBinding(params: {
     options: [
       { value: "email", label: "Work email (Recommended)" },
       { value: "mobile", label: "Mobile number" },
-      { value: "scan", label: "Scan bot and send code" },
       { value: "skip", label: "Skip for now" },
     ],
     initialValue:
-      existing?.mode ?? (existing?.email ? "email" : existing?.mobile ? "mobile" : "email"),
-  })) as "email" | "mobile" | "scan" | "skip";
+      existing?.mode === "email" || existing?.mode === "mobile"
+        ? existing.mode
+        : existing?.email
+          ? "email"
+          : existing?.mobile
+            ? "mobile"
+            : "email",
+  })) as "email" | "mobile" | "skip";
 
   if (bindingMode === "skip") {
     return patchOpenClawCodeFeishuOperatorContactBinding({
       cfg: params.cfg,
       binding: undefined,
-    });
-  }
-
-  if (bindingMode === "scan") {
-    return patchOpenClawCodeFeishuOperatorContactBinding({
-      cfg: params.cfg,
-      binding: {
-        ...(params.accountId !== DEFAULT_ACCOUNT_ID ? { accountId: params.accountId } : {}),
-        mode: "scan",
-      },
     });
   }
 
@@ -226,12 +228,22 @@ async function noteFeishuOperatorBinding(params: {
     accountId: params.accountId,
   });
   if (configuredContactBinding) {
+    if (configuredContactBinding.mode === "open_id" && configuredContactBinding.openId) {
+      await params.prompter.note(
+        [
+          "OpenClaw will use the Feishu account from setup scan-to-create.",
+          `Open ID: ${configuredContactBinding.openId}`,
+          "After startup, OpenClaw will bind this account and use it for the first welcome message and later notifications.",
+        ].join("\n"),
+        "Find you on Feishu",
+      );
+      return;
+    }
     if (configuredContactBinding.mode === "scan") {
       await params.prompter.note(
         [
-          "OpenClaw will wait until startup before showing the Feishu bot QR code and one-time code.",
-          "This wizard will not show the QR code too early.",
-          "Once Gateway and Feishu are ready, scan the bot and send the code to finish setup.",
+          "Legacy delayed Feishu scan-and-code is still configured.",
+          "Rerun setup and complete Feishu scan-to-create if you want OpenClaw to bind the scanned account directly.",
         ].join("\n"),
         "Find you on Feishu",
       );
@@ -254,7 +266,7 @@ async function noteFeishuOperatorBinding(params: {
   await params.prompter.note(
     [
       "OpenClaw does not yet know how to find you on Feishu.",
-      "If you want it to send the first welcome message and later notifications, rerun setup and provide your work email, mobile number, or choose scan bot and send code.",
+      "If you want it to send the first welcome message and later notifications, rerun setup and complete Feishu scan-to-create, or provide your work email/mobile.",
     ].join("\n"),
     "Find you on Feishu",
   );
@@ -651,11 +663,22 @@ async function runNewAppFlow(params: {
     }
   }
 
-  next = await promptFeishuOperatorContactBinding({
-    cfg: next,
-    accountId: targetAccountId,
-    prompter,
-  });
+  if (scanOpenId && hasOpenClawCodePluginEntry(next)) {
+    next = patchOpenClawCodeFeishuOperatorContactBinding({
+      cfg: next,
+      binding: {
+        ...(targetAccountId !== DEFAULT_ACCOUNT_ID ? { accountId: targetAccountId } : {}),
+        mode: "open_id",
+        openId: scanOpenId,
+      },
+    });
+  } else {
+    next = await promptFeishuOperatorContactBinding({
+      cfg: next,
+      accountId: targetAccountId,
+      prompter,
+    });
+  }
 
   await noteFeishuOperatorBinding({
     cfg: next,

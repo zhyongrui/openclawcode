@@ -22,9 +22,10 @@
         "additionalProperties": false,
         "properties": {
           "accountId": { "type": "string" },
-          "mode": { "type": "string", "enum": ["email", "mobile", "scan"] },
+          "mode": { "type": "string", "enum": ["email", "mobile", "open_id", "scan"] },
           "email": { "type": "string" },
           "mobile": { "type": "string" },
+          "openId": { "type": "string" },
           "sendWelcomeMessage": { "type": "boolean" }
         }
       },
@@ -90,7 +91,7 @@
     },
     "feishuOperatorBinding": {
       "label": "Feishu Operator Binding",
-      "help": "Optional Feishu operator discovery settings for contact lookup or delayed scan-and-code fallback."
+      "help": "Optional Feishu operator discovery settings for contact lookup or direct scanned open_id binding."
     }
   }
 }

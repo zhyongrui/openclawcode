@@ -8259,6 +8259,25 @@ async function maybeAutoBindConfiguredFeishuOperator(params: {
   bindingConfig?: OpenClawCodeFeishuOperatorBindingConfig;
 }): Promise<void> {
   const bindingConfig = params.bindingConfig;
+  if (bindingConfig?.openId) {
+    try {
+      await finalizeFeishuOperatorBinding({
+        api: params.api,
+        store: params.store,
+        openId: bindingConfig.openId,
+        accountId: bindingConfig.accountId,
+        source: "feishu-open-id-binding",
+        sendWelcomeMessage: bindingConfig.sendWelcomeMessage,
+        continueSetup: false,
+      });
+    } catch (error) {
+      params.api.logger.warn(
+        `openclawcode failed to persist configured feishu operator open_id binding for ${bindingConfig.openId}: ${String(error)}`,
+      );
+    }
+    return;
+  }
+
   if (!bindingConfig?.email && !bindingConfig?.mobile) {
     return;
   }

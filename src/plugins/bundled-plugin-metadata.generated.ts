@@ -4662,12 +4662,15 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
               },
               mode: {
                 type: "string",
-                enum: ["email", "mobile", "scan"],
+                enum: ["email", "mobile", "open_id", "scan"],
               },
               email: {
                 type: "string",
               },
               mobile: {
+                type: "string",
+              },
+              openId: {
                 type: "string",
               },
               sendWelcomeMessage: {
@@ -4763,7 +4766,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
         },
         feishuOperatorBinding: {
           label: "Feishu Operator Binding",
-          help: "Optional Feishu operator discovery settings for contact lookup or delayed scan-and-code fallback.",
+          help: "Optional Feishu operator discovery settings for contact lookup or direct scanned open_id binding.",
         },
       },
     },

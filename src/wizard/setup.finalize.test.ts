@@ -54,49 +54,6 @@ const hasKeyInEnv = vi.hoisted(() =>
 const listConfiguredWebSearchProviders = vi.hoisted(() =>
   vi.fn<(params?: { config?: OpenClawConfig }) => PluginWebSearchProviderEntry[]>(() => []),
 );
-const getFeishuTransportReady = vi.hoisted(() =>
-  vi.fn<() => Promise<{ accountId: string; readyAt: string } | undefined>>(async () => undefined),
-);
-const getPendingFeishuOperatorScanCode = vi.hoisted(() =>
-  vi.fn<
-    () => Promise<
-      | {
-          accountId: string;
-          code: string;
-          createdAt: string;
-          updatedAt: string;
-          expiresAt: string;
-        }
-      | undefined
-    >
-  >(async () => undefined),
-);
-const getPreferredOperatorChatTarget = vi.hoisted(() =>
-  vi.fn<
-    () => Promise<
-      | {
-          channel: string;
-          accountId: string;
-          target: string;
-          source?: string;
-          createdAt: string;
-          updatedAt: string;
-        }
-      | undefined
-    >
-  >(async () => undefined),
-);
-const buildFeishuBotOpenUrl = vi.hoisted(() =>
-  vi.fn(() => "https://applink.feishu.cn/client/bot/open?appId=cli_test"),
-);
-const inspectFeishuCredentials = vi.hoisted(() =>
-  vi.fn(() => ({ appId: "cli_test", domain: "feishu" })),
-);
-const qrGenerate = vi.hoisted(() =>
-  vi.fn((_input: unknown, _opts: unknown, cb: (output: string) => void) => {
-    cb("ASCII-QR");
-  }),
-);
 
 vi.mock("../commands/onboard-helpers.js", () => ({
   detectBrowserOpenSupport: vi.fn(async () => ({ ok: false })),
@@ -142,16 +99,6 @@ vi.mock("../commands/onboard-search.js", () => ({
 
 vi.mock("../web-search/runtime.js", () => ({
   listConfiguredWebSearchProviders,
-}));
-
-vi.mock("../operator-chat-targets/feishu-scan-code.js", () => ({
-  buildFeishuBotOpenUrl,
-  getFeishuTransportReady,
-  getPendingFeishuOperatorScanCode,
-}));
-
-vi.mock("../operator-chat-targets/store.js", () => ({
-  getPreferredOperatorChatTarget,
 }));
 
 vi.mock("../daemon/service.js", () => ({
@@ -205,16 +152,6 @@ vi.mock("./setup.completion.js", () => ({
 
 vi.mock("./setup.code.js", () => ({
   runOnboardingOpenClawCode,
-}));
-
-vi.mock("../../extensions/feishu/api.js", () => ({
-  inspectFeishuCredentials,
-}));
-
-vi.mock("qrcode-terminal", () => ({
-  default: {
-    generate: qrGenerate,
-  },
 }));
 
 import { finalizeSetupWizard } from "./setup.finalize.js";
@@ -337,19 +274,6 @@ describe("finalizeSetupWizard", () => {
     hasKeyInEnv.mockReturnValue(false);
     listConfiguredWebSearchProviders.mockReset();
     listConfiguredWebSearchProviders.mockReturnValue([]);
-    getFeishuTransportReady.mockReset();
-    getFeishuTransportReady.mockResolvedValue(undefined);
-    getPendingFeishuOperatorScanCode.mockReset();
-    getPendingFeishuOperatorScanCode.mockResolvedValue(undefined);
-    getPreferredOperatorChatTarget.mockReset();
-    getPreferredOperatorChatTarget.mockResolvedValue(undefined);
-    buildFeishuBotOpenUrl.mockReset();
-    buildFeishuBotOpenUrl.mockReturnValue(
-      "https://applink.feishu.cn/client/bot/open?appId=cli_test",
-    );
-    inspectFeishuCredentials.mockReset();
-    inspectFeishuCredentials.mockReturnValue({ appId: "cli_test", domain: "feishu" });
-    qrGenerate.mockClear();
   });
 
   it("resolves gateway password SecretRef for probe and TUI", async () => {
@@ -567,188 +491,6 @@ describe("finalizeSetupWizard", () => {
       }),
     );
     expect(whatNowIndex).toBeGreaterThanOrEqual(0);
-  });
-
-  it("prints the delayed Feishu scan QR and one-time code in the onboarding terminal", async () => {
-    const note = vi.fn(async () => {});
-    const select = vi.fn(async () => "later");
-    const progressUpdate = vi.fn();
-    const progressStop = vi.fn();
-    const prompter = buildWizardPrompter({
-      note,
-      select: select as never,
-      confirm: vi.fn(async () => false),
-      progress: vi.fn(() => ({ update: progressUpdate, stop: progressStop })),
-    });
-    const runtime = createRuntime();
-    getFeishuTransportReady.mockResolvedValue({
-      accountId: "default",
-      readyAt: "2026-03-28T00:00:00.000Z",
-    });
-    getPendingFeishuOperatorScanCode.mockResolvedValue({
-      accountId: "default",
-      code: "ABC123",
-      createdAt: "2026-03-28T00:00:00.000Z",
-      updatedAt: "2026-03-28T00:00:00.000Z",
-      expiresAt: "2026-03-28T00:30:00.000Z",
-    });
-
-    await finalizeSetupWizard({
-      flow: "advanced",
-      opts: {
-        acceptRisk: true,
-        authChoice: "skip",
-        installDaemon: false,
-        skipHealth: true,
-        skipUi: false,
-      },
-      baseConfig: {},
-      nextConfig: {
-        channels: {
-          feishu: {},
-        },
-        plugins: {
-          entries: {
-            openclawcode: {
-              config: {
-                feishuOperatorBinding: {
-                  mode: "scan",
-                },
-              },
-            },
-          },
-        },
-      },
-      workspaceDir: "/tmp",
-      settings: {
-        port: 18789,
-        bind: "loopback",
-        authMode: "token",
-        gatewayToken: undefined,
-        tailscaleMode: "off",
-        tailscaleResetOnExit: false,
-      },
-      prompter,
-      runtime,
-    });
-
-    const noteCalls = note.mock.calls as unknown[][];
-    const tokenNoteIndex = noteCalls.findIndex((call) => call[1] === "Token");
-    const scanNoteIndex = noteCalls.findIndex((call) => call[1] === "Feishu scan-and-code");
-    expect(progressUpdate).toHaveBeenCalledWith("Waiting for Feishu bot startup…");
-    expect(progressStop).toHaveBeenCalledWith("Feishu scan-and-code ready.");
-    expect(tokenNoteIndex).toBeGreaterThanOrEqual(0);
-    expect(scanNoteIndex).toBeGreaterThan(tokenNoteIndex);
-    expect(note.mock.invocationCallOrder[scanNoteIndex]).toBeLessThan(
-      select.mock.invocationCallOrder[0],
-    );
-    expect(note).toHaveBeenCalledWith(
-      "Gateway and Feishu are ready. Scan the bot, then send the one-time code in a direct message.",
-      "Feishu scan-and-code",
-    );
-    expect(runtime.writeStdout).toHaveBeenCalledWith(
-      expect.stringContaining("Feishu scan-and-code"),
-    );
-    expect(runtime.writeStdout).toHaveBeenCalledWith(expect.stringContaining("ASCII-QR"));
-    expect(runtime.writeStdout).toHaveBeenCalledWith(
-      expect.stringContaining("One-time code: ABC123"),
-    );
-    expect(runtime.writeStdout).toHaveBeenCalledWith(
-      expect.stringContaining("https://applink.feishu.cn/client/bot/open?appId=cli_test"),
-    );
-  });
-
-  it("fails when delayed Feishu scan mode never becomes ready", async () => {
-    let now = 0;
-    const dateNow = vi.spyOn(Date, "now").mockImplementation(() => now);
-    const setTimeoutSpy = vi
-      .spyOn(globalThis, "setTimeout")
-      .mockImplementation((...args: Parameters<typeof setTimeout>) => {
-        const [callback] = args;
-        now += 60_500;
-        if (typeof callback === "function") {
-          callback();
-        }
-        return 0 as unknown as ReturnType<typeof setTimeout>;
-      });
-    try {
-      const prompter = buildWizardPrompter({
-        select: vi.fn(async () => "later") as never,
-        confirm: vi.fn(async () => false),
-      });
-
-      await expect(
-        finalizeSetupWizard(
-          createAdvancedFinalizeArgs({
-            nextConfig: {
-              channels: {
-                feishu: {},
-              },
-              plugins: {
-                entries: {
-                  openclawcode: {
-                    config: {
-                      feishuOperatorBinding: {
-                        mode: "scan",
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            prompter,
-            runtime: createRuntime(),
-          }),
-        ),
-      ).rejects.toThrow(
-        "Feishu scan-and-code was selected, but Gateway did not become ready to receive the code within 60 seconds.",
-      );
-    } finally {
-      dateNow.mockRestore();
-      setTimeoutSpy.mockRestore();
-    }
-  });
-
-  it("skips delayed Feishu scan waiting when an operator is already bound", async () => {
-    const prompter = createLaterPrompter();
-    getPreferredOperatorChatTarget.mockResolvedValue({
-      channel: "feishu",
-      accountId: "default",
-      target: "user:ou_existing",
-      source: "feishu-scan-code",
-      createdAt: "2026-03-28T00:00:00.000Z",
-      updatedAt: "2026-03-28T00:00:00.000Z",
-    });
-
-    await finalizeSetupWizard(
-      createAdvancedFinalizeArgs({
-        nextConfig: {
-          channels: {
-            feishu: {},
-          },
-          plugins: {
-            entries: {
-              openclawcode: {
-                config: {
-                  feishuOperatorBinding: {
-                    mode: "scan",
-                  },
-                },
-              },
-            },
-          },
-        },
-        prompter,
-        runtime: createRuntime(),
-      }),
-    );
-
-    expect(getFeishuTransportReady).not.toHaveBeenCalled();
-    expect(getPendingFeishuOperatorScanCode).not.toHaveBeenCalled();
-    expect(prompter.note).toHaveBeenCalledWith(
-      expect.stringContaining("Feishu operator already configured as user:ou_existing."),
-      "Feishu scan-and-code",
-    );
   });
 
   it("reports selected providers blocked by plugin policy as unavailable", async () => {

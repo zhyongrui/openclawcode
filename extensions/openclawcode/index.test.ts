@@ -5358,6 +5358,78 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("auto-binds a configured Feishu operator open_id on service start", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-openid-bind-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      config: {
+        channels: {
+          feishu: {
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        feishuOperatorBinding: {
+          openId: "ou_scanned_owner",
+        },
+        repos: [
+          {
+            owner: "zhyongrui",
+            repo: "openclawcode",
+            repoRoot,
+            baseBranch: "main",
+            triggerMode: "approve",
+            notifyChannel: "feishu",
+            notifyTarget: "bind-pending:zhyongrui/openclawcode",
+            builderAgent: "main",
+            verifierAgent: "main",
+            testCommands: [
+              "pnpm exec vitest run --config vitest.openclawcode.config.mjs --pool threads",
+            ],
+          },
+        ],
+      },
+    });
+
+    try {
+      await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
+        await fixture.service?.start({
+          config: {},
+          stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        expect(mocked.resolveFeishuUserOpenIdByContact).not.toHaveBeenCalled();
+        expect(
+          await getPreferredOperatorChatTarget({
+            stateDir: fixture.stateDir,
+            channel: "feishu",
+          }),
+        ).toMatchObject({
+          channel: "feishu",
+          target: "user:ou_scanned_owner",
+          source: "feishu-open-id-binding",
+        });
+        await expect(
+          readChannelAllowFromStore("feishu", process.env, "default"),
+        ).resolves.toContain("ou_scanned_owner");
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_scanned_owner",
+              message: expect.stringContaining("我已经完成飞书绑定"),
+            }),
+          }),
+        );
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("prefers the configured notification locale for the Feishu operator welcome message", async () => {
     const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-contact-bind-"));
     const fixture = await registerPluginFixture({

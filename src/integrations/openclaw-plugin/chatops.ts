@@ -61,9 +61,10 @@ export interface OpenClawCodeChatopsRepoConfig {
 
 export interface OpenClawCodeFeishuOperatorBindingConfig {
   accountId?: string;
-  mode?: "email" | "mobile" | "scan";
+  mode?: "email" | "mobile" | "open_id" | "scan";
   email?: string;
   mobile?: string;
+  openId?: string;
   sendWelcomeMessage?: boolean;
 }
 
@@ -316,15 +317,19 @@ export function resolveOpenClawCodePluginConfig(
     const candidate = feishuOperatorBindingRaw as Record<string, unknown>;
     const modeRaw = readString(candidate.mode);
     const mode =
-      modeRaw === "email" || modeRaw === "mobile" || modeRaw === "scan" ? modeRaw : undefined;
+      modeRaw === "email" || modeRaw === "mobile" || modeRaw === "open_id" || modeRaw === "scan"
+        ? modeRaw
+        : undefined;
     const email = readString(candidate.email);
     const mobile = readString(candidate.mobile);
-    if (email || mobile || mode === "scan") {
+    const openId = readString(candidate.openId);
+    if (email || mobile || openId || mode === "scan") {
       feishuOperatorBinding = {
         accountId: readString(candidate.accountId),
-        mode: mode ?? (email ? "email" : mobile ? "mobile" : undefined),
+        mode: mode ?? (openId ? "open_id" : email ? "email" : mobile ? "mobile" : undefined),
         email,
         mobile,
+        openId,
         sendWelcomeMessage: readBoolean(candidate.sendWelcomeMessage),
       };
     }
