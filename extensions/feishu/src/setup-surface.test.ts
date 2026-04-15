@@ -175,6 +175,51 @@ describe("feishu setup wizard", () => {
       openId: "ou_scanned_owner",
     });
   });
+
+  it("does not ask for operator contact discovery when reusing an existing bot", async () => {
+    const note = vi.fn(async () => {});
+    const prompter = createTestWizardPrompter({
+      note,
+      text: vi.fn(async ({ message }: { message: string }) => {
+        throw new Error(`Unexpected text prompt: ${message}`);
+      }) as never,
+      select: vi.fn(async ({ message }: { message: string }) => {
+        throw new Error(`Unexpected select prompt: ${message}`);
+      }) as never,
+      confirm: vi.fn(async ({ message }: { message: string }) => {
+        if (message.includes("Use it for this setup?")) {
+          return true;
+        }
+        throw new Error(`Unexpected confirm prompt: ${message}`);
+      }),
+    });
+
+    const result = await runSetupWizardConfigure({
+      configure: feishuConfigure,
+      cfg: {
+        channels: {
+          feishu: {
+            appId: "cli_a9314eb9b5b95bef",
+            appSecret: "sample-app-credential", // pragma: allowlist secret
+          },
+        },
+        plugins: {
+          entries: {
+            openclawcode: {
+              enabled: true,
+            },
+          },
+        },
+      } as never,
+      prompter,
+      runtime: createNonExitingTypedRuntimeEnv<FeishuConfigureRuntime>(),
+    });
+
+    expect(result.cfg.channels?.feishu).toMatchObject({
+      appId: "cli_a9314eb9b5b95bef",
+    });
+    expect(note).toHaveBeenCalledWith("Bot configured.", "");
+  });
 });
 
 describe("feishu setup wizard status", () => {

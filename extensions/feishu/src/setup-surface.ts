@@ -752,18 +752,6 @@ async function runEditFlow(params: {
     return runNewAppFlow({ cfg: next, accountId: targetAccountId, prompter, options });
   }
 
-  next = await promptFeishuOperatorContactBinding({
-    cfg: next,
-    accountId: targetAccountId,
-    prompter,
-  });
-
-  await noteFeishuOperatorBinding({
-    cfg: next,
-    accountId: targetAccountId,
-    prompter,
-  });
-
   await prompter.note("Bot configured.", "");
 
   return { cfg: next };
