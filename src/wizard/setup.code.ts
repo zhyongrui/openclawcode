@@ -180,11 +180,14 @@ function setConfiguredOpenClawCodeNotificationLocale(
   };
 }
 
-async function promptOpenClawCodeNotificationLocale(params: {
+export async function ensureOpenClawCodeNotificationLocaleConfigured(params: {
   prompter: WizardPrompter;
   nextConfig?: OpenClawConfig;
 }): Promise<void> {
   if (!params.nextConfig) {
+    return;
+  }
+  if (resolveConfiguredOpenClawCodeNotificationLocale(params.nextConfig)) {
     return;
   }
   const locale = await params.prompter.select<OpenClawCodeNotificationLocale>({
@@ -1115,7 +1118,7 @@ export async function runOnboardingOpenClawCode(params: {
   nextConfig?: OpenClawConfig;
 }): Promise<void> {
   const { prompter } = params;
-  await promptOpenClawCodeNotificationLocale({
+  await ensureOpenClawCodeNotificationLocaleConfigured({
     prompter,
     nextConfig: params.nextConfig,
   });

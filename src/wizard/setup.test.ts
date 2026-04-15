@@ -76,6 +76,7 @@ const finalizeSetupWizard = vi.hoisted(() =>
 const listChannelPlugins = vi.hoisted(() => vi.fn(() => []));
 const logConfigUpdated = vi.hoisted(() => vi.fn(() => {}));
 const setupInternalHooks = vi.hoisted(() => vi.fn(async (cfg) => cfg));
+const ensureOpenClawCodeNotificationLocaleConfigured = vi.hoisted(() => vi.fn(async () => {}));
 
 const setupChannels = vi.hoisted(() => vi.fn(async (cfg) => cfg));
 const setupSkills = vi.hoisted(() => vi.fn(async (cfg) => cfg));
@@ -237,6 +238,10 @@ vi.mock("./setup.finalize.js", () => ({
   finalizeSetupWizard,
 }));
 
+vi.mock("./setup.code.js", () => ({
+  ensureOpenClawCodeNotificationLocaleConfigured,
+}));
+
 vi.mock("./setup.completion.js", () => ({
   setupWizardShellCompletion,
 }));
@@ -358,6 +363,55 @@ describe("runSetupWizard", () => {
     expect(persistedConfig?.plugins?.enabled).toBe(true);
     expect(persistedConfig?.plugins?.allow).toContain("openclawcode");
     expect(persistedConfig?.plugins?.entries?.openclawcode?.enabled).toBe(true);
+  });
+
+  it("configures the OpenClaw Code notification language before channel setup", async () => {
+    ensureOpenClawCodeNotificationLocaleConfigured.mockClear();
+    setupChannels.mockClear();
+    const callOrder: string[] = [];
+    ensureOpenClawCodeNotificationLocaleConfigured.mockImplementationOnce((async (args: {
+      nextConfig: OpenClawConfig;
+    }) => {
+      const { nextConfig } = args;
+      callOrder.push("language");
+      nextConfig.plugins ??= {};
+      nextConfig.plugins.entries ??= {};
+      nextConfig.plugins.entries.openclawcode = {
+        ...nextConfig.plugins.entries.openclawcode,
+        config: {
+          ...(nextConfig.plugins.entries.openclawcode as { config?: Record<string, unknown> })
+            ?.config,
+          defaultNotificationLocale: "en",
+        },
+      };
+    }) as never);
+    setupChannels.mockImplementationOnce(async (cfg) => {
+      callOrder.push("channels");
+      expect(cfg.plugins?.entries?.openclawcode?.config?.defaultNotificationLocale).toBe("en");
+      return cfg;
+    });
+
+    const prompter = buildWizardPrompter({});
+    const runtime = createRuntime();
+
+    await runSetupWizard(
+      {
+        acceptRisk: true,
+        flow: "quickstart",
+        authChoice: "skip",
+        installDaemon: false,
+        skipSkills: true,
+        skipSearch: true,
+        skipHealth: true,
+        skipUi: true,
+      },
+      runtime,
+      prompter,
+    );
+
+    expect(callOrder).toEqual(["language", "channels"]);
+    expect(ensureOpenClawCodeNotificationLocaleConfigured).toHaveBeenCalledOnce();
+    expect(setupChannels).toHaveBeenCalledOnce();
   });
 
   async function runTuiHatchTest(params: {

@@ -8,6 +8,7 @@ import type { OpenClawConfig } from "../config/types.openclaw.js";
 import {
   buildOnboardingRepoNameSuggestions,
   createOnboardingRepositoryViaGh,
+  ensureOpenClawCodeNotificationLocaleConfigured,
   inspectOnboardingGitHubCliDeviceLogin,
   onboardingOpenClawCodeDeps,
   parseOnboardingRepositoryCreationInput,
@@ -195,6 +196,35 @@ describe("runOnboardingOpenClawCode", () => {
       { value: "en", label: "English" },
     ]);
     expect(nextConfig.plugins?.entries?.openclawcode?.config?.defaultNotificationLocale).toBe("en");
+  });
+
+  it("does not reprompt for the notification language when it is already configured", async () => {
+    const nextConfig: OpenClawConfig = {
+      plugins: {
+        entries: {
+          openclawcode: {
+            enabled: true,
+            config: {
+              defaultNotificationLocale: "zh-CN",
+            },
+          },
+        },
+      },
+    };
+    const select = vi.fn(async () => "en");
+    const prompter = buildWizardPrompter({
+      select: select as never,
+    });
+
+    await ensureOpenClawCodeNotificationLocaleConfigured({
+      prompter,
+      nextConfig,
+    });
+
+    expect(select).not.toHaveBeenCalled();
+    expect(nextConfig.plugins?.entries?.openclawcode?.config?.defaultNotificationLocale).toBe(
+      "zh-CN",
+    );
   });
 
   it("creates and bootstraps a new repo with a placeholder empty-repo test command", async () => {

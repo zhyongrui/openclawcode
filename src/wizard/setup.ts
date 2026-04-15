@@ -601,6 +601,12 @@ export async function runSetupWizard(
   nextConfig = gateway.nextConfig;
   const settings = gateway.settings;
 
+  const { ensureOpenClawCodeNotificationLocaleConfigured } = await import("./setup.code.js");
+  await ensureOpenClawCodeNotificationLocaleConfigured({
+    prompter,
+    nextConfig,
+  });
+
   if (opts.skipChannels ?? opts.skipProviders) {
     await prompter.note("Skipping channel setup.", "Channels");
   } else {
