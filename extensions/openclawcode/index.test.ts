@@ -5581,6 +5581,61 @@ describe("openclawcode extension", () => {
             }),
           }),
         );
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_owner_contact",
+              message: expect.stringContaining("OpenClaw 启动成功"),
+            }),
+          }),
+        );
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("sends a startup confirmation when a feishu operator target is already configured", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-startup-note-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+    });
+
+    try {
+      await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
+        await setPreferredOperatorChatTarget({
+          stateDir: fixture.stateDir,
+          channel: "feishu",
+          target: "user:ou_existing_operator",
+          source: "manual-test",
+          replace: true,
+        });
+        await markFeishuOperatorWelcomeReceiptSent({
+          stateDir: fixture.stateDir,
+          accountId: "default",
+          openId: "ou_existing_operator",
+          source: "manual-test",
+        });
+
+        mocked.runMessageAction.mockClear();
+        await fixture.service?.start({
+          config: {},
+          stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_existing_operator",
+              message: expect.stringContaining("OpenClaw 启动成功"),
+            }),
+          }),
+        );
       });
     } finally {
       await cleanupPluginFixture(fixture);
@@ -5720,6 +5775,93 @@ describe("openclawcode extension", () => {
               channel: "feishu",
               to: "user:ou_scan_user",
               message: expect.stringContaining("我已经完成飞书绑定"),
+            }),
+          }),
+        );
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
+  it("sends a setup confirmation after scan binding even when the welcome was already recorded", async () => {
+    const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-scan-confirm-"));
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      config: {
+        channels: {
+          feishu: {
+            appId: "cli_scan_confirm",
+            appSecret: "secret-value",
+            dmPolicy: "pairing",
+          },
+        },
+      },
+      pluginConfigOverride: {
+        feishuOperatorBinding: {
+          mode: "scan",
+        },
+      },
+    });
+
+    try {
+      await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
+        await fixture.service?.start({
+          config: {},
+          stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        const pending = await getPendingFeishuOperatorScanCode({
+          stateDir: fixture.stateDir,
+          accountId: "default",
+        });
+        const handler = fixture.hooks.get("inbound_claim");
+
+        await markFeishuOperatorWelcomeReceiptSent({
+          stateDir: fixture.stateDir,
+          accountId: "default",
+          openId: "ou_scan_repeat",
+          source: "previous-setup",
+        });
+        mocked.runMessageAction.mockClear();
+
+        await expect(
+          handler?.(
+            {
+              channel: "feishu",
+              accountId: "default",
+              senderId: "ou_scan_repeat",
+              content: pending?.code ?? "",
+              isGroup: false,
+            } as PluginHookInboundClaimEvent,
+            {
+              channelId: "feishu",
+              accountId: "default",
+              conversationId: "user:ou_scan_repeat",
+              senderId: "ou_scan_repeat",
+              messageId: "om_scan_repeat",
+            },
+          ),
+        ).resolves.toEqual({ handled: true });
+
+        expect(mocked.runMessageAction).not.toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_scan_repeat",
+              message: expect.stringContaining("我已经完成飞书绑定"),
+            }),
+          }),
+        );
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_scan_repeat",
+              message: expect.stringContaining("OpenClaw 设置已完成"),
             }),
           }),
         );

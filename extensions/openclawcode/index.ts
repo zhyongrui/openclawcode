@@ -129,6 +129,7 @@ import {
   markFeishuOperatorWelcomeReceiptSent,
 } from "../../src/operator-chat-targets/feishu-welcome-receipts.js";
 import {
+  discoverPreferredOperatorChatTarget,
   getPreferredOperatorChatTarget,
   setPreferredOperatorChatTarget,
 } from "../../src/operator-chat-targets/store.js";
@@ -8138,6 +8139,29 @@ function buildFeishuOperatorBindingWelcomeMessage(params?: {
   ].join("\n");
 }
 
+type FeishuOperatorConfirmationKind = "setup-complete" | "startup-active";
+
+function buildFeishuOperatorConfirmationMessage(params: {
+  locale?: OpenClawCodeLocale;
+  kind: FeishuOperatorConfirmationKind;
+}): string {
+  const locale = resolveOpenClawCodeLocale({
+    locale: params.locale,
+  });
+  if (params.kind === "setup-complete") {
+    return localizeOpenClawCodeText({
+      locale,
+      zhCN: "OpenClaw 设置已完成，现已开始运行。",
+      en: "OpenClaw setup completed and is now active.",
+    });
+  }
+  return localizeOpenClawCodeText({
+    locale,
+    zhCN: "OpenClaw 启动成功，现已开始运行。",
+    en: "OpenClaw started successfully and is now active.",
+  });
+}
+
 function resolveCanonicalOpenClawStateDir(): string {
   return resolveStateDir(process.env, os.homedir);
 }
@@ -8179,6 +8203,7 @@ async function finalizeFeishuOperatorBinding(params: {
   accountId?: string;
   source: string;
   sendWelcomeMessage?: boolean;
+  confirmationKind?: FeishuOperatorConfirmationKind;
   continueSetup: boolean;
 }): Promise<void> {
   const locale = resolveOpenClawCodeLocale({
@@ -8236,6 +8261,17 @@ async function finalizeFeishuOperatorBinding(params: {
         `openclawcode failed to send feishu binding welcome message to ${openId}: ${String(error)}`,
       );
     }
+  }
+  if (params.confirmationKind) {
+    await sendTextBestEffort({
+      api: params.api,
+      channel: "feishu",
+      target,
+      text: buildFeishuOperatorConfirmationMessage({
+        locale,
+        kind: params.confirmationKind,
+      }),
+    });
   }
   if (!params.continueSetup) {
     return;
@@ -8312,6 +8348,41 @@ async function maybeAutoBindConfiguredFeishuOperator(params: {
       `openclawcode failed to persist configured feishu operator binding for ${resolved.openId}: ${String(error)}`,
     );
   }
+}
+
+async function maybeSendFeishuStartupConfirmation(params: {
+  api: OpenClawPluginApi;
+}): Promise<void> {
+  const pluginConfig = resolveOpenClawCodePluginConfig(params.api.pluginConfig);
+  const stateDir = resolveCanonicalOpenClawStateDir();
+  const configuredAccountId = pluginConfig.feishuOperatorBinding
+    ? pluginConfig.feishuOperatorBinding.accountId?.trim() || DEFAULT_ACCOUNT_ID
+    : undefined;
+  const binding = configuredAccountId
+    ? await getPreferredOperatorChatTarget({
+        stateDir,
+        channel: "feishu",
+        accountId: configuredAccountId,
+      })
+    : await discoverPreferredOperatorChatTarget({
+        stateDir,
+        requestedChannel: "feishu",
+      });
+  if (!binding || !isConcreteChatNotifyTarget(binding.target)) {
+    return;
+  }
+
+  await sendTextBestEffort({
+    api: params.api,
+    channel: "feishu",
+    target: binding.target,
+    text: buildFeishuOperatorConfirmationMessage({
+      locale: resolveOpenClawCodeLocale({
+        pluginConfig: params.api.pluginConfig,
+      }),
+      kind: "startup-active",
+    }),
+  });
 }
 
 async function announcePendingFeishuOperatorScanCode(params: {
@@ -8419,6 +8490,7 @@ async function maybeClaimDelayedFeishuOperatorScanCode(params: {
     accountId,
     source: "feishu-scan-code",
     sendWelcomeMessage: bindingConfig.sendWelcomeMessage,
+    confirmationKind: "setup-complete",
     continueSetup: false,
   });
   return true;
@@ -13107,6 +13179,9 @@ export default {
         });
         workerActive = false;
         runnerReady = true;
+        await maybeSendFeishuStartupConfirmation({
+          api,
+        });
         await maybePrepareDelayedFeishuOperatorScanCode({
           api,
           bindingConfig: pluginConfig.feishuOperatorBinding,
