@@ -214,13 +214,14 @@ export async function runSetupWizard(
     flow = "advanced";
   }
 
+  let configHandlingAction: "keep" | "modify" | "reset" | undefined;
   if (snapshot.exists) {
     await prompter.note(
       onboardHelpers.summarizeExistingConfig(baseConfig),
       "Existing config detected",
     );
 
-    const action = await prompter.select({
+    const action = await prompter.select<"keep" | "modify" | "reset">({
       message: "Config handling",
       options: [
         { value: "keep", label: "Use existing values" },
@@ -228,6 +229,7 @@ export async function runSetupWizard(
         { value: "reset", label: "Reset" },
       ],
     });
+    configHandlingAction = action;
 
     if (action === "reset") {
       const workspaceDefault =
@@ -605,6 +607,7 @@ export async function runSetupWizard(
   await ensureOpenClawCodeNotificationLocaleConfigured({
     prompter,
     nextConfig,
+    forcePrompt: configHandlingAction === "modify",
   });
 
   if (opts.skipChannels ?? opts.skipProviders) {

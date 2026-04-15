@@ -183,11 +183,13 @@ function setConfiguredOpenClawCodeNotificationLocale(
 export async function ensureOpenClawCodeNotificationLocaleConfigured(params: {
   prompter: WizardPrompter;
   nextConfig?: OpenClawConfig;
+  forcePrompt?: boolean;
 }): Promise<void> {
   if (!params.nextConfig) {
     return;
   }
-  if (resolveConfiguredOpenClawCodeNotificationLocale(params.nextConfig)) {
+  const configuredLocale = resolveConfiguredOpenClawCodeNotificationLocale(params.nextConfig);
+  if (configuredLocale && !params.forcePrompt) {
     return;
   }
   const locale = await params.prompter.select<OpenClawCodeNotificationLocale>({
@@ -204,9 +206,7 @@ export async function ensureOpenClawCodeNotificationLocaleConfigured(params: {
         hint: "Use English for proactive OpenClaw Code notifications",
       },
     ],
-    initialValue:
-      resolveConfiguredOpenClawCodeNotificationLocale(params.nextConfig) ??
-      DEFAULT_OPENCLAWCODE_NOTIFICATION_LOCALE,
+    initialValue: configuredLocale ?? DEFAULT_OPENCLAWCODE_NOTIFICATION_LOCALE,
   });
   setConfiguredOpenClawCodeNotificationLocale(params.nextConfig, locale);
 }

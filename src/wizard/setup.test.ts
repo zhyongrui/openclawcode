@@ -414,6 +414,62 @@ describe("runSetupWizard", () => {
     expect(setupChannels).toHaveBeenCalledOnce();
   });
 
+  it("reprompts for the OpenClaw Code notification language when updating existing values", async () => {
+    ensureOpenClawCodeNotificationLocaleConfigured.mockClear();
+    readConfigFileSnapshot.mockResolvedValueOnce({
+      path: "/tmp/.openclaw/openclaw.json",
+      exists: true,
+      raw: "{}",
+      parsed: {},
+      resolved: {},
+      valid: true,
+      config: {
+        plugins: {
+          entries: {
+            openclawcode: {
+              enabled: true,
+              config: {
+                defaultNotificationLocale: "zh-CN",
+              },
+            },
+          },
+        },
+      },
+      issues: [],
+      warnings: [],
+      legacyIssues: [],
+    });
+    const select = vi.fn(async (opts: WizardSelectParams<unknown>) => {
+      if (opts.message === "Config handling") {
+        return "modify";
+      }
+      return "quickstart";
+    }) as unknown as WizardPrompter["select"];
+    const prompter = buildWizardPrompter({ select });
+    const runtime = createRuntime();
+
+    await runSetupWizard(
+      {
+        acceptRisk: true,
+        flow: "quickstart",
+        authChoice: "skip",
+        installDaemon: false,
+        skipSkills: true,
+        skipSearch: true,
+        skipHealth: true,
+        skipUi: true,
+      },
+      runtime,
+      prompter,
+    );
+
+    expect(ensureOpenClawCodeNotificationLocaleConfigured).toHaveBeenCalledWith(
+      expect.objectContaining({
+        forcePrompt: true,
+      }),
+    );
+  });
+
   async function runTuiHatchTest(params: {
     writeBootstrapFile: boolean;
     expectedMessage: string | undefined;

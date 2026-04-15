@@ -227,6 +227,38 @@ describe("runOnboardingOpenClawCode", () => {
     );
   });
 
+  it("reprompts for the notification language when forcePrompt is enabled", async () => {
+    const nextConfig: OpenClawConfig = {
+      plugins: {
+        entries: {
+          openclawcode: {
+            enabled: true,
+            config: {
+              defaultNotificationLocale: "zh-CN",
+            },
+          },
+        },
+      },
+    };
+    const select = vi.fn(async (params: { message: string; initialValue?: string }) => {
+      expect(params.message).toBe("OpenClaw Code notification language");
+      expect(params.initialValue).toBe("zh-CN");
+      return "en";
+    });
+    const prompter = buildWizardPrompter({
+      select: select as never,
+    });
+
+    await ensureOpenClawCodeNotificationLocaleConfigured({
+      prompter,
+      nextConfig,
+      forcePrompt: true,
+    });
+
+    expect(select).toHaveBeenCalledOnce();
+    expect(nextConfig.plugins?.entries?.openclawcode?.config?.defaultNotificationLocale).toBe("en");
+  });
+
   it("creates and bootstraps a new repo with a placeholder empty-repo test command", async () => {
     onboardingOpenClawCodeDeps.resolveGitHubToken = vi.fn(
       () =>
