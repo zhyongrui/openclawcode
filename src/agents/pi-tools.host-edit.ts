@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import type { AgentToolResult, AgentToolUpdateCallback } from "@mariozechner/pi-agent-core";
+import { expandHomePrefix, resolveOsHomeDir } from "../infra/home-dir.js";
 import { getToolParamsRecord } from "./pi-tools.params.js";
 import type { AnyAgentTool } from "./pi-tools.types.js";
 
@@ -23,12 +23,9 @@ type EditReplacement = {
 const EDIT_MISMATCH_MESSAGE = "Could not find the exact text in";
 const EDIT_MISMATCH_HINT_LIMIT = 800;
 
-/** Resolve path for edit recovery: expand ~ and resolve relative paths against root. */
 function resolveEditPath(root: string, pathParam: string): string {
-  const expanded =
-    pathParam.startsWith("~/") || pathParam === "~"
-      ? pathParam.replace(/^~/, os.homedir())
-      : pathParam;
+  const home = resolveOsHomeDir();
+  const expanded = home ? expandHomePrefix(pathParam, { home }) : pathParam;
   return path.isAbsolute(expanded) ? path.resolve(expanded) : path.resolve(root, expanded);
 }
 

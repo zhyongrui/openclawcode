@@ -11,20 +11,19 @@ import {
   type SessionEntry,
   type SessionStoreTarget,
 } from "../config/sessions.js";
-import { classifySessionKey } from "../gateway/session-utils.js";
 import { info } from "../globals.js";
 import { formatTimeAgo } from "../infra/format-time/format-relative.js";
 import { parseAgentSessionKey } from "../routing/session-key.js";
+import { type RuntimeEnv, writeRuntimeJson } from "../runtime.js";
 import { resolveSessionIdMatchSelection } from "../sessions/session-id-resolution.js";
-import {
-  listTaskFlowsForOwnerKey,
-  markTaskFlowsReattachedForOwnerKey,
-} from "../tasks/task-flow-runtime-internal.js";
 import {
   listTasksForRelatedSessionKey,
   markTasksReattachedForRelatedSessionKey,
 } from "../tasks/runtime-internal.js";
-import { type RuntimeEnv, writeRuntimeJson } from "../runtime.js";
+import {
+  listTaskFlowsForOwnerKey,
+  markTaskFlowsReattachedForOwnerKey,
+} from "../tasks/task-flow-runtime-internal.js";
 import { isRich, theme } from "../terminal/theme.js";
 import { agentCliCommand } from "./agent-via-gateway.js";
 import {
@@ -37,12 +36,14 @@ import {
 } from "./background-session-resume.js";
 import { resolveSessionStoreTargetsOrExit } from "./session-store-targets.js";
 import {
+  resolveSessionDisplayDefaults,
+  resolveSessionDisplayModel,
+} from "./sessions-display-model.js";
+import {
   formatSessionAgeCell,
   formatSessionFlagsCell,
   formatSessionKeyCell,
   formatSessionModelCell,
-  resolveSessionDisplayDefaults,
-  resolveSessionDisplayModel,
   SESSION_AGE_PAD,
   SESSION_KEY_PAD,
   SESSION_MODEL_PAD,
@@ -69,6 +70,7 @@ const AGENT_PAD = 10;
 const KIND_PAD = 6;
 const LIFECYCLE_PAD = 18;
 const TOKENS_PAD = 20;
+let contextLookupRuntimePromise: Promise<typeof import("../agents/context.js")> | null = null;
 
 type SessionLookupMatch = {
   sessionKey: string;
@@ -162,6 +164,28 @@ const formatTokensCell = (
   const padded = label.padEnd(TOKENS_PAD);
   return colorByPct(padded, pct, rich);
 };
+
+async function lookupContextTokensForDisplay(model: string): Promise<number | undefined> {
+  contextLookupRuntimePromise ??= import("../agents/context.js");
+  const { lookupContextTokens } = await contextLookupRuntimePromise;
+  return lookupContextTokens(model, { allowAsyncLoad: false });
+}
+
+function classifySessionKey(key: string, entry?: { chatType?: string | null }): SessionRow["kind"] {
+  if (key === "global") {
+    return "global";
+  }
+  if (key === "unknown") {
+    return "unknown";
+  }
+  if (entry?.chatType === "group" || entry?.chatType === "channel") {
+    return "group";
+  }
+  if (key.includes(":group:") || key.includes(":channel:")) {
+    return "group";
+  }
+  return "direct";
+}
 
 const formatKindCell = (kind: SessionRow["kind"], rich: boolean) => {
   const label = kind.padEnd(KIND_PAD);
@@ -325,7 +349,9 @@ function resolveSessionLookup(params: {
     return {
       kind: "ambiguous",
       resolvedBy: "session_key",
-      matches: directMatches.toSorted((left, right) => (right.entry.updatedAt ?? 0) - (left.entry.updatedAt ?? 0)),
+      matches: directMatches.toSorted(
+        (left, right) => (right.entry.updatedAt ?? 0) - (left.entry.updatedAt ?? 0),
+      ),
     };
   }
 
@@ -343,7 +369,8 @@ function resolveSessionLookup(params: {
   );
   if (selection.kind === "selected") {
     const selected =
-      sessionIdMatches.find((match) => match.sessionKey === selection.sessionKey) ?? sessionIdMatches[0];
+      sessionIdMatches.find((match) => match.sessionKey === selection.sessionKey) ??
+      sessionIdMatches[0];
     return {
       kind: "found",
       resolvedBy: "session_id",
@@ -380,8 +407,12 @@ export function buildSessionLifecycleAssessment(params: {
   const activeFlowCount = params.relatedTaskFlows.filter(
     (flow) => flow.status === "queued" || flow.status === "running",
   ).length;
-  const waitingFlowCount = params.relatedTaskFlows.filter((flow) => flow.status === "waiting").length;
-  const blockedFlowCount = params.relatedTaskFlows.filter((flow) => flow.status === "blocked").length;
+  const waitingFlowCount = params.relatedTaskFlows.filter(
+    (flow) => flow.status === "waiting",
+  ).length;
+  const blockedFlowCount = params.relatedTaskFlows.filter(
+    (flow) => flow.status === "blocked",
+  ).length;
   const resumeAvailable = Boolean(params.resumeDetail);
 
   if (!params.transcriptExists) {
@@ -546,7 +577,7 @@ export function inspectDetachedSessionLifecycle(params: {
     completionRouting,
     resumeDetail,
     lifecycle: buildSessionLifecycleAssessment({
-      abortedLastRun: params.abortedLastRun ?? (resolved.entry?.abortedLastRun === true),
+      abortedLastRun: params.abortedLastRun ?? resolved.entry?.abortedLastRun === true,
       transcriptExists: transcript.transcriptExists,
       relatedTasks,
       relatedTaskFlows,
@@ -680,9 +711,10 @@ export async function sessionsCommand(
   const aggregateAgents = opts.allAgents === true;
   const cfg = loadConfig();
   const displayDefaults = resolveSessionDisplayDefaults(cfg);
+  const configuredContextTokens = cfg.agents?.defaults?.contextTokens;
   const configContextTokens =
-    cfg.agents?.defaults?.contextTokens ??
-    lookupContextTokens(displayDefaults.model) ??
+    configuredContextTokens ??
+    (await lookupContextTokensForDisplay(displayDefaults.model)) ??
     DEFAULT_CONTEXT_TOKENS;
   const targets = resolveSessionStoreTargetsOrExit({
     cfg,
@@ -728,19 +760,26 @@ export async function sessionsCommand(
       allAgents: aggregateAgents ? true : undefined,
       count: rows.length,
       activeMinutes: activeMinutes ?? null,
-      sessions: rows.map((r) => {
-        const model = resolveSessionDisplayModel(cfg, r, displayDefaults);
-        const { entry: _entry, target: _target, ...row } = r;
-        return {
-          ...row,
-          totalTokens: resolveFreshSessionTotalTokens(row) ?? null,
-          totalTokensFresh:
-            typeof row.totalTokens === "number" ? row.totalTokensFresh !== false : false,
-          contextTokens:
-            row.contextTokens ?? lookupContextTokens(model) ?? configContextTokens ?? null,
-          model,
-        };
-      }),
+      sessions: await Promise.all(
+        rows.map(async (r) => {
+          const model = resolveSessionDisplayModel(cfg, r);
+          const { entry: _entry, target: _target, ...row } = r;
+          return {
+            ...row,
+            totalTokens: resolveFreshSessionTotalTokens(row) ?? null,
+            totalTokensFresh:
+              typeof row.totalTokens === "number" ? row.totalTokensFresh !== false : false,
+            contextTokens:
+              row.contextTokens ??
+              lookupContextTokens(model) ??
+              configuredContextTokens ??
+              (await lookupContextTokensForDisplay(model)) ??
+              configContextTokens ??
+              null,
+            model,
+          };
+        }),
+      ),
     });
     return;
   }
@@ -777,8 +816,12 @@ export async function sessionsCommand(
   runtime.log(rich ? theme.heading(header) : header);
 
   for (const row of rows) {
-    const model = resolveSessionDisplayModel(cfg, row, displayDefaults);
-    const contextTokens = row.contextTokens ?? lookupContextTokens(model) ?? configContextTokens;
+    const model = resolveSessionDisplayModel(cfg, row);
+    const contextTokens =
+      row.contextTokens ??
+      configuredContextTokens ??
+      (await lookupContextTokensForDisplay(model)) ??
+      configContextTokens;
     const total = resolveFreshSessionTotalTokens(row);
 
     const line = [
@@ -850,7 +893,7 @@ export async function sessionsShowCommand(
     agentId: parseAgentSessionKey(match.sessionKey)?.agentId ?? match.target.agentId,
     kind: classifySessionKey(match.sessionKey, match.entry),
   } satisfies SessionRow;
-  const model = resolveSessionDisplayModel(cfg, row, displayDefaults);
+  const model = resolveSessionDisplayModel(cfg, row);
   const transcript = resolveSessionTranscriptState({
     entry: match.entry,
     target: match.target,
@@ -1046,7 +1089,7 @@ export async function sessionsContinueCommand(
         ...commandOpts,
         json: false,
       },
-        quietRuntime,
+      quietRuntime,
     );
     if (reattachedAt != null) {
       markTasksReattachedForRelatedSessionKey({
@@ -1059,7 +1102,7 @@ export async function sessionsContinueCommand(
       });
     }
     writeRuntimeJson(runtime, {
-      ...((agentResult && typeof agentResult === "object" && !Array.isArray(agentResult))
+      ...(agentResult && typeof agentResult === "object" && !Array.isArray(agentResult)
         ? agentResult
         : {}),
       lookup,

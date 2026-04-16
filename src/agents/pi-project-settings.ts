@@ -218,11 +218,14 @@ export function createPreparedEmbeddedPiSettingsManager(params: {
   cwd: string;
   agentDir: string;
   cfg?: OpenClawConfig;
+  /** Resolved context window budget so reserve-token floor can be capped for small models. */
+  contextTokenBudget?: number;
 }): SettingsManager {
   const settingsManager = createEmbeddedPiSettingsManager(params);
   applyPiCompactionSettingsFromConfig({
     settingsManager,
     cfg: params.cfg,
+    contextTokenBudget: params.contextTokenBudget,
   });
   applyEmbeddedPiRetrySettingsForWorkspace({
     settingsManager,

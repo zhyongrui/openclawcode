@@ -1,5 +1,8 @@
 import type { ReplyPayload } from "../auto-reply/types.js";
-import { getChannelPlugin, resolveChannelApprovalAdapter } from "../channels/plugins/index.js";
+import {
+  getLoadedChannelPlugin,
+  resolveChannelApprovalAdapter,
+} from "../channels/plugins/index.js";
 import { loadConfig } from "../config/config.js";
 import type {
   ExecApprovalForwardingConfig,
@@ -21,11 +24,8 @@ import {
 } from "../utils/message-channel.js";
 import { matchesApprovalRequestFilters } from "./approval-request-filters.js";
 import { formatExecApprovalExpiresIn } from "./exec-approval-reply.js";
-import {
-  type ExecApprovalRequest,
-  type ExecApprovalResolved,
-} from "./exec-approvals.js";
 import { buildExecApprovalResponseView } from "./exec-approval-response-view.js";
+import { type ExecApprovalRequest, type ExecApprovalResolved } from "./exec-approvals.js";
 import {
   approvalDecisionLabel,
   buildPluginApprovalExpiredMessage,
@@ -197,7 +197,7 @@ function shouldSkipForwardingFallback(params: {
   if (!channel) {
     return false;
   }
-  const adapter = resolveChannelApprovalAdapter(getChannelPlugin(channel));
+  const adapter = resolveChannelApprovalAdapter(getLoadedChannelPlugin(channel));
   return (
     adapter?.delivery?.shouldSuppressForwardingFallback?.({
       cfg: params.cfg,
@@ -374,7 +374,7 @@ function buildApprovalRenderPayload<TParams>(params: {
 }): ReplyPayload {
   const channel = normalizeMessageChannel(params.target.channel) ?? params.target.channel;
   const adapterPayload = channel
-    ? params.resolveRenderer(resolveChannelApprovalAdapter(getChannelPlugin(channel)))?.(
+    ? params.resolveRenderer(resolveChannelApprovalAdapter(getLoadedChannelPlugin(channel)))?.(
         params.renderParams,
       )
     : null;
@@ -581,7 +581,7 @@ function createApprovalHandlers<
         if (!channel) {
           return;
         }
-        await getChannelPlugin(channel)?.outbound?.beforeDeliverPayload?.({
+        await getLoadedChannelPlugin(channel)?.outbound?.beforeDeliverPayload?.({
           cfg,
           target,
           payload,
