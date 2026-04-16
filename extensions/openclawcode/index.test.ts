@@ -5737,6 +5737,75 @@ describe("openclawcode extension", () => {
     }
   });
 
+  it("keeps startup failure wording generic for network readiness errors", async () => {
+    const repoRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-feishu-startup-network-"),
+    );
+    const fixture = await registerPluginFixture({
+      repoRoot,
+      config: {
+        agents: {
+          defaults: {
+            model: "openai/gpt-5.4",
+          },
+        },
+      },
+    });
+
+    try {
+      await withEnvAsync({ OPENCLAW_STATE_DIR: fixture.stateDir }, async () => {
+        await setPreferredOperatorChatTarget({
+          stateDir: fixture.stateDir,
+          channel: "feishu",
+          target: "user:ou_existing_operator",
+          source: "manual-test",
+          replace: true,
+        });
+        await markFeishuOperatorWelcomeReceiptSent({
+          stateDir: fixture.stateDir,
+          accountId: "default",
+          openId: "ou_existing_operator",
+          source: "manual-test",
+        });
+
+        const runEmbeddedPiAgent = vi.mocked(fixture.runtime.agent.runEmbeddedPiAgent);
+        runEmbeddedPiAgent.mockRejectedValueOnce(
+          new Error("LLM request failed: network connection error."),
+        );
+
+        mocked.runMessageAction.mockClear();
+        await fixture.service?.start({
+          config: {},
+          stateDir: fixture.stateDir,
+          logger: { info() {}, warn() {}, error() {} },
+        });
+
+        expect(mocked.runMessageAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_existing_operator",
+              message: expect.stringContaining("当前配置不可用"),
+            }),
+          }),
+        );
+        expect(mocked.runMessageAction).not.toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_existing_operator",
+              message: expect.stringContaining("请检查 provider/API 设置"),
+            }),
+          }),
+        );
+      });
+    } finally {
+      await cleanupPluginFixture(fixture);
+    }
+  });
+
   it("creates a delayed Feishu scan code only after service start", async () => {
     const repoRoot = await fs.mkdtemp(path.join(os.tmpdir(), "openclawcode-feishu-scan-ready-"));
     const fixture = await registerPluginFixture({
@@ -6033,7 +6102,17 @@ describe("openclawcode extension", () => {
             params: expect.objectContaining({
               channel: "feishu",
               to: "user:ou_scan_failure",
-              message: expect.stringContaining("当前模型配置不可用"),
+              message: expect.stringContaining("当前配置不可用"),
+            }),
+          }),
+        );
+        expect(mocked.runMessageAction).not.toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: "send",
+            params: expect.objectContaining({
+              channel: "feishu",
+              to: "user:ou_scan_failure",
+              message: expect.stringContaining("请检查 provider/API 设置"),
             }),
           }),
         );

@@ -8162,6 +8162,25 @@ type FeishuConversationReadinessProbeResult =
       detail: string;
     };
 
+function isLikelyProviderConfigGuidanceError(detail?: string): boolean {
+  const normalized = detail?.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return [
+    /no api key found/,
+    /api key/,
+    /missing credentials?/,
+    /provider .* not configured/,
+    /model config/,
+    /\bunauthorized\b/,
+    /\bauthentication\b/,
+    /\bauth\b/,
+    /\binvalid[_ -]?api[_ -]?key\b/,
+    /\b401\b/,
+  ].some((pattern) => pattern.test(normalized));
+}
+
 function buildFeishuOperatorConfirmationMessage(params: {
   locale?: OpenClawCodeLocale;
   kind: FeishuOperatorConfirmationKind;
@@ -8195,20 +8214,29 @@ function buildFeishuOperatorConfirmationMessage(params: {
     );
     return lines.join("\n");
   }
+  const detail = params.detail?.trim();
+  const showProviderConfigGuidance = isLikelyProviderConfigGuidanceError(detail);
   lines.push(
     localizeOpenClawCodeText({
       locale,
       zhCN:
         params.kind === "setup-complete"
-          ? "OpenClaw 设置已完成，但当前模型配置不可用，请检查 provider/API 设置。"
-          : "OpenClaw 已启动，但当前模型配置不可用，请检查 provider/API 设置。",
+          ? showProviderConfigGuidance
+            ? "OpenClaw 设置已完成，但当前模型配置不可用，请检查 provider/API 设置。"
+            : "OpenClaw 设置已完成，但当前配置不可用。"
+          : showProviderConfigGuidance
+            ? "OpenClaw 已启动，但当前模型配置不可用，请检查 provider/API 设置。"
+            : "OpenClaw 已启动，但当前配置不可用。",
       en:
         params.kind === "setup-complete"
-          ? "OpenClaw setup completed, but the current model config is unavailable. Check the provider/API settings."
-          : "OpenClaw started, but the current model config is unavailable. Check the provider/API settings.",
+          ? showProviderConfigGuidance
+            ? "OpenClaw setup completed, but the current model config is unavailable. Check the provider/API settings."
+            : "OpenClaw setup completed, but the current config is unavailable."
+          : showProviderConfigGuidance
+            ? "OpenClaw started, but the current model config is unavailable. Check the provider/API settings."
+            : "OpenClaw started, but the current config is unavailable.",
     }),
   );
-  const detail = params.detail?.trim();
   if (detail) {
     lines.push(
       localizeOpenClawCodeText({
