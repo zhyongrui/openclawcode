@@ -1,11 +1,14 @@
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import type { OpenClawPluginApi, OpenClawPluginCommandDefinition } from "openclaw/plugin-sdk/core";
 import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/routing";
+import { resolveDefaultModelForAgent } from "../../src/agents/model-selection.js";
 import { formatCliCommand } from "../../src/cli/command-format.js";
 import { resolveStateDir } from "../../src/config/paths.js";
+import { formatErrorMessage } from "../../src/infra/errors.js";
 import { readRequestBodyWithLimit } from "../../src/infra/http-body.js";
 import {
   OpenClawCodeChatopsStore,
@@ -156,6 +159,8 @@ import type { FeishuConfig } from "../feishu/src/types.js";
 const DEFAULT_POLL_INTERVAL_MS = 3_000;
 const DEFAULT_RUN_TIMEOUT_MS = 30 * 60_000;
 const DEFAULT_WEBHOOK_MAX_BYTES = 256 * 1024;
+const FEISHU_CONVERSATION_READINESS_TIMEOUT_MS = 30_000;
+const FEISHU_CONVERSATION_READINESS_PROMPT = "Reply with READY and nothing else.";
 const SUPPORTED_GITHUB_EVENTS = new Set(["issues", "pull_request", "pull_request_review"]);
 
 type ActiveProviderPause = {
@@ -8140,26 +8145,248 @@ function buildFeishuOperatorBindingWelcomeMessage(params?: {
 }
 
 type FeishuOperatorConfirmationKind = "setup-complete" | "startup-active";
+type FeishuOperatorConfirmationStatus = "ready" | "failed";
+
+type FeishuConversationReadinessProbeResult =
+  | {
+      ok: true;
+      agentId: string;
+      provider: string;
+      model: string;
+    }
+  | {
+      ok: false;
+      agentId: string;
+      provider: string;
+      model: string;
+      detail: string;
+    };
 
 function buildFeishuOperatorConfirmationMessage(params: {
   locale?: OpenClawCodeLocale;
   kind: FeishuOperatorConfirmationKind;
+  status: FeishuOperatorConfirmationStatus;
+  detail?: string;
 }): string {
   const locale = resolveOpenClawCodeLocale({
     locale: params.locale,
   });
-  if (params.kind === "setup-complete") {
-    return localizeOpenClawCodeText({
+  const lines: string[] = [];
+  if (params.status === "ready") {
+    lines.push(
+      localizeOpenClawCodeText({
+        locale,
+        zhCN:
+          params.kind === "setup-complete"
+            ? "OpenClaw 设置已完成，并已通过对话可用性检查。"
+            : "OpenClaw 已启动，并已通过对话可用性检查。",
+        en:
+          params.kind === "setup-complete"
+            ? "OpenClaw setup completed and passed the conversation readiness check."
+            : "OpenClaw started and passed the conversation readiness check.",
+      }),
+    );
+    lines.push(
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: "当前配置已生效，现在可以正常对话。",
+        en: "The current config is active and normal conversation is ready.",
+      }),
+    );
+    return lines.join("\n");
+  }
+  lines.push(
+    localizeOpenClawCodeText({
       locale,
-      zhCN: "OpenClaw 设置已完成，现已开始运行。",
-      en: "OpenClaw setup completed and is now active.",
+      zhCN:
+        params.kind === "setup-complete"
+          ? "OpenClaw 设置已完成，但当前模型配置不可用，请检查 provider/API 设置。"
+          : "OpenClaw 已启动，但当前模型配置不可用，请检查 provider/API 设置。",
+      en:
+        params.kind === "setup-complete"
+          ? "OpenClaw setup completed, but the current model config is unavailable. Check the provider/API settings."
+          : "OpenClaw started, but the current model config is unavailable. Check the provider/API settings.",
+    }),
+  );
+  const detail = params.detail?.trim();
+  if (detail) {
+    lines.push(
+      localizeOpenClawCodeText({
+        locale,
+        zhCN: `详情：${detail}`,
+        en: `Detail: ${detail}`,
+      }),
+    );
+  }
+  return lines.join("\n");
+}
+
+function trimFeishuConversationReadinessDetail(detail: string): string {
+  const trimmed = detail.trim();
+  if (!trimmed) {
+    return "";
+  }
+  return trimmed.length > 240 ? `${trimmed.slice(0, 237)}...` : trimmed;
+}
+
+function resolveFeishuConversationProbeAgentId(params: {
+  pluginConfig: ReturnType<typeof resolveOpenClawCodePluginConfig>;
+}): string {
+  for (const repo of params.pluginConfig.repos) {
+    const candidate = repo.builderAgent?.trim() || repo.verifierAgent?.trim();
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return "main";
+}
+
+async function cleanupFeishuConversationProbeSession(params: {
+  api: OpenClawPluginApi;
+  agentId: string;
+  sessionFile: string;
+  sessionKey: string;
+}): Promise<void> {
+  try {
+    await fs.rm(params.sessionFile, { force: true });
+  } catch {
+    // Probe cleanup is best-effort; startup should not fail on transcript cleanup.
+  }
+
+  try {
+    const storePath = params.api.runtime.agent.session.resolveStorePath(undefined, {
+      agentId: params.agentId,
+    });
+    const store = params.api.runtime.agent.session.loadSessionStore(storePath);
+    if (!Object.prototype.hasOwnProperty.call(store, params.sessionKey)) {
+      return;
+    }
+    const nextStore = { ...store };
+    delete nextStore[params.sessionKey];
+    await params.api.runtime.agent.session.saveSessionStore(storePath, nextStore, {
+      skipMaintenance: true,
+    });
+  } catch (error) {
+    params.api.logger.warn(
+      `openclawcode failed to clean up feishu readiness probe session ${params.sessionKey}: ${formatErrorMessage(error)}`,
+    );
+  }
+}
+
+async function probeFeishuConversationReadiness(params: {
+  api: OpenClawPluginApi;
+  kind: FeishuOperatorConfirmationKind;
+}): Promise<FeishuConversationReadinessProbeResult> {
+  const pluginConfig = resolveOpenClawCodePluginConfig(params.api.pluginConfig);
+  const agentId = resolveFeishuConversationProbeAgentId({ pluginConfig });
+  const selectedModel = resolveDefaultModelForAgent({
+    cfg: params.api.config,
+    agentId,
+  });
+  const probeNonce = crypto.randomUUID();
+  const sessionId = `probe-openclawcode-feishu-${probeNonce}`;
+  const sessionKey = `agent:${agentId}:openclawcode:probe:${probeNonce}`;
+  const sessionFile = params.api.runtime.agent.session.resolveSessionFilePath(
+    sessionId,
+    undefined,
+    {
+      agentId,
+    },
+  );
+  const workspaceDir =
+    pluginConfig.repos[0]?.repoRoot?.trim() ||
+    params.api.runtime.agent.resolveAgentWorkspaceDir(params.api.config, agentId);
+  const agentDir = params.api.runtime.agent.resolveAgentDir(params.api.config, agentId);
+  const timeoutMs = Math.min(
+    FEISHU_CONVERSATION_READINESS_TIMEOUT_MS,
+    params.api.runtime.agent.resolveAgentTimeoutMs({
+      cfg: params.api.config,
+      minMs: 1_000,
+    }),
+  );
+
+  await Promise.all([
+    fs.mkdir(path.dirname(sessionFile), { recursive: true }),
+    fs.mkdir(workspaceDir, { recursive: true }),
+    fs.mkdir(agentDir, { recursive: true }),
+  ]);
+
+  try {
+    const result = await params.api.runtime.agent.runEmbeddedPiAgent({
+      sessionId,
+      sessionKey,
+      agentId,
+      trigger: "manual",
+      sessionFile,
+      workspaceDir,
+      agentDir,
+      config: params.api.config,
+      prompt: FEISHU_CONVERSATION_READINESS_PROMPT,
+      disableTools: true,
+      suppressToolErrorWarnings: true,
+      bootstrapContextMode: "lightweight",
+      timeoutMs,
+      runId: `openclawcode-feishu-readiness-${probeNonce}`,
+      provider: selectedModel.provider,
+      model: selectedModel.model,
+      silentExpected: true,
+    });
+    const errorPayload = result.payloads?.find((payload) => payload.isError);
+    const visibleText =
+      result.meta.finalAssistantVisibleText?.trim() ||
+      result.payloads
+        ?.filter((payload) => payload.isError !== true)
+        .map((payload) => payload.text?.trim() ?? "")
+        .find((text) => text.length > 0) ||
+      "";
+    if (result.meta.aborted || result.meta.error || errorPayload || !visibleText) {
+      const detail = trimFeishuConversationReadinessDetail(
+        errorPayload?.text ??
+          result.meta.error?.message ??
+          (!visibleText ? "conversation probe completed without visible assistant text" : ""),
+      );
+      params.api.logger.warn(
+        `openclawcode feishu readiness probe failed for ${params.kind} via ${selectedModel.provider}/${selectedModel.model}: ${detail || "unknown failure"}`,
+      );
+      return {
+        ok: false,
+        agentId,
+        provider: selectedModel.provider,
+        model: selectedModel.model,
+        detail:
+          detail ||
+          "conversation readiness probe failed before the assistant produced a usable reply",
+      };
+    }
+    params.api.logger.info(
+      `openclawcode feishu readiness probe passed for ${params.kind} via ${selectedModel.provider}/${selectedModel.model}`,
+    );
+    return {
+      ok: true,
+      agentId,
+      provider: selectedModel.provider,
+      model: selectedModel.model,
+    };
+  } catch (error) {
+    const detail = trimFeishuConversationReadinessDetail(formatErrorMessage(error));
+    params.api.logger.warn(
+      `openclawcode feishu readiness probe failed for ${params.kind} via ${selectedModel.provider}/${selectedModel.model}: ${detail || "unknown failure"}`,
+    );
+    return {
+      ok: false,
+      agentId,
+      provider: selectedModel.provider,
+      model: selectedModel.model,
+      detail: detail || "conversation readiness probe failed before a model response was returned",
+    };
+  } finally {
+    await cleanupFeishuConversationProbeSession({
+      api: params.api,
+      agentId,
+      sessionFile,
+      sessionKey,
     });
   }
-  return localizeOpenClawCodeText({
-    locale,
-    zhCN: "OpenClaw 启动成功，现已开始运行。",
-    en: "OpenClaw started successfully and is now active.",
-  });
 }
 
 function resolveCanonicalOpenClawStateDir(): string {
@@ -8263,6 +8490,10 @@ async function finalizeFeishuOperatorBinding(params: {
     }
   }
   if (params.confirmationKind) {
+    const readiness = await probeFeishuConversationReadiness({
+      api: params.api,
+      kind: params.confirmationKind,
+    });
     await sendTextBestEffort({
       api: params.api,
       channel: "feishu",
@@ -8270,6 +8501,8 @@ async function finalizeFeishuOperatorBinding(params: {
       text: buildFeishuOperatorConfirmationMessage({
         locale,
         kind: params.confirmationKind,
+        status: readiness.ok ? "ready" : "failed",
+        detail: readiness.ok ? undefined : readiness.detail,
       }),
     });
   }
@@ -8371,6 +8604,10 @@ async function maybeSendFeishuStartupConfirmation(params: {
   if (!binding || !isConcreteChatNotifyTarget(binding.target)) {
     return;
   }
+  const readiness = await probeFeishuConversationReadiness({
+    api: params.api,
+    kind: "startup-active",
+  });
 
   await sendTextBestEffort({
     api: params.api,
@@ -8381,6 +8618,8 @@ async function maybeSendFeishuStartupConfirmation(params: {
         pluginConfig: params.api.pluginConfig,
       }),
       kind: "startup-active",
+      status: readiness.ok ? "ready" : "failed",
+      detail: readiness.ok ? undefined : readiness.detail,
     }),
   });
 }
