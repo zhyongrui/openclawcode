@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { stageBundledPluginRuntimeDeps } from "../../scripts/stage-bundled-plugin-runtime-deps.mjs";
+import {
+  formatNpmInstallFailureOutput,
+  stageBundledPluginRuntimeDeps,
+} from "../../scripts/stage-bundled-plugin-runtime-deps.mjs";
 import { createScriptTestHarness } from "./test-helpers.js";
 
 const { createTempDir } = createScriptTestHarness();
@@ -848,5 +851,34 @@ describe("stageBundledPluginRuntimeDeps", () => {
       }),
     ).toThrow("attempt 2 failed");
     expect(installCount).toBe(2);
+  });
+
+  it("surfaces the npm debug log path and tail when stdout is empty", () => {
+    const logDir = createTempDir("openclaw-runtime-deps-log-");
+    const debugLogPath = path.join(logDir, "npm-debug.log");
+    fs.writeFileSync(
+      debugLogPath,
+      ["line 1", "line 2", "npm error code ECONNRESET", "npm error network socket hang up"].join(
+        "\n",
+      ),
+      "utf8",
+    );
+
+    const message = formatNpmInstallFailureOutput({
+      stdout: "",
+      stderr: `npm error A complete log of this run can be found in: ${debugLogPath}\n`,
+    });
+
+    expect(message).toContain(`npm debug log: ${debugLogPath}`);
+    expect(message).toContain("npm error network socket hang up");
+  });
+
+  it("keeps direct npm output when stderr already contains the actionable error", () => {
+    expect(
+      formatNpmInstallFailureOutput({
+        stdout: "",
+        stderr: 'npm error code EUNSUPPORTEDPROTOCOL\nnpm error Unsupported URL Type "workspace:"',
+      }),
+    ).toBe('npm error code EUNSUPPORTEDPROTOCOL\nnpm error Unsupported URL Type "workspace:"');
   });
 });

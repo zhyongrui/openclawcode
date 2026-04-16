@@ -26,6 +26,51 @@ function removePathIfExists(targetPath) {
   fs.rmSync(targetPath, { recursive: true, force: true });
 }
 
+function extractNpmDebugLogPath(output) {
+  if (typeof output !== "string" || output.length === 0) {
+    return null;
+  }
+  const match = output.match(/A complete log of this run can be found in:\s*(.+)\s*$/m);
+  if (!match) {
+    return null;
+  }
+  const logPath = match[1]?.trim();
+  return typeof logPath === "string" && logPath.length > 0 ? logPath : null;
+}
+
+function readLogFileTail(filePath, maxLines = 40) {
+  if (typeof filePath !== "string" || filePath.length === 0 || !fs.existsSync(filePath)) {
+    return null;
+  }
+  const lines = fs.readFileSync(filePath, "utf8").trimEnd().split(/\r?\n/);
+  const tail = lines.slice(-Math.max(1, maxLines)).join("\n").trim();
+  return tail.length > 0 ? tail : null;
+}
+
+export function formatNpmInstallFailureOutput(result) {
+  const output = [result?.stderr, result?.stdout].filter(Boolean).join("\n").trim();
+  const debugLogPath = extractNpmDebugLogPath(output);
+  const debugLogTail = debugLogPath ? readLogFileTail(debugLogPath) : null;
+
+  if (output.length > 0 && debugLogTail === null) {
+    return output;
+  }
+
+  const details = [];
+  if (output.length > 0) {
+    details.push(output);
+  } else {
+    details.push("npm install failed");
+  }
+  if (debugLogPath) {
+    details.push(`npm debug log: ${debugLogPath}`);
+  }
+  if (debugLogTail) {
+    details.push(debugLogTail);
+  }
+  return details.join("\n\n");
+}
+
 function makeTempDir(parentDir, prefix) {
   return fs.mkdtempSync(path.join(parentDir, prefix));
 }
@@ -649,7 +694,7 @@ function installPluginRuntimeDeps(params) {
     npmArgs: [
       "install",
       "--omit=dev",
-      "--silent",
+      "--loglevel=error",
       "--ignore-scripts",
       "--legacy-peer-deps",
       "--package-lock=false",
@@ -666,9 +711,8 @@ function installPluginRuntimeDeps(params) {
       windowsVerbatimArguments: npmRunner.windowsVerbatimArguments,
     });
     if (result.status !== 0) {
-      const output = [result.stderr, result.stdout].filter(Boolean).join("\n").trim();
       throw new Error(
-        `failed to stage bundled runtime deps for ${pluginId}: ${output || "npm install failed"}`,
+        `failed to stage bundled runtime deps for ${pluginId}: ${formatNpmInstallFailureOutput(result)}`,
       );
     }
 

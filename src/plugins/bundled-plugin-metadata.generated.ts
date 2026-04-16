@@ -6189,6 +6189,7 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       "config-api.js",
       "configured-state.js",
       "contract-api.js",
+      "doctor-contract-api.js",
       "interactive-replies-api.js",
       "runtime-api.js",
       "secret-contract-api.js",
@@ -7935,6 +7936,9 @@ export const GENERATED_BUNDLED_PLUGIN_METADATA = [
       },
       compat: {
         pluginApi: ">=2026.4.12",
+      },
+      bundle: {
+        stageRuntimeDependencies: true,
       },
       build: {
         openclawVersion: "2026.4.12",
