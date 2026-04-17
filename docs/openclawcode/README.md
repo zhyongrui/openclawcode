@@ -53,6 +53,7 @@ Recommended reading order:
 47. `webhook-operations.md`
 48. `third-party-skill-evaluation.md`
 49. `proactive-engineering-partner-v2.md`
+50. `pre-code-blueprint-alignment-plan.md`
 
 Development logs live in `dev-log/`.
 
@@ -72,6 +73,10 @@ the current Quick actions fallback, see
 For the next product direction that makes `openclawcode` behave more like a
 proactive senior engineering partner, see
 `proactive-engineering-partner-v2.md`.
+
+For the concrete delivery plan that turns that direction into a pre-code
+blueprint agreement loop before coding starts, see
+`pre-code-blueprint-alignment-plan.md`.
 
 ## Current Status
 
