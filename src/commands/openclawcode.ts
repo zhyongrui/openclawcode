@@ -63,6 +63,7 @@ import {
   AgentBackedBuilder,
   AgentBackedVerifier,
   createProjectOperatorProgram,
+  readProjectBlueprintAlignmentArtifact,
   readProjectIssueMaterializationArtifact,
   readProjectOperatorProgram,
   readProjectRuntimeSteeringArtifact,
@@ -108,6 +109,7 @@ import {
   type OpenClawCodeRecommendation,
   type OpenClawCodeSpecDraft,
   type OpenClawCodeOperatorStatusSnapshot,
+  writeProjectBlueprintAlignmentArtifact,
   recordProjectRuntimeSteeringOverride,
   projectRuntimeSteeringStageIds,
   resolveValidationPoolDeficits,
@@ -204,6 +206,17 @@ export interface OpenClawCodeRecommendOpts {
 
 export interface OpenClawCodeSpecDraftOpts {
   request?: string;
+  json?: boolean;
+}
+
+export interface OpenClawCodeBlueprintAlignOpts {
+  repoRoot?: string;
+  request?: string;
+  json?: boolean;
+}
+
+export interface OpenClawCodeBlueprintAlignShowOpts {
+  repoRoot?: string;
   json?: boolean;
 }
 
@@ -2037,6 +2050,103 @@ export async function openclawCodeSpecDraftCommand(
   const specDraft = buildOpenClawCodeSpecDraft(request);
   logOpenClawCodeSpecDraft({
     specDraft,
+    runtime,
+    json: Boolean(opts.json),
+  });
+}
+
+function logProjectBlueprintAlignmentArtifact(params: {
+  artifact: Awaited<ReturnType<typeof readProjectBlueprintAlignmentArtifact>>;
+  runtime: RuntimeEnv;
+  json?: boolean;
+}): void {
+  const { artifact, runtime } = params;
+  if (params.json) {
+    runtime.log(JSON.stringify(artifact, null, 2));
+    return;
+  }
+
+  runtime.log(`Repo root: ${artifact.repoRoot}`);
+  runtime.log(`Artifact path: ${artifact.artifactPath}`);
+  runtime.log(`Exists: ${artifact.exists ? "yes" : "no"}`);
+  if (!artifact.exists) {
+    return;
+  }
+
+  runtime.log(`Generated at: ${artifact.generatedAt ?? "unknown"}`);
+  runtime.log(`Request: ${artifact.request ?? "none"}`);
+  runtime.log(`Input kind: ${artifact.inputKind ?? "unknown"}`);
+  runtime.log(`Work type: ${artifact.workType ?? "unknown"}`);
+  if (artifact.signals) {
+    runtime.log(
+      `Signals: broadScope=${artifact.signals.broadScope ? "yes" : "no"} | publicSurface=${artifact.signals.publicSurface ? "yes" : "no"} | riskySurface=${artifact.signals.riskySurface ? "yes" : "no"} | missingSuccessCriteria=${artifact.signals.missingSuccessCriteria ? "yes" : "no"} | multiGoal=${artifact.signals.multiGoal ? "yes" : "no"}`,
+    );
+  }
+  runtime.log(`Inferred goal: ${artifact.inferredGoal ?? "none"}`);
+  runtime.log(`Recommended approach: ${artifact.recommendedApproach ?? "none"}`);
+  runtime.log(`Rationale: ${artifact.rationale ?? "none"}`);
+  runtime.log(`Suggested first slice: ${artifact.suggestedFirstSlice ?? "none"}`);
+  runtime.log(`Alignment status: ${artifact.alignmentStatus ?? "unknown"}`);
+  runtime.log(`Alignment summary: ${artifact.alignmentSummary ?? "none"}`);
+  runtime.log(
+    `Blueprint: exists=${artifact.blueprintExists ? "yes" : "no"} | status=${artifact.blueprintStatus ?? "unknown"} | agreed=${artifact.blueprintHasAgreementCheckpoint ? "yes" : "no"} | revision=${artifact.blueprintRevisionId ?? "unknown"}`,
+  );
+  runtime.log(
+    `Blueprint meta: title=${artifact.blueprintTitle ?? "untitled"} | goal=${artifact.blueprintGoalSummary ?? "none"} | defaultedSections=${artifact.blueprintDefaultedSectionCount} | openQuestions=${artifact.blueprintOpenQuestionCount}`,
+  );
+  runtime.log(`Priority question: ${artifact.priorityQuestion ?? "none"}`);
+  runtime.log(`Unresolved questions: ${artifact.unresolvedQuestions.length}`);
+  for (const question of artifact.unresolvedQuestions) {
+    runtime.log(`- ${question}`);
+  }
+  runtime.log(`Blockers: ${artifact.blockers.length}`);
+  for (const blocker of artifact.blockers) {
+    runtime.log(`- blocker: ${blocker}`);
+  }
+  runtime.log(`Affected blueprint sections: ${artifact.affectedBlueprintSections.length}`);
+  for (const section of artifact.affectedBlueprintSections) {
+    runtime.log(`- section: ${section}`);
+  }
+  runtime.log(`Clarification suggestions: ${artifact.clarificationSuggestions.length}`);
+  for (const suggestion of artifact.clarificationSuggestions) {
+    runtime.log(`- suggestion: ${suggestion}`);
+  }
+  runtime.log(`Next recommended action: ${artifact.nextRecommendedAction ?? "none"}`);
+  runtime.log(
+    `Next recommended action summary: ${artifact.nextRecommendedActionSummary ?? "none"}`,
+  );
+  runtime.log(`Next recommended command: ${artifact.nextRecommendedCommand ?? "none"}`);
+}
+
+export async function openclawCodeBlueprintAlignCommand(
+  opts: OpenClawCodeBlueprintAlignOpts,
+  runtime: RuntimeEnv,
+): Promise<void> {
+  const repoRoot = path.resolve(opts.repoRoot ?? process.cwd());
+  const request = opts.request?.trim();
+  if (!request) {
+    throw new Error("Pass a request as positional text or with --prompt.");
+  }
+
+  const artifact = await writeProjectBlueprintAlignmentArtifact({
+    repoRoot,
+    request,
+  });
+  logProjectBlueprintAlignmentArtifact({
+    artifact,
+    runtime,
+    json: Boolean(opts.json),
+  });
+}
+
+export async function openclawCodeBlueprintAlignShowCommand(
+  opts: OpenClawCodeBlueprintAlignShowOpts,
+  runtime: RuntimeEnv,
+): Promise<void> {
+  const repoRoot = path.resolve(opts.repoRoot ?? process.cwd());
+  const artifact = await readProjectBlueprintAlignmentArtifact(repoRoot);
+  logProjectBlueprintAlignmentArtifact({
+    artifact,
     runtime,
     json: Boolean(opts.json),
   });

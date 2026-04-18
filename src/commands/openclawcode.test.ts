@@ -8,6 +8,8 @@ import type { WorkflowRun } from "../openclawcode/index.js";
 import { setPreferredOperatorChatTarget } from "../operator-chat-targets/store.js";
 import {
   openclawCodeBootstrapCommand,
+  openclawCodeBlueprintAlignCommand,
+  openclawCodeBlueprintAlignShowCommand,
   openclawCodeBlueprintClarifyCommand,
   openclawCodeBlueprintDecomposeCommand,
   openclawCodeDiscoverWorkItemsCommand,
@@ -8861,6 +8863,194 @@ describe("openclawCodeSpecDraftCommand", () => {
 
   it("rejects empty requests", async () => {
     await expect(openclawCodeSpecDraftCommand({}, runtime)).rejects.toThrow(
+      "Pass a request as positional text or with --prompt.",
+    );
+  });
+});
+
+describe("openclawCodeBlueprintAlignCommand", () => {
+  const runtime = createTestRuntime();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("persists a machine-readable alignment artifact when the blueprint does not exist yet", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-blueprint-align-missing-"));
+
+    await openclawCodeBlueprintAlignCommand(
+      {
+        repoRoot,
+        request: "Make the setup flow feel more proactive for vague user requests",
+        json: true,
+      },
+      runtime,
+    );
+
+    const payload = parseLoggedJson(runtime);
+    expect(payload).toMatchObject({
+      repoRoot,
+      artifactPath: path.join(repoRoot, ".openclawcode", "blueprint-alignment.json"),
+      exists: true,
+      schemaVersion: 1,
+      request: "Make the setup flow feel more proactive for vague user requests",
+      blueprintExists: false,
+      alignmentStatus: "needs-blueprint-draft",
+      nextRecommendedAction: "init-blueprint",
+      nextRecommendedCommand: `openclaw code blueprint-init --repo-root ${repoRoot}`,
+    });
+    expect(payload.affectedBlueprintSections).toContain("Goal");
+    expect(payload.blockers).toContain(
+      "Create the fixed repo-local blueprint scaffold before trying to record agreement.",
+    );
+    const stored = JSON.parse(
+      await readFile(path.join(repoRoot, ".openclawcode", "blueprint-alignment.json"), "utf8"),
+    );
+    expect(stored.alignmentStatus).toBe("needs-blueprint-draft");
+  });
+
+  it("shows the last persisted alignment artifact", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-blueprint-align-show-"));
+
+    await openclawCodeBlueprintAlignCommand(
+      {
+        repoRoot,
+        request: "Make the setup flow feel more proactive for vague user requests",
+        json: true,
+      },
+      runtime,
+    );
+    runtime.log.mockClear();
+
+    await openclawCodeBlueprintAlignShowCommand(
+      {
+        repoRoot,
+        json: true,
+      },
+      runtime,
+    );
+
+    const payload = parseLoggedJson(runtime);
+    expect(payload.request).toBe("Make the setup flow feel more proactive for vague user requests");
+    expect(payload.alignmentStatus).toBe("needs-blueprint-draft");
+    expect(payload.nextRecommendedAction).toBe("init-blueprint");
+  });
+
+  it("prints a readable alignment summary", async () => {
+    const repoRoot = await mkdtemp(
+      path.join(os.tmpdir(), "openclawcode-blueprint-align-readable-"),
+    );
+
+    await openclawCodeBlueprintAlignCommand(
+      {
+        repoRoot,
+        request: "Make the setup flow feel more proactive for vague user requests",
+      },
+      runtime,
+    );
+
+    const lines = runtime.log.mock.calls.map((call) => String(call[0]));
+    expect(lines).toContain("Alignment status: needs-blueprint-draft");
+    expect(
+      lines.some((line) =>
+        line.startsWith(
+          `Next recommended command: openclaw code blueprint-init --repo-root ${repoRoot}`,
+        ),
+      ),
+    ).toBe(true);
+    expect(lines.some((line) => /^Blockers: \d+$/.test(line))).toBe(true);
+    expect(
+      lines.some((line) =>
+        line.includes(
+          "Create the fixed repo-local blueprint scaffold before trying to record agreement.",
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("reports already-agreed state when the blueprint is aligned and agreed", async () => {
+    const repoRoot = await mkdtemp(path.join(os.tmpdir(), "openclawcode-blueprint-align-agreed-"));
+    await writeFile(
+      path.join(repoRoot, "PROJECT-BLUEPRINT.md"),
+      [
+        "---",
+        "schemaVersion: 1",
+        "title: Alignment Blueprint",
+        "status: agreed",
+        "createdAt: 2026-04-17T00:00:00.000Z",
+        "updatedAt: 2026-04-17T00:00:00.000Z",
+        "statusChangedAt: 2026-04-17T00:00:00.000Z",
+        "agreedAt: 2026-04-17T00:00:00.000Z",
+        "---",
+        "",
+        "# Alignment Blueprint",
+        "",
+        "## Goal",
+        "Show the next recommended coding step before implementation starts.",
+        "",
+        "## Success Criteria",
+        "- Operators can inspect the next recommended command before coding starts.",
+        "",
+        "## Scope",
+        "- In scope: repo-local alignment state and CLI visibility.",
+        "- Out of scope: issue materialization changes.",
+        "",
+        "## Non-Goals",
+        "- Auto-editing the blueprint from alignment output.",
+        "",
+        "## Constraints",
+        "- Reuse the existing blueprint-first artifact directory.",
+        "",
+        "## Risks",
+        "- Operators may start coding before the agreement state is visible.",
+        "",
+        "## Assumptions",
+        "- The operator wants a persisted pre-code alignment artifact.",
+        "",
+        "## Human Gates",
+        "- Goal agreement: required",
+        "",
+        "## Provider Strategy",
+        "- Planner: Codex",
+        "- Coder: Codex",
+        "- Reviewer: Claude Code",
+        "- Verifier: Codex",
+        "- Doc-writer: Codex",
+        "",
+        "## Workstreams",
+        "- Add a repo-local blueprint alignment artifact with a CLI summary.",
+        "",
+        "## Open Questions",
+        "- None.",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await openclawCodeBlueprintAlignCommand(
+      {
+        repoRoot,
+        request:
+          "Add `blueprint-align` JSON output in src/commands/openclawcode.ts so it should return the next recommended command.",
+        json: true,
+      },
+      runtime,
+    );
+
+    const payload = parseLoggedJson(runtime);
+    expect(payload.blueprintExists).toBe(true);
+    expect(payload.blueprintStatus).toBe("agreed");
+    expect(payload.blueprintHasAgreementCheckpoint).toBe(true);
+    expect(payload.alignmentStatus).toBe("already-agreed");
+    expect(payload.blockers).toEqual([]);
+    expect(payload.nextRecommendedAction).toBe("decompose-blueprint");
+    expect(payload.nextRecommendedCommand).toBe(
+      `openclaw code blueprint-decompose --repo-root ${repoRoot} --json`,
+    );
+  });
+
+  it("rejects empty requests", async () => {
+    await expect(openclawCodeBlueprintAlignCommand({}, runtime)).rejects.toThrow(
       "Pass a request as positional text or with --prompt.",
     );
   });

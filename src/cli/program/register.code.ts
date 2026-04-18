@@ -1,6 +1,8 @@
 import type { Command } from "commander";
 import {
   openclawCodeBootstrapCommand,
+  openclawCodeBlueprintAlignCommand,
+  openclawCodeBlueprintAlignShowCommand,
   openclawCodeBlueprintClarifyCommand,
   openclawCodeBlueprintDecomposeCommand,
   openclawCodeBlueprintInitCommand,
@@ -77,6 +79,14 @@ ${formatHelpExamples([
   [
     'openclaw code spec-draft "Make the setup flow feel more proactive" --json',
     "Turn a recommendation-first request into a structured execution-spec draft.",
+  ],
+  [
+    'openclaw code blueprint-align "Make the setup flow feel more proactive" --json',
+    "Persist a repo-local alignment artifact that connects the request, recommendation, and blueprint agreement state.",
+  ],
+  [
+    "openclaw code blueprint-align-show --json",
+    "Inspect the last persisted blueprint-alignment artifact.",
   ],
   [
     'openclaw code repo-plan --project "Shared image gallery for iOS and web"',
@@ -288,6 +298,49 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
     });
 
   code
+    .command("blueprint-align")
+    .description(
+      "Persist a repo-local pre-code alignment artifact for a request and the current blueprint",
+    )
+    .argument("[request...]", "Goal, problem, or execution request to align before coding")
+    .option("--prompt <text>", "Explicit request text; overrides positional input when provided")
+    .option("--repo-root <dir>", "Local repository root")
+    .option("--json", "Output JSON", false)
+    .action(async (request, opts) => {
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        const explicitPrompt = (opts.prompt as string | undefined)?.trim();
+        const positional = Array.isArray(request)
+          ? request.join(" ").trim()
+          : String(request ?? "").trim();
+        await openclawCodeBlueprintAlignCommand(
+          {
+            repoRoot: opts.repoRoot as string | undefined,
+            request: explicitPrompt || positional || undefined,
+            json: Boolean(opts.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  code
+    .command("blueprint-align-show")
+    .description("Show the current repo-local blueprint-alignment artifact")
+    .option("--repo-root <dir>", "Local repository root")
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(defaultRuntime, async () => {
+        await openclawCodeBlueprintAlignShowCommand(
+          {
+            repoRoot: opts.repoRoot as string | undefined,
+            json: Boolean(opts.json),
+          },
+          defaultRuntime,
+        );
+      });
+    });
+
+  code
     .command("repo-plan")
     .description(
       "Suggest or create a GitHub repository for a new project, or list recent existing repos before bootstrap",
@@ -295,7 +348,11 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
     .option("--owner <owner>", "GitHub owner to use; defaults to the authenticated viewer")
     .option("--project <text>", "Project description used to derive new repo name suggestions")
     .option("--repo <name>", "Explicit repository name to suggest or create")
-    .option("--existing", "List recent accessible repositories instead of generating new names", false)
+    .option(
+      "--existing",
+      "List recent accessible repositories instead of generating new names",
+      false,
+    )
     .option("--create", "Create the selected repository on GitHub", false)
     .option("--visibility <visibility>", "Repository visibility (public, private)", "private")
     .option("--description <text>", "Repository description to use when creating a repo")
@@ -1059,8 +1116,7 @@ ${theme.muted("Docs:")} ${formatDocsLink("/cli/code", "docs.openclaw.ai/cli/code
             repo: opts.repo as string | undefined,
             repoRoot: opts.repoRoot as string | undefined,
             stateDir: opts.stateDir as string | undefined,
-            limit:
-              opts.limit == null ? undefined : Number.parseInt(String(opts.limit), 10),
+            limit: opts.limit == null ? undefined : Number.parseInt(String(opts.limit), 10),
             json: Boolean(opts.json),
           },
           defaultRuntime,
